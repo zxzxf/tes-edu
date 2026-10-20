@@ -1,0 +1,9 @@
+# 编译产物
+/gateway
+gateway
+
+# 运行时日志
+/var/log/gateway/
+
+# 本地配置（含密钥）可用 config.yaml 提交，但生产密钥走环境变量
+*.log

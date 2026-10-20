@@ -1,0 +1,24 @@
+listen: ":8080"
+upstreams:
+  agent: "http://127.0.0.1:8000"   # 临时 mock 后端，后续改为 Agent 服务
+  admin: "http://127.0.0.1:8001"
+  static: "http://127.0.0.1:80"
+routes:
+  - match: "/api/app/"
+    upstream: agent
+    auth: jwt_c
+  - match: "/solve"
+    upstream: agent
+    auth: jwt_c
+  - match: "/solve_image"
+    upstream: agent
+    auth: jwt_c
+  - match: "/api/admin/"
+    upstream: admin
+    auth: rbac
+jwt:
+  secret: "CHANGE_ME_IN_PROD"   # 生产务必用环境变量覆盖
+ratelimit:
+  rps: 20
+  burst: 40
+audit_log: "/var/log/gateway/access.log"
