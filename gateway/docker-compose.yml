@@ -1,0 +1,51 @@
+# 课程教育 Agent 系统 —— Go 自研轻网关容器化部署
+# 用法（在 tes-edu 仓库根目录 / 或本文件同级）：
+#   docker compose -f gateway/docker-compose.yml build
+#   JWT_SECRET=<你的密钥> docker compose -f gateway/docker-compose.yml up -d
+#
+# 说明：
+#   - gateway   : 自建 Go 轻网关，唯一公网入口（对外 80 -> 容器 8080）
+#   - backend   : POC 阶段 mock 后端，承接 /api/app/ 与 /api/admin/ 转发
+#                生产阶段把 backend 换成真实 Agent / Web 后端服务即可
+#   - 业务后端只暴露在内网（不映射宿主机端口），外部仅能经网关访问
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: registry.cn-shanghai.aliyuncs.com/mis_ser/edu-gateway:latest
+    container_name: edu-gateway
+    ports:
+      - "80:8080"
+    environment:
+      CONFIG_PATH: /app/config.yaml
+      JWT_SECRET: "${JWT_SECRET:?请通过环境变量 JWT_SECRET 传入签名密钥}"
+      GATEWAY_LOG: /var/log/gateway/access.log
+    volumes:
+      - gateway-log:/var/log/gateway
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - edu-net
+
+  backend:
+    build:
+      context: ./mock
+      dockerfile: Dockerfile
+    image: registry.cn-shanghai.aliyuncs.com/mis_ser/edu-mock-backend:latest
+    container_name: edu-mock-backend
+    # 仅内网可达，不映射宿主机端口
+    expose:
+      - "8000"
+    restart: unless-stopped
+    networks:
+      - edu-net
+
+volumes:
+  gateway-log:
+
+networks:
+  edu-net:
+    driver: bridge

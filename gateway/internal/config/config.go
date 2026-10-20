@@ -6,30 +6,31 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Config 网关运行配置
 type Config struct {
 	Listen    string            `yaml:"listen"`
 	Upstreams map[string]string `yaml:"upstreams"`
 	Routes    []Route           `yaml:"routes"`
-	JWT       JWTConfig         `yaml:"jwt"`
-	RateLimit RateLimit         `yaml:"ratelimit"`
+	JWTSecret string            `yaml:"jwt_secret"`
 	AuditLog  string            `yaml:"audit_log"`
 }
 
+// Route 单条路由规则
+//   - Match    : 前缀匹配（如 /api/app/），命中后转发到 Upstream
+//   - Upstream : upstreams 映射中的键
+//   - Mode     : 鉴权模式，"jwt_c"=C 端用户态校验；"rbac"=B 端管理员校验；""=不鉴权
+//   - Roles    : mode=rbac 时的允许角色白名单
+//   - Rate/Burst: 令牌桶限流（请求/秒，突发容量）
 type Route struct {
-	Match    string `yaml:"match"`
-	Upstream string `yaml:"upstream"`
-	Auth     string `yaml:"auth"` // "jwt_c" | "rbac" | "" (none)
+	Match    string   `yaml:"match"`
+	Upstream string   `yaml:"upstream"`
+	Mode     string   `yaml:"mode"`
+	Roles    []string `yaml:"roles"`
+	Rate     float64  `yaml:"rate"`
+	Burst    int      `yaml:"burst"`
 }
 
-type JWTConfig struct {
-	Secret string `yaml:"secret"`
-}
-
-type RateLimit struct {
-	RPS   float64 `yaml:"rps"`
-	Burst int     `yaml:"burst"`
-}
-
+// Load 读取 yaml 并允许用环境变量 JWT_SECRET 覆盖签名密钥
 func Load(path string) (*Config, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -39,16 +40,19 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(b, &c); err != nil {
 		return nil, err
 	}
-	// 允许用环境变量覆盖 JWT secret（生产建议）
 	if v := os.Getenv("JWT_SECRET"); v != "" {
-		c.JWT.Secret = v
+		c.JWTSecret = v
 	}
-	if c.JWT.Secret == "" {
-		c.JWT.Secret = "CHANGE_ME_IN_PROD"
+	if c.JWTSecret == "" {
+		c.JWTSecret = "CHANGE_ME_IN_PROD"
+	}
+	if c.AuditLog == "" {
+		c.AuditLog = "/var/log/gateway/access.log"
 	}
 	return &c, nil
 }
 
+// UpstreamURL 返回路由指向的上游地址
 func (c *Config) UpstreamURL(name string) (string, bool) {
 	u, ok := c.Upstreams[name]
 	return u, ok
