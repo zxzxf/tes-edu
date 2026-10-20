@@ -1,6 +1,6 @@
 # 课程教育 Agent 系统设计方案
 
-> 目标：一个能"解题 + 讲解 + 触类旁通 + 知识图谱 + 拍照识别 + K12 知识库 + 安卓端"的教育智能体。
+> 目标：一个能"解题 + 讲解 + 触类旁通 + 知识图谱 + 拍照识别 + K12 知识库 + 安卓端"的教育智能体。>   
 > 本文档给出总体架构、逐条需求实现、技术栈、数据/消息设计、关键代码骨架与落地路线图。
 
 ---
@@ -48,18 +48,21 @@
 ## 二、逐条需求实现方案
 
 ### 1. 输入题目 → 写出答案并讲解
+
 - **链路**：文本题目 → Orchestrator → LLM（带系统 Prompt）→ 结构化输出。
 - **Prompt 设计**：设定角色为"耐心、循循善诱的中小学老师"；要求输出固定结构：`【答案】`、`【考点】`、`【分步讲解】`、`【易错点】`、`【举一反三】`。
 - **增强**：先 RAG 检索知识库中该考点定义/公式，再让 LLM 结合检索内容作答，避免"幻觉"。
 - **输出格式**：JSON 或 Markdown，前端可渲染公式（MathJax/KaTeX）。
 
 ### 2. 触类旁通（相似知识点题目列举）
+
 - **两种实现，可叠加**：
   1. **检索式**：对当前题目做 embedding，在 `embeddings` 表按 `subject/grade` 过滤做向量相似度搜索，召回同类题。
   2. **生成式**：让 LLM 基于"考点 + 难度"生成 2–3 道变式题（换数字、换情境、换问法）。
 - **推荐**：检索式保证"真题"，生成式保证"无限供给"，二者用标签去重。
 
 ### 3.（原编号4）知识点整理成知识图谱
+
 - **节点类型**：`知识点`、`公式/定理`、`例题`、`题型`、`易混点`。
 - **关系**：`前置→后继`、`包含`、`易混`、`属于考点`、`对应例题`。
 - **构建**：
@@ -73,6 +76,7 @@
 - **可视化**：前端用 D3.js / ECharts 力导向图渲染，支持点击展开、按年级筛选，便于记忆与复习。
 
 ### 4.（原编号5）拍照上传解析图片题目
+
 - **两步法（推荐，成本低、稳）**：
   1. **OCR**：用 PaddleOCR / 腾讯云 OCR / 百度 OCR 提取题目文字（含印刷体、手写体、公式区域）。
   2. **VLM 兜底**：直接把图片送多模态大模型（Qwen-VL / GPT-4o / Gemini）理解版面与公式，输出结构化题目。
@@ -80,6 +84,7 @@
 - **要点**：对"图中有多道题"做切片识别；对公式用 LaTeX 还原。
 
 ### 5.（原编号6）K12 课程体系知识库 + Kafka + pgsql
+
 - **知识库内容**：小学/初中/高中 各科（语文、数学、英语、物理、化学、生物、历史、地理…）的`知识点、例题、标准解析、考点标签、难度`。
 - **入库流程（异步）**：
   ```
@@ -90,35 +95,38 @@
 - **Kafka 的价值**：削峰（批量导入不卡接口）、解耦（入库/建图/算学情各消费一次）、可重放（出错重消费）。
 
 ### 6.（原编号7）刻板知识点从知识库获取
+
 - **定义"刻板知识点"** = 固定公式、定理、定义、必背古诗文/单词等，打 `tag=drill` 或单独表 `drill_cards`。
 - **接口**：`GET /drill?subject=数学&grade=初三&type=公式` 返回背诵/默写卡。
 - **同步策略**：教研维护 → 写 Kafka `topic=drill_sync` → 落 `drill_cards` 并刷 Redis 缓存，App 离线也能背。
 
 ### 7.（原编号8）安卓应用调用 Agent
+
 - **技术**：Kotlin + Jetpack Compose（或 Flutter 跨端）。
 - **能力页**：① 文本/语音输入 ② 拍照识题 ③ 讲解展示（含公式渲染）④ 触类旁通列表 ⑤ 知识图谱可视化 ⑥ 背诵卡/错题本。
 - **通信**：Retrofit 调 Agent REST API（见第五节）；图片走 `multipart` 上传。
 - **离线**：背诵卡、错题本本地 Room 数据库缓存。
 
 ### 8.（原编号9）与市场同类产品对比 & 缺失内容
+
 见第六节（6.1 竞品速览、6.2 能力矩阵、6.3 差异化定位、6.4 缺失项优先级清单、6.5 与路线图对应）。
 
 ---
 
 ## 三、推荐技术栈
 
-| 层 | 选型 | 说明 |
-|---|---|---|
-| Agent 框架 | LangChain / LlamaIndex（Python）或自研轻量编排 | 工具调用、RAG 现成 |
-| 大模型 | 通义千问 / DeepSeek / 智谱 GLM（中文强，成本低）；VLM 用 Qwen-VL / GPT-4o | 按成本与合规选 |
-| OCR | PaddleOCR（本地免费）/ 腾讯云 OCR（稳定） | 公式区域需后处理 |
-| 向量检索 | PostgreSQL + **pgvector**（要求 PG 13+，PG 11 装不了，见 7.9；**已就绪的 PG18 AGE 容器可直接挂 pgvector**，向量与图谱同库同源） | 与业务库同源，运维省 |
-| 图存储 | PostgreSQL 邻接表 → Apache AGE（同库 Cypher，推荐；**AGE 1.5.0 支持 PG 11，或起 `apache/age:latest` 容器即 PG18+AGE 1.8.0，见七·附 / 7.9**）→ Neo4j（规模化） | 同库免同步；Neo4j 商用注意 AGPL |
-| 消息队列 | **Kafka** | 按你的要求 |
-| 关系库 | **PostgreSQL 15+** | 支持 pgvector、JSONB |
-| 后端 | Python FastAPI（推理服务）/ 或 Java Spring（现有 aas-api 风格） | 视团队而定 |
-| 安卓 | Kotlin + Compose + Retrofit + Room | 现代栈 |
-| 前端图谱 | ECharts / D3.js | 力导向图 |
+| 层        | 选型                                                                                                                                | 说明                    |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| Agent 框架 | LangChain / LlamaIndex（Python）或自研轻量编排                                                                                             | 工具调用、RAG 现成           |
+| 大模型      | 通义千问 / DeepSeek / 智谱 GLM（中文强，成本低）；VLM 用 Qwen-VL / GPT-4o                                                                          | 按成本与合规选               |
+| OCR      | PaddleOCR（本地免费）/ 腾讯云 OCR（稳定）                                                                                                      | 公式区域需后处理              |
+| 向量检索     | PostgreSQL + **pgvector**（要求 PG 13+，PG 11 装不了，见 7.9；**已就绪的 PG18 AGE 容器可直接挂 pgvector**，向量与图谱同库同源）                                  | 与业务库同源，运维省            |
+| 图存储      | PostgreSQL 邻接表 → Apache AGE（同库 Cypher，推荐；**AGE 1.5.0 支持 PG 11，或起 `apache/age:latest` 容器即 PG18+AGE 1.8.0，见七·附 / 7.9**）→ Neo4j（规模化） | 同库免同步；Neo4j 商用注意 AGPL |
+| 消息队列     | **Kafka**                                                                                                                         | 按你的要求                 |
+| 关系库      | **PostgreSQL 15+**                                                                                                                | 支持 pgvector、JSONB     |
+| 后端       | Python FastAPI（推理服务）/ 或 Java Spring（现有 aas-api 风格）                                                                                | 视团队而定                 |
+| 安卓       | Kotlin + Compose + Retrofit + Room                                                                                                | 现代栈                   |
+| 前端图谱     | ECharts / D3.js                                                                                                                   | 力导向图                  |
 
 ---
 
@@ -192,6 +200,7 @@ CREATE TABLE student_logs (
 ```
 
 ### Kafka Topic 设计
+
 - `course_kb_ingest`：知识/题目批量入库事件
 - `question_parsed`：图片解析完成事件（触发落库+建图）
 - `kg_build`：三元组抽取完成事件
@@ -203,6 +212,7 @@ CREATE TABLE student_logs (
 ## 五、关键代码骨架
 
 ### 1) Agent 后端（FastAPI + 工具路由，伪代码）
+
 ```python
 from fastapi import FastAPI, UploadFile
 from pydantic import BaseModel
@@ -232,6 +242,7 @@ async def solve_image(file: UploadFile):
 ```
 
 ### 2) Kafka 入库消费者（Python）
+
 ```python
 from kafka import KafkaConsumer
 import pg  # 你的数据库客户端
@@ -246,6 +257,7 @@ for msg in consumer:
 ```
 
 ### 3) Android 调用（Kotlin + Retrofit）
+
 ```kotlin
 interface AgentApi {
     @POST("solve")
@@ -277,19 +289,20 @@ val resp = api.solveImage(part)   // 拿到答案+讲解，Compose 渲染
 
 ### 6.2 能力对比矩阵
 
-| 能力维度 | 市场成熟产品 | 本 Agent 现状 / 缺口 |
-|---|---|---|
-| 拍照搜题 | 成熟、题库海量 | 需自建/接 OCR+题库，起步弱 |
-| 讲解质量 | 模板化讲解 | LLM 可更个性化，但需 RAG 防幻觉 |
-| 个性化路径 | 有学情画像 | **缺失**：自适应学习路径 |
-| 互动答疑 | 部分一轮答疑 | **缺失**：苏格拉底式追问、实时语音 |
-| 视频 / 直播 | 强 | **缺失**：讲解视频、AI 老师形象 |
-| 家校 / 教师端 | 有 | **缺失**：教师批改、家校互通 |
-| 评测闭环 | 有错题本 | 需补：自动组卷、薄弱点诊断 |
-| 手写 / 公式识别 | 较强 | 需补：手写识别、公式 LaTeX |
-| 多模态拍照 | 成熟 | 需补：版面切题、多题识别 |
-| 合规备案 | 已备案 | **必须补**：教育 App 备案、未成年人保护、内容审核 |
-| 私有化部署 | 少 | **我方优势**：可学校/机构本地部署，数据不出域 |
+| 能力维度      | 市场成熟产品  | 本 Agent 现状 / 缺口               |
+| --------- | ------- | ----------------------------- |
+| 拍照搜题      | 成熟、题库海量 | 需自建/接 OCR+题库，起步弱              |
+| 讲解质量      | 模板化讲解   | LLM 可更个性化，但需 RAG 防幻觉          |
+| 个性化路径     | 有学情画像   | **缺失**：自适应学习路径                |
+| 互动答疑      | 部分一轮答疑  | **缺失**：苏格拉底式追问、实时语音           |
+| 视频 / 直播   | 强       | **缺失**：讲解视频、AI 老师形象           |
+| 家校 / 教师端  | 有       | **缺失**：教师批改、家校互通              |
+| 评测闭环      | 有错题本    | 需补：自动组卷、薄弱点诊断                 |
+| 手写 / 公式识别 | 较强      | 需补：手写识别、公式 LaTeX              |
+| 多模态拍照     | 成熟      | 需补：版面切题、多题识别                  |
+| 合规备案      | 已备案     | **必须补**：教育 App 备案、未成年人保护、内容审核 |
+| 私有化部署     | 少       | **我方优势**：可学校/机构本地部署，数据不出域     |
+
 
 ### 6.3 我们的差异化定位（能赢的点）
 
@@ -299,16 +312,16 @@ val resp = api.solveImage(part)   // 拿到答案+讲解，Compose 渲染
 
 ### 6.4 缺失项清单（按优先级，含"怎么补 + 工作量"）
 
-| # | 缺失项 | 优先级 | 怎么补 | 工作量 |
-|---|---|---|---|---|
-| 1 | 自适应学习路径 + 学情诊断 | 高 | 采集 `student_logs` 建学生画像，按错点/薄弱知识点推送下一题与复习计划 | 中 |
-| 2 | 错题本 + 薄弱点看板 | 高 | App 用 Room 存错题（本地），后端聚合薄弱知识点出看板 | 低–中 |
-| 3 | 自动组卷 / 周测 | 中 | 按"知识点 + 难度"从 `questions` 抽题，LLM 排版生成试卷/答案 | 中 |
-| 4 | 苏格拉底式互动讲解 | 中 | 多轮追问 Prompt（不直接给答案，逐步引导）+ 语音 TTS/ASR | 中 |
-| 5 | 手写与公式识别 | 中 | 接入手写 OCR（如 PaddleOCR 手写模型）+ 公式 LaTeX 识别 | 中 |
-| 6 | 视频 / AI 老师形象 | 低 | 数字人 / 讲解视频生成（可选，成本高） | 高 |
-| 7 | 家校 / 教师端 | 低→已设计 | 教师批改入口、家长周报推送；基础运营能力见「七·附 Web 管理后台」 | 高（运营后台 MVP 低–中，家校互通仍高） |
-| 8 | 合规与内容安全 | 必须 | 教育 App 备案 + 内容审核 + 未成年人保护（硬门槛，P0 就要立项） | 中 |
+| # | 缺失项            | 优先级   | 怎么补                                         | 工作量                    |
+| - | -------------- | ----- | ------------------------------------------- | ---------------------- |
+| 1 | 自适应学习路径 + 学情诊断 | 高     | 采集 `student_logs` 建学生画像，按错点/薄弱知识点推送下一题与复习计划 | 中                      |
+| 2 | 错题本 + 薄弱点看板    | 高     | App 用 Room 存错题（本地），后端聚合薄弱知识点出看板             | 低–中                    |
+| 3 | 自动组卷 / 周测      | 中     | 按"知识点 + 难度"从 `questions` 抽题，LLM 排版生成试卷/答案   | 中                      |
+| 4 | 苏格拉底式互动讲解      | 中     | 多轮追问 Prompt（不直接给答案，逐步引导）+ 语音 TTS/ASR        | 中                      |
+| 5 | 手写与公式识别        | 中     | 接入手写 OCR（如 PaddleOCR 手写模型）+ 公式 LaTeX 识别     | 中                      |
+| 6 | 视频 / AI 老师形象   | 低     | 数字人 / 讲解视频生成（可选，成本高）                        | 高                      |
+| 7 | 家校 / 教师端       | 低→已设计 | 教师批改入口、家长周报推送；基础运营能力见「七·附 Web 管理后台」         | 高（运营后台 MVP 低–中，家校互通仍高） |
+| 8 | 合规与内容安全        | 必须    | 教育 App 备案 + 内容审核 + 未成年人保护（硬门槛，P0 就要立项）      | 中                      |
 
 ### 6.5 与路线图对应
 
@@ -325,6 +338,7 @@ val resp = api.solveImage(part)   // 拿到答案+讲解，Compose 渲染
 > **重要前提：原生 PostgreSQL 不支持 Cypher。** Cypher 只能由 Apache AGE 扩展提供（或改用 Neo4j / Memgraph）。动手前务必先确认 AGE 能装上（见 7.8）；装不了就用 7.8 的递归 CTE 回退方案，K12 浅层查询同样够用。
 
 ### 7.1 安装与建图
+
 ```sql
 CREATE EXTENSION age;
 SET search_path = ag_catalog, "$user", public;
@@ -332,12 +346,14 @@ SELECT create_graph('edu_graph');   -- 创建名为 edu_graph 的图
 ```
 
 ### 7.2 节点标签（= 知识点 / 公式 / 例题 / 易混点）
+
 - `:KnowledgePoint`（kpid, title, subject, grade, tags）
 - `:Formula`（fid, name, latex）
 - `:Example`（eid, stem）
 - `:Confusable`（cid, title）  -- 易混点
 
 ### 7.3 关系（边）标签
+
 - `:PREREQUISITE` 前置→后继
 - `:CONTAINS` 包含
 - `:CONFUSES` 易混
@@ -345,6 +361,7 @@ SELECT create_graph('edu_graph');   -- 创建名为 edu_graph 的图
 - `:HAS_EXAMPLE` 对应例题
 
 ### 7.4 建节点 + 连关系（示例）
+
 ```cypher
 -- 建一个知识点节点，并挂一条公式
 SELECT * FROM cypher('edu_graph', $$
@@ -367,6 +384,7 @@ $$) AS (e agtype);
 ```
 
 ### 7.5 查询：某知识点的 N 跳邻居（前端展开 / 复习路径用）
+
 ```cypher
 -- 取 kpid=1001 在 1~3 跳内关联的所有知识点，及路径上的关系类型
 SELECT * FROM cypher('edu_graph', $$
@@ -377,6 +395,7 @@ $$) AS (kpid agtype, title agtype, rels agtype);
 ```
 
 ### 7.6 常用图查询（直接服务业务）
+
 ```cypher
 -- 前置链：从某知识点回溯完整先修路径（学习顺序）
 MATCH path=(:KnowledgePoint {kpid:1001})<-[:PREREQUISITE*]-(pre)
@@ -393,6 +412,7 @@ RETURN next.title;
 ```
 
 ### 7.7 与原 PG 表的分工
+
 - **内容权威源**：`knowledge_points`（讲解正文、审核状态、创建时间）仍留 PostgreSQL，便于检索 / 报表 / 权限。
 - **拓扑**：由 AGE 图承载，构建时经 Kafka `kg_build` 事件**双写**（PG 关系镜像 `kg_edges` + AGE 图），互为备份与降级。
 - **前端**：API 调 Cypher 取子图 → 转 ECharts `series:[{type:'graph', layout:'force', ...}]` 渲染力导向图。
@@ -402,6 +422,7 @@ RETURN next.title;
 ### 7.8 前提校验与回退方案（装不上 AGE 怎么办）
 
 **先确认 AGE 是否可用**（需 superuser）：
+
 ```sql
 SELECT version();                                              -- 看 PG 大版本
 SELECT name, default_version FROM pg_available_extensions
@@ -412,11 +433,13 @@ CREATE EXTENSION IF NOT EXISTS age;
 ```
 
 **常见装不上的原因**
+
 - **云托管 PostgreSQL**（阿里云 RDS、AWS RDS 等）有扩展白名单，AGE 通常不在其中 → 只能回退。
 - **版本不匹配**：AGE 与 PostgreSQL 大版本强绑定（1.4→PG15、1.5→PG16 等），需按版本选。
 - **无 superuser / 无法编译安装**：AGE 常需编译或专用 Docker 镜像，托管环境受限。
 
 **回退方案：纯 SQL 递归 CTE 实现 N 跳（无需 AGE）**
+
 ```sql
 -- 从 kpid=1001 出发，取 3 跳内可达的知识点（沿 kg_edges 双向遍历，防环）
 WITH RECURSIVE walk AS (
@@ -451,13 +474,13 @@ SELECT kpid, depth FROM pre ORDER BY depth;
 
 当前环境：`PostgreSQL 11.2 (Debian 11.2-1.pgdg90+1)` → 即 **PG 11 + Debian 9(stretch)**。
 
-| 能力 | 最低 PG 版本 | PG 11.2 能否用 | 说明 |
-|---|---|---|---|
-| **Cypher（Apache AGE）** | PG 11 | ✅ **可以** | AGE **1.5.0** 有专门的 PostgreSQL 11 发布包（需源码编译） |
-| **pgvector 向量检索** | PG **13+** | ❌ **不行** | 官方要求 13+；0.8.0 起已停止支持 PG 12 |
-| 递归 CTE 图遍历（7.8） | PG 8.4+ | ✅ 可以 | 无扩展依赖，PG 11 完全支持 |
-| Kafka / 业务表 / JSONB | 无关 | ✅ 可以 | 不受影响 |
-| **Cypher（Apache AGE，实测容器）** | PG 11 | ✅ **已落地** | 已在 `124.221.253.137` 起 `apache/age:latest` 容器（**PG 18.6 + AGE 1.8.0**，端口 5444），Cypher 实测可用；详见七·附 4·附 |
+| 能力                          | 最低 PG 版本   | PG 11.2 能否用 | 说明                                                                                                   |
+| --------------------------- | ---------- | ----------- | ---------------------------------------------------------------------------------------------------- |
+| **Cypher（Apache AGE）**      | PG 11      | ✅ **可以**    | AGE **1.5.0** 有专门的 PostgreSQL 11 发布包（需源码编译）                                                          |
+| **pgvector 向量检索**           | PG **13+** | ❌ **不行**    | 官方要求 13+；0.8.0 起已停止支持 PG 12                                                                          |
+| 递归 CTE 图遍历（7.8）             | PG 8.4+    | ✅ 可以        | 无扩展依赖，PG 11 完全支持                                                                                     |
+| Kafka / 业务表 / JSONB         | 无关         | ✅ 可以        | 不受影响                                                                                                 |
+| **Cypher（Apache AGE，实测容器）** | PG 11      | ✅ **已落地**   | 已在 `124.221.253.137` 起 `apache/age:latest` 容器（**PG 18.6 + AGE 1.8.0**，端口 5444），Cypher 实测可用；详见七·附 4·附 |
 
 **结论与建议**
 
@@ -491,6 +514,7 @@ SELECT kpid, depth FROM pre ORDER BY depth;
 - **`age`（Apache AGE）**：**从不随 PostgreSQL 自带**，必须下载源码编译安装，装好后才会出现在该视图。此项为空是**正常且可解决的**。
 
 **安装后如何验证**
+
 ```sql
 SELECT name, default_version, installed_version FROM pg_available_extensions WHERE name IN ('age','vector');
 SELECT extname, extversion FROM pg_extension ORDER BY extname;   -- 已启用的扩展
@@ -498,10 +522,12 @@ SELECT name FROM pg_available_extensions ORDER BY name LIMIT 50; -- 看看目前
 ```
 
 **在 PG 11 + Debian 9 上硬装 AGE 的现实阻碍**
+
 - Debian 9(stretch) **已 EOL**，官方 apt 源已归档，`apt-get install postgresql-server-dev-11` 很可能失败 → 需把 sources.list 指向 `archive.debian.org`。
 - 装完还需在 `postgresql.conf` 设 `shared_preload_libraries = 'age'` 并**重启实例**。
 
 **因此更推荐（方案 A）：不要折腾 EOL 老系统，新起 PG 16 承载向量+图谱**
+
 ```bash
 # 起一个带 pgvector 的 PG 16（5433 端口，避免与老库 5432 冲突）
 docker run --name pg16 --restart unless-stopped \
@@ -514,6 +540,7 @@ docker run --name pg16 --restart unless-stopped \
 #   apt-get update && apt-get install -y build-essential flex bison postgresql-server-dev-16
 #   下载 apache-age-1.6.0 源码 → make && make install
 ```
+
 - **收益**：避开 Debian 9 归档源与 PG 11 EOL 的双重坑；pgvector 与 AGE 一次到位；老库零改动、风险最低。
 - **代价**：多维护一个实例（可用 Docker 或本机新装 PG 16）。
 
@@ -524,33 +551,39 @@ docker run --name pg16 --restart unless-stopped \
 > 原方案将"家校 / 教师端"列为 6.4 缺失项 #7（低优先级）。现将管理后台作为**正式子系统**设计：它不直接服务学生，而是给**教研、运营、教师、管理员**用的内部工作台，与安卓端共享同一套 Agent 后端 REST API。
 
 ### 1) 定位与边界
+
 - **不重复造前端讲解 UI**：管理后台不实现解题/讲解，只做"内容生产 + 配置 + 监控 + 审核"。
 - **共享后端**：复用第五节 FastAPI 的 `/solve`、`/solve_image`、Kafka topic，后台通过同域 REST + 管理专用接口（前缀 `/admin/*`）与 Agent 服务通信。
 - **鉴权隔离**：学生端（安卓）走 API Gateway 用户态 JWT；后台走独立管理员账号 + RBAC（角色：教研 / 教师 / 运营 / 超级管理员），与企业 SSO（可选）对接。
 
 ### 2) 核心能力模块
-| 模块 | 功能 | 数据来源 |
-|---|---|---|
-| 知识点管理 | 知识点 / 公式 / 易混点 CRUD、审核状态流转、打标签(`必考/易错/drill`) | `knowledge_points` / AGE `edu_graph` |
-| 题库管理 | 题目录入、解析编辑、难度标注、批量导入（触发 `course_kb_ingest`） | `questions` / `embeddings` |
-| 知识图谱可视化 | 力导向图展示、点击展开 N 跳、按年级/学科筛选、人工补边（双写 `kg_edges` + AGE） | AGE Cypher `edu_graph` |
-| 背诵卡管理 | 刻板知识点卡（公式/定义/默写）增删改、刷 Redis 缓存 | `drill_cards` |
-| 学情看板 | 薄弱知识点聚合、错题 TopN、班级/学生维度报表 | `student_logs` + 聚合视图 |
-| 内容审核 | 题目 / 解析 / LLM 输出的合规标注、下架、人工复核队列 | 6.4 #8 合规项 |
-| 运营配置 | 模型开关、RAG 召回参数、限流配额、公告 | 配置表 / 环境变量 |
-| 系统监控 | Kafka 堆积、PG/Age 健康、接口延迟、Token 消耗 | Prometheus/Grafana（可选） |
+
+| 模块      | 功能                                                 | 数据来源                                 |
+| ------- | -------------------------------------------------- | ------------------------------------ |
+| 知识点管理   | 知识点 / 公式 / 易混点 CRUD、审核状态流转、打标签(`必考/易错/drill`)      | `knowledge_points` / AGE `edu_graph` |
+| 题库管理    | 题目录入、解析编辑、难度标注、批量导入（触发 `course_kb_ingest`）         | `questions` / `embeddings`           |
+| 知识图谱可视化 | 力导向图展示、点击展开 N 跳、按年级/学科筛选、人工补边（双写 `kg_edges` + AGE） | AGE Cypher `edu_graph`               |
+| 背诵卡管理   | 刻板知识点卡（公式/定义/默写）增删改、刷 Redis 缓存                     | `drill_cards`                        |
+| 学情看板    | 薄弱知识点聚合、错题 TopN、班级/学生维度报表                          | `student_logs` + 聚合视图                |
+| 内容审核    | 题目 / 解析 / LLM 输出的合规标注、下架、人工复核队列                    | 6.4 #8 合规项                           |
+| 运营配置    | 模型开关、RAG 召回参数、限流配额、公告                              | 配置表 / 环境变量                           |
+| 系统监控    | Kafka 堆积、PG/Age 健康、接口延迟、Token 消耗                   | Prometheus/Grafana（可选）               |
 
 ### 3) 推荐技术栈
+
 - **框架**：Vue 3 + Element Plus（或 React + Ant Design Pro），管理后台生态成熟、表格/表单组件全。
 - **构建**：Vite；与安卓端共用设计 token。
 - **通信**：Axios 封装，统一错误处理 + 401 跳登录；大文件（批量导入）走分片上传。
 - **图表**：ECharts（与前端图谱共用，力导向图直接复用安卓端渲染逻辑）。
 - **部署**：静态产物 `nginx` 托管；反向代理到 API Gateway，与安卓端同域或子域（`admin.xxx.com`）。
 
+
 ### 4) 与知识图谱的关系（关键）
+
 后台的"图谱可视化 + 人工补边"是 AGE 图的**生产侧入口**之一：教研在后台画的点/边，经 `kg_build` 事件双写 `kg_edges`(关系镜像) 与 AGE `edu_graph`(图)，学生端查询只读 AGE，保证单一拓扑来源、可降级。
 
 ### 4·附、与当前实际部署环境的对接
+
 > 本节把上文抽象的"AGE 图"落到本方案已验证的真实环境，供后台联调与运维直接参照。
 
 - **已就绪的 AGE 实例**（2026-10-20 在 `124.221.253.137` 实测跑通）：
@@ -567,6 +600,7 @@ docker run --name pg16 --restart unless-stopped \
   - 当前 `age` 容器 `restart: unless-stopped`；若整机重启，Compose 会自拉，`/data/age` 持久化数据不丢。
 
 ### 5) 工作量与优先级建议
+
 - MVP（P2 同期）：知识点管理 + 题库管理 + 背诵卡管理 + 登录/RBAC —— **低–中**，性价比高，与知识图谱 P2 复用数据结构。
 - 增强（P3）：图谱可视化编辑、学情看板、内容审核队列 —— **中**。
 - 合规联动：审核模块与 6.4 #8 合规项绑定，P0 起预留字段、P3 完善工作流。
@@ -583,6 +617,7 @@ docker run --name pg16 --restart unless-stopped \
 ---
 
 ## 九、风险与注意
+
 - **幻觉**：所有解答必须 RAG 兜底 + 关键答案人工/规则校验。
 - **版权**：题库来源需合法授权，避免爬取侵权。
 - **成本**：LLM + embedding 调用按量计费，需缓存高频题。
@@ -595,34 +630,39 @@ docker run --name pg16 --restart unless-stopped \
 > 决策背景：抽取独立的**网关层**后，各层语言可独立选择。本方案采用 **Go 网关 + Python 双后端 + Kotlin 客户端** 的组合（详见对话演进与 `应用拆分与开发分期.md` / `应用全景图.html`）。
 
 ### 1) 分层与语言决策
-| 层 | 语言 / 框架 | 选型理由 |
-|---|---|---|
-| 网关层 | **Go**（自研轻网关 / 或 APISIX） | 边缘高并发、单二进制易部署；鉴权·限流·熔断·路由·审计 |
-| Agent 后端 | **Python / FastAPI** | AI/LLM/RAG 生态最强，方案既定 |
-| Web 管理后台后端 | **Python / FastAPI** | 与 Agent 同栈，复用模型/SDK/鉴权，降低语言种类 |
-| Web 管理后台前端 | Vue 3 + Element Plus / React + Ant Design | 表格/表单组件成熟（见七·附） |
-| Android 客户端 | Kotlin + Jetpack Compose | 原生体验，Retrofit 调 API |
-| 数据层 | Kafka + PostgreSQL(pgvector / AGE) | 异步管道 + 业务/向量/图谱同源 |
+
+| 层           | 语言 / 框架                                   | 选型理由                          |
+| ----------- | ----------------------------------------- | ----------------------------- |
+| 网关层         | **Go**（自研轻网关 / 或 APISIX）                  | 边缘高并发、单二进制易部署；鉴权·限流·熔断·路由·审计  |
+| Agent 后端    | **Python / FastAPI**                      | AI/LLM/RAG 生态最强，方案既定          |
+| Web 管理后台后端  | **Python / FastAPI**                      | 与 Agent 同栈，复用模型/SDK/鉴权，降低语言种类 |
+| Web 管理后台前端  | Vue 3 + Element Plus / React + Ant Design | 表格/表单组件成熟（见七·附）               |
+| Android 客户端 | Kotlin + Jetpack Compose                  | 原生体验，Retrofit 调 API           |
+| 数据层         | Kafka + PostgreSQL(pgvector / AGE)        | 异步管道 + 业务/向量/图谱同源             |
 
 ### 2) 为什么这样分
+
 - 网关与后端**语言无关**：Go 网关只做转发与边界防护，后面 Python 服务无感。
 - Web 与 Agent **同栈**（均 FastAPI），服务端仅 **Go + Python 两种运行时**，比引入 Java/Go 写后台更省。
 - Web 后台是 B 端，流量远小于 C 端 App，**Python 性能足够**；高并发边缘交给 Go 网关扛。
 
 ### 3) 网关层请求路由表
-| 入口路径 | 转发目标 | 说明 |
-|---|---|---|
-| `/api/app/*`、`/solve`、`/solve_image` | Agent 后端（Python） | C 端解题 / 讲解 / 拍照 |
-| `/api/admin/*` | Web 后端服务（Python） | B 端运营 / 学情 / 组卷 / 审核 |
-| 文件上传（multipart） | 网关 → 对象存储 → 对应服务 | 图片先到网关再转交 |
-| 静态资源 | 前端产物（nginx） | Web 后台静态托管 |
+
+| 入口路径                                 | 转发目标             | 说明                   |
+| ------------------------------------ | ---------------- | -------------------- |
+| `/api/app/*`、`/solve`、`/solve_image` | Agent 后端（Python） | C 端解题 / 讲解 / 拍照      |
+| `/api/admin/*`                       | Web 后端服务（Python） | B 端运营 / 学情 / 组卷 / 审核 |
+| 文件上传（multipart）                      | 网关 → 对象存储 → 对应服务 | 图片先到网关再转交            |
+| 静态资源                                 | 前端产物（nginx）      | Web 后台静态托管           |
 
 ### 4) 部署与合规
+
 - 全容器化（Docker），**网关为唯一公网入口**，后端服务不直接暴露。
 - 审计日志、访问控制、内容安全校验在**网关层统一落盘**，直接承接 6.4 #8 合规缺失项。
 - 私有化部署，数据不出域（契合差异化定位）。
 - Go 网关编译为单二进制；Python 服务用容器 + 依赖隔离（uv/venv）运行。
 
 ### 5) 延伸：若不想引入 Go
+
 - 可接受产品化网关 **APISIX / Kong**（配置为主，深度插件用 Lua），几乎零自研代码，合规插件齐全。
 - 若团队 Java 为主、想零新语言，可改用 **Spring Cloud Gateway（Java）** 复用 aas-api 的 Spring 安全体系。
