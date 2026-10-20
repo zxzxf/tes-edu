@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>应用任务看板图 · Tes Edu</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;
+         background: #eef2f8; color: #1f2a44; padding: 24px 28px 40px; }
+  .title { text-align: center; font-size: 24px; font-weight: 700; color: #16243f; }
+  .sub   { text-align: center; color: #6b7790; font-size: 13.5px; margin: 6px 0 16px; }
+  .legend { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;
+            font-size: 12.5px; color: #5a6680; margin-bottom: 18px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  .board { display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; }
+  .col { flex: 1; min-width: 250px; background: #e7edf7; border-radius: 12px; padding: 12px; }
+  .col-head { font-weight: 700; font-size: 14.5px; color: #fff; padding: 8px 12px;
+              border-radius: 8px; margin-bottom: 12px; }
+  .col-sub { font-size: 11.5px; font-weight: 400; opacity: .92; margin-top: 3px; }
+  .card { background: #fff; border: 1px solid #e3e9f4; border-radius: 10px; padding: 10px 12px;
+          margin-bottom: 10px; box-shadow: 0 1px 3px rgba(30,50,90,.06); border-left: 4px solid #cbd5e8; }
+  .card h4 { font-size: 13.5px; color: #16243f; margin-bottom: 4px; }
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 600; color: #fff;
+         border-radius: 4px; padding: 1px 7px; margin-bottom: 5px; }
+  .card ul { list-style: none; font-size: 11.8px; color: #46526e; line-height: 1.62; }
+  .card li::before { content: "·"; color: #9aa6c0; margin-right: 5px; }
+  .cross { background: #f3f0ff; border: 1px dashed #b9a8f0; }
+  .footer { margin-top: 18px; background: #fff; border: 1px solid #e3e9f4; border-radius: 11px;
+            padding: 13px 17px; font-size: 12.5px; color: #46526e; line-height: 1.85; }
+  .footer b { color: #16243f; }
+  .k { display: inline-block; background: #f1f5fc; border: 1px solid #dde4f1; border-radius: 5px;
+       padding: 1px 7px; margin: 0 2px; font-size: 12px; color: #33405c; }
+</style>
+</head>
+<body>
+  <div class="title">Tes Edu · 应用任务看板图</div>
+  <div class="sub">基于《应用拆分与开发分期》——按 P0–P3 分期排布，后端是共享内核，双端在其上生长</div>
+
+  <div class="legend">
+    <span><i class="dot" style="background:#10b981"></i>Agent 后端 (Python)</span>
+    <span><i class="dot" style="background:#3b82f6"></i>学生端 App (Kotlin)</span>
+    <span><i class="dot" style="background:#f59e0b"></i>Web 管理后台 (Vue3+Python)</span>
+    <span><i class="dot" style="background:#8b5cf6"></i>可选 / 跨端</span>
+    <span><i class="dot" style="background:#ef4444"></i>横切（合规/网关）</span>
+  </div>
+
+  <div class="board">
+
+    <!-- P0 -->
+    <div class="col">
+      <div class="col-head" style="background:#ef4444">P0 · 地基期<div class="col-sub">先立骨架与公网边界</div></div>
+
+      <div class="card cross">
+        <span class="tag" style="background:#ef4444">横切 · Go</span>
+        <h4>Go 网关（唯一公网入口）</h4>
+        <ul><li>鉴权 / 限流 / 熔断</li><li>路由（app & admin 分流）</li><li>审计日志（合规 #8 落点）</li></ul>
+      </div>
+
+      <div class="card" style="border-left-color:#10b981">
+        <span class="tag" style="background:#10b981">Python/FastAPI</span>
+        <h4>Agent 后端服务（核心）</h4>
+        <ul><li>Orchestrator 意图路由</li><li>解题 + 分步讲解</li><li>RAG / LLM / OCR 接入骨架</li></ul>
+      </div>
+
+      <div class="card" style="border-left-color:#3b82f6">
+        <span class="tag" style="background:#3b82f6">Kotlin/Compose</span>
+        <h4>学生端 App 基础壳</h4>
+        <ul><li>六大能力页框架</li><li>ViewModel 分发 + Retrofit</li><li>Room 本地库（离线底座）</li></ul>
+      </div>
+
+      <div class="card cross">
+        <span class="tag" style="background:#ef4444">横切 · 合规</span>
+        <h4>RBAC 权限（四角色）</h4>
+        <ul><li>JWT 鉴权</li><li>学生/教研/教师/家长/管理员</li><li>访问审计（P0 即立项）</li></ul>
+      </div>
+    </div>
+
+    <!-- P1 -->
+    <div class="col">
+      <div class="col-head" style="background:#f59e0b">P1 · 能力补全<div class="col-sub">AI 能力做实、App 长出血肉</div></div>
+
+      <div class="card" style="border-left-color:#10b981">
+        <span class="tag" style="background:#10b981">Python/FastAPI</span>
+        <h4>Agent 后端补全</h4>
+        <ul><li>RAG 向量检索（pgvector）</li><li>触类旁通出题</li><li>拍照解析（图→题→解）</li></ul>
+      </div>
+
+      <div class="card" style="border-left-color:#3b82f6">
+        <span class="tag" style="background:#3b82f6">Kotlin/Compose</span>
+        <h4>学生端 App 补全</h4>
+        <ul><li>拍照识题页</li><li>知识图谱可视化页</li><li>讲解公式渲染</li></ul>
+      </div>
+    </div>
+
+    <!-- P2 -->
+    <div class="col">
+      <div class="col-head" style="background:#10b981">P2 · 运营后台·学情<div class="col-sub">性价比最高，闭环起点</div></div>
+
+      <div class="card" style="border-left-color:#f59e0b">
+        <span class="tag" style="background:#f59e0b">Vue3 + Python</span>
+        <h4>Web 后台：学情看板</h4>
+        <ul><li>学生画像 / 薄弱点诊断</li><li>班级聚合分析</li><li>对接 student_logs</li></ul>
+      </div>
+
+      <div class="card" style="border-left-color:#f59e0b">
+        <span class="tag" style="background:#f59e0b">Vue3 + Python</span>
+        <h4>Web 后台：错题本</h4>
+        <ul><li>错题收集与管理</li><li>App Room 同步</li><li>薄弱点看板</li></ul>
+      </div>
+    </div>
+
+    <!-- P3 -->
+    <div class="col">
+      <div class="col-head" style="background:#3b82f6">P3 · 运营后台·教务<div class="col-sub">教务闭环 + 可选跨端</div></div>
+
+      <div class="card" style="border-left-color:#f59e0b">
+        <span class="tag" style="background:#f59e0b">Vue3 + Python</span>
+        <h4>自动组卷 / 周测</h4>
+        <ul><li>按知识点+难度抽题</li><li>LLM 排版生成试卷/答案</li></ul>
+      </div>
+      <div class="card" style="border-left-color:#f59e0b">
+        <span class="tag" style="background:#f59e0b">Vue3 + Python</span>
+        <h4>教师端：批改 / 布置</h4>
+        <ul><li>批改入口</li><li>作业布置</li></ul>
+      </div>
+      <div class="card" style="border-left-color:#f59e0b">
+        <span class="tag" style="background:#f59e0b">Vue3 + Python</span>
+        <h4>家长端：周报</h4>
+        <ul><li>周报生成</li><li>推送触达</li></ul>
+      </div>
+      <div class="card" style="border-left-color:#f59e0b">
+        <span class="tag" style="background:#f59e0b">Vue3 + Python</span>
+        <h4>互动 / 多模态 / 合规</h4>
+        <ul><li>苏格拉底讲解配置</li><li>手写与公式识别管理</li><li>内容安全审核</li></ul>
+      </div>
+
+      <div class="card" style="border-left-color:#8b5cf6">
+        <span class="tag" style="background:#8b5cf6">可选 / 跨端</span>
+        <h4>微信小程序 / Flutter</h4>
+        <ul><li>替代或补充 Android</li><li>轻量搜题引流</li><li>备案/合规要求更高</li></ul>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <b>开发顺序：</b> ① <b>先后端</b>（P0 Agent 后端 + Go 网关 + RBAC）→ ② <b>后双端</b>（P1 App 补全、P2 Web 学情/错题）→ ③ <b>再补可选跨端</b>（P3 教务模块 + 小程序）。
+    <br><b>技术栈：</b> Go 网关 + Python 双后端(Agent/Web, FastAPI) + Kotlin 安卓 + Vue3 管理前端 + Kafka/PostgreSQL(向量/AGE)。
+    <b>核心原则：</b> 一套内核、多端复用——学生 App 与 Web 后台都只经 Go 网关，再分流到各自后端，<b>不重复造轮子</b>；私有化部署是相对巨头的核心差异化优势。
+  </div>
+</body>
+</html>
