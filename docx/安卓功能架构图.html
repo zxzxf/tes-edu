@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>安卓应用功能架构图</title>
+<style>
+  :root{
+    --bg:#f5f7fa;--ink:#1f2d3d;--muted:#5b6b7b;--line:#c9d6e3;
+    --c1:#2f6df6;--c2:#13b18a;--c3:#f59e0b;--c4:#e85d8a;--c5:#7c5cff;--shadow:0 4px 14px rgba(31,45,61,.08)
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;padding:26px 14px 44px}
+  h1{text-align:center;font-size:21px;margin-bottom:4px}
+  .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:22px}
+  .wrap{max-width:960px;margin:0 auto}
+  .label{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:14px 0 7px 6px}
+  .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .card{background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:12px 14px;flex:1 1 0;min-width:130px;text-align:center}
+  .card .t{font-weight:700;font-size:14px}
+  .card .d{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .num{display:inline-flex;width:18px;height:18px;border-radius:6px;background:var(--c1);color:#fff;font-size:11px;align-items:center;justify-content:center;margin-right:5px;vertical-align:1px}
+  .full{background:linear-gradient(135deg,#2f6df6,#7c5cff);color:#fff;border:none}
+  .full .t{font-size:15px}.full .d{color:#e7ecff}
+  .mid{background:#f0fbf7;border-color:#bfe9db}.mid .t{color:var(--c2)}
+  .data{background:#fff7e9;border-color:#f3dca6}.data .t{color:#b8831a}
+  .api{background:#fdeef4;border-color:#f3c4d5}.api .t{color:var(--c4)}
+  .arrow{display:flex;justify-content:center;color:var(--line);font-size:20px;line-height:1;height:20px}
+  .arrow span{width:2px;background:var(--line);display:inline-block;height:20px}
+  .side{font-size:11px;color:var(--muted);text-align:center;margin-top:5px}
+  .note{margin-top:24px;background:#fff;border:1px dashed var(--line);border-radius:12px;padding:13px 16px;font-size:13px;color:var(--muted);line-height:1.75}
+  .note b{color:var(--ink)}
+  .legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:20px 0 2px;font-size:12px;color:var(--muted)}
+  .li{display:flex;align-items:center;gap:6px}.dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  code{background:#eef3ff;color:#2f6df6;padding:1px 6px;border-radius:5px;font-size:11.5px}
+</style>
+</head>
+<body>
+  <h1>安卓应用功能架构图</h1>
+  <div class="sub">基于《课程教育 Agent 系统设计方案》第七节 · Kotlin + Jetpack Compose</div>
+  <div class="wrap">
+
+    <!-- UI 层 -->
+    <div class="label">① UI 层（Jetpack Compose · 六大能力页）</div>
+    <div class="row">
+      <div class="card"><div class="t"><span class="num">1</span>文本/语音输入</div><div class="d">题目录入<br>语音转写</div></div>
+      <div class="card"><div class="t"><span class="num">2</span>拍照识题</div><div class="d">相机/相册<br>图片上传</div></div>
+      <div class="card"><div class="t"><span class="num">3</span>讲解展示</div><div class="d">答案+分步<br>公式渲染</div></div>
+      <div class="card"><div class="t"><span class="num">4</span>触类旁通</div><div class="d">相似/变式题<br>列表</div></div>
+      <div class="card"><div class="t"><span class="num">5</span>知识图谱</div><div class="d">力导向图<br>点击展开</div></div>
+      <div class="card"><div class="t"><span class="num">6</span>背诵卡/错题本</div><div class="d">记忆卡<br>错题归集</div></div>
+    </div>
+
+    <div class="arrow"><span></span></div>
+
+    <!-- 逻辑层 -->
+    <div class="label">② 逻辑层（ViewModel · 状态管理）</div>
+    <div class="row">
+      <div class="card mid" style="flex:2 1 320px"><div class="t">页面状态与意图分发</div>
+        <div class="d" style="margin-top:6px">文本题 / 图片题 / 查知识点 / 出图谱 → 路由到对应 Repository 调用</div></div>
+    </div>
+
+    <div class="arrow"><span></span></div>
+
+    <!-- 数据/通信层 -->
+    <div class="label">③ 数据 / 通信层</div>
+    <div class="row">
+      <div class="card data" style="flex:1 1 200px"><div class="t">Repository</div><div class="d">统一数据出入口<br>缓存策略编排</div></div>
+      <div class="card data" style="flex:1 1 200px"><div class="t">Retrofit 客户端</div><div class="d">REST API 调用<br>图片 multipart 上传</div></div>
+      <div class="card data" style="flex:1 1 200px"><div class="t">Room 本地库</div><div class="d">背诵卡/错题本<br>离线缓存</div></div>
+    </div>
+
+    <div class="arrow"><span></span></div>
+    <div class="side">HTTPS / JSON · 图片走 multipart</div>
+
+    <!-- 后端 -->
+    <div class="label">④ 后端（Agent 编排服务）</div>
+    <div class="row">
+      <div class="card api" style="flex:2 1 320px"><div class="t">Agent 后端（FastAPI Orchestrator）</div>
+        <div class="d" style="margin-top:6px"><code>POST /solve</code> 文本解题 ｜ <code>POST /solve_image</code> 拍照解题 ｜ 复用 RAG · LLM · OCR · 图谱</div></div>
+    </div>
+
+    <div class="legend">
+      <div class="li"><span class="dot" style="background:#2f6df6"></span>UI/逻辑</div>
+      <div class="li"><span class="dot" style="background:#13b18a"></span>数据/通信</div>
+      <div class="li"><span class="dot" style="background:#e85d8a"></span>后端服务</div>
+    </div>
+
+    <div class="note">
+      <b>技术栈：</b>Kotlin + Jetpack Compose（或 Flutter 跨端）；通信用 Retrofit 调 Agent REST API，图片走 <code>multipart</code> 上传；
+      本地用 <b>Room</b> 数据库缓存<b>背诵卡与错题本</b>，无网也能背、能复习。
+      <br><b>六大能力页对应需求：</b>①文本/语音输入、②拍照识题（OCR+VLM）、③讲解展示（含 MathJax/KaTeX 公式渲染）、④触类旁通列表、⑤知识图谱可视化、⑥背诵卡/错题本。
+      <br><b>离线能力：</b>背诵卡与错题本本地 Room 缓存，是 Android 端相对纯云方案的关键体验保障。
+    </div>
+  </div>
+</body>
+</html>

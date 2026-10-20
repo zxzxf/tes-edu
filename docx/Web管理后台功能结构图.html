@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web 管理后台功能结构图</title>
+<style>
+  :root{--bg:#f5f7fa;--ink:#1f2d3d;--muted:#5b6b7b;--line:#c9d6e3;
+    --c1:#2f6df6;--c2:#13b18a;--c3:#f59e0b;--c4:#e85d8a;--c5:#7c5cff;--c6:#ef4444}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;padding:26px 14px 40px}
+  h1{text-align:center;font-size:21px;margin-bottom:4px}
+  .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:22px}
+  .wrap{max-width:1000px;margin:0 auto}
+  .core{background:linear-gradient(135deg,#2f6df6,#7c5cff);color:#fff;border-radius:16px;padding:16px;text-align:center;box-shadow:0 6px 18px rgba(47,109,246,.25)}
+  .core .t{font-size:17px;font-weight:700}
+  .core .d{font-size:12px;color:#e7ecff;margin-top:4px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .mod{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 13px;box-shadow:0 3px 10px rgba(31,45,61,.06)}
+  .mod .h{display:flex;align-items:center;gap:7px;font-weight:700;font-size:14px}
+  .mod .n{width:20px;height:20px;border-radius:6px;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;flex:none}
+  .mod ul{margin:8px 0 0 2px;padding-left:16px}
+  .mod li{font-size:11.5px;color:var(--muted);line-height:1.65}
+  .tag{font-size:10px;padding:1px 6px;border-radius:999px;margin-left:auto;border:1px solid}
+  .tag.p0{color:#ef4444;border-color:#f3b4b4;background:#fdeaea}
+  .tag.p2{color:#13b18a;border-color:#bfe9db;background:#f0fbf7}
+  .tag.p3{color:#2f6df6;border-color:#d6e2ff;background:#eef3ff}
+  .tag.low{color:#f59e0b;border-color:#f3dca6;background:#fff7e9}
+  .foot{margin-top:18px;background:#fff;border:1px dashed var(--line);border-radius:12px;padding:13px 16px;font-size:12.5px;color:var(--muted);line-height:1.7}
+  .foot b{color:var(--ink)}
+  @media(max-width:720px){.grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+  <h1>Web 管理后台 · 功能模块结构图</h1>
+  <div class="sub">补齐"与市场相比缺失的能力"后的运营后台（含 RBAC 与数据流）</div>
+  <div class="wrap">
+    <div class="core"><div class="t">Web 管理后台（运营中枢）</div>
+      <div class="d">统一鉴权 API Gateway · RBAC（管理员/教研/教师/家长）</div></div>
+
+    <div class="grid">
+      <div class="mod"><div class="h"><span class="n" style="background:var(--c1)">1</span>教研内容管理<span class="tag p2">原隐含</span></div>
+        <ul><li>知识库批量导入</li><li>图谱审核补全</li><li>背诵卡维护</li></ul></div>
+
+      <div class="mod"><div class="h"><span class="n" style="background:var(--c2)">2</span>学情看板诊断<span class="tag p2">缺失#1#2</span></div>
+        <ul><li>学生画像</li><li>薄弱点热力图</li><li>自适应路径配置</li></ul></div>
+
+      <div class="mod"><div class="h"><span class="n" style="background:var(--c2)">3</span>错题本管理<span class="tag p2">缺失#2</span></div>
+        <ul><li>错题聚合</li><li>归因标签</li><li>导出/复用</li></ul></div>
+
+      <div class="mod"><div class="h"><span class="n" style="background:var(--c3)">4</span>自动组卷周测<span class="tag p3">缺失#3</span></div>
+        <ul><li>按点抽题</li><li>LLM 排版</li><li>导出/推送</li></ul></div>
+
+      <div class="mod"><div class="h"><span class="n" style="background:var(--c3)">5</span>教师端批改<span class="tag p3">缺失#7</span></div>
+        <ul><li>作业批改</li><li>班级/学生管理</li><li>家校互通</li></ul></div>
+
+      <div class="mod"><div class="h"><span class="n" style="background:var(--c3)">6</span>家长端周报<span class="tag low">缺失#7</span></div>
+        <ul><li>周报生成推送</li><li>掌握度/错题</li><li>只读视图</li></ul></div>
+
+      <div class="mod"><div class="h"><span class="n" style="background:var(--c3)">7</span>互动讲解配置<span class="tag p3">缺失#4</span></div>
+        <ul><li>苏格拉底 Prompt</li><li>语音 TTS/ASR</li><li>模板管理</li></ul></div>
+
+      <div class="mod"><div class="h"><span class="n" style="background:var(--c3)">8</span>多模态识别<span class="tag p3">缺失#5</span></div>
+        <ul><li>手写 OCR 配置</li><li>公式 LaTeX</li><li>校准样例库</li></ul></div>
+
+      <div class="mod"><div class="h"><span class="n" style="background:var(--c6)">9</span>合规与内容安全<span class="tag p0">缺失#8 P0</span></div>
+        <ul><li>内容审核队列</li><li>未成年人保护</li><li>备案跟踪</li></ul></div>
+
+      <div class="mod" style="grid-column:span 2"><div class="h"><span class="n" style="background:var(--c5)">10</span>视频 / AI 老师（预留）<span class="tag low">缺失#6 低</span></div>
+        <ul><li>数字人 / 讲解视频任务管理（高成本，后续迭代）</li></ul></div>
+
+      <div class="mod"><div class="h"><span class="n" style="background:#64748b">＋</span>复用底座</div>
+        <ul><li>Agent 编排 / LLM</li><li>Kafka 管道</li><li>PostgreSQL</li></ul></div>
+    </div>
+
+    <div class="foot">
+      <b>数据流：</b>Web 后台写内容 → Kafka(<code>course_kb_ingest</code>/<code>drill_sync</code>/<code>kg_build</code>) → Consumer → PostgreSQL；
+      读学情直读 <code>student_logs</code>/<code>questions</code>；组卷/讲解复用 Android 同套 Orchestrator + LLM；
+      合规审核写入 <code>audit_queue</code> 留痕。
+      <br><b>路线：</b>P0 合规模块+RBAC ｜ P2 学情看板+错题本 ｜ P3 组卷/教师端/互动/多模态 ｜ 后续 家长周报/视频。
+    </div>
+  </div>
+</body>
+</html>

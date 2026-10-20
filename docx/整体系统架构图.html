@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>课程教育 Agent 系统 · 整体架构图</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;
+         background: #eef2f8; color: #1f2a44; padding: 26px 30px 40px; }
+  .page-title { text-align: center; font-size: 25px; font-weight: 700; color: #16243f; }
+  .page-sub   { text-align: center; color: #6b7790; font-size: 13.5px; margin: 6px 0 18px; }
+  .legend { display:flex; justify-content:center; gap:16px; flex-wrap:wrap;
+            font-size:12.5px; color:#5a6680; margin-bottom:20px; }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .dot { width:12px; height:12px; border-radius:3px; display:inline-block; }
+  .layer { margin-bottom:10px; }
+  .layer-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .layer-tag { font-weight:700; font-size:12.5px; color:#fff; padding:3px 11px; border-radius:6px; }
+  .layer-name { font-size:16px; font-weight:600; color:#16243f; }
+  .layer-lang { font-size:12px; color:#6b7790; margin-left:auto;
+                background:#fff; border:1px solid #dde4f1; padding:3px 11px; border-radius:14px; }
+  .cards { display:flex; gap:12px; flex-wrap:wrap; }
+  .card { background:#fff; border:1px solid #e1e8f4; border-radius:11px;
+          padding:12px 14px; flex:1; min-width:230px;
+          box-shadow:0 1px 3px rgba(30,50,90,.06); border-top:3px solid #cbd5e8; }
+  .card h4 { font-size:14px; color:#16243f; margin-bottom:7px; }
+  .card .sub { font-size:11.5px; color:#8a95ad; font-weight:400; margin-left:6px; }
+  .card ul { list-style:none; font-size:12.5px; color:#46526e; line-height:1.75; }
+  .card li::before { content:"·"; color:#9aa6c0; margin-right:6px; }
+  .arrow { text-align:center; color:#9aa6c0; font-size:19px; line-height:1.1; margin:1px 0; }
+  .footer { margin-top:20px; background:#fff; border:1px solid #e1e8f4; border-radius:11px;
+            padding:14px 18px; font-size:12.5px; color:#46526e; line-height:1.85; }
+  .footer b { color:#16243f; }
+  .k { display:inline-block; background:#f1f5fc; border:1px solid #dde4f1;
+       border-radius:5px; padding:1px 7px; margin:0 2px; font-size:12px; color:#33405c; }
+</style>
+</head>
+<body>
+  <div class="page-title">课程教育 Agent 系统 · 整体架构图</div>
+  <div class="page-sub">一张图串起 用户端 → 网关 → 双后端 → AI 引擎 → 数据层（Go 网关 + Python 双后端 + Kotlin 安卓）</div>
+
+  <div class="legend">
+    <span><i class="dot" style="background:#3b82f6"></i>用户层</span>
+    <span><i class="dot" style="background:#ef4444"></i>网关层（边界防护）</span>
+    <span><i class="dot" style="background:#10b981"></i>服务层</span>
+    <span><i class="dot" style="background:#8b5cf6"></i>引擎层</span>
+    <span><i class="dot" style="background:#f59e0b"></i>工具/检索层</span>
+    <span><i class="dot" style="background:#06b6d4"></i>数据层</span>
+  </div>
+
+  <!-- 用户层 -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-tag" style="background:#3b82f6">L1</span>
+      <span class="layer-name">用户层</span>
+      <span class="layer-lang">Kotlin (Android) · Vue3 (Web)</span>
+    </div>
+    <div class="cards">
+      <div class="card" style="border-top-color:#3b82f6">
+        <h4>📱 Android App <span class="sub">C 端学生</span></h4>
+        <ul>
+          <li>文本/语音输入</li>
+          <li>拍照识题（OCR 上传）</li>
+          <li>讲解展示（公式渲染）</li>
+          <li>触类旁通推荐列表</li>
+          <li>知识图谱可视化</li>
+          <li>背诵卡 / 错题本（Room 离线）</li>
+        </ul>
+      </div>
+      <div class="card" style="border-top-color:#3b82f6">
+        <h4>🖥️ Web 管理后台 <span class="sub">B 端教研/教务</span></h4>
+        <ul>
+          <li>教研内容管理（知识库导入）</li>
+          <li>学情看板 / 薄弱点诊断</li>
+          <li>错题本、自动组卷 / 周测</li>
+          <li>教师端：批改与布置</li>
+          <li>家长端：周报推送</li>
+          <li>互动讲解配置 / 多模态 / 合规审核</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="arrow">▼ HTTPS / JSON（仅暴露一个公网入口）</div>
+
+  <!-- 网关层 -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-tag" style="background:#ef4444">L2</span>
+      <span class="layer-name">网关层（Go）</span>
+      <span class="layer-lang">Go · 单二进制 · 可选 APISIX/Kong</span>
+    </div>
+    <div class="cards">
+      <div class="card" style="border-top-color:#ef4444">
+        <h4>统一边缘网关</h4>
+        <ul>
+          <li>鉴权（JWT / RBAC 校验）</li>
+          <li>限流 · 熔断 · 防刷</li>
+          <li>请求路由（app / admin 分流）</li>
+          <li>审计日志（合规 #8 落点）</li>
+          <li>输入校验 / 内容安全过滤</li>
+          <li>文件上传代理（图片→对象存储）</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="arrow">▼ 按路径转发（后端不再直连公网）</div>
+
+  <!-- 服务层 -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-tag" style="background:#10b981">L3</span>
+      <span class="layer-name">服务层（Python / FastAPI）</span>
+      <span class="layer-lang">Python · FastAPI · 双服务同栈</span>
+    </div>
+    <div class="cards">
+      <div class="card" style="border-top-color:#10b981">
+        <h4>Agent 后端 <span class="sub">/api/app · /solve</span></h4>
+        <ul>
+          <li>Orchestrator：意图路由</li>
+          <li>工具调用 / Prompt 模板</li>
+          <li>解题 + 分步讲解</li>
+          <li>触类旁通出题</li>
+          <li>拍照解析（图→题→解）</li>
+        </ul>
+      </div>
+      <div class="card" style="border-top-color:#10b981">
+        <h4>Web 后端 <span class="sub">/api/admin</span></h4>
+        <ul>
+          <li>教研内容 / 知识库管理</li>
+          <li>学情分析 / 薄弱点聚合</li>
+          <li>自动组卷 / 周测生成</li>
+          <li>RBAC 角色权限</li>
+          <li>教师批改 / 家长周报</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="arrow">▼ 调用推理与检索能力</div>
+
+  <!-- 引擎层 -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-tag" style="background:#8b5cf6">L4</span>
+      <span class="layer-name">推理 / 多模态引擎</span>
+      <span class="layer-lang">LLM · VLM · OCR</span>
+    </div>
+    <div class="cards">
+      <div class="card" style="border-top-color:#8b5cf6">
+        <h4>LLM 解答引擎</h4>
+        <ul><li>通义千问 / DeepSeek（私有化可部署）</li><li>解题、讲解、组卷、互动引导</li></ul>
+      </div>
+      <div class="card" style="border-top-color:#8b5cf6">
+        <h4>VLM 多模态</h4>
+        <ul><li>图片理解、版面切题、手写识别</li><li>公式 LaTeX 识别</li></ul>
+      </div>
+      <div class="card" style="border-top-color:#8b5cf6">
+        <h4>OCR 引擎</h4>
+        <ul><li>PaddleOCR：印刷 / 手写文字识别</li><li>拍照题面抽取</li></ul>
+      </div>
+    </div>
+  </div>
+  <div class="arrow">▼ 检索增强（RAG / 图谱）</div>
+
+  <!-- 工具检索层 -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-tag" style="background:#f59e0b">L5</span>
+      <span class="layer-name">工具 / 检索层</span>
+      <span class="layer-lang">RAG · 知识图谱</span>
+    </div>
+    <div class="cards">
+      <div class="card" style="border-top-color:#f59e0b">
+        <h4>RAG 检索器</h4>
+        <ul><li>向量检索（pgvector）</li><li>知识点 / 例题 / 解析召回</li><li>防幻觉上下文注入</li></ul>
+      </div>
+      <div class="card" style="border-top-color:#f59e0b">
+        <h4>知识图谱查询</h4>
+        <ul><li>Apache AGE / Neo4j（Cypher）</li><li>知识点关联 / 复习路径</li><li>触类旁通 / 记忆曲线</li></ul>
+      </div>
+    </div>
+  </div>
+  <div class="arrow">▼ 异步管道 + 持久化</div>
+
+  <!-- 数据层 -->
+  <div class="layer">
+    <div class="layer-head">
+      <span class="layer-tag" style="background:#06b6d4">L6</span>
+      <span class="layer-name">数据层</span>
+      <span class="layer-lang">Kafka · PostgreSQL</span>
+    </div>
+    <div class="cards">
+      <div class="card" style="border-top-color:#06b6d4">
+        <h4>Kafka 消息总线</h4>
+        <ul><li>course_kb_ingest：知识库入库</li><li>drill_sync：背诵卡同步</li><li>student_logs：学情事件流（异步管道）</li></ul>
+      </div>
+      <div class="card" style="border-top-color:#06b6d4">
+        <h4>PostgreSQL（真实数据源）</h4>
+        <ul>
+          <li>course_kb / knowledge_points 知识点</li>
+          <li>embeddings（pgvector）</li>
+          <li>kg_edges（AGE/Neo4j 图谱）</li>
+          <li>drill_cards / student_logs</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <b>设计要点：</b>
+    ① <b>两个端共用一套内核</b>——Android 与 Web 后台都只经过 Go 网关，再分流到 Agent 后端 / Web 后端，二者均 Python/FastAPI，仅维护 <span class="k">Go</span> + <span class="k">Python</span> 两种运行时；
+    ② <b>网关是唯一公网入口</b>，鉴权·限流·审计集中在 L2，后端服务不直连外网，合规（#8）的"访问控制/访问审计"在网关层统一承载；
+    ③ <b>Kafka 仅作异步管道</b>，PostgreSQL 才是真正数据源（向量 + 图谱 + 业务表同库或分库皆可）；
+    ④ <b>私有化部署</b>为相对巨头的核心差异化优势——数据不出域、可学校/机构本地落地。
+    <br><b>PG 版本提示：</b>当前 PG 11.2 下 pgvector 需 PG 13+，建议新起 PG 16（Docker <span class="k">pgvector/pgvector:pg16</span>）承载向量+图谱，老库保留业务数据。
+  </div>
+</body>
+</html>

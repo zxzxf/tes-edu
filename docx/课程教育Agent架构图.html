@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>课程教育 Agent 系统架构图（含网关层）</title>
+<style>
+  :root{
+    --bg:#f5f7fa;--ink:#1f2d3d;--muted:#5b6b7b;--line:#c9d6e3;
+    --c1:#2f6df6;--c2:#13b18a;--c3:#f59e0b;--c4:#e85d8a;--c5:#7c5cff;--shadow:0 4px 14px rgba(31,45,61,.08)
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft YaHei",Segoe UI,system-ui,sans-serif;padding:26px 14px 46px}
+  h1{text-align:center;font-size:21px;margin-bottom:4px}
+  .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:22px}
+  .wrap{max-width:1000px;margin:0 auto;position:relative}
+  .label{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:14px 0 7px 6px}
+  .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .card{background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:12px 14px;flex:1 1 0;min-width:140px;text-align:center}
+  .card .t{font-weight:700;font-size:14.5px}
+  .card .d{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .lang{display:inline-block;font-size:10px;font-weight:700;color:#fff;background:#64748b;border-radius:999px;padding:1px 8px;margin-top:7px}
+  .lg{background:var(--c1)}.lp{background:var(--c2)}.lk{background:var(--c5)}.ld{background:var(--c3)}.lo{background:var(--c4)}
+  .gateway{background:linear-gradient(135deg,#0ea5e9,#2f6df6);color:#fff;border:none}
+  .gateway .t{font-size:15px}.gateway .d{color:#e3f2fd}
+  .core{background:linear-gradient(135deg,#2f6df6,#7c5cff);color:#fff;border:none}
+  .core .t{font-size:15px}.core .d{color:#e7ecff}
+  .tool{background:#f0fbf7;border-color:#bfe9db}.tool .t{color:var(--c2)}
+  .data{background:#fff7e9;border-color:#f3dca6}.data .t{color:#b8831a}
+  .arrow{display:flex;justify-content:center;color:var(--line);font-size:20px;line-height:1;height:20px}
+  .arrow span{width:2px;background:var(--line);display:inline-block;height:20px}
+  .side{font-size:11px;color:var(--muted);text-align:center;margin-top:5px}
+  .note{margin-top:24px;background:#fff;border:1px dashed var(--line);border-radius:12px;padding:13px 16px;font-size:12.5px;color:var(--muted);line-height:1.75}
+  .note b{color:var(--ink)}
+  .legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:18px 0 2px;font-size:12px;color:var(--muted)}
+  .li{display:flex;align-items:center;gap:6px}.dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  code{background:#eef3ff;color:#2f6df6;padding:1px 6px;border-radius:5px;font-size:11px}
+</style>
+</head>
+<body>
+  <h1>课程教育 Agent 系统架构图</h1>
+  <div class="sub">含独立网关层 · Go 网关 + Python 双后端 + Kotlin 客户端（语言标注）</div>
+
+  <div class="wrap">
+    <!-- 用户层 -->
+    <div class="label">① 用户层</div>
+    <div class="row">
+      <div class="card"><div class="t">📱 Android App</div><div class="d">拍照·输入·图谱·刷题</div><span class="lang lk">Kotlin</span></div>
+      <div class="card"><div class="t">💻 Web 管理后台</div><div class="d">教研·学情·组卷·审核</div><span class="lang lg">浏览器</span></div>
+    </div>
+
+    <div class="arrow"><span></span></div>
+    <div class="side">HTTPS / JSON（唯一公网入口）</div>
+
+    <!-- 网关层 -->
+    <div class="label">② 网关层（独立一层，NEW）</div>
+    <div class="row">
+      <div class="card gateway" style="flex:2 1 340px">
+        <div class="t">API Gateway · 网关层</div>
+        <div class="d">鉴权 · 限流 · 熔断 · 路由 · 审计日志 · 输入校验</div>
+        <span class="lang lo">Go</span>
+      </div>
+    </div>
+
+    <div class="arrow"><span></span></div>
+    <div class="side">按路径路由 →</div>
+
+    <!-- 服务层 -->
+    <div class="label">③ 服务层（双后端，均 Python）</div>
+    <div class="row">
+      <div class="card core" style="flex:1 1 220px"><div class="t">Agent 后端</div><div class="d">/solve · /solve_image<br>Orchestrator·RAG·LLM</div><span class="lang lp">Python/FastAPI</span></div>
+      <div class="card core" style="flex:1 1 220px"><div class="t">Web 后端服务</div><div class="d">/api/admin/*<br>运营·学情·组卷·审核</div><span class="lang lp">Python/FastAPI</span></div>
+    </div>
+
+    <div class="arrow"><span></span></div>
+
+    <!-- Agent 内部层 -->
+    <div class="label">④ Agent 编排层（Python）</div>
+    <div class="row">
+      <div class="card" style="flex:2 1 340px"><div class="t">智能体编排核心（Orchestrator）</div>
+        <div class="d">意图路由 · 工具调用 Tool Calling · Prompt 模板（老师角色/分步讲解/举一反三）</div></div>
+    </div>
+
+    <div class="arrow"><span></span></div>
+
+    <!-- 引擎层 -->
+    <div class="label">⑤ 推理 / 多模态引擎</div>
+    <div class="row">
+      <div class="card"><div class="t">🧠 LLM 解答引擎</div><div class="d">答案+分步讲解<br>考点/易错点</div><span class="lang lp">Python</span></div>
+      <div class="card"><div class="t">👁 多模态 VLM</div><div class="d">看图识题<br>版面/公式理解</div><span class="lang lp">Python</span></div>
+      <div class="card"><div class="t">🔤 OCR 引擎</div><div class="d">文字提取<br>印刷/手写/公式</div><span class="lang lp">Python</span></div>
+    </div>
+
+    <div class="arrow"><span></span></div>
+
+    <!-- 工具检索层 -->
+    <div class="label">⑥ 工具 / 检索层</div>
+    <div class="row">
+      <div class="card tool" style="flex:1 1 200px"><div class="t">RAG 检索器</div><div class="d">pgvector 向量召回<br>考点定义/例题</div></div>
+      <div class="card tool" style="flex:1 1 200px"><div class="t">知识图谱查询</div><div class="d">图存储（AGE）<br>前置/易混/路径</div></div>
+    </div>
+
+    <div class="arrow"><span></span></div>
+    <div class="side">事件 / 落库</div>
+
+    <!-- 数据层 -->
+    <div class="label">⑦ 数据层（异步管道 → 数据源）</div>
+    <div class="row">
+      <div class="card data" style="flex:1 1 200px"><div class="t">Kafka 消息总线</div><div class="d">解耦·削峰·可重放</div></div>
+      <div class="card data" style="flex:2 1 320px"><div class="t">PostgreSQL 数据源</div>
+        <div class="d" style="margin-top:6px">course_kb · embeddings · kg_edges · drill_cards · student_logs</div></div>
+    </div>
+
+    <div class="legend">
+      <div class="li"><span class="dot" style="background:#0ea5e9"></span>网关 Go</div>
+      <div class="li"><span class="dot" style="background:#7c5cff"></span>Python 后端</div>
+      <div class="li"><span class="dot" style="background:#13b18a"></span>工具检索</div>
+      <div class="li"><span class="dot" style="background:#e85d8a"></span>消息/存储</div>
+      <div class="li"><span class="dot" style="background:#2f6df6"></span>客户端</div>
+    </div>
+
+    <div class="note">
+      <b>网关层路由：</b><code>/api/app/*</code>、<code>/solve</code>、<code>/solve_image</code> → Agent 后端(Python)；<code>/api/admin/*</code> → Web 后端服务(Python)；文件上传先到网关再转交。
+      <br><b>语言分工：</b>网关 <b>Go</b>（边缘高并发、单二进制）；Agent 与 Web 后端均 <b>Python/FastAPI</b>（同栈复用、仅 2 种服务端运行时）；安卓 <b>Kotlin</b>。
+      <br><b>关键设计：</b>网关为唯一公网入口，后端不直接暴露；鉴权/限流/审计日志在网关层统一落盘，直接承接合规缺失项 #8；私有化部署、数据不出域。
+      <br><b>替代选型：</b>不想引入 Go 可用 APISIX/Kong（配置为主）；团队 Java 为主可换 Spring Cloud Gateway 复用 aas-api 的 Spring 安全体系。
+    </div>
+  </div>
+</body>
+</html>

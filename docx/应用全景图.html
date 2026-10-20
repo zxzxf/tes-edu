@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>应用全景图</title>
+<style>
+  :root{--bg:#f5f7fa;--ink:#1f2d3d;--muted:#5b6b7b;--line:#c9d6e3;
+    --c1:#2f6df6;--c2:#13b18a;--c3:#e85d8a;--c4:#f59e0b;--c5:#7c5cff;--shadow:0 4px 14px rgba(31,45,61,.08)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;padding:26px 14px 44px}
+  h1{text-align:center;font-size:21px;margin-bottom:4px}
+  .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:22px}
+  .wrap{max-width:1000px;margin:0 auto}
+  .tier{margin-bottom:14px}
+  .tlabel{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:0 0 7px 6px}
+  .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .card{background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:13px 14px;flex:1 1 0;min-width:150px}
+  .card .t{font-weight:700;font-size:14.5px}
+  .card .d{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.55}
+  .card .u{font-size:10.5px;color:#94a3b8;margin-top:6px}
+  .b1{border-top:3px solid var(--c1)}.b2{border-top:3px solid var(--c2)}
+  .b3{border-top:3px solid var(--c3)}.b4{border-top:3px solid var(--c4)}.b5{border-top:3px solid var(--c5)}
+  .core{background:linear-gradient(135deg,#2f6df6,#7c5cff);color:#fff;border:none}
+  .core .t{font-size:16px}.core .d{color:#e7ecff}
+  .data{background:#fff7e9;border-color:#f3dca6}.data .t{color:#b8831a}
+  .arrow{display:flex;justify-content:center;color:var(--line);font-size:20px;line-height:1;height:20px}
+  .arrow span{width:2px;background:var(--line);display:inline-block;height:20px}
+  .note{margin-top:22px;background:#fff;border:1px dashed var(--line);border-radius:12px;padding:13px 16px;font-size:13px;color:var(--muted);line-height:1.75}
+  .note b{color:var(--ink)}
+  .opt{opacity:.85}
+  .legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:18px 0 2px;font-size:12px;color:var(--muted)}
+  .li{display:flex;align-items:center;gap:6px}.dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+</style>
+</head>
+<body>
+  <h1>课程教育 Agent · 应用全景图</h1>
+  <div class="sub">一套内核、多端复用 · 共 3–4 个可独立开发部署的应用</div>
+  <div class="wrap">
+
+    <div class="tier"><div class="tlabel">① 端到端产品应用（面向用户）</div>
+      <div class="row">
+        <div class="card b1"><div class="t">📱 学生端 App</div><div class="d">拍照/输入/图谱/刷题<br>讲解·触类旁通·背诵卡</div><div class="u">C 端 · Android / Flutter</div></div>
+        <div class="card b2"><div class="t">💻 Web 管理后台</div><div class="d">教研·学情·组卷<br>教师批改·家长周报·合规</div><div class="u">B 端 · 教研/教师/家长/管理员</div></div>
+        <div class="card b4 opt"><div class="t">🟢 微信小程序<small> (可选)</small></div><div class="d">轻量搜题引流<br>覆盖 iOS / 微信生态</div><div class="u">可选 · 合规要求更高</div></div>
+      </div>
+    </div>
+
+    <div class="arrow"><span></span></div>
+
+    <div class="tier"><div class="tlabel">② 共享后端服务（AI 内核，被两端共用）</div>
+      <div class="row">
+        <div class="card core" style="flex:2 1 360px"><div class="t">Agent 后端服务（Orchestrator）</div>
+          <div class="d">FastAPI / Spring · 提供 <code>/solve</code> <code>/solve_image</code><br>内含 意图路由 · 工具调用 · RAG · LLM · OCR · 图谱查询</div></div>
+      </div>
+    </div>
+
+    <div class="arrow"><span></span></div>
+
+    <div class="tier"><div class="tlabel">③ 基础设施（数据 / 消息）</div>
+      <div class="row">
+        <div class="card data" style="flex:1 1 220px"><div class="t">Kafka 消息总线</div><div class="d">解耦 · 削峰 · 可重放<br>入库/建图/学情事件</div></div>
+        <div class="card data" style="flex:1 1 220px"><div class="t">PostgreSQL</div><div class="d">业务库 · pgvector 向量<br>AGE 图谱 · 学情日志</div></div>
+        <div class="card b5" style="flex:1 1 220px"><div class="t">LLM / VLM / OCR</div><div class="d">通义千问/DeepSeek<br>Qwen-VL · PaddleOCR</div></div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="li"><span class="dot" style="background:#2f6df6"></span>C 端 App</div>
+      <div class="li"><span class="dot" style="background:#13b18a"></span>B 端 Web</div>
+      <div class="li"><span class="dot" style="background:#7c5cff"></span>Agent 内核</div>
+      <div class="li"><span class="dot" style="background:#f59e0b"></span>可选/基础设施</div>
+    </div>
+
+    <div class="note">
+      <b>开发顺序：</b>先建 <b>Agent 后端服务</b>（地基），再并行长出 <b>学生端 App</b> 与 <b>Web 管理后台</b>，最后按需补 <b>小程序</b>。
+      <br><b>分期：</b>P0 后端+App基础壳+合规 ｜ P1 RAG/拍照补全 ｜ P2 Web 学情看板+错题本 ｜ P3 组卷/教师端/互动/多模态+可选小程序。
+      <br><b>核心优势：</b>私有化部署（数据不出域）仍是我方相对巨头的关键差异化。
+    </div>
+  </div>
+</body>
+</html>
