@@ -109,3 +109,42 @@ func TestRedisEnvOverrides(t *testing.T) {
 		t.Fatalf("redis 环境覆盖失败: %+v", cfg.Redis)
 	}
 }
+
+// TestGatewayLogEnvOverride：GATEWAY_LOG 环境变量必须生效（修复死配置）。
+// 此前两份 compose 均设置 GATEWAY_LOG 但代码从不读取，审计路径实际走
+// config.yaml 的 audit_log，容器内卷挂载点与配置不一致。
+func TestGatewayLogEnvOverride(t *testing.T) {
+	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("GATEWAY_LOG", "/var/log/gateway/from-env.log")
+
+	// 优先级 1：环境变量覆盖 yaml
+	p := writeCfg(t, minimalYAML+"audit_log: \"/from/yaml.log\"\n")
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.AuditLog != "/var/log/gateway/from-env.log" {
+		t.Fatalf("GATEWAY_LOG 应覆盖 yaml: got %q", cfg.AuditLog)
+	}
+
+	// 优先级 2：无环境变量时用 yaml 值
+	t.Setenv("GATEWAY_LOG", "")
+	p2 := writeCfg(t, minimalYAML+"audit_log: \"/from/yaml.log\"\n")
+	cfg2, err := Load(p2)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg2.AuditLog != "/from/yaml.log" {
+		t.Fatalf("无环境变量时应取 yaml 值: got %q", cfg2.AuditLog)
+	}
+
+	// 优先级 3：都没有时用默认值
+	p3 := writeCfg(t, minimalYAML)
+	cfg3, err := Load(p3)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg3.AuditLog != "/var/log/gateway/access.log" {
+		t.Fatalf("兜底默认值不符: got %q", cfg3.AuditLog)
+	}
+}

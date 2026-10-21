@@ -57,6 +57,82 @@ func TestBoundaryAtLimit(t *testing.T) {
 	}
 }
 
+// TestMultipartGetsHigherLimit：拍照上传（multipart）上限放宽到 15MB。
+// 修复记录：此前所有路由统一 4MB，手机拍照图（3–8MB）会被误杀 413。
+func TestMultipartGetsHigherLimit(t *testing.T) {
+	h := wrapTarget()
+
+	// multipart：5MB（> 4MB 旧上限）必须放行
+	req := httptest.NewRequest(http.MethodPost, "/api/app/solve_image", strings.NewReader("x"))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=----WebKitFormBoundaryTEST")
+	req.ContentLength = 5 << 20
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("5MB multipart 应放行，实际 %d", w.Code)
+	}
+
+	// multipart 超 15MB 仍须拒绝
+	req2 := httptest.NewRequest(http.MethodPost, "/api/app/solve_image", strings.NewReader("x"))
+	req2.Header.Set("Content-Type", "multipart/form-data; boundary=----WebKitFormBoundaryTEST")
+	req2.ContentLength = (15 << 20) + 1
+	w2 := httptest.NewRecorder()
+	h.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("超 15MB multipart 应 413，实际 %d", w2.Code)
+	}
+}
+
+// TestMultipartWithoutBoundaryNotElevated：畸形 multipart 头（无 boundary）
+// 不得按大限额放行，仍按 4MB 基础限额拒绝。
+func TestMultipartWithoutBoundaryNotElevated(t *testing.T) {
+	h := wrapTarget()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/app/solve_image", strings.NewReader("x"))
+	req.Header.Set("Content-Type", "multipart/form-data") // 无 boundary
+	req.ContentLength = 5 << 20
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("无 boundary 的 multipart 头应按 4MB 限额拒绝，实际 %d", w.Code)
+	}
+}
+
+// TestChunkedBodyEnforced：chunked（ContentLength=-1）超大 body 由
+// MaxBytesReader 兜底——handler 读 body 时必须报错，而不是放行打到上游。
+func TestChunkedBodyEnforced(t *testing.T) {
+	var readErr error
+	target := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		buf := make([]byte, 32<<10)
+		for {
+			_, err := r.Body.Read(buf)
+			if err != nil {
+				readErr = err
+				break
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	h := Wrap(target, nil)
+
+	// 8MB 的 chunked JSON 请求（无 Content-Length，绕过 ContentLength 检查）
+	body := strings.NewReader(strings.Repeat("a", 8<<20))
+	req := httptest.NewRequest(http.MethodPost, "/api/app/solve", body)
+	req.ContentLength = -1 // 显式声明为 chunked
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if readErr == nil {
+		t.Fatal("8MB chunked body 应触发 MaxBytesReader 读取错误")
+	}
+	if w.Code != http.StatusOK {
+		t.Fatalf("上游自身应返回 200（限流在读取层生效），实际 %d", w.Code)
+	}
+}
+
 // TestIsSensitiveOp：仅 B 端写操作计入敏感审计；C 端与 GET 不计。
 // 这条决定审计噪声大小——把所有 GET 都记下来会让日志失控。
 func TestIsSensitiveOp(t *testing.T) {

@@ -79,6 +79,12 @@ func Load(path string) (*Config, error) {
 	if c.JWTSecret == "" {
 		return nil, fmt.Errorf("jwt_secret 未配置：请通过环境变量 JWT_SECRET 或 config.yaml 的 jwt_secret 字段设置，生产环境禁止留空")
 	}
+	// 审计日志路径优先级：环境变量 GATEWAY_LOG（容器部署用）> config.yaml 的
+	// audit_log > 默认 /var/log/gateway/access.log。
+	// 修复记录：此前两份 compose 均设置 GATEWAY_LOG，但代码从不读取，为死配置。
+	if v := os.Getenv("GATEWAY_LOG"); v != "" {
+		c.AuditLog = v
+	}
 	if c.AuditLog == "" {
 		c.AuditLog = "/var/log/gateway/access.log"
 	}

@@ -2,10 +2,10 @@ FROM golang:1.22 AS build
 WORKDIR /src
 ENV GOPROXY=https://goproxy.cn,direct
 ENV GOTOOLCHAIN=local
-# 先复制全部源码，再 go mod tidy：tidy 需要看到 .go 导入图才能补全 go.sum
-# （新增的 github.com/redis/go-redis/v9 及其传递依赖会在此步自动拉取）
+# 先复制全部源码再构建。go.sum 已随源码提交（勿在此处 go mod tidy：
+# 现场 tidy 会掩盖 go.sum 缺失问题，只在 Docker 层“碰巧构建成功”，
+# 而源码级 go build / CI 会失败——2026-10-21 已踩过此坑）。
 COPY . .
-RUN go mod tidy
 RUN CGO_ENABLED=0 go build -o /gateway .
 
 FROM alpine:3.20
