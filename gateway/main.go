@@ -14,6 +14,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"gateway/internal/allowlist"
 	"gateway/internal/audit"
 	"gateway/internal/auth"
 	"gateway/internal/breaker"
@@ -81,9 +82,9 @@ func main() {
 		if !exists {
 			if bc.Enabled {
 				br = breaker.New(breaker.Options{
-					Name:              r.Upstream,
-					FailureThreshold:  bc.FailureThreshold,
-					Cooldown:          time.Duration(bc.CooldownSeconds) * time.Second,
+					Name:             r.Upstream,
+					FailureThreshold: bc.FailureThreshold,
+					Cooldown:         time.Duration(bc.CooldownSeconds) * time.Second,
 				})
 				log.Printf("breaker enabled for upstream %q: threshold=%d cooldown=%ds",
 					r.Upstream, bc.FailureThreshold, bc.CooldownSeconds)
@@ -102,7 +103,7 @@ func main() {
 		// 之后 body 的持续传输（LLM SSE 流式回答）不受影响。
 		proxy.Transport = &http.Transport{
 			DialContext: (&net.Dialer{
-				Timeout:   3 * time.Second,  // TCP 建连超时
+				Timeout:   3 * time.Second, // TCP 建连超时
 				KeepAlive: 30 * time.Second,
 			}).DialContext,
 			MaxIdleConns:          100,              // 全局最大空闲连接
@@ -125,6 +126,24 @@ func main() {
 		// 打开时直接 503 + Retry-After，保护僵死后端不被继续打
 		if br != nil {
 			handler = breaker.Wrap(handler, br, 500)
+		}
+
+		// LLM endpoint 白名单（P5 合同硬要求：白名单外 /v1 端点一律 403）。
+		// 位于鉴权之后：拒绝日志能带上 uid；位于转发之前：白名单外请求不打上游。
+		// 未带 X-LLM-Endpoint 头的请求默认放行（非 LLM 流量不受影响）。
+		if cfg.LLMAllowlist.Enabled {
+			entries, err := allowlist.ParseEndpoints(cfg.LLMAllowlist.Endpoints)
+			if err != nil {
+				log.Fatalf("llm_allowlist endpoints: %v", err)
+			}
+			handler = allowlist.Wrap(handler, allowlist.Options{
+				Enabled:       true,
+				Header:        cfg.LLMAllowlist.Header,
+				RequireHeader: cfg.LLMAllowlist.RequireHeader,
+				Entries:       entries,
+			})
+			log.Printf("llm allowlist enabled: %d endpoint(s), header=%s require_header=%v",
+				len(entries), cfg.LLMAllowlist.Header, cfg.LLMAllowlist.RequireHeader)
 		}
 
 		// 合规（骨架：输入校验 + 敏感操作审计），位于鉴权之后、转发之前

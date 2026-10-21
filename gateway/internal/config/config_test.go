@@ -110,6 +110,51 @@ func TestRedisEnvOverrides(t *testing.T) {
 	}
 }
 
+// TestLLMAllowlistValidation：启用白名单但端点配置非法必须启动即失败
+// （fail fast，不能静默变成放行所有）。
+func TestLLMAllowlistValidation(t *testing.T) {
+	t.Setenv("JWT_SECRET", "x")
+	p := writeCfg(t, minimalYAML+`
+llm_allowlist:
+  enabled: true
+  endpoints:
+    - "api.deepseek.com"
+`)
+	if _, err := Load(p); err == nil {
+		t.Fatal("白名单端点非法应报错")
+	}
+
+	// 合法端点 + 关闭时应通过（关闭则不校验）
+	p2 := writeCfg(t, minimalYAML+`
+llm_allowlist:
+  enabled: false
+  endpoints:
+    - "api.deepseek.com"
+`)
+	if _, err := Load(p2); err != nil {
+		t.Fatalf("关闭时不应校验端点: %v", err)
+	}
+}
+
+// TestLLMAllowlistEnvOverride：环境变量可覆盖开关/头名/强制头。
+func TestLLMAllowlistEnvOverride(t *testing.T) {
+	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("LLM_ALLOWLIST_ENABLED", "true")
+	t.Setenv("LLM_ALLOWLIST_HEADER", "X-Model-Endpoint")
+	t.Setenv("LLM_ALLOWLIST_REQUIRE_HEADER", "true")
+	p := writeCfg(t, minimalYAML)
+
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.LLMAllowlist.Enabled ||
+		cfg.LLMAllowlist.Header != "X-Model-Endpoint" ||
+		!cfg.LLMAllowlist.RequireHeader {
+		t.Fatalf("llm_allowlist 环境覆盖失败: %+v", cfg.LLMAllowlist)
+	}
+}
+
 // TestBreakerForDefaults：未配置熔断的上游回退默认值（启用/5次/10s）。
 // 默认启用是有意为之：漏配熔断不应等于裸奔（方案书 §十 明列网关职责）。
 func TestBreakerForDefaults(t *testing.T) {

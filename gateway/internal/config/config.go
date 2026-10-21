@@ -5,18 +5,20 @@ import (
 	"os"
 	"strconv"
 
+	"gateway/internal/allowlist"
 	"gopkg.in/yaml.v3"
 )
 
 // Config 网关运行配置
 type Config struct {
-	Listen    string                   `yaml:"listen"`
-	Upstreams map[string]string        `yaml:"upstreams"`
-	Routes    []Route                  `yaml:"routes"`
-	Breakers  map[string]BreakerConfig `yaml:"breakers"`
-	JWTSecret string                   `yaml:"jwt_secret"`
-	AuditLog  string                   `yaml:"audit_log"`
-	Redis     RedisConfig              `yaml:"redis"`
+	Listen       string                   `yaml:"listen"`
+	Upstreams    map[string]string        `yaml:"upstreams"`
+	Routes       []Route                  `yaml:"routes"`
+	Breakers     map[string]BreakerConfig `yaml:"breakers"`
+	LLMAllowlist LLMAllowlistConfig       `yaml:"llm_allowlist"`
+	JWTSecret    string                   `yaml:"jwt_secret"`
+	AuditLog     string                   `yaml:"audit_log"`
+	Redis        RedisConfig              `yaml:"redis"`
 }
 
 // Route 单条路由规则
@@ -53,6 +55,17 @@ type BreakerConfig struct {
 	Enabled          bool `yaml:"enabled"`
 	FailureThreshold int  `yaml:"failure_threshold"`
 	CooldownSeconds  int  `yaml:"cooldown_seconds"`
+}
+
+// LLMAllowlistConfig LLM 模型 endpoint 白名单（P5 合同硬要求：
+// 仅接受 OpenAI 兼容 /v1 接口，白名单外 endpoint 由网关拒绝）。
+// agent-backend 在 LLM 绑定请求头（默认 X-LLM-Endpoint）声明目标端点，
+// 网关按白名单校验；未带该头的请求默认放行（非 LLM 流量）。
+type LLMAllowlistConfig struct {
+	Enabled       bool     `yaml:"enabled"`
+	Header        string   `yaml:"header"`
+	RequireHeader bool     `yaml:"require_header"`
+	Endpoints     []string `yaml:"endpoints"`
 }
 
 // Load 读取 yaml 并允许用环境变量 JWT_SECRET 覆盖签名密钥
@@ -96,6 +109,24 @@ func Load(path string) (*Config, error) {
 	}
 	if c.AuditLog == "" {
 		c.AuditLog = "/var/log/gateway/access.log"
+	}
+	// LLM 白名单头名与环境变量覆盖（endpoint 清单只在 yaml 配置，
+	// 避免把合同端点写进环境变量导致多副本漂移）
+	if v := os.Getenv("LLM_ALLOWLIST_ENABLED"); v != "" {
+		c.LLMAllowlist.Enabled = v == "true" || v == "1" || v == "yes" || v == "on"
+	}
+	if v := os.Getenv("LLM_ALLOWLIST_HEADER"); v != "" {
+		c.LLMAllowlist.Header = v
+	}
+	if v := os.Getenv("LLM_ALLOWLIST_REQUIRE_HEADER"); v != "" {
+		c.LLMAllowlist.RequireHeader = v == "true" || v == "1" || v == "yes" || v == "on"
+	}
+	// 白名单启用时启动即校验端点配置：写错必须 fail fast，
+	// 不能静默变成"放行所有"（allowlist.ParseEndpoints 对非法 URL 报错）
+	if c.LLMAllowlist.Enabled {
+		if _, err := allowlist.ParseEndpoints(c.LLMAllowlist.Endpoints); err != nil {
+			return nil, fmt.Errorf("llm_allowlist.endpoints 配置错误: %w", err)
+		}
 	}
 	return &c, nil
 }

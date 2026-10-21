@@ -14,6 +14,23 @@ breakers:
     enabled: true
     failure_threshold: 5
     cooldown_seconds: 10
+# LLM 模型 endpoint 白名单（P5 合同硬要求：仅接受 OpenAI 兼容 /v1 接口，
+# 白名单外 endpoint 由网关拒绝）。
+# 契约：agent-backend 在 LLM 绑定请求头 X-LLM-Endpoint 声明目标端点，
+#       网关按 scheme+host:port+路径前缀 校验；未带该头的请求默认放行。
+# fail-closed：启用后若 endpoints 为空，任何带端点头的请求都会被 403——
+#              P5 灌入合同锁定的 endpoint 之前，宁可拒绝也不放行。
+# 环境变量覆盖：LLM_ALLOWLIST_ENABLED / LLM_ALLOWLIST_HEADER / LLM_ALLOWLIST_REQUIRE_HEADER
+llm_allowlist:
+  enabled: true
+  header: "X-LLM-Endpoint"
+  require_header: false
+  endpoints: []
+  # P5 定稿后按合同填入（示例）：
+  # endpoints:
+  #   - "https://api.deepseek.com/v1"        # H 档强推理
+  #   - "https://dashscope.aliyuncs.com/compatible-mode/v1"  # Qwen OpenAI 兼容
+  #   - "http://qwen32b.school.internal:8000/v1"             # L 档校内
 routes:
   - match: "/api/app/"
     upstream: agent_backend
