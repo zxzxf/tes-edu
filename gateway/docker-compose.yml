@@ -1,7 +1,9 @@
 # 课程教育 Agent 系统 —— Go 自研轻网关容器化部署
 # 用法（在 tes-edu 仓库根目录 / 或本文件同级）：
 #   docker compose -f gateway/docker-compose.yml build
-#   JWT_SECRET=<你的密钥> docker compose -f gateway/docker-compose.yml up -d
+#   JWT_SECRET=<你的密钥> REDIS_PASSWORD=<强密码> docker compose -f gateway/docker-compose.yml up -d
+#   仅起 redis（限流共享令牌桶）：JWT_SECRET=dummy REDIS_PASSWORD=<强密码> docker compose -f gateway/docker-compose.yml up -d redis
+#   （JWT_SECRET 对 redis 无作用，但网关服务标记为必填，redis-only 启动时也需占位传入，否则 compose 因缺变量报错）
 #
 # 说明：
 #   - gateway       : 自建 Go 轻网关，唯一公网入口（对外 80 -> 容器 8080）
@@ -36,8 +38,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      - agent-backend
-      - web-backend
+      agent-backend:
+        condition: service_started
+      web-backend:
+        condition: service_started
     restart: unless-stopped
     networks:
       - edu-net
@@ -45,7 +49,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: edu-redis
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    # 命令行 --requirepass 优先级高于 redis.conf，确保 REDIS_PASSWORD 生效
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "${REDIS_PASSWORD:-changeme}"]
+    # 仅绑定宿主机私有 IP，公网不可达（defense in depth）；同网络仍可用 redis:6379 访问
+    ports:
+      - "10.0.0.5:6379:6379"
     volumes:
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
       - redis-data:/data
@@ -54,6 +62,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+      start_period: 5s
     restart: unless-stopped
     networks:
       - edu-net
