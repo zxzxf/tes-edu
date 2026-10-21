@@ -45,7 +45,9 @@ func main() {
 			WriteTimeout: time.Duration(cfg.Redis.WriteTimeout) * time.Millisecond,
 		})
 		if err := redisClient.Ping(context.Background()).Err(); err != nil {
+			// 连接失败：放弃 Redis，限流回退到进程内本地桶（可用性优先）
 			log.Printf("warn: redis ping failed: %v（限流回退到本地桶）", err)
+			redisClient = nil
 		} else {
 			log.Printf("redis connected: %s", cfg.Redis.Addr)
 		}

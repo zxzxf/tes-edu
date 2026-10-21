@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -63,6 +64,17 @@ func Load(path string) (*Config, error) {
 	}
 	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
 		c.Redis.Password = v
+	}
+	if v := os.Getenv("REDIS_ENABLED"); v != "" {
+		c.Redis.Enabled = v == "true" || v == "1" || v == "yes" || v == "on"
+	}
+	if v := os.Getenv("REDIS_DB"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Redis.DB = n
+		}
+	}
+	if v := os.Getenv("REDIS_KEY_PREFIX"); v != "" {
+		c.Redis.KeyPrefix = v
 	}
 	if c.JWTSecret == "" {
 		return nil, fmt.Errorf("jwt_secret 未配置：请通过环境变量 JWT_SECRET 或 config.yaml 的 jwt_secret 字段设置，生产环境禁止留空")
