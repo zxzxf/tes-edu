@@ -118,6 +118,64 @@ func TestMetaAbsentOutsideLog(t *testing.T) {
 	}
 }
 
+// TestClientIP：审计来源 IP 按信任链取值（CF-Connecting-IP > X-Real-IP > RemoteAddr）。
+func TestClientIP(t *testing.T) {
+	newReq := func() *http.Request {
+		r := httptest.NewRequest(http.MethodGet, "/x", nil)
+		r.RemoteAddr = "172.18.0.5:34567"
+		return r
+	}
+
+	r := newReq()
+	r.Header.Set("X-Real-IP", "203.0.113.7")
+	if got := clientIP(r); got != "203.0.113.7" {
+		t.Errorf("X-Real-IP 应优先于 RemoteAddr，got %q", got)
+	}
+
+	r = newReq()
+	r.Header.Set("CF-Connecting-IP", "198.51.100.9")
+	r.Header.Set("X-Real-IP", "172.18.0.9")
+	if got := clientIP(r); got != "198.51.100.9" {
+		t.Errorf("CF-Connecting-IP 应最优先，got %q", got)
+	}
+
+	r = newReq()
+	if got := clientIP(r); got != "172.18.0.5" {
+		t.Errorf("无头应回退 RemoteAddr 并去端口，got %q", got)
+	}
+
+	r.RemoteAddr = "172.18.0.5" // 无端口不坏
+	if got := clientIP(r); got != "172.18.0.5" {
+		t.Errorf("无端口 RemoteAddr 应原样返回，got %q", got)
+	}
+}
+
+// TestLogPrefersXRealIP：经 lb 转发的请求，审计必须记 X-Real-IP 而非 lb 私网 IP
+// （RemoteAddr 恒为 lb 容器地址，直接记录等于所有请求同一来源）。
+func TestLogPrefersXRealIP(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "access.log")
+
+	h, closer := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}), logPath)
+	defer closer.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/app/x", nil)
+	req.RemoteAddr = "172.18.0.5:34567"       // lb 容器 IP
+	req.Header.Set("X-Real-IP", "203.0.113.7") // lb 覆盖写入的真实来源
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	b, _ := os.ReadFile(logPath)
+	s := string(b)
+	if !contains(s, "203.0.113.7") {
+		t.Errorf("审计应记录 X-Real-IP 203.0.113.7，实际: %q", s)
+	}
+	if contains(s, "172.18.0.5") {
+		t.Errorf("审计不应记录 lb 私网 IP，实际: %q", s)
+	}
+}
+
 func contains(s, sub string) bool {
 	for i := 0; i+len(sub) <= len(s); i++ {
 		if s[i:i+len(sub)] == sub {
