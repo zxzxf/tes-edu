@@ -7,7 +7,13 @@
 #   - gateway       : 自建 Go 轻网关，唯一公网入口（对外 80 -> 容器 8080）
 #   - agent-backend  : POC 阶段 mock，承接 /api/app/ 转发（生产换成真实 Agent 后端 :8000）
 #   - web-backend    : POC 阶段 mock，承接 /api/admin/ 转发（生产换成真实 Web 后端 :8001）
+#   - redis          : 限流用的 Redis（多副本全局令牌桶）。生产请把 REDIS_PASSWORD 设为强密码
 #   - 业务后端只暴露在内网（不映射宿主机端口），外部仅能经网关访问
+#
+# 多副本部署（全局限流一致）：把 gateway 起多个副本，并让所有副本的 REDIS_ENABLED=true 指向同一 redis。
+# 镜像来源：redis:7-alpine 可直接从 Docker Hub 拉取；若要离线/统一从阿里云 ACR 拉取，
+#           见 gateway/redis/push-to-acr.* 把镜像推到 registry.cn-shanghai.aliyuncs.com/mis_ser/redis:7-alpine，
+#           并把下方 image 改为该 ACR 地址。
 
 services:
   gateway:
@@ -22,11 +28,32 @@ services:
       CONFIG_PATH: /app/config.yaml
       JWT_SECRET: "${JWT_SECRET:?请通过环境变量 JWT_SECRET 传入签名密钥}"
       GATEWAY_LOG: /var/log/gateway/access.log
+      REDIS_ENABLED: "true"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-changeme}"
     volumes:
       - gateway-log:/var/log/gateway
     depends_on:
+      redis:
+        condition: service_healthy
       - agent-backend
       - web-backend
+    restart: unless-stopped
+    networks:
+      - edu-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: edu-redis
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
     networks:
       - edu-net
@@ -59,6 +86,7 @@ services:
 
 volumes:
   gateway-log:
+  redis-data:
 
 networks:
   edu-net:

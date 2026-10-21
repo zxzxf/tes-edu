@@ -2,9 +2,10 @@ FROM golang:1.22 AS build
 WORKDIR /src
 ENV GOPROXY=https://goproxy.cn,direct
 ENV GOTOOLCHAIN=local
-COPY go.mod go.sum* ./
-RUN go mod download
+# 先复制全部源码，再 go mod tidy：tidy 需要看到 .go 导入图才能补全 go.sum
+# （新增的 github.com/redis/go-redis/v9 及其传递依赖会在此步自动拉取）
 COPY . .
+RUN go mod tidy
 RUN CGO_ENABLED=0 go build -o /gateway .
 
 FROM alpine:3.20

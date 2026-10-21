@@ -19,3 +19,15 @@ routes:
     mode: ""
     rate: 100
     burst: 200
+
+# 限流用的 Redis（多副本全局令牌桶）。enabled=false 时使用进程内本地桶（仅单副本一致）。
+# 多副本部署请把 enabled 设为 true，并确保所有网关副本指向同一 Redis 实例。
+redis:
+  enabled: false
+  addr: "redis:6379"
+  password: ""
+  db: 0
+  key_prefix: "gw:rl:"
+  dial_timeout_ms: 1000
+  read_timeout_ms: 200
+  write_timeout_ms: 200

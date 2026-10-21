@@ -1,0 +1,36 @@
+# 单节点 Redis 部署（docker compose）
+# 用途：为网关多副本限流提供共享令牌桶；也可独立作为缓存/队列使用。
+# 部署（在 137 上，本文件同级目录执行）：
+#   REDIS_PASSWORD='你的强密码' docker compose up -d
+# 验证：
+#   docker compose exec redis redis-cli -a '你的强密码' ping   # 应返回 PONG
+#
+# 安全提示：
+#   - 端口仅绑定到宿主机私有 IP（10.0.0.5），公网 IP 124.221.253.137 不监听 6379，
+#     外部直连公网会被拒绝（defense in depth）。网关部署在同机时连 10.0.0.5:6379 即可。
+#   - 若后续网关与 redis 同属一个 docker 网络，可进一步去掉 ports，仅靠容器网络互通。
+#   - 仍建议在云安全组里把 6379 仅放行网关所在 IP/网段。
+#   - requirepass 已由下方命令行 --requirepass 用环境变量覆盖，请勿在公网用默认 changeme。
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: edu-redis
+    restart: unless-stopped
+    # 命令行参数优先级高于 redis.conf，确保 REDIS_PASSWORD 生效
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "${REDIS_PASSWORD:-changeme}"]
+    ports:
+      # 仅绑定宿主机私有 IP，公网不可达（defense in depth）
+      - "10.0.0.5:6379:6379"
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  redis-data:

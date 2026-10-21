@@ -14,6 +14,7 @@ type Config struct {
 	Routes    []Route           `yaml:"routes"`
 	JWTSecret string            `yaml:"jwt_secret"`
 	AuditLog  string            `yaml:"audit_log"`
+	Redis     RedisConfig       `yaml:"redis"`
 }
 
 // Route 单条路由规则
@@ -31,6 +32,19 @@ type Route struct {
 	Burst    int      `yaml:"burst"`
 }
 
+// RedisConfig 限流用的 Redis 配置（多副本全局令牌桶）。
+// 当 Enabled=false 时，网关使用进程内 per-key 令牌桶（仅单副本一致）。
+type RedisConfig struct {
+	Enabled      bool   `yaml:"enabled"`
+	Addr         string `yaml:"addr"`
+	Password     string `yaml:"password"`
+	DB           int    `yaml:"db"`
+	KeyPrefix    string `yaml:"key_prefix"`
+	DialTimeout  int    `yaml:"dial_timeout_ms"`
+	ReadTimeout  int    `yaml:"read_timeout_ms"`
+	WriteTimeout int    `yaml:"write_timeout_ms"`
+}
+
 // Load 读取 yaml 并允许用环境变量 JWT_SECRET 覆盖签名密钥
 func Load(path string) (*Config, error) {
 	b, err := os.ReadFile(path)
@@ -43,6 +57,12 @@ func Load(path string) (*Config, error) {
 	}
 	if v := os.Getenv("JWT_SECRET"); v != "" {
 		c.JWTSecret = v
+	}
+	if v := os.Getenv("REDIS_ADDR"); v != "" {
+		c.Redis.Addr = v
+	}
+	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
+		c.Redis.Password = v
 	}
 	if c.JWTSecret == "" {
 		return nil, fmt.Errorf("jwt_secret 未配置：请通过环境变量 JWT_SECRET 或 config.yaml 的 jwt_secret 字段设置，生产环境禁止留空")
