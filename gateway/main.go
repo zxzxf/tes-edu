@@ -64,21 +64,23 @@ func buildHandler(cfg *config.Config, ctx context.Context) (mux *http.ServeMux, 
 
 	// 白名单/敏感词动态配置（Redis 单一数据源 + Pub/Sub 热更新）。
 	// 复用限流的 redisClient；Redis 不可用（store=nil）时退化为 yaml seed 静态值。
+	// configsync 的 key/频道用固定前缀 gw:cfg:，与限流 gw:rl:* 命名空间分离：
+	// 语义清晰，且不受 REDIS_KEY_PREFIX 改动影响，运维可按文档直接操作。
+	const cfgPrefix = "gw:cfg:"
 	var csManager *configsync.Manager
 	if cfg.DynamicConfig.Enabled {
 		csManager = configsync.New(configsync.Options{
 			Store:         configsync.NewRedisStore(redisClient),
-			AllowlistKey:  cfg.Redis.KeyPrefix + "llm_allowlist",
-			KeywordsKey:   cfg.Redis.KeyPrefix + "content_safety:keywords",
-			Channel:       cfg.Redis.KeyPrefix + cfg.DynamicConfig.Channel,
+			AllowlistKey:  cfgPrefix + "llm_allowlist",
+			KeywordsKey:   cfgPrefix + "content_safety:keywords",
+			Channel:       cfgPrefix + cfg.DynamicConfig.Channel,
 			SeedAllowlist: cfg.LLMAllowlist.Endpoints,
 			SeedKeywords:  cfg.ContentSafety.Keywords,
 		})
 		csManager.Load(context.Background()) // 内部全降级：故障沿用 seed，不致命
 		csManager.Start(ctx)                 // Pub/Sub 热更，随优雅退出 ctx 取消
 		log.Printf("configsync: allowlist source=%s, keywords source=%s, channel=%s",
-			csManager.AllowlistSource(), csManager.KeywordsSource(),
-			cfg.Redis.KeyPrefix+cfg.DynamicConfig.Channel)
+			csManager.AllowlistSource(), csManager.KeywordsSource(), cfgPrefix+cfg.DynamicConfig.Channel)
 	}
 
 	mux = http.NewServeMux()

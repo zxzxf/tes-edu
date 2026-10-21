@@ -48,9 +48,9 @@ type Store interface {
 // Options 构造 Manager 的参数。
 type Options struct {
 	Store         Store    // 存储后端；nil 表示无 Redis，仅用 seed 静态值（不热更）
-	AllowlistKey  string   // 白名单 Redis key，如 "gw:llm_allowlist"
-	KeywordsKey   string   // 敏感词 Redis key，如 "gw:content_safety:keywords"
-	Channel       string   // Pub/Sub 频道，如 "gw:config_changed"
+	AllowlistKey  string   // 白名单 Redis key，如 "gw:cfg:llm_allowlist"
+	KeywordsKey   string   // 敏感词 Redis key，如 "gw:cfg:content_safety:keywords"
+	Channel       string   // Pub/Sub 频道，如 "gw:cfg:config_changed"
 	SeedAllowlist []string // yaml 初始白名单（原始 endpoint 串）
 	SeedKeywords  []string // yaml 初始敏感词（原始串）
 	Logger        *log.Logger

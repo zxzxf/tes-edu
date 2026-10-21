@@ -88,11 +88,11 @@ type RedisConfig struct {
 
 // DynamicConfig 白名单/敏感词的 Redis 化动态配置（Pub/Sub 热更新）。
 // Redis 为单一数据源；llm_allowlist.endpoints / content_safety.keywords
-// 仅作首次启动 seed。改完 Redis 后向 <redis.key_prefix><channel> PUBLISH
+// 仅作首次启动 seed。改完 Redis 后向 gw:cfg:<channel> PUBLISH
 // "llm_allowlist" / "content_safety" 通知各副本热重载（无需重启）。
 type DynamicConfig struct {
 	Enabled bool   `yaml:"enabled"`
-	Channel string `yaml:"channel"` // 实际频道 = redis.key_prefix + 该值
+	Channel string `yaml:"channel"` // 实际频道 = "gw:cfg:" + 该值
 }
 
 // BreakerConfig 单上游熔断配置（三态：Closed/Open/HalfOpen）。
