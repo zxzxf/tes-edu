@@ -126,8 +126,8 @@ func main() {
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	// 审计日志在最外层
-	handler := audit.Log(mux, cfg.AuditLog)
+	// 审计日志在最外层；返回的 closer 在优雅退出时释放文件句柄
+	muxHandler, auditCloser := audit.Log(mux, cfg.AuditLog)
 
 	// --- 用带超时的 http.Server 替换 ListenAndServe，配合 Shutdown 做优雅退出 ---
 	//
@@ -137,7 +137,7 @@ func main() {
 	// 防半成品长连接堆积靠 IdleTimeout，防后端僵死靠 Transport 的 Dial/ResponseHeader 超时。
 	srv := &http.Server{
 		Addr:              cfg.Listen,
-		Handler:           handler,
+		Handler:           muxHandler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      0, // 允许流式长响应（SSE），不在此处截断
@@ -172,6 +172,9 @@ func main() {
 			if err := redisClient.Close(); err != nil {
 				log.Printf("warn: redis close: %v", err)
 			}
+		}
+		if err := auditCloser.Close(); err != nil {
+			log.Printf("warn: audit log close: %v", err)
 		}
 		log.Printf("gateway stopped")
 	}

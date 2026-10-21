@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -30,11 +31,15 @@ func MetaFromContext(ctx context.Context) *Meta {
 }
 
 // Log 记录访问日志（审计落盘）。path 为空则仅输出到 stderr。
-func Log(next http.Handler, path string) http.Handler {
+// 返回的 io.Closer 用于关闭底层日志文件句柄；进程退出（优雅退出流程）或
+// 测试收尾时应调用 Close 释放文件句柄。path 为空时 Close 为 no-op。
+func Log(next http.Handler, path string) (http.Handler, io.Closer) {
 	var logger *log.Logger
+	var closer io.Closer = nopCloser{}
 	if path != "" {
 		if f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
 			logger = log.New(f, "", log.LstdFlags)
+			closer = f
 		}
 	}
 	if logger == nil {
@@ -54,8 +59,13 @@ func Log(next http.Handler, path string) http.Handler {
 			r.RemoteAddr, r.Method, r.URL.Path, sw.status,
 			meta.UserID, meta.Role, meta.TenantID,
 			r.UserAgent(), time.Since(start))
-	})
+	}), closer
 }
+
+// nopCloser 是空操作的 Close 实现（无日志文件时使用）。
+type nopCloser struct{}
+
+func (nopCloser) Close() error { return nil }
 
 type statusWriter struct {
 	http.ResponseWriter

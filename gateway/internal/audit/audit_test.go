@@ -14,9 +14,10 @@ func TestLogWritesToFile(t *testing.T) {
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "access.log")
 
-	h := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h, closer := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 	}), logPath)
+	defer closer.Close()
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	req.RemoteAddr = "10.0.0.9:1234"
@@ -40,9 +41,10 @@ func TestLogRecordsActualStatus(t *testing.T) {
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "access.log")
 
-	h := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h, closer := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}), logPath)
+	defer closer.Close()
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/x", nil))
 
@@ -57,9 +59,10 @@ func TestImplicitWriteHeadStatus(t *testing.T) {
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "access.log")
 
-	h := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h, closer := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok")) // 隐式 200
 	}), logPath)
+	defer closer.Close()
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/x", nil))
 
@@ -71,9 +74,10 @@ func TestImplicitWriteHeadStatus(t *testing.T) {
 
 // TestEmptyPathFallsBackToStderr：未配置文件路径时不应崩溃（回退到标准 logger）。
 func TestEmptyPathFallsBackToStderr(t *testing.T) {
-	h := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h, closer := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}), "")
+	defer closer.Close()
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/x", nil))
 	// 能跑到这里即通过
@@ -85,7 +89,7 @@ func TestMetaFromContext(t *testing.T) {
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "access.log")
 
-	h := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h, closer := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 模拟鉴权中间件：取到外层 Meta 指针并回填身份
 		if m := MetaFromContext(r.Context()); m != nil {
 			m.UserID = "u99"
@@ -94,6 +98,7 @@ func TestMetaFromContext(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 	}), logPath)
+	defer closer.Close()
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/x", nil))
 
