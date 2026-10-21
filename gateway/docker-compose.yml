@@ -4,9 +4,9 @@
 #   JWT_SECRET=<你的密钥> docker compose -f gateway/docker-compose.yml up -d
 #
 # 说明：
-#   - gateway   : 自建 Go 轻网关，唯一公网入口（对外 80 -> 容器 8080）
-#   - backend   : POC 阶段 mock 后端，承接 /api/app/ 与 /api/admin/ 转发
-#                生产阶段把 backend 换成真实 Agent / Web 后端服务即可
+#   - gateway       : 自建 Go 轻网关，唯一公网入口（对外 80 -> 容器 8080）
+#   - agent-backend  : POC 阶段 mock，承接 /api/app/ 转发（生产换成真实 Agent 后端 :8000）
+#   - web-backend    : POC 阶段 mock，承接 /api/admin/ 转发（生产换成真实 Web 后端 :8001）
 #   - 业务后端只暴露在内网（不映射宿主机端口），外部仅能经网关访问
 
 services:
@@ -25,18 +25,32 @@ services:
     volumes:
       - gateway-log:/var/log/gateway
     depends_on:
-      - backend
+      - agent-backend
+      - web-backend
     restart: unless-stopped
     networks:
       - edu-net
 
-  backend:
+  agent-backend:
     build:
       context: ./mock
       dockerfile: Dockerfile
     image: registry.cn-shanghai.aliyuncs.com/mis_ser/edu-mock-backend:latest
-    container_name: edu-mock-backend
-    # 仅内网可达，不映射宿主机端口
+    container_name: edu-agent-backend
+    # 仅内网可达，不映射宿主机端口；POC 用 mock 承载 /api/app/*
+    expose:
+      - "8000"
+    restart: unless-stopped
+    networks:
+      - edu-net
+
+  web-backend:
+    build:
+      context: ./mock
+      dockerfile: Dockerfile
+    image: registry.cn-shanghai.aliyuncs.com/mis_ser/edu-mock-backend:latest
+    container_name: edu-web-backend
+    # 仅内网可达，不映射宿主机端口；POC 用 mock 承载 /api/admin/*
     expose:
       - "8000"
     restart: unless-stopped

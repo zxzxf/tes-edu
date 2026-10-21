@@ -33,7 +33,10 @@ func Wrap(next http.Handler, mode, secret string, rbacRoles []string) http.Handl
 				return
 			}
 		}
-		// 把解析出的 subject/role 透传给后端（可选）
+		// 注入 X-User-* 身份头，供下游（如 Python/FastAPI 独立进程）识别调用者；
+		// 使用 Header.Set 覆盖任何客户端传入的同名头，防止伪造。
+		injectIdentityHeaders(r, claims)
+		// 同时保留 context 透传（同进程内下游 handler 可用）
 		ctx := withClaims(r.Context(), claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -71,4 +74,21 @@ func contains(s []string, v string) bool {
 		}
 	}
 	return false
+}
+
+// injectIdentityHeaders 将 JWT 中的身份声明注入为 X-User-* 请求头，
+// 供下游后端（独立进程，无法读取本进程 context）识别身份。
+// 使用 Header.Set 覆盖客户端传入的同名头，避免伪造。
+func injectIdentityHeaders(r *http.Request, claims jwt.MapClaims) {
+	if v, ok := claims["sub"].(string); ok && v != "" {
+		r.Header.Set("X-User-Id", v)
+	} else if v, ok := claims["uid"].(string); ok && v != "" {
+		r.Header.Set("X-User-Id", v)
+	}
+	if v, ok := claims["role"].(string); ok && v != "" {
+		r.Header.Set("X-User-Role", v)
+	}
+	if v, ok := claims["tenant_id"].(string); ok && v != "" {
+		r.Header.Set("X-Tenant-Id", v)
+	}
 }

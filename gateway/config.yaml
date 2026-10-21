@@ -1,20 +1,21 @@
 listen: ":8080"
 upstreams:
-  backend: "http://backend:8000"
+  agent_backend: "http://agent-backend:8000"
+  web_backend: "http://web-backend:8000"
 routes:
   - match: "/api/app/"
-    upstream: backend
+    upstream: agent_backend
     mode: jwt_c
     rate: 20
     burst: 40
   - match: "/api/admin/"
-    upstream: backend
+    upstream: web_backend
     mode: rbac
     roles: ["admin", "teacher", "researcher", "operator"]
     rate: 10
     burst: 20
   - match: "/"
-    upstream: backend
+    upstream: agent_backend
     mode: ""
     rate: 100
     burst: 200
