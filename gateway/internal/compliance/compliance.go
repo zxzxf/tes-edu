@@ -36,8 +36,11 @@ type Options struct {
 	Logger *log.Logger
 	// ContentSafetyEnabled 敏感词扫描总开关。
 	ContentSafetyEnabled bool
-	// Keywords 敏感词表（小写比较；命中即拒绝）。
+	// Keywords 静态敏感词表（兼容既有用法：小写比较，命中即拒绝）。
 	Keywords []string
+	// KeywordsFn 动态敏感词源（configsync 热更新）。非 nil 时每请求调用获取
+	// 当前词表，优先于 Keywords；返回值须已规范化为小写。
+	KeywordsFn func() []string
 	// MaxScanBytes 单请求体扫描上限（默认 256KB；超出不扫描直接放行，
 	// 由后端深审——网关不做大体重放）。
 	MaxScanBytes int64
@@ -49,12 +52,26 @@ func Wrap(next http.Handler, opt Options) http.Handler {
 	if logger == nil {
 		logger = log.Default()
 	}
-	keywords := make([]string, 0, len(opt.Keywords))
-	for _, k := range opt.Keywords {
-		k = strings.ToLower(strings.TrimSpace(k))
-		if k != "" {
-			keywords = append(keywords, k)
+	// 词表来源：KeywordsFn（configsync 热更，已规范化小写）优先；
+	// 否则用静态 Keywords（启动时规范化一次，兼容既有用法/单测）。
+	var getKeywords func() []string
+	if opt.KeywordsFn != nil {
+		getKeywords = opt.KeywordsFn
+	} else {
+		norm := make([]string, 0, len(opt.Keywords))
+		seen := make(map[string]struct{}, len(opt.Keywords))
+		for _, k := range opt.Keywords {
+			k = strings.ToLower(strings.TrimSpace(k))
+			if k == "" {
+				continue
+			}
+			if _, dup := seen[k]; dup {
+				continue
+			}
+			seen[k] = struct{}{}
+			norm = append(norm, k)
 		}
+		getKeywords = func() []string { return norm }
 	}
 	maxScan := opt.MaxScanBytes
 	if maxScan <= 0 {
@@ -81,7 +98,7 @@ func Wrap(next http.Handler, opt Options) http.Handler {
 				http.Error(w, `{"error":"payload too large"}`, http.StatusRequestEntityTooLarge)
 				return
 			}
-			if kw := scanKeywords(string(body), keywords); kw != "" {
+			if kw := scanKeywords(string(body), getKeywords()); kw != "" {
 				metrics.Inc(metrics.KeyContentReject)
 				logger.Printf("[compliance] content_reject keyword=%q path=%s method=%s uid=%s",
 					audit.MaskPII(kw), r.URL.Path, r.Method, r.Header.Get("X-User-Id"))

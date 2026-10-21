@@ -32,6 +32,7 @@ type Config struct {
 	JWTSecret       string                   `yaml:"jwt_secret"`
 	AuditLog        string                   `yaml:"audit_log"`
 	Redis           RedisConfig              `yaml:"redis"`
+	DynamicConfig   DynamicConfig            `yaml:"dynamic_config"`
 }
 
 // Route 单条路由规则
@@ -83,6 +84,15 @@ type RedisConfig struct {
 	DialTimeout  int    `yaml:"dial_timeout_ms"`
 	ReadTimeout  int    `yaml:"read_timeout_ms"`
 	WriteTimeout int    `yaml:"write_timeout_ms"`
+}
+
+// DynamicConfig 白名单/敏感词的 Redis 化动态配置（Pub/Sub 热更新）。
+// Redis 为单一数据源；llm_allowlist.endpoints / content_safety.keywords
+// 仅作首次启动 seed。改完 Redis 后向 <redis.key_prefix><channel> PUBLISH
+// "llm_allowlist" / "content_safety" 通知各副本热重载（无需重启）。
+type DynamicConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Channel string `yaml:"channel"` // 实际频道 = redis.key_prefix + 该值
 }
 
 // BreakerConfig 单上游熔断配置（三态：Closed/Open/HalfOpen）。
@@ -209,6 +219,16 @@ func Load(path string) (*Config, error) {
 	}
 	if c.Version == "" {
 		c.Version = "dev"
+	}
+	// 动态配置（Redis 化 + Pub/Sub 热更新）环境变量覆盖
+	if v := os.Getenv("DYN_CONFIG_ENABLED"); v != "" {
+		c.DynamicConfig.Enabled = parseBool(v)
+	}
+	if v := os.Getenv("DYN_CONFIG_CHANNEL"); v != "" {
+		c.DynamicConfig.Channel = v
+	}
+	if c.DynamicConfig.Channel == "" {
+		c.DynamicConfig.Channel = "config_changed"
 	}
 	return &c, nil
 }

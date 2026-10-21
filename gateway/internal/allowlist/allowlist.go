@@ -42,8 +42,11 @@ type Options struct {
 	// RequireHeader true 时，缺失该头的请求也拒绝（fail-closed）；
 	// false 时缺失头视为非 LLM 请求放行。
 	RequireHeader bool
-	// Entries 白名单条目。
+	// Entries 静态白名单条目（兼容既有用法：启动时一次性解析）。
 	Entries []Entry
+	// EntriesFn 动态条目源（configsync 热更新）。非 nil 时每请求调用获取
+	// 当前生效条目，优先于 Entries；返回值须已规范化（经 ParseEndpoints）。
+	EntriesFn func() []Entry
 }
 
 // ParseEndpoints 把配置串解析为规范化条目。非法 URL 直接报错——
@@ -116,6 +119,13 @@ func Wrap(next http.Handler, opt Options) http.Handler {
 	if header == "" {
 		header = "X-LLM-Endpoint"
 	}
+	// 条目来源：EntriesFn（热更新，每请求取当前快照）优先；
+	// 否则用静态 Entries（兼容既有用法与单测）。
+	getEntries := opt.EntriesFn
+	if getEntries == nil {
+		static := opt.Entries
+		getEntries = func() []Entry { return static }
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ep := strings.TrimSpace(r.Header.Get(header))
 		if ep == "" {
@@ -128,7 +138,7 @@ func Wrap(next http.Handler, opt Options) http.Handler {
 			next.ServeHTTP(w, r) // 非 LLM 请求，放行
 			return
 		}
-		if !Match(opt.Entries, ep) {
+		if !Match(getEntries(), ep) {
 			log.Printf("[allowlist] reject: endpoint %q not in whitelist, path=%s uid=%s",
 				ep, r.URL.Path, r.Header.Get("X-User-Id"))
 			http.Error(w, `{"error":"llm endpoint not allowed"}`, http.StatusForbidden)
