@@ -2,6 +2,18 @@ listen: ":8080"
 upstreams:
   agent_backend: "http://agent-backend:8000"
   web_backend: "http://web-backend:8000"
+# 熔断配置（按上游维度，多路由共享）。未列出的上游默认启用：
+# threshold=5（连续 5 次 5xx/代理错误后打开）、cooldown=10s。
+# 打开期间直接返回 503 + Retry-After，不打上游；冷却后放行单个探测请求。
+breakers:
+  agent_backend:
+    enabled: true
+    failure_threshold: 5
+    cooldown_seconds: 10
+  web_backend:
+    enabled: true
+    failure_threshold: 5
+    cooldown_seconds: 10
 routes:
   - match: "/api/app/"
     upstream: agent_backend

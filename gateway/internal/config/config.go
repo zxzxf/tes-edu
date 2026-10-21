@@ -10,12 +10,13 @@ import (
 
 // Config 网关运行配置
 type Config struct {
-	Listen    string            `yaml:"listen"`
-	Upstreams map[string]string `yaml:"upstreams"`
-	Routes    []Route           `yaml:"routes"`
-	JWTSecret string            `yaml:"jwt_secret"`
-	AuditLog  string            `yaml:"audit_log"`
-	Redis     RedisConfig       `yaml:"redis"`
+	Listen    string                   `yaml:"listen"`
+	Upstreams map[string]string        `yaml:"upstreams"`
+	Routes    []Route                  `yaml:"routes"`
+	Breakers  map[string]BreakerConfig `yaml:"breakers"`
+	JWTSecret string                   `yaml:"jwt_secret"`
+	AuditLog  string                   `yaml:"audit_log"`
+	Redis     RedisConfig              `yaml:"redis"`
 }
 
 // Route 单条路由规则
@@ -44,6 +45,14 @@ type RedisConfig struct {
 	DialTimeout  int    `yaml:"dial_timeout_ms"`
 	ReadTimeout  int    `yaml:"read_timeout_ms"`
 	WriteTimeout int    `yaml:"write_timeout_ms"`
+}
+
+// BreakerConfig 单上游熔断配置（三态：Closed/Open/HalfOpen）。
+// 未配置的字段回退默认值：enabled=true、failure_threshold=5、cooldown_seconds=10。
+type BreakerConfig struct {
+	Enabled          bool `yaml:"enabled"`
+	FailureThreshold int  `yaml:"failure_threshold"`
+	CooldownSeconds  int  `yaml:"cooldown_seconds"`
 }
 
 // Load 读取 yaml 并允许用环境变量 JWT_SECRET 覆盖签名密钥
@@ -95,4 +104,20 @@ func Load(path string) (*Config, error) {
 func (c *Config) UpstreamURL(name string) (string, bool) {
 	u, ok := c.Upstreams[name]
 	return u, ok
+}
+
+// BreakerFor 返回指定上游的熔断配置；未配置时回退默认值（启用 / 5 次 / 10s）。
+// 默认启用是有意为之：熔断是方案书 §十 明列的网关职责，漏配不应等于裸奔。
+func (c *Config) BreakerFor(name string) BreakerConfig {
+	b := BreakerConfig{Enabled: true, FailureThreshold: 5, CooldownSeconds: 10}
+	if cfg, ok := c.Breakers[name]; ok {
+		if cfg.FailureThreshold > 0 {
+			b.FailureThreshold = cfg.FailureThreshold
+		}
+		if cfg.CooldownSeconds > 0 {
+			b.CooldownSeconds = cfg.CooldownSeconds
+		}
+		b.Enabled = cfg.Enabled
+	}
+	return b
 }

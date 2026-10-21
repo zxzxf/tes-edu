@@ -16,6 +16,7 @@ import (
 
 	"gateway/internal/audit"
 	"gateway/internal/auth"
+	"gateway/internal/breaker"
 	"gateway/internal/compliance"
 	"gateway/internal/config"
 	"gateway/internal/ratelimit"
@@ -58,6 +59,10 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	// 熔断器按上游共享：多个路由指向同一后端时共享熔断态，
+	// 避免一个路由把后端打挂后其他路由还在继续锤。
+	breakers := make(map[string]*breaker.Breaker)
+
 	for _, r := range cfg.Routes {
 		up, ok := cfg.UpstreamURL(r.Upstream)
 		if !ok {
@@ -68,6 +73,25 @@ func main() {
 		if err != nil {
 			log.Printf("warn: bad upstream url %q: %v", up, err)
 			continue
+		}
+
+		// 该上游的熔断器（懒加载 + 共享）
+		bc := cfg.BreakerFor(r.Upstream)
+		br, exists := breakers[r.Upstream]
+		if !exists {
+			if bc.Enabled {
+				br = breaker.New(breaker.Options{
+					Name:              r.Upstream,
+					FailureThreshold:  bc.FailureThreshold,
+					Cooldown:          time.Duration(bc.CooldownSeconds) * time.Second,
+				})
+				log.Printf("breaker enabled for upstream %q: threshold=%d cooldown=%ds",
+					r.Upstream, bc.FailureThreshold, bc.CooldownSeconds)
+			} else {
+				br = nil // 显式关闭：不包熔断层
+				log.Printf("breaker disabled for upstream %q", r.Upstream)
+			}
+			breakers[r.Upstream] = br
 		}
 
 		proxy := httputil.NewSingleHostReverseProxy(target)
@@ -96,6 +120,12 @@ func main() {
 		}
 
 		handler := http.Handler(proxy)
+
+		// 熔断（最靠近代理的一层）：统计真实上游结果；
+		// 打开时直接 503 + Retry-After，保护僵死后端不被继续打
+		if br != nil {
+			handler = breaker.Wrap(handler, br, 500)
+		}
 
 		// 合规（骨架：输入校验 + 敏感操作审计），位于鉴权之后、转发之前
 		handler = compliance.Wrap(handler, nil)

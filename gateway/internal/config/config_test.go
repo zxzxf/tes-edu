@@ -110,6 +110,47 @@ func TestRedisEnvOverrides(t *testing.T) {
 	}
 }
 
+// TestBreakerForDefaults：未配置熔断的上游回退默认值（启用/5次/10s）。
+// 默认启用是有意为之：漏配熔断不应等于裸奔（方案书 §十 明列网关职责）。
+func TestBreakerForDefaults(t *testing.T) {
+	t.Setenv("JWT_SECRET", "x")
+	p := writeCfg(t, minimalYAML)
+
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	b := cfg.BreakerFor("agent_backend")
+	if !b.Enabled || b.FailureThreshold != 5 || b.CooldownSeconds != 10 {
+		t.Fatalf("默认熔断配置不符: %+v", b)
+	}
+}
+
+// TestBreakerForExplicit：显式配置优先，enabled=false 可关闭。
+func TestBreakerForExplicit(t *testing.T) {
+	t.Setenv("JWT_SECRET", "x")
+	p := writeCfg(t, minimalYAML+`
+breakers:
+  agent_backend:
+    enabled: false
+    failure_threshold: 3
+    cooldown_seconds: 30
+`)
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	b := cfg.BreakerFor("agent_backend")
+	if b.Enabled || b.FailureThreshold != 3 || b.CooldownSeconds != 30 {
+		t.Fatalf("显式熔断配置未生效: %+v", b)
+	}
+	// 未列出的上游仍走默认
+	other := cfg.BreakerFor("web_backend")
+	if !other.Enabled || other.FailureThreshold != 5 {
+		t.Fatalf("未列出上游应走默认: %+v", other)
+	}
+}
+
 // TestGatewayLogEnvOverride：GATEWAY_LOG 环境变量必须生效（修复死配置）。
 // 此前两份 compose 均设置 GATEWAY_LOG 但代码从不读取，审计路径实际走
 // config.yaml 的 audit_log，容器内卷挂载点与配置不一致。
