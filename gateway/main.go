@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -68,6 +71,30 @@ func main() {
 		}
 
 		proxy := httputil.NewSingleHostReverseProxy(target)
+
+		// 上游超时与长连接池调优（防雪崩核心）。
+		// 没有这组配置时：单个后端僵死 -> 连接无上限堆积 -> 耗尽 goroutine/端口 -> 整个网关不可用。
+		// ResponseHeaderTimeout 只约束「拿到响应头」的时间，
+		// 之后 body 的持续传输（LLM SSE 流式回答）不受影响。
+		proxy.Transport = &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   3 * time.Second,  // TCP 建连超时
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			MaxIdleConns:          100,              // 全局最大空闲连接
+			MaxIdleConnsPerHost:   20,               // 每个上游最大空闲连接
+			IdleConnTimeout:       90 * time.Second, // 空闲连接回收
+			TLSHandshakeTimeout:   5 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			ResponseHeaderTimeout: 0, // 与 WriteTimeout=0 同理：不截断 LLM 流式回答
+		}
+
+		// 上游出错时不暴露后端细节，返回统一网关错误
+		proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+			log.Printf("upstream error: %s %s -> %v", r.Method, r.URL.Path, err)
+			http.Error(w, `{"error":"upstream unavailable"}`, http.StatusBadGateway)
+		}
+
 		handler := http.Handler(proxy)
 
 		// 合规（骨架：输入校验 + 敏感操作审计），位于鉴权之后、转发之前
@@ -102,8 +129,50 @@ func main() {
 	// 审计日志在最外层
 	handler := audit.Log(mux, cfg.AuditLog)
 
-	log.Printf("gateway listening on %s, routes=%d", cfg.Listen, len(cfg.Routes))
-	if err := http.ListenAndServe(cfg.Listen, handler); err != nil {
-		log.Fatalf("listen: %v", err)
+	// --- 用带超时的 http.Server 替换 ListenAndServe，配合 Shutdown 做优雅退出 ---
+	//
+	// 关键取舍：WriteTimeout 显式置 0（不限）。
+	// 理由：LLM 讲解/引导式对话是流式输出（SSE），单请求可能持续数十秒；
+	// 若设 WriteTimeout 会截断长回答。防慢连接靠 ReadHeaderTimeout/ReadTimeout，
+	// 防半成品长连接堆积靠 IdleTimeout，防后端僵死靠 Transport 的 Dial/ResponseHeader 超时。
+	srv := &http.Server{
+		Addr:              cfg.Listen,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      0, // 允许流式长响应（SSE），不在此处截断
+		IdleTimeout:       120 * time.Second,
+	}
+
+	// 优雅退出：收到 SIGTERM/SIGINT 后停止接收新连接，等待在途请求处理完（最多 15s）。
+	// 滚动更新 / docker compose stop 时避免切断进行中的 LLM 回答。
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
+	errCh := make(chan error, 1)
+	go func() {
+		log.Printf("gateway listening on %s, routes=%d", cfg.Listen, len(cfg.Routes))
+		errCh <- srv.ListenAndServe()
+	}()
+
+	select {
+	case err := <-errCh:
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %v", err)
+		}
+	case <-ctx.Done():
+		log.Printf("shutdown signal received, draining...")
+		stop()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("warn: graceful shutdown failed: %v", err)
+		}
+		if redisClient != nil {
+			if err := redisClient.Close(); err != nil {
+				log.Printf("warn: redis close: %v", err)
+			}
+		}
+		log.Printf("gateway stopped")
 	}
 }

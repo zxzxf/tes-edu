@@ -85,17 +85,37 @@ func contains(s []string, v string) bool {
 
 // injectIdentityHeaders 将 JWT 中的身份声明注入为 X-User-* 请求头，
 // 供下游后端（独立进程，无法读取本进程 context）识别身份。
-// 使用 Header.Set 覆盖客户端传入的同名头，避免伪造。
+//
+// 无条件写语义（安全关键）：每个 X-User-* 头都必须 Set——claim 存在则写真实值，
+// 不存在则写空串。绝不能「claim 不存在就跳过 Set」，否则客户端自带的伪造头会
+// 原样透传给下游，造成越权/跨租户（例如用有效学生 token 伪造 X-User-Role: admin、
+// X-Tenant-Id: 别的学校，而 /api/app/ 走 jwt_c 不校验角色，请求会直达后端）。
 func injectIdentityHeaders(r *http.Request, claims jwt.MapClaims) {
-	if v, ok := claims["sub"].(string); ok && v != "" {
-		r.Header.Set("X-User-Id", v)
-	} else if v, ok := claims["uid"].(string); ok && v != "" {
-		r.Header.Set("X-User-Id", v)
+	// 取值：显式存在且非空才采用，malformed claim(类型不符)视同不存在
+	userID := firstNonEmpty(claims, "sub", "uid")
+	role := stringClaim(claims, "role")
+	tenantID := stringClaim(claims, "tenant_id")
+
+	// 无条件 Set：即使为空也要覆盖，清除客户端可能的伪造
+	r.Header.Set("X-User-Id", userID)
+	r.Header.Set("X-User-Role", role)
+	r.Header.Set("X-Tenant-Id", tenantID)
+}
+
+// stringClaim 取 string 类型的 claim；不存在或类型不符返回空串。
+func stringClaim(c jwt.MapClaims, key string) string {
+	if v, ok := c[key].(string); ok {
+		return v
 	}
-	if v, ok := claims["role"].(string); ok && v != "" {
-		r.Header.Set("X-User-Role", v)
+	return ""
+}
+
+// firstNonEmpty 按优先级取第一个非空取值。
+func firstNonEmpty(c jwt.MapClaims, keys ...string) string {
+	for _, k := range keys {
+		if v := stringClaim(c, k); v != "" {
+			return v
+		}
 	}
-	if v, ok := claims["tenant_id"].(string); ok && v != "" {
-		r.Header.Set("X-Tenant-Id", v)
-	}
+	return ""
 }
