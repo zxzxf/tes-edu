@@ -9,7 +9,14 @@
   body { font-family: "Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;
          background: #eef2f8; color: #1f2a44; padding: 26px 30px 40px; }
   .page-title { text-align: center; font-size: 25px; font-weight: 700; color: #16243f; }
-  .page-sub   { text-align: center; color: #6b7790; font-size: 13.5px; margin: 6px 0 18px; }
+  .page-sub   { text-align: center; color: #6b7790; font-size: 13.5px; margin: 6px 0 14px; }
+  .boundary   { display:flex; align-items:center; gap:12px; justify-content:center;
+                background:linear-gradient(135deg,#fef3c7,#fde68a); border:1px solid #f4c430;
+                border-radius:10px; padding:10px 16px; margin:0 auto 18px; max-width:980px; }
+  .b-tag      { flex:none; font-size:12px; font-weight:700; color:#fff; background:#d97706;
+                padding:3px 10px; border-radius:6px; }
+  .b-text     { font-size:13px; color:#7c4a03; line-height:1.5; }
+  .b-text b   { color:#b45309; }
   .legend { display:flex; justify-content:center; gap:16px; flex-wrap:wrap;
             font-size:12.5px; color:#5a6680; margin-bottom:20px; }
   .legend span { display:inline-flex; align-items:center; gap:6px; }
@@ -39,6 +46,11 @@
 <body>
   <div class="page-title">课程教育 Agent 系统 · 整体架构图</div>
   <div class="page-sub">一张图串起 用户端 → 网关 → 双后端 → AI 引擎 → 数据层（Go 网关 + Python 双后端 + Kotlin 安卓）</div>
+
+  <div class="boundary">
+    <span class="b-tag">产品边界约束</span>
+    <span class="b-text">河南省 · 高中 · <b>数学</b> · 人教 A 版 · 新高考 I 卷（全国一卷）· 3+1+2 ｜ 学科聚焦数学（全国统一命题，一套内容可复用 11 省）</span>
+  </div>
 
   <div class="legend">
     <span><i class="dot" style="background:#3b82f6"></i>用户层</span>
@@ -99,6 +111,7 @@
           <li>请求路由（app / admin 分流）</li>
           <li>审计日志（合规 #8 落点）</li>
           <li>输入校验 / 内容安全过滤</li>
+          <li>合规落地：未成年人内容审核 · PII 脱敏 · 数据留存策略</li>
           <li>文件上传代理（图片→对象存储）</li>
         </ul>
       </div>
@@ -122,6 +135,8 @@
           <li>解题 + 分步讲解</li>
           <li>触类旁通出题</li>
           <li>拍照解析（图→题→解）</li>
+          <li>掌握度建模（知识点向量更新）</li>
+          <li>自适应推题（ZPD + 难度自适应）</li>
         </ul>
       </div>
       <div class="card" style="border-top-color:#10b981">
@@ -132,6 +147,7 @@
           <li>自动组卷 / 周测生成</li>
           <li>RBAC 角色权限</li>
           <li>教师批改 / 家长周报</li>
+          <li>新高考志愿填报 / 升学规划（河南 3+1+2）</li>
         </ul>
       </div>
     </div>
@@ -157,6 +173,10 @@
       <div class="card" style="border-top-color:#8b5cf6">
         <h4>OCR 引擎</h4>
         <ul><li>PaddleOCR：印刷 / 手写文字识别</li><li>拍照题面抽取</li></ul>
+      </div>
+      <div class="card" style="border-top-color:#8b5cf6">
+        <h4>ASR 语音识别</h4>
+        <ul><li>学生语音输入 / 口语题识别</li><li>语音讲题指令解析</li></ul>
       </div>
       <div class="card" style="border-top-color:#8b5cf6">
         <h4>视频生成引擎</h4>
@@ -206,6 +226,7 @@
           <li>kg_edges（AGE/Neo4j 图谱）</li>
           <li>drill_cards / student_logs</li>
           <li>explanation_videos（数字人讲题视频）</li>
+          <li>多租户隔离（数据 / 题库 / 掌握度按 tenant_id 分库分表）</li>
         </ul>
       </div>
     </div>

@@ -12,7 +12,11 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft YaHei",Segoe UI,system-ui,sans-serif;padding:26px 14px 46px}
   h1{text-align:center;font-size:21px;margin-bottom:4px}
-  .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:22px}
+  .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:16px}
+  .boundary{display:flex;align-items:center;gap:12px;justify-content:center;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f4c430;border-radius:10px;padding:10px 16px;margin:0 auto 20px;max-width:760px}
+  .b-tag{flex:none;font-size:12px;font-weight:700;color:#fff;background:#d97706;padding:3px 10px;border-radius:6px}
+  .b-text{font-size:13px;color:#7c4a03;line-height:1.5}
+  .b-text b{color:#b45309}
   .wrap{max-width:1000px;margin:0 auto;position:relative}
   .label{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:14px 0 7px 6px}
   .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
@@ -41,6 +45,11 @@
   <h1>课程教育 Agent 系统架构图</h1>
   <div class="sub">含独立网关层 · Go 网关 + Python 双后端 + Kotlin 客户端（语言标注）</div>
 
+  <div class="boundary">
+    <span class="b-tag">产品边界约束</span>
+    <span class="b-text">河南省 · 高中 · <b>数学</b> · 人教 A 版 · 新高考 I 卷（全国一卷）· 3+1+2 ｜ 学科聚焦数学（全国统一命题，一套内容可复用 11 省）</span>
+  </div>
+
   <div class="wrap">
     <!-- 用户层 -->
     <div class="label">① 用户层</div>
@@ -57,7 +66,7 @@
     <div class="row">
       <div class="card gateway" style="flex:2 1 340px">
         <div class="t">API Gateway · 网关层</div>
-        <div class="d">鉴权 · 限流 · 熔断 · 路由 · 审计日志 · 输入校验</div>
+        <div class="d">鉴权 · 限流 · 熔断 · 路由 · 审计日志 · 输入校验<br>合规落地：未成年人审核 · PII脱敏 · 数据留存</div>
         <span class="lang lo">Go</span>
       </div>
     </div>
@@ -68,8 +77,8 @@
     <!-- 服务层 -->
     <div class="label">③ 服务层（双后端，均 Python）</div>
     <div class="row">
-      <div class="card core" style="flex:1 1 220px"><div class="t">Agent 后端</div><div class="d">/solve · /solve_image<br>Orchestrator·RAG·LLM</div><span class="lang lp">Python/FastAPI</span></div>
-      <div class="card core" style="flex:1 1 220px"><div class="t">Web 后端服务</div><div class="d">/api/admin/*<br>运营·学情·组卷·审核</div><span class="lang lp">Python/FastAPI</span></div>
+      <div class="card core" style="flex:1 1 220px"><div class="t">Agent 后端</div><div class="d">/solve · /solve_image<br>Orchestrator·RAG·LLM<br>掌握度建模·自适应推题(ZPD)</div><span class="lang lp">Python/FastAPI</span></div>
+      <div class="card core" style="flex:1 1 220px"><div class="t">Web 后端服务</div><div class="d">/api/admin/*<br>运营·学情·组卷·审核<br>志愿填报/升学规划(河南3+1+2)</div><span class="lang lp">Python/FastAPI</span></div>
     </div>
 
     <div class="arrow"><span></span></div>
@@ -89,6 +98,7 @@
       <div class="card"><div class="t">🧠 LLM 解答引擎</div><div class="d">答案+分步讲解<br>考点/易错点</div><span class="lang lp">Python</span></div>
       <div class="card"><div class="t">👁 多模态 VLM</div><div class="d">看图识题<br>版面/公式理解</div><span class="lang lp">Python</span></div>
       <div class="card"><div class="t">🔤 OCR 引擎</div><div class="d">文字提取<br>印刷/手写/公式</div><span class="lang lp">Python</span></div>
+      <div class="card"><div class="t">🎙 ASR 语音识别</div><div class="d">学生语音输入<br>口语题/语音讲题</div><span class="lang lp">Python</span></div>
       <div class="card"><div class="t">🎬 数字人视频生成</div><div class="d">TTS+驱动<br>讲题短视频</div><span class="lang lp">Python</span></div>
     </div>
 
@@ -109,7 +119,7 @@
     <div class="row">
       <div class="card data" style="flex:1 1 200px"><div class="t">Kafka 消息总线</div><div class="d">解耦·削峰·可重放</div></div>
       <div class="card data" style="flex:2 1 320px"><div class="t">PostgreSQL 数据源</div>
-        <div class="d" style="margin-top:6px">course_kb · embeddings · kg_edges · drill_cards · student_logs · explanation_videos</div></div>
+        <div class="d" style="margin-top:6px">course_kb · embeddings · kg_edges · drill_cards · student_logs · explanation_videos<br>多租户隔离（按 tenant_id 分库分表）</div></div>
     </div>
 
     <div class="legend">
