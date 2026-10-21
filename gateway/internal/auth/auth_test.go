@@ -14,11 +14,15 @@ const testSecret = "unit-test-secret"
 
 // 构造被测 handler：Wrap 之后接一个恒返回 200 的哨兵。
 func wrapTarget(mode string, roles []string) http.Handler {
+	return wrapTargetOpt(Options{Mode: mode, Roles: roles, Secret: testSecret})
+}
+
+func wrapTargetOpt(opt Options) http.Handler {
 	sentinel := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK"))
 	})
-	return Wrap(sentinel, mode, testSecret, roles)
+	return Wrap(sentinel, opt)
 }
 
 // sign 按给定 claims 签发 HS256 token（与网关 parseJWT 约定一致）。
@@ -127,7 +131,7 @@ func TestIdentityHeadersInjected(t *testing.T) {
 		got = r.Header.Clone()
 		w.WriteHeader(http.StatusOK)
 	})
-	h := Wrap(sentinel, "jwt_c", testSecret, nil)
+	h := Wrap(sentinel, Options{Mode: "jwt_c", Secret: testSecret})
 	tok := sign(t, jwt.MapClaims{"sub": "u42", "role": "teacher", "tenant_id": "t7"})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/app/x", nil)
@@ -153,13 +157,13 @@ func TestIdentityHeadersOverwriteForged(t *testing.T) {
 		got = r.Header.Clone()
 		w.WriteHeader(http.StatusOK)
 	})
-	h := Wrap(sentinel, "jwt_c", testSecret, nil)
+	h := Wrap(sentinel, Options{Mode: "jwt_c", Secret: testSecret})
 	tok := sign(t, jwt.MapClaims{"sub": "real-user"})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/app/x", nil)
 	req.Header.Set("Authorization", "Bearer "+tok)
-	req.Header.Set("X-User-Id", "attacker")     // 伪造
-	req.Header.Set("X-User-Role", "admin")      // 伪造提权
+	req.Header.Set("X-User-Id", "attacker")       // 伪造
+	req.Header.Set("X-User-Role", "admin")        // 伪造提权
 	req.Header.Set("X-Tenant-Id", "other-tenant") // 伪造跨租户
 	h.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -181,7 +185,7 @@ func TestUIDFallback(t *testing.T) {
 		got = r.Header.Clone()
 		w.WriteHeader(http.StatusOK)
 	})
-	h := Wrap(sentinel, "jwt_c", testSecret, nil)
+	h := Wrap(sentinel, Options{Mode: "jwt_c", Secret: testSecret})
 	tok := sign(t, jwt.MapClaims{"uid": "legacy-user"})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/app/x", nil)
@@ -216,5 +220,83 @@ func TestBearerPrefixExact(t *testing.T) {
 	}
 	if strings.TrimSpace(w.Body.String()) == "" {
 		t.Error("401 应带 JSON 错误体")
+	}
+}
+
+// --- 多租户强制隔离（require_tenant）---
+
+// TestRequireTenant_MissingClaim403：租户路由必须拒绝无 tenant_id 的令牌。
+// 这条是多租户隔离的网关侧底线：B 端令牌若不带租户声明，放行后
+// 下游只能靠 X-Tenant-Id 空串猜，跨机构数据可见。
+func TestRequireTenant_MissingClaim403(t *testing.T) {
+	h := wrapTargetOpt(Options{Mode: "jwt_c", Secret: testSecret, RequireTenant: true})
+	tok := sign(t, jwt.MapClaims{"sub": "u1"}) // 无 tenant_id
+
+	if got := do(t, h, "/api/admin/x", tok).Code; got != http.StatusForbidden {
+		t.Fatalf("无租户声明应 403，实际 %d", got)
+	}
+}
+
+// TestRequireTenant_WithClaim200：带 tenant_id 放行并注入 X-Tenant-Id。
+func TestRequireTenant_WithClaim200(t *testing.T) {
+	var got http.Header
+	sentinel := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+	})
+	h := Wrap(sentinel, Options{Mode: "jwt_c", Secret: testSecret, RequireTenant: true})
+	tok := sign(t, jwt.MapClaims{"sub": "u1", "tenant_id": "school-42"})
+
+	if code := do(t, h, "/api/admin/x", tok).Code; code != http.StatusOK {
+		t.Fatalf("带租户声明应 200，实际 %d", code)
+	}
+	if got.Get("X-Tenant-Id") != "school-42" {
+		t.Fatalf("X-Tenant-Id 注入失败: %q", got.Get("X-Tenant-Id"))
+	}
+}
+
+// TestRequireTenant_EmptyClaim403：空串 tenant_id 等同没有（不能靠填空串绕过）。
+func TestRequireTenant_EmptyClaim403(t *testing.T) {
+	h := wrapTargetOpt(Options{Mode: "jwt_c", Secret: testSecret, RequireTenant: true})
+	tok := sign(t, jwt.MapClaims{"sub": "u1", "tenant_id": ""})
+
+	if got := do(t, h, "/api/admin/x", tok).Code; got != http.StatusForbidden {
+		t.Fatalf("空 tenant_id 应 403，实际 %d", got)
+	}
+}
+
+// TestRequireTenant_DisabledByDefault：不开 require_tenant 时无租户令牌照常放行
+// （C 端学生态没有租户概念，不能误伤）。
+func TestRequireTenant_DisabledByDefault(t *testing.T) {
+	h := wrapTargetOpt(Options{Mode: "jwt_c", Secret: testSecret})
+	tok := sign(t, jwt.MapClaims{"sub": "u1"})
+
+	if got := do(t, h, "/api/app/solve", tok).Code; got != http.StatusOK {
+		t.Fatalf("未开启 require_tenant 应放行，实际 %d", got)
+	}
+}
+
+// TestRequireTenant_RBACStillWorks：rbac + require_tenant 叠加：
+// 角色不对先 403（角色校验在前），角色对但无租户也 403。
+func TestRequireTenant_RBACStillWorks(t *testing.T) {
+	h := wrapTargetOpt(Options{
+		Mode: "rbac", Secret: testSecret,
+		Roles: []string{"admin"}, RequireTenant: true,
+	})
+
+	// 角色不符 → 403（角色优先）
+	badRole := sign(t, jwt.MapClaims{"sub": "s", "role": "student", "tenant_id": "t1"})
+	if got := do(t, h, "/api/admin/x", badRole).Code; got != http.StatusForbidden {
+		t.Fatalf("角色不符应 403，实际 %d", got)
+	}
+	// 角色对但无租户 → 403
+	noTenant := sign(t, jwt.MapClaims{"sub": "a", "role": "admin"})
+	if got := do(t, h, "/api/admin/x", noTenant).Code; got != http.StatusForbidden {
+		t.Fatalf("无租户应 403，实际 %d", got)
+	}
+	// 两者都对 → 200
+	ok := sign(t, jwt.MapClaims{"sub": "a", "role": "admin", "tenant_id": "t1"})
+	if got := do(t, h, "/api/admin/x", ok).Code; got != http.StatusOK {
+		t.Fatalf("角色+租户齐全应 200，实际 %d", got)
 	}
 }

@@ -8,6 +8,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/time/rate"
+
+	"gateway/internal/metrics"
 )
 
 // redisScript 原子令牌桶（Lua）：检查并扣减，保证多副本部署下全局一致。
@@ -133,11 +135,11 @@ func Wrap(next http.Handler, opt Options) http.Handler {
 			if err != nil {
 				// Redis 异常：回退本地桶，保证请求不被整体阻断（限流精度降级）
 				if !kl.get(key).Allow() {
-					http.Error(w, `{"error":"too many requests"}`, 429)
+					reject(w)
 					return
 				}
 			} else if !ok {
-				http.Error(w, `{"error":"too many requests"}`, 429)
+				reject(w)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -145,11 +147,17 @@ func Wrap(next http.Handler, opt Options) http.Handler {
 		}
 
 		if !kl.get(key).Allow() {
-			http.Error(w, `{"error":"too many requests"}`, 429)
+			reject(w)
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// reject 返回 429 并计入匿名指标（telemetry 的 KeyRateLimited 维度）。
+func reject(w http.ResponseWriter) {
+	metrics.Inc(metrics.KeyRateLimited)
+	http.Error(w, `{"error":"too many requests"}`, 429)
 }
 
 // allowRedis 用原子 Lua 脚本检查并扣减令牌，返回是否放行。

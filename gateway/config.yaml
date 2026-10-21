@@ -41,6 +41,9 @@ routes:
     upstream: web_backend
     mode: rbac
     roles: ["admin", "teacher", "researcher", "operator"]
+    # 多租户强制隔离：B 端路由要求 JWT 带非空 tenant_id，无租户令牌一律 403，
+    # 防止跨空间访问（C 端路由按用户态设计，不强制租户）
+    require_tenant: true
     rate: 10
     burst: 20
   - match: "/"
@@ -61,3 +64,40 @@ redis:
   dial_timeout_ms: 1000
   read_timeout_ms: 200
   write_timeout_ms: 200
+
+# 授权/更新回连心跳（P5 合同硬要求：心跳 ≤100KB/天）。
+# 默认 6h 一次 ≈ 1.2KB/天；心跳体仅含匿名实例 ID + 版本 + 时间戳，不含学生内容。
+# 失败纯旁路（只记日志），健康状态经 /licensez（仅本机/内网）查看。
+# 环境变量覆盖：LICENSE_ENABLED / LICENSE_URL / LICENSE_INTERVAL_SECONDS
+license:
+  enabled: false
+  url: ""
+  interval_seconds: 21600
+
+# 匿名运行指标回传（P5 合同硬要求：仅指标与错误码，不含学生内容）。
+# 回传字段白名单由 metrics 包常量强制（11 个计数器键，无路径/uid/租户/题干）。
+# 环境变量覆盖：TELEMETRY_ENABLED / TELEMETRY_URL / TELEMETRY_INTERVAL_SECONDS
+telemetry:
+  enabled: false
+  url: ""
+  interval_seconds: 3600
+
+# 内容安全（未成年人保护）：JSON/文本请求体敏感词扫描，命中即 403 + 审计日志。
+# multipart（拍照上传）不做文本扫描，仅受 15MB 大小闸门约束，深审由后端负责。
+# 环境变量覆盖：CONTENT_SAFETY_ENABLED
+content_safety:
+  enabled: true
+  keywords: []
+    # 按业务逐步补充示例（小写比较）：
+    # - "示例敏感词1"
+    # - "示例敏感词2"
+  max_scan_bytes: 262144
+
+# 审计日志保留期（天）。>0 时每次启动清理同目录超期的历史轮转日志；
+# 0 表示不启用保留期（不删任何文件）。环境变量覆盖：AUDIT_RETENTION_DAYS
+audit_retention_days: 180
+
+# 实例标识与版本（授权心跳/指标回传携带；均为匿名部署维度，不关联学校/学生）。
+# 环境变量覆盖：INSTANCE_ID / GATEWAY_VERSION；缺省自动生成 gw-<主机名>-<随机后缀>。
+instance_id: ""
+version: ""

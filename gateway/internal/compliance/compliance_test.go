@@ -1,6 +1,7 @@
 package compliance
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,7 +13,7 @@ func wrapTarget() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK"))
 	})
-	return Wrap(sentinel, nil)
+	return Wrap(sentinel, Options{})
 }
 
 // TestRejectsOversizedBody：声明 Content-Length 超过 4MB 必须 413。
@@ -116,7 +117,7 @@ func TestChunkedBodyEnforced(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 	})
-	h := Wrap(target, nil)
+	h := Wrap(target, Options{})
 
 	// 8MB 的 chunked JSON 请求（无 Content-Length，绕过 ContentLength 检查）
 	body := strings.NewReader(strings.Repeat("a", 8<<20))
@@ -164,7 +165,145 @@ func TestEdgePathNotPanic(t *testing.T) {
 		if err != nil {
 			t.Fatalf("构造请求 %q 失败: %v", p, err)
 		}
-		req.URL.Path = p // 直接置为待测路径，绕过 URL 解析规范化
+		req.URL.Path = p       // 直接置为待测路径，绕过 URL 解析规范化
 		_ = isSensitiveOp(req) // 只要求不 panic（prefix 切片越界是最典型的坑）
+	}
+}
+
+// --- 内容安全：敏感词扫描 ---
+
+func wrapSafety(t *testing.T, opt Options) http.Handler {
+	t.Helper()
+	return Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 验证 body 仍可被下游读取（扫描后必须还原）
+		b, _ := io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(b)
+	}), opt)
+}
+
+// TestContentSafety_RejectsKeyword：命中敏感词 → 403 且不打上游。
+func TestContentSafety_RejectsKeyword(t *testing.T) {
+	h := wrapSafety(t, Options{
+		ContentSafetyEnabled: true,
+		Keywords:             []string{"赌博", "GAMBLE"},
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/app/solve",
+		strings.NewReader(`{"q":"介绍赌博的危害"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("命中敏感词应 403，实际 %d", w.Code)
+	}
+}
+
+// TestContentSafety_CaseInsensitive：英文敏感词大小写不敏感。
+func TestContentSafety_CaseInsensitive(t *testing.T) {
+	h := wrapSafety(t, Options{
+		ContentSafetyEnabled: true,
+		Keywords:             []string{"gamble"},
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/app/solve",
+		strings.NewReader(`{"q":"what is GAMBLE"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("大小写不敏感应命中，实际 %d", w.Code)
+	}
+}
+
+// TestContentSafety_BodyRestored：未命中时 body 必须还原，下游能读到原文。
+// 扫描消费了 r.Body，不还原会导致上游收到空 body——最典型的回归点。
+func TestContentSafety_BodyRestored(t *testing.T) {
+	h := wrapSafety(t, Options{
+		ContentSafetyEnabled: true,
+		Keywords:             []string{"赌博"},
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/app/solve",
+		strings.NewReader(`{"q":"1+1=?"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("正常请求应 200，实际 %d", w.Code)
+	}
+	if w.Body.String() != `{"q":"1+1=?"}` {
+		t.Fatalf("body 未还原，下游收到 %q", w.Body.String())
+	}
+}
+
+// TestContentSafety_SkipsMultipart：multipart 不做文本扫描（二进制/大体重放由后端负责）。
+func TestContentSafety_SkipsMultipart(t *testing.T) {
+	h := wrapSafety(t, Options{
+		ContentSafetyEnabled: true,
+		Keywords:             []string{"赌博"},
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/app/solve_image",
+		strings.NewReader("--b\r\nContent-Disposition: form-data; name=f\r\n\r\n赌博\r\n--b--"))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=b")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("multipart 应跳过扫描放行，实际 %d", w.Code)
+	}
+}
+
+// TestContentSafety_SkipsLargeBody：超过扫描上限的 body 不扫描（网关不做大体重放）。
+func TestContentSafety_SkipsLargeBody(t *testing.T) {
+	h := wrapSafety(t, Options{
+		ContentSafetyEnabled: true,
+		Keywords:             []string{"赌博"},
+		MaxScanBytes:         1024,
+	})
+
+	big := `{"q":"` + strings.Repeat("x", 4096) + `赌博` + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/app/solve", strings.NewReader(big))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("超大 body 应跳过扫描放行（后端深审），实际 %d", w.Code)
+	}
+}
+
+// TestContentSafety_SkipsGET：GET 无 body，不扫描。
+func TestContentSafety_SkipsGET(t *testing.T) {
+	h := wrapSafety(t, Options{
+		ContentSafetyEnabled: true,
+		Keywords:             []string{"赌博"},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/app/solve?q=赌博", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET 应跳过扫描，实际 %d", w.Code)
+	}
+}
+
+// TestContentSafety_DisabledByDefault：关闭时全部放行。
+func TestContentSafety_DisabledByDefault(t *testing.T) {
+	h := wrapSafety(t, Options{Keywords: []string{"赌博"}})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/app/solve",
+		strings.NewReader(`{"q":"赌博"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("关闭内容安全应放行，实际 %d", w.Code)
 	}
 }

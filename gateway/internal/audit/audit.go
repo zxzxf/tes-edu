@@ -2,10 +2,13 @@ package audit
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -54,11 +57,11 @@ func Log(next http.Handler, path string) (http.Handler, io.Closer) {
 		sw := &statusWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(sw, r)
 
-		// 请求处理完成后，元信息已由鉴权中间件填充，统一落盘
-		logger.Printf("%s %s %s %d uid=%s role=%s tenant=%s %s %s",
+		// 请求处理完成后，元信息已由鉴权中间件填充，统一落盘（PII 脱敏后）
+		logger.Printf("%s", MaskPII(fmt.Sprintf("%s %s %s %d uid=%s role=%s tenant=%s %s %s",
 			r.RemoteAddr, r.Method, r.URL.Path, sw.status,
 			meta.UserID, meta.Role, meta.TenantID,
-			r.UserAgent(), time.Since(start))
+			r.UserAgent(), time.Since(start))))
 	}), closer
 }
 
@@ -66,6 +69,46 @@ func Log(next http.Handler, path string) (http.Handler, io.Closer) {
 type nopCloser struct{}
 
 func (nopCloser) Close() error { return nil }
+
+// CleanupOldLogs 按保留期清理历史审计日志（数据留存策略的网关侧落地）。
+//
+// 规则：
+//   - 只清理与活跃日志同目录、同基名前缀（如 access.log*）的文件；
+//   - 活跃日志文件本身与保留期内的文件绝不删除；
+//   - retentionDays<=0 表示不启用保留期（不删任何文件）；
+//   - 返回被删除的文件路径列表（运维对账用）。
+func CleanupOldLogs(logPath string, retentionDays int) []string {
+	if retentionDays <= 0 || logPath == "" {
+		return nil
+	}
+	dir := filepath.Dir(logPath)
+	prefix := filepath.Base(logPath)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+
+	cutoff := time.Now().AddDate(0, 0, -retentionDays)
+	var deleted []string
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if name == prefix || !strings.HasPrefix(name, prefix) {
+			continue // 跳过活跃文件与无关文件
+		}
+		info, err := e.Info()
+		if err != nil || !info.ModTime().Before(cutoff) {
+			continue
+		}
+		full := filepath.Join(dir, name)
+		if err := os.Remove(full); err == nil {
+			deleted = append(deleted, full)
+		}
+	}
+	return deleted
+}
 
 type statusWriter struct {
 	http.ResponseWriter

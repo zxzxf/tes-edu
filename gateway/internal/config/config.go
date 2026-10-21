@@ -1,9 +1,12 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"gateway/internal/allowlist"
 	"gopkg.in/yaml.v3"
@@ -11,14 +14,24 @@ import (
 
 // Config 网关运行配置
 type Config struct {
-	Listen       string                   `yaml:"listen"`
-	Upstreams    map[string]string        `yaml:"upstreams"`
-	Routes       []Route                  `yaml:"routes"`
-	Breakers     map[string]BreakerConfig `yaml:"breakers"`
-	LLMAllowlist LLMAllowlistConfig       `yaml:"llm_allowlist"`
-	JWTSecret    string                   `yaml:"jwt_secret"`
-	AuditLog     string                   `yaml:"audit_log"`
-	Redis        RedisConfig              `yaml:"redis"`
+	Listen             string                   `yaml:"listen"`
+	Upstreams          map[string]string        `yaml:"upstreams"`
+	Routes             []Route                  `yaml:"routes"`
+	Breakers           map[string]BreakerConfig `yaml:"breakers"`
+	LLMAllowlist       LLMAllowlistConfig       `yaml:"llm_allowlist"`
+	License            LicenseConfig            `yaml:"license"`
+	Telemetry          TelemetryConfig          `yaml:"telemetry"`
+	ContentSafety      ContentSafetyConfig      `yaml:"content_safety"`
+	AuditRetentionDays int                      `yaml:"audit_retention_days"`
+	// InstanceID 匿名实例标识（授权心跳/指标回传使用）。
+	// env INSTANCE_ID 覆盖；未设置时按主机名+随机后缀生成，
+	// 只含部署维度信息，不关联学校/学生。
+	InstanceID string `yaml:"instance_id"`
+	// Version 网关版本号（心跳/回传/排障用）。env GATEWAY_VERSION 覆盖。
+	Version         string                   `yaml:"version"`
+	JWTSecret       string                   `yaml:"jwt_secret"`
+	AuditLog        string                   `yaml:"audit_log"`
+	Redis           RedisConfig              `yaml:"redis"`
 }
 
 // Route 单条路由规则
@@ -26,14 +39,37 @@ type Config struct {
 //   - Upstream : upstreams 映射中的键
 //   - Mode     : 鉴权模式，"jwt_c"=C 端用户态校验；"rbac"=B 端管理员校验；""=不鉴权
 //   - Roles    : mode=rbac 时的允许角色白名单
+//   - RequireTenant : true 时要求 JWT 带非空 tenant_id，否则 403（多租户隔离）
 //   - Rate/Burst: 令牌桶限流（请求/秒，突发容量）
 type Route struct {
-	Match    string   `yaml:"match"`
-	Upstream string   `yaml:"upstream"`
-	Mode     string   `yaml:"mode"`
-	Roles    []string `yaml:"roles"`
-	Rate     float64  `yaml:"rate"`
-	Burst    int      `yaml:"burst"`
+	Match         string   `yaml:"match"`
+	Upstream      string   `yaml:"upstream"`
+	Mode          string   `yaml:"mode"`
+	Roles         []string `yaml:"roles"`
+	RequireTenant bool     `yaml:"require_tenant"`
+	Rate          float64  `yaml:"rate"`
+	Burst         int      `yaml:"burst"`
+}
+
+// LicenseConfig 授权/更新回连心跳（P5 合同硬要求：心跳 ≤100KB/天）。
+type LicenseConfig struct {
+	Enabled         bool   `yaml:"enabled"`
+	URL             string `yaml:"url"`
+	IntervalSeconds int    `yaml:"interval_seconds"` // 默认 21600（6h）
+}
+
+// TelemetryConfig 匿名运行指标回传（P5 合同硬要求：仅指标与错误码）。
+type TelemetryConfig struct {
+	Enabled         bool   `yaml:"enabled"`
+	URL             string `yaml:"url"`
+	IntervalSeconds int    `yaml:"interval_seconds"` // 默认 3600（1h）
+}
+
+// ContentSafetyConfig 内容安全（未成年人保护）：JSON 请求体敏感词扫描。
+type ContentSafetyConfig struct {
+	Enabled      bool     `yaml:"enabled"`
+	Keywords     []string `yaml:"keywords"`
+	MaxScanBytes int64    `yaml:"max_scan_bytes"` // 默认 256KB
 }
 
 // RedisConfig 限流用的 Redis 配置（多副本全局令牌桶）。
@@ -128,7 +164,77 @@ func Load(path string) (*Config, error) {
 			return nil, fmt.Errorf("llm_allowlist.endpoints 配置错误: %w", err)
 		}
 	}
+	// 授权心跳（P5 合同硬要求 2/3）环境变量覆盖
+	if v := os.Getenv("LICENSE_ENABLED"); v != "" {
+		c.License.Enabled = parseBool(v)
+	}
+	if v := os.Getenv("LICENSE_URL"); v != "" {
+		c.License.URL = v
+	}
+	if v := os.Getenv("LICENSE_INTERVAL_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			c.License.IntervalSeconds = n
+		}
+	}
+	// 匿名指标回传（P5 合同硬要求 3/3）环境变量覆盖
+	if v := os.Getenv("TELEMETRY_ENABLED"); v != "" {
+		c.Telemetry.Enabled = parseBool(v)
+	}
+	if v := os.Getenv("TELEMETRY_URL"); v != "" {
+		c.Telemetry.URL = v
+	}
+	if v := os.Getenv("TELEMETRY_INTERVAL_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			c.Telemetry.IntervalSeconds = n
+		}
+	}
+	// 内容安全与审计保留期环境变量覆盖
+	if v := os.Getenv("CONTENT_SAFETY_ENABLED"); v != "" {
+		c.ContentSafety.Enabled = parseBool(v)
+	}
+	if v := os.Getenv("AUDIT_RETENTION_DAYS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			c.AuditRetentionDays = n
+		}
+	}
+	// 实例标识与版本：env 优先；缺省时生成匿名实例 ID + dev 版本
+	if v := os.Getenv("INSTANCE_ID"); v != "" {
+		c.InstanceID = v
+	}
+	if c.InstanceID == "" {
+		c.InstanceID = "gw-" + defaultInstanceSuffix()
+	}
+	if v := os.Getenv("GATEWAY_VERSION"); v != "" {
+		c.Version = v
+	}
+	if c.Version == "" {
+		c.Version = "dev"
+	}
 	return &c, nil
+}
+
+// parseBool 解析布尔型环境变量（与 REDIS_ENABLED 等既有约定一致）。
+func parseBool(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "true", "1", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+// defaultInstanceSuffix 生成默认实例 ID 后缀：主机名 + 4 字节随机 hex。
+// 匿名性：只含部署维度（哪台机器起的第几个副本），不含学校/学生信息。
+func defaultInstanceSuffix() string {
+	host, err := os.Hostname()
+	if err != nil || host == "" {
+		host = "unknown"
+	}
+	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return host // 随机源异常时退化为纯主机名（仍可用）
+	}
+	return host + "-" + hex.EncodeToString(b[:])
 }
 
 // UpstreamURL 返回路由指向的上游地址

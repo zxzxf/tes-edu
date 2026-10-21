@@ -17,6 +17,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"gateway/internal/metrics"
 )
 
 // State 熔断器状态。
@@ -150,6 +152,10 @@ func (b *Breaker) setState(to State) {
 	from := b.state
 	b.state = to
 	log.Printf("breaker[%s]: %s -> %s", b.opt.Name, from, to)
+	// 打开熔断计入匿名指标（telemetry 回传的 KeyBreakerOpen 维度）
+	if to == StateOpen {
+		metrics.Inc(metrics.KeyBreakerOpen)
+	}
 }
 
 // Wrap 给 handler 加熔断保护：
@@ -165,6 +171,7 @@ func Wrap(next http.Handler, b *Breaker, failureStatus int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		allowed, _ := b.Allow()
 		if !allowed {
+			metrics.Inc(metrics.KeyBreakerReject)
 			w.Header().Set("Retry-After", retryAfter(b))
 			http.Error(w, `{"error":"upstream circuit open"}`, http.StatusServiceUnavailable)
 			return

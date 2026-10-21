@@ -5,34 +5,54 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+
 	"gateway/internal/audit"
+	"gateway/internal/metrics"
 )
 
-// Wrap 根据 mode 给下游 handler 加鉴权：
-//   - "jwt_c" : C 端用户态 JWT 校验
-//   - "rbac"  : B 端管理员校验，且要求 role 在白名单内
-//   - ""      : 不鉴权（如静态资源、健康检查）
-func Wrap(next http.Handler, mode, secret string, rbacRoles []string) http.Handler {
-	if mode == "" {
+// Options 鉴权选项。
+//   - Mode   : "jwt_c"=C 端用户态校验；"rbac"=B 端管理员校验；""=不鉴权
+//   - Roles  : mode=rbac 时的允许角色白名单
+//   - RequireTenant : true 时要求 JWT 必须带非空 tenant_id claim，
+//     否则 403（多租户强制隔离：B 端/机构路由防"无租户令牌"跨空间访问）
+type Options struct {
+	Mode          string
+	Secret        string
+	Roles         []string
+	RequireTenant bool
+}
+
+// Wrap 根据 opt.Mode 给下游 handler 加鉴权。
+func Wrap(next http.Handler, opt Options) http.Handler {
+	if opt.Mode == "" {
 		return next
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tok := extractBearer(r)
 		if tok == "" {
+			metrics.Inc(metrics.KeyAuthReject)
 			http.Error(w, `{"error":"missing token"}`, 401)
 			return
 		}
-		claims, err := parseJWT(tok, secret)
+		claims, err := parseJWT(tok, opt.Secret)
 		if err != nil {
+			metrics.Inc(metrics.KeyAuthReject)
 			http.Error(w, `{"error":"invalid token"}`, 401)
 			return
 		}
-		if mode == "rbac" {
+		if opt.Mode == "rbac" {
 			role, _ := claims["role"].(string)
-			if !contains(rbacRoles, role) {
+			if !contains(opt.Roles, role) {
+				metrics.Inc(metrics.KeyAuthReject)
 				http.Error(w, `{"error":"forbidden"}`, 403)
 				return
 			}
+		}
+		// 多租户强制隔离：无租户claim的令牌不允许访问租户路由
+		if opt.RequireTenant && stringClaim(claims, "tenant_id") == "" {
+			metrics.Inc(metrics.KeyTenantReject)
+			http.Error(w, `{"error":"tenant required"}`, 403)
+			return
 		}
 		// 注入 X-User-* 身份头，供下游（如 Python/FastAPI 独立进程）识别调用者；
 		// 使用 Header.Set 覆盖任何客户端传入的同名头，防止伪造。

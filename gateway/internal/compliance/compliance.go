@@ -1,9 +1,25 @@
+// Package compliance 合规模块（骨架升级版）。
+//
+// 三层能力：
+//  1. 输入校验：按内容类型限制请求体大小（JSON 4MB / multipart 15MB），
+//     chunked 无 Content-Length 时由 MaxBytesReader 兜底；
+//  2. 内容安全（未成年人保护）：对 JSON/文本请求体做敏感词扫描，
+//     命中即 403 + 审计日志。multipart（二进制图片）不扫描——
+//     大体重放与逐字节审计由后端/对象存储侧负责，网关只做大小闸门；
+//  3. 敏感操作审计：B 端写操作日志（PII 脱敏后落盘）。
+//
+// 后续可在此接入统一内容安全服务（替代本地词表），接口已按中间件形态留好。
 package compliance
 
 import (
+	"bytes"
+	"io"
 	"log"
 	"net/http"
 	"strings"
+
+	"gateway/internal/audit"
+	"gateway/internal/metrics"
 )
 
 // 请求体大小上限（防 payload 滥用）。
@@ -14,22 +30,37 @@ const (
 	maxMultipartBytes = 15 << 20 // 15MB
 )
 
-// 合规模板中间件（骨架版）。
-//
-// 当前实现：
-//  1. 基础输入校验：按内容类型限制请求体大小，防止 payload 滥用；
-//     Content-Length 与 chunked（无 Content-Length）两种场景都覆盖；
-//  2. 敏感操作审计：对 B 端写操作（/api/admin/ 下非 GET）做合规日志记录。
-//
-// 后续应在此接入真实内容安全能力：
-//   - 未成年人内容审核（请求体/响应体涉敏拦截）；
-//   - PII 脱敏（手机号/身份证等敏感字段落盘前脱敏）；
-//   - 数据留存策略（按合规要求控制日志保留周期）。
-// 这些能力建议对接统一的内容安全服务，而非在各后端重复实现。
-func Wrap(next http.Handler, logger *log.Logger) http.Handler {
+// Options 合规选项。
+type Options struct {
+	// Logger 合规日志（nil 用 log.Default()）。
+	Logger *log.Logger
+	// ContentSafetyEnabled 敏感词扫描总开关。
+	ContentSafetyEnabled bool
+	// Keywords 敏感词表（小写比较；命中即拒绝）。
+	Keywords []string
+	// MaxScanBytes 单请求体扫描上限（默认 256KB；超出不扫描直接放行，
+	// 由后端深审——网关不做大体重放）。
+	MaxScanBytes int64
+}
+
+// Wrap 构造合规中间件。
+func Wrap(next http.Handler, opt Options) http.Handler {
+	logger := opt.Logger
 	if logger == nil {
 		logger = log.Default()
 	}
+	keywords := make([]string, 0, len(opt.Keywords))
+	for _, k := range opt.Keywords {
+		k = strings.ToLower(strings.TrimSpace(k))
+		if k != "" {
+			keywords = append(keywords, k)
+		}
+	}
+	maxScan := opt.MaxScanBytes
+	if maxScan <= 0 {
+		maxScan = 256 << 10 // 256KB
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 1) 基础输入校验：按内容类型取上限
 		limit := bodyLimit(r)
@@ -43,7 +74,25 @@ func Wrap(next http.Handler, logger *log.Logger) http.Handler {
 			r.Body = http.MaxBytesReader(w, r.Body, limit)
 		}
 
-		// 2) 敏感操作审计（骨架：仅日志，后续接入审核/脱敏服务）
+		// 2) 内容安全：JSON/文本请求体敏感词扫描
+		if opt.ContentSafetyEnabled && scannable(r) && r.ContentLength > 0 && r.ContentLength <= maxScan {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, `{"error":"payload too large"}`, http.StatusRequestEntityTooLarge)
+				return
+			}
+			if kw := scanKeywords(string(body), keywords); kw != "" {
+				metrics.Inc(metrics.KeyContentReject)
+				logger.Printf("[compliance] content_reject keyword=%q path=%s method=%s uid=%s",
+					audit.MaskPII(kw), r.URL.Path, r.Method, r.Header.Get("X-User-Id"))
+				http.Error(w, `{"error":"content rejected"}`, http.StatusForbidden)
+				return
+			}
+			// 未命中：还原 body 供下游读取（扫描已消费原 reader）
+			r.Body = io.NopCloser(bytes.NewReader(body))
+		}
+
+		// 3) 敏感操作审计（骨架：仅日志，后续接入审核/脱敏服务）
 		if isSensitiveOp(r) {
 			logger.Printf("[compliance] sensitive_op path=%s method=%s uid=%s role=%s",
 				r.URL.Path, r.Method,
@@ -71,6 +120,31 @@ func isMultipart(r *http.Request) bool {
 	}
 	// 防止 "multipart/form-data" 无 boundary 的畸形头绕过类型判断后仍按大限额放行
 	return strings.Contains(strings.ToLower(ct), "boundary=")
+}
+
+// scannable 判断请求体是否可做文本扫描：JSON/文本且非 multipart。
+func scannable(r *http.Request) bool {
+	if isMultipart(r) {
+		return false
+	}
+	switch r.Method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch:
+	default:
+		return false
+	}
+	ct := strings.ToLower(r.Header.Get("Content-Type"))
+	return strings.HasPrefix(ct, "application/json") || strings.HasPrefix(ct, "text/")
+}
+
+// scanKeywords 返回第一个命中的敏感词（小写比较）；未命中返回 ""。
+func scanKeywords(body string, keywords []string) string {
+	lower := strings.ToLower(body)
+	for _, kw := range keywords {
+		if kw != "" && strings.Contains(lower, kw) {
+			return kw
+		}
+	}
+	return ""
 }
 
 // isSensitiveOp 判断是否为 B 端写操作（需重点审计的敏感操作）。
