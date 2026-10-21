@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"gateway/internal/audit"
 )
 
 // Wrap 根据 mode 给下游 handler 加鉴权：
@@ -36,6 +37,12 @@ func Wrap(next http.Handler, mode, secret string, rbacRoles []string) http.Handl
 		// 注入 X-User-* 身份头，供下游（如 Python/FastAPI 独立进程）识别调用者；
 		// 使用 Header.Set 覆盖任何客户端传入的同名头，防止伪造。
 		injectIdentityHeaders(r, claims)
+		// 同步身份到审计元信息（供最外层审计中间件落盘 uid/role/tenant）
+		if m := audit.MetaFromContext(r.Context()); m != nil {
+			m.UserID = r.Header.Get("X-User-Id")
+			m.Role = r.Header.Get("X-User-Role")
+			m.TenantID = r.Header.Get("X-Tenant-Id")
+		}
 		// 同时保留 context 透传（同进程内下游 handler 可用）
 		ctx := withClaims(r.Context(), claims)
 		next.ServeHTTP(w, r.WithContext(ctx))

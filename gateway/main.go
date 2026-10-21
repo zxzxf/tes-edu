@@ -9,6 +9,7 @@ import (
 
 	"gateway/internal/audit"
 	"gateway/internal/auth"
+	"gateway/internal/compliance"
 	"gateway/internal/config"
 	"gateway/internal/ratelimit"
 )
@@ -44,15 +45,18 @@ func main() {
 		proxy := httputil.NewSingleHostReverseProxy(target)
 		handler := http.Handler(proxy)
 
-		// 鉴权（按路由 mode）
+		// 合规（骨架：输入校验 + 敏感操作审计），位于鉴权之后、转发之前
+		handler = compliance.Wrap(handler, nil)
+
+		// 限流（按身份/租户/IP），位于鉴权之后，可识别调用者做精准限速
+		handler = ratelimit.Wrap(handler, r.Rate, r.Burst)
+
+		// 鉴权（按路由 mode），最外层，负责校验 JWT 并注入 X-User-* 身份头
 		roles := r.Roles
 		if len(roles) == 0 {
 			roles = RBACRoles
 		}
 		handler = auth.Wrap(handler, r.Mode, cfg.JWTSecret, roles)
-
-		// 限流（按路由 rate/burst）
-		handler = ratelimit.Wrap(handler, r.Rate, r.Burst)
 
 		mux.Handle(r.Match, handler)
 	}

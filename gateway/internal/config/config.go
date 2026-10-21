@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -44,7 +45,7 @@ func Load(path string) (*Config, error) {
 		c.JWTSecret = v
 	}
 	if c.JWTSecret == "" {
-		c.JWTSecret = "CHANGE_ME_IN_PROD"
+		return nil, fmt.Errorf("jwt_secret 未配置：请通过环境变量 JWT_SECRET 或 config.yaml 的 jwt_secret 字段设置，生产环境禁止留空")
 	}
 	if c.AuditLog == "" {
 		c.AuditLog = "/var/log/gateway/access.log"
