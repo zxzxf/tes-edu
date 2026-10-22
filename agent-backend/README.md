@@ -78,3 +78,32 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ```bash
 docker build -t tes-edu-agent . && docker run -p 8000:8000 --env-file .env tes-edu-agent
 ```
+
+> `.dockerignore` 已排除 `.env`——**密钥永不进镜像**，运行时由 `env_file` 或环境变量注入。
+
+## 部署到 137（替换原 mock 桩）
+
+137 的编排在 `/opt/tes-edu-gateway/docker-compose.yml`（项目名 `tes-edu-gateway`），
+`agent-backend` 服务原用 `edu-mock-backend` 镜像，已替换为本地构建的真实镜像：
+
+```bash
+# 1) 源码传到 137 并构建（.env 不随源码分发）
+docker build -t edu-agent-backend:real /opt/tes-edu-agent
+
+# 2) compose 中该服务改为 image: edu-agent-backend:real，并挂 env_file
+#    （环境变量文件 /opt/tes-edu-gateway/agent-backend.env，权限 600）
+
+# 3) 只重建这一个服务（web-backend 仍是 mock，不动）
+docker compose -p tes-edu-gateway up -d agent-backend
+
+# 4) 验证
+docker exec edu-agent-backend python -c \
+  "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/healthz').read())"
+# 期望: {"status":"ok","mode":"real","llm":true,"embed":true,"db":true,...}
+```
+
+**回滚**：改回 `image: registry.cn-shanghai.aliyuncs.com/mis_ser/edu-mock-backend:latest`
+后重新 `up -d`；修改前的 compose 备份为 `docker-compose.yml.bak.<时间戳>`。
+
+注意：`/api/app/*` 经网关需鉴权，直接 curl 会返回 `{"error":"missing token"}`，
+需用有效 JWT 或从 App 侧验证。
