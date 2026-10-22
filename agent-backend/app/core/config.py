@@ -31,6 +31,8 @@ EMBED_BASE_URL = _get("EMBED_BASE_URL") or LLM_BASE_URL
 EMBED_API_KEY = _get("EMBED_API_KEY") or LLM_API_KEY
 EMBED_MODEL = _get("EMBED_MODEL")
 EMBED_DIM = int(_get("EMBED_DIM", "1024"))
+# 单次 embedding 请求的文本数上限（text-embedding-v4 为 10，qwen3.7 为 20）；超出自动分批
+EMBED_BATCH = int(_get("EMBED_BATCH", "10"))
 
 # ---- 视觉模型（拍照识题；VLM_MODEL 留空则降级，不阻塞主链路） ----
 VLM_BASE_URL = _get("VLM_BASE_URL") or LLM_BASE_URL

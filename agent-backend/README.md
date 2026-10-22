@@ -42,6 +42,7 @@ agent-backend/
 ├── sql/embeddings.sql          # 向量表结构（pgvector）
 ├── scripts/seed.py             # 灌库脚本
 ├── scripts/smoke.py            # 链路冒烟脚本
+├── scripts/eval_retrieval.py   # 检索质量抽测（对应 P1 DoD 召回准确率 ≥85%）
 ├── .env.example
 ├── requirements.txt
 └── Dockerfile
@@ -53,6 +54,7 @@ agent-backend/
 ```bash
 uvicorn main:app --reload --port 8000
 python scripts/smoke.py        # 验证 检索→讲解→变式 三段链路
+python scripts/eval_retrieval.py  # 检索召回质量抽测（top1 知识点命中率）
 ```
 
 **real 模式（真实大模型 + pgvector）**
@@ -67,7 +69,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 见 `.env.example`。要点：
 - `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL`：三家均走 OpenAI 兼容接口，换供应商只改这三个值。
-- `EMBED_*` 默认复用 `LLM_*`；**DeepSeek 官方无 embedding 接口**，需单独指向通义 `text-embedding-v3` 或 Qwen 同族。
+- `EMBED_MODEL` **留空则走本地向量回退**（top1 相关度仅 ~0.5）；填上才启用真实 embedding。已验证可用的千问向量模型：`qwen3.7-text-embedding`（推荐）、`text-embedding-v4`、`qwen3.7-text-embedding-flash`，均为 1024 维。**并非每个 MaaS 端点都挂载了 embedding 模型**（有实测返回 `Model not exist` 的情况），不通就换端点或自建 Qwen3-Embedding。
 - `EMBED_DIM` 必须与 `sql/embeddings.sql` 里的 `VECTOR(n)` 一致（默认 1024）。
 - `DB_DSN` 指向 106 的 `pgvector/pg16`；不配则自动走内存库。
 

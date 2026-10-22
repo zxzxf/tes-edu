@@ -14,11 +14,12 @@ from app.core import config, embeddings
 _DOCS: list[dict] = []
 _VEC: list[list[float]] = []
 _LOADED = False
+_VEC_READY = False
 
 
 def _load_seed() -> None:
-    """加载种子题库并本地向量化，供 dev 模式检索（幂等）。"""
-    global _DOCS, _VEC, _LOADED
+    """加载种子题库（仅文档，不含向量；向量由 _ensure_vectors 统一生成）。"""
+    global _DOCS, _LOADED
     if _LOADED:
         return
     _LOADED = True
@@ -30,7 +31,19 @@ def _load_seed() -> None:
             _DOCS = json.load(f)
     except (OSError, json.JSONDecodeError):
         return
-    _VEC = [embeddings.local_embed_one(_doc_text(d)) for d in _DOCS]
+
+
+async def _ensure_vectors() -> None:
+    """生成内存库向量：embed 可用时走真实向量，否则本地回退。
+
+    关键：必须与查询向量走同一套 embed，否则两者处于不同向量空间，相似度无意义。
+    """
+    global _VEC, _VEC_READY
+    _load_seed()
+    if _VEC_READY or not _DOCS:
+        return
+    _VEC = await embeddings.embed([_doc_text(d) for d in _DOCS])
+    _VEC_READY = True
 
 
 def _doc_text(d: dict) -> str:
@@ -62,14 +75,14 @@ async def retrieve(query: str, subject: str | None = None) -> dict:
     if config.db_ready():
         chunks = await _search_pg(q_vec, subject)
     else:
+        await _ensure_vectors()
         chunks = _search_memory(q_vec, subject)
     points = list(dict.fromkeys(c["knowledge_point"] for c in chunks if c.get("knowledge_point")))
     return {"chunks": chunks, "points": points}
 
 
 def _search_memory(q_vec: list[float], subject: str | None) -> list[dict]:
-    _load_seed()
-    if not _DOCS:
+    if not _DOCS or not _VEC:
         return []
     scored: list[tuple[float, dict]] = []
     for doc, vec in zip(_DOCS, _VEC):
@@ -108,9 +121,11 @@ async def _search_pg(q_vec: list[float], subject: str | None) -> list[dict]:
 
 
 async def warm() -> None:
-    """启动预热：dev 加载内存库；真实模式建立 pg 连接池。"""
+    """启动预热：连 pg 时建连接池；否则预生成内存库向量（避免首请求才现算）。"""
     _load_seed()
     if config.db_ready():
         from app.db.pg import get_pool
 
         await get_pool()
+    else:
+        await _ensure_vectors()

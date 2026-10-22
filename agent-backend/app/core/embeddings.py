@@ -46,9 +46,15 @@ async def _remote_embed(texts: list[str]) -> list[list[float]]:
     from openai import AsyncOpenAI  # 延迟导入：dev 模式无需安装
 
     client = AsyncOpenAI(api_key=config.EMBED_API_KEY, base_url=config.EMBED_BASE_URL)
-    resp = await client.embeddings.create(model=config.EMBED_MODEL, input=texts)
-    items = sorted(resp.data, key=lambda d: d.index)
-    return [list(map(float, d.embedding)) for d in items]
+    out: list[list[float]] = []
+    size = max(1, config.EMBED_BATCH)
+    # embedding 接口有单次文本数上限，超出需分批（灌库时文本量远大于上限）
+    for i in range(0, len(texts), size):
+        chunk = texts[i:i + size]
+        resp = await client.embeddings.create(model=config.EMBED_MODEL, input=chunk)
+        items = sorted(resp.data, key=lambda d: d.index)
+        out.extend([list(map(float, d.embedding)) for d in items])
+    return out
 
 
 async def embed_one(text: str) -> list[float]:
