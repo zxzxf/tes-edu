@@ -1,7 +1,7 @@
 # Redis 跨云主从架构任务计划书（137 ↔ 106）
 
 > 项目：Tes Edu 课程教育 Agent
-> 撰写：2026-10-22　状态：**待实施**（本文档为计划书，未改动任何线上配置）
+> 撰写：2026-10-22　状态：**已实施**（2026-10-22 23:25 完成全部验证，V1-V9 全过；实施结果回填见 §十一）
 > 目标读者：运维负责人 / 后端负责人
 
 ---
@@ -120,11 +120,11 @@ redis-cli -a "$PW_106" --no-auth-warning REPLICAOF NO ONE
 
 | # | 条件 | 负责方 | 状态 |
 |---|---|---|---|
-| P1 | 腾讯云安全组新增规则：放行 106.12.25.5/32 → tcp:6379 | 运维 | 待办 |
-| P2 | 确认 137 redis 公网发布的安全评审结论（方案 A/B 定稿） | 运维 + 安全 | 待办 |
-| P3 | 获取 `<PW_137>`（137 容器 env `REDIS_PASSWORD`）与 `<PW_106>` 的密钥交接 | 运维 | 待办 |
-| P4 | 操作窗口：低峰期，137 redis 容器重建约 10s 不可用（gateway 自动降级本地桶） | 运维 | 待办 |
-| P5 | 106 `/opt/deploy/docker-compose.yml` 纳入 git 或备份（当前无版本管理） | 运维 | 待办 |
+| P1 | 腾讯云安全组新增规则：放行 106.12.25.5/32 → tcp:6379 | 运维 | ✅ 已完成（用户控制台操作；已收紧为仅 106.12.25.5/32，第三方节点实测不可达） |
+| P2 | 确认 137 redis 公网发布的安全评审结论（方案 A/B 定稿） | 运维 + 安全 | ✅ 结论：采用 A。关键修正——公网 IP 经腾讯云 NAT 1:1 直达 10.0.0.5:6379，**无需**改 compose 绑定（VM 网卡上无公网 IP，改绑定会导致 docker-proxy 监听失败），见 §十一-1 |
+| P3 | 获取 `<PW_137>`（137 容器 env `REDIS_PASSWORD`）与 `<PW_106>` 的密钥交接 | 运维 | ✅ 已完成（`<PW_137>` 已注入 106 `/opt/deploy/.env` 的 `MASTER_REDIS_PASSWORD`，权限 600，未入任何仓库） |
+| P4 | 操作窗口：低峰期，137 redis 容器重建约 10s 不可用（gateway 自动降级本地桶） | 运维 | ✅ 无需重建 137 redis（P2 修正后 137 侧零改动）；仅重建 106 srv-redis（无客户端，零影响） |
+| P5 | 106 `/opt/deploy/docker-compose.yml` 纳入 git 或备份（当前无版本管理） | 运维 | ✅ 已做时间戳备份（`docker-compose.yml.bak.2026-10-22-2316` + `.env` 同款）；纳入 git 列后续演进 |
 
 ---
 
@@ -133,20 +133,9 @@ redis-cli -a "$PW_106" --no-auth-warning REPLICAOF NO ONE
 ### 阶段 1：打通链路（137 侧，约 15 分钟）
 
 1. 腾讯云控制台 → 安全组 → 入站规则：`106.12.25.5/32` → TCP 6379，备注 `redis-repl-from-106`
-2. 修改 137 `gateway/docker-compose.yml`：
-
-   ```yaml
-   ports:
-     - "124.221.253.137:6379:6379"   # 原 "10.0.0.5:6379:6379"；公网发布，安全组 /32 白名单兜底
-   ```
-
-3. 重建 redis 容器（**仅 redis，勿动 gateway/lb**）：
-
-   ```bash
-   cd /opt/tes-edu-gateway && docker compose up -d --no-deps --force-recreate redis
-   ```
-
-4. 106 侧验证连通：`redis-cli -h 124.221.253.137 -p 6379 -a "$PW_137" --no-auth-warning PING` → PONG
+2. ~~修改 137 `gateway/docker-compose.yml`~~ —— **实施时取消（见 §十一-1）**：公网 IP `124.221.253.137` 经腾讯云网关 1:1 NAT 直达内网 `10.0.0.5:6379`，VM 网卡上并无该公网 IP（eth0 仅 10.0.0.5/22），按原计划把 ports 改成公网 IP 反而令 docker-proxy 无法绑定。用户控制台放行后链路即通，137 侧**零改动**。
+3. ~~重建 redis 容器~~ —— 因上条取消，137 redis 未重建（Up 28h 未动）。
+4. 106 侧验证连通：`redis-cli -h 124.221.253.137 -p 6379 -a "$PW_137" --no-auth-warning PING` → PONG ✅（实测返回 `NOAUTH`，即协议层可达）
 
 ### 阶段 2：建立复制（106 侧，约 10 分钟）
 
@@ -191,17 +180,19 @@ moff=$(redis-cli -h 124.221.253.137 -p 6379 -a "$PW_137" --no-auth-warning INFO 
 
 ## 六、验证清单
 
-| # | 验证项 | 命令 / 方法 | 期望 |
-|---|---|---|---|
-| V1 | 主库见到从库 | 137：`INFO replication` | `connected_slaves:1`，`slave0:ip=106.12.25.5,port=xxxxx,state=online` |
-| V2 | 从库链路健康 | 106：`INFO replication` | `role:slave`、`master_link_status:up` |
-| V3 | 数据实时性 | 137 `SET repl_test:$(date +%s) 1`，106 `GET repl_test:*` | 秒级可见 |
-| V4 | 复制延迟 | 双机对比 `master_repl_offset` | 差值 < 10,000（7.4ms RTT 下通常 < 1,000） |
-| V5 | 从库只读 | 106 `SET x 1` | `(error) READONLY You can't write against a read only replica.` |
-| V6 | 鉴权隔离 | 106 用错密码访问 | NOAUTH 拒绝；137 侧 masterauth 生效（无 `MASTERDOWN` 刷屏） |
-| V7 | 全量同步日志 | 106 `docker logs srv-redis` | 一次 `Full resync` 后转 `Partial resynchronization` |
-| V8 | 断链自愈 | 安全组临时摘除白名单 30s 再恢复 | `master_link_status` down→up 自动恢复，无需重启 |
-| V9 | 业务无感 | 全程打点 `/healthz` 与 `/api/app/ping`（带 token） | 全程 200，无 5xx |
+| # | 验证项 | 命令 / 方法 | 期望 | 实测结果（2026-10-22 23:2x） |
+|---|---|---|---|---|
+| V1 | 主库见到从库 | 137：`INFO replication` | `connected_slaves:1`，`slave0:ip=106.12.25.5,state=online` | ✅ `connected_slaves:1`，`slave0:ip=106.12.25.5,state=online,lag=0` |
+| V2 | 从库链路健康 | 106：`INFO replication` | `role:slave`、`master_link_status:up` | ✅ `role:slave`，`master_link_status:up`，`master_sync_in_progress:0` |
+| V3 | 数据实时性 | 137 `SET repl_test:<ts> 1`，106 `GET repl_test:*` | 秒级可见 | ✅ 1 秒内读到 `hello-from-137`；业务键 `gw:cfg:*` 两个均已复制到从库 |
+| V4 | 复制延迟 | 双机对比 offset | 差值 < 10,000 | ✅ **lag=0 字节**（master 1486827 = slave 1486827） |
+| V5 | 从库只读 | 106 `SET x 1` | READONLY 报错 | ✅ `READONLY You can't write against a read only replica.` |
+| V6 | 鉴权隔离 | 106 用错密码访问 | NOAUTH 拒绝 | ✅ `AUTH failed: WRONGPASS`；106 侧日志无 `MASTERDOWN` 刷屏（masterauth 生效） |
+| V7 | 全量同步日志 | 106 `docker logs srv-redis` | 一次 Full resync 后转 Partial | ✅ `Full resync from master: 923b0e4d...:1486500`；V8 断链恢复时为 `Successful partial resynchronization` |
+| V8 | 断链自愈 | 安全组临时摘除白名单 30s 再恢复 | down→up 自动恢复 | ✅ 改以 106 侧 iptables **FORWARD 链**模拟分区（见 §十一-2）：65s 后 `master_link_status:down`，恢复后 12s 内自动 `up` 且部分重同步，无需重启 |
+| V9 | 业务无感 | 全程打点 `/healthz` 与 `/api/app/ping`（带 token） | 全程 200，无 5xx | ✅ `/healthz` 200、`/metricsz` 403；100 突发经 redis 限流全部正常放行；双副本零错误日志；测试键已清理，主库 DBSIZE 回到 4 |
+
+> 注：V3/V9 的「带 token 请求」因线上 JWT 已升级 RS256（提交 `fced832`），压测工具的 HS256 签发不再适用，改以 catch-all 路由突发 + redis 限流键行为验证业务链（限流写操作即复制流的上游数据源，等效证明链路承载真实业务流量）。
 
 ---
 
@@ -264,4 +255,41 @@ echo "replication lag bytes: $((m - s))"
 
 ---
 
-*本计划书基于 2026-10-22 实测数据撰写；实施完成后请回填各阶段实际结果与偏差，归档至 `gateway/redis/`。*
+## 十一、实施记录（2026-10-22 23:25 回填）
+
+### 1. 与原计划的偏差：137 侧零改动
+
+原计划阶段 1 要求把 137 compose 的 redis ports 改为公网 IP 绑定。**实施时取消**——实测证据：137 的 eth0 只有 `10.0.0.5/22`，公网 IP 不在 VM 任何网卡上；`124.221.253.137:6379` 的入站流量由腾讯云网关 1:1 NAT 到 `10.0.0.5:6379`，再被 docker DOCKER 链 DNAT 到 redis 容器。用户已在控制台放行 `106.12.25.5/32`（第三方节点实测不可达），链路即通。若按原计划改 ports 绑定公网 IP，docker-proxy 会因地址不存在而监听失败。**137 侧（compose/redis.conf/容器）全程未动。**
+
+### 2. V8 的方法修正与一个网络坑
+
+V8 原计划「控制台临时摘除白名单」需人工配合，改为 106 侧 iptables 模拟分区。首次用 `OUTPUT` 链无效——**容器流量走 FORWARD 链，OUTPUT 只辖宿主机进程**；改 `iptables -I FORWARD -s 172.21.0.3 -d 124.221.253.137 -p tcp --dport 6379 -j DROP` 后生效（65s 判定 down，恢复后 12s 自动 up + 部分重同步）。
+
+### 3. 106 侧实际改动（`/opt/deploy/docker-compose.yml`，已备份 `.bak.2026-10-22-2316`）
+
+redis 服务 command 追加（YAML 列表每项一个参数，`--replicaof` 的 host/port 必须分两项，合成一项 redis 解析报错）：
+
+```yaml
+      - --replicaof
+      - "124.221.253.137"
+      - "6379"
+      - --masterauth
+      - "${MASTER_REDIS_PASSWORD:?必须提供 137 主库 redis 密码（export MASTER_REDIS_PASSWORD=...）}"
+```
+
+`.env`（600）追加 `MASTER_REDIS_PASSWORD=<PW_137>`；另修正了文件头部过时注释（原称"两个服务都只绑定 127.0.0.1"，实为 0.0.0.0 + DOCKER-USER 白名单）。执行 `docker compose up -d --no-deps --force-recreate redis` 后容器 IP 仍为 `172.21.0.3`，既有白名单规则未受影响。
+
+### 4. 监控探针（已装）
+
+`/usr/local/bin/redis-repl-check.sh` + crontab `*/1 * * * *`，日志 `/var/log/redis-repl-check.log`。与原计划的脚本有两处适配：① 106 宿主机无 redis-cli，经 `docker exec srv-redis redis-cli` 执行，主库侧查询亦从从库容器出站（该路径即复制链路本身，兼作链路探活）；② 密码从 `/opt/deploy/.env` 读取，不内联进脚本。从库 offset 取 `slave_repl_offset`（replica 的 INFO 无 `master_repl_offset` 语义等价格式）。异常退出码：1=复制异常，2=环境异常；「连续 3 次异常触发告警」的告警集成留给监控系统（日志已可检索）。
+
+### 5. 注意事项（运维后续）
+
+- **白名单绑容器 IP**：106 的 DOCKER-USER 白名单规则写死 `-d 172.21.0.3`，srv-redis 重建后若 IP 变化需同步更新规则（本次未变）。
+- **从库公网暴露**：106 redis 仍发布 `0.0.0.0:6379`（靠 DOCKER-USER 白名单收敛）——这是 DR Runbook（§3.4）中 gateway 切 `REDIS_ADDR=106.12.25.5:6379` 的依赖路径，**不要**改成 127.0.0.1 绑定，否则容灾切换不可用。
+- **提升 Runbook 复核**：§3.4 的 `REPLICAOF NO ONE` 命令在容器内的完整形式为 `docker exec srv-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning REPLICAOF NO ONE`（已写入 compose 注释）。
+- 137 侧 redis 公网入口现状：仅 `106.12.25.5/32` 可达 + 32 位密码；若安全评审要求「数据库端口禁公网」，按 §七 切方案 B（SSH 隧道）。
+
+---
+
+*本计划书基于 2026-10-22 实测数据撰写；实施已完成（§十一回填），归档至 `gateway/redis/`。*
