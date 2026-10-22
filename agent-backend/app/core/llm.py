@@ -15,7 +15,8 @@ _SYSTEM = (
     "1) 必须依据【检索到的知识点与例题】作答，不得编造；检索内容不足时先说明并给出通法。\n"
     "2) 默认讲解优先：先点明考点，再分步骤推导，关键分叉点给提示而不是直接给最终答案。\n"
     "3) mode=quick 给简版直给；mode=similar 生成 3 道变式题。\n"
-    '4) 输出严格 JSON：{"answer": "...", "steps": ["..."]}。'
+    "4) 输出严格 JSON 且不要包裹 markdown：mode=similar 时为 {\"similar\": [\"...\",\"...\",\"...\"]}；\n"
+    "   其余模式为 {\"answer\": \"...\", \"steps\": [\"...\"]}。"
 )
 
 
@@ -62,9 +63,12 @@ async def _remote_solve(question: str, context: dict | None, mode: str) -> dict:
     )
     content = resp.choices[0].message.content or ""
     data = _parse_json(content)
-    if not data.get("answer"):
-        data = {"answer": content, "steps": []}
-    return {"answer": data.get("answer", ""), "steps": list(data.get("steps") or [])}
+    answer = data.get("answer") or content
+    steps = data.get("steps") or []
+    # 不同模型返回形态不一：answer 可能是数字，steps 可能是单个字符串
+    if isinstance(steps, str):
+        steps = [steps]
+    return {"answer": str(answer), "steps": [str(s) for s in steps]}
 
 
 def _dev_solve(question: str, context: dict | None, mode: str) -> dict:
@@ -110,9 +114,12 @@ async def suggest_similar(question: str, context: dict | None = None) -> list[st
         )
         content = resp.choices[0].message.content or ""
         data = _parse_json(content)
-        if data.get("similar"):
-            return list(data["similar"])[:3]
-        return [ln.strip() for ln in content.splitlines() if ln.strip()][:3]
+        sims = data.get("similar")
+        if isinstance(sims, str):
+            sims = [sims]
+        if sims:
+            return [str(s) for s in sims][:3]
+        # 模型未按要求返回 similar 字段时，不要回吐原始 JSON，交由下方检索结果兜底
 
     chunks = (context or {}).get("chunks", [])
     return [

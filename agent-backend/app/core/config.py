@@ -7,6 +7,13 @@
 """
 import os
 
+try:  # 本地/CI 可用 .env 注入；生产用环境变量或 docker --env-file 即可
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 
 def _get(name: str, default: str = "") -> str:
     return os.getenv(name, default).strip()
@@ -17,15 +24,17 @@ LLM_BASE_URL = _get("LLM_BASE_URL")      # 例：https://api.deepseek.com/v1
 LLM_API_KEY = _get("LLM_API_KEY")
 LLM_MODEL = _get("LLM_MODEL", "deepseek-chat")
 
-# ---- 向量化（与 LLM 同族；未单独配置则复用 LLM 的 base_url/key） ----
+# ---- 向量化 ----
+# 注意：很多大模型端点（含本 MaaS 节点）不提供 embedding 模型。
+# 因此 EMBED_MODEL 默认留空 = 走本地确定性向量回退；只有显式配置 EMBED_MODEL 才走真实 embedding。
 EMBED_BASE_URL = _get("EMBED_BASE_URL") or LLM_BASE_URL
 EMBED_API_KEY = _get("EMBED_API_KEY") or LLM_API_KEY
-EMBED_MODEL = _get("EMBED_MODEL", "text-embedding-v3")
+EMBED_MODEL = _get("EMBED_MODEL")
 EMBED_DIM = int(_get("EMBED_DIM", "1024"))
 
-# ---- 视觉模型（拍照识题；未配置则 OCR 降级） ----
+# ---- 视觉模型（拍照识题；VLM_MODEL 留空则降级，不阻塞主链路） ----
 VLM_BASE_URL = _get("VLM_BASE_URL") or LLM_BASE_URL
-VLM_MODEL = _get("VLM_MODEL", "qwen-vl-max")
+VLM_MODEL = _get("VLM_MODEL")
 
 # ---- 数据层（106 的 pgvector/pg16） ----
 DB_DSN = _get("DB_DSN")  # postgresql://user:pass@host:5432/dbname
