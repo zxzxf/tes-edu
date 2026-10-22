@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  test:
+  test-agent:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -19,4 +19,19 @@ jobs:
       - name: Install pytest
         run: pip install pytest
       - name: Run import-pipeline tests (no DB required)
+        run: pytest tests/ -q
+
+  test-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test deps (pure-python, no DB/ACR required)
+        run: pip install pytest "pydantic>=2.6" "pydantic-settings" "python-jose[cryptography]==3.3.0" "fastapi==0.110.0" "sqlalchemy==2.0.30" cryptography pgvector==0.5.1
+      - name: Run core-logic tests (no DB required)
         run: pytest tests/ -q

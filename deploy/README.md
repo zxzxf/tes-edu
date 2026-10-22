@@ -25,9 +25,14 @@ cp nginx.conf            /opt/tes-edu-gateway/nginx.conf
 cp gateway-config.yaml   /opt/tes-edu-gateway/gateway/config.yaml
 cp 137-infra-kafka.yml   /opt/docker-compose.yml
 
-# 2) 构建两个真实后端镜像（.dockerignore 已确保 .env 不进镜像）
-docker build -t edu-agent-backend:real /opt/tes-edu-agent
-docker build -t edu-web-backend:real   /opt/tes-edu-web
+# 2) 镜像来源（2026-10-23 起统一走 ACR，消除 G6 双描述）
+#    三个业务镜像由 CI 自动构建并推送：.github/workflows/build-images.yml
+#    （需仓库 Secrets：ACR_USERNAME / ACR_PASSWORD）。
+#    如需本地手动构建等价镜像：
+#      docker build -t registry.cn-shanghai.aliyuncs.com/mis_ser/edu-gateway:latest      gateway
+#      docker build -t registry.cn-shanghai.aliyuncs.com/mis_ser/edu-agent-backend:latest agent-backend
+#      docker build -t registry.cn-shanghai.aliyuncs.com/mis_ser/edu-web-backend:latest   web-backend
+#    compose 默认拉取 :latest；要锁定版本可设 IMAGE_TAG=sha-<commit> 后 up。
 
 # 3) 基础设施（kafka/zk）先起，再起网关栈
 cd /opt && docker compose up -d

@@ -1,0 +1,61 @@
+name: Build & Push Images
+
+# 构建三个业务镜像并推送到阿里云 ACR（registry.cn-shanghai.aliyuncs.com/mis_ser/）。
+# 这是镜像的唯一构建入口：compose 仅以 image: 引用（见 deploy/137-gateway-stack.yml），
+# 从而消除 G6「本地 build / 线上 ACR」双描述问题。
+#
+# 前置（仓库 Settings → Secrets）：
+#   ACR_USERNAME  阿里云 ACR 用户名（如企业实例 AccessKey ID）
+#   ACR_PASSWORD  阿里云 ACR 密码（如 AccessKey Secret）
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  REGISTRY: registry.cn-shanghai.aliyuncs.com/mis_ser
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: gateway
+            context: gateway
+          - service: agent-backend
+            context: agent-backend
+          - service: web-backend
+            context: web-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          echo "sha=sha-${SHA}" >> "$GITHUB_OUTPUT"
+          echo "latest=latest" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/edu-${{ matrix.service }}:${{ steps.tags.outputs.latest }}
+            ${{ env.REGISTRY }}/edu-${{ matrix.service }}:${{ steps.tags.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
