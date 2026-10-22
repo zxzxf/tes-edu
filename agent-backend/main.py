@@ -1,11 +1,29 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.solve import router as solve_router
+from app.core import config, rag
 
-app = FastAPI(title="Tes Edu Agent Backend", version="0.1.0")
 
-# P0：网关已做鉴权/限流；此处 CORS 仅便于本地联调，生产可收紧
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动：dev 模式加载内存题库；真实模式建立 pg 连接池
+    await rag.warm()
+    yield
+    # 关闭：释放连接池
+    try:
+        from app.db import pg
+
+        await pg.close_pool()
+    except Exception:
+        pass
+
+
+app = FastAPI(title="Tes Edu Agent Backend", version="0.2.0", lifespan=lifespan)
+
+# 网关已做鉴权/限流；此处 CORS 仅便于本地联调，生产可收紧
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,4 +36,11 @@ app.include_router(solve_router)
 
 @app.get("/healthz")
 async def healthz():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "mode": config.mode(),
+        "llm": config.llm_ready(),
+        "embed": config.embed_ready(),
+        "db": config.db_ready(),
+        "vlm": config.vlm_ready(),
+    }
