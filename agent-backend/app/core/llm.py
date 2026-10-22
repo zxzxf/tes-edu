@@ -102,6 +102,77 @@ def _dev_solve(question: str, context: dict | None, mode: str) -> dict:
     return {"answer": answer, "steps": steps}
 
 
+_JUDGE_SYSTEM = (
+    "你是一名高中数学阅卷老师。请依据【参考答案与解析】判断【学生的作答】是否正确。\n"
+    "判定标准：结论与关键过程都对才算 correct；结论对但过程明显错误算 partial；否则算错误。\n"
+    "只输出严格 JSON 且不要包裹 markdown："
+    '{"correct": true/false, "partial": true/false, "comment": "一句话点评"}。'
+)
+
+
+def _norm(s: str) -> str:
+    """兜底比对用的归一化：去空白与常见标点。"""
+    import re
+
+    s = (s or "").strip().lower()
+    return re.sub(r"[\s，,。.;；:：、()（）\[\]{}]+", "", s)
+
+
+async def judge(
+    question: str,
+    student_answer: str,
+    context: dict | None = None,
+) -> dict:
+    """判定学生作答。真实模式交给 LLM；否则用检索到的参考答案做兜底比对。"""
+    if config.llm_ready():
+        return await _remote_judge(question, student_answer, context)
+    return _dev_judge(student_answer, context)
+
+
+async def _remote_judge(question: str, student_answer: str, context: dict | None) -> dict:
+    from openai import AsyncOpenAI  # 延迟导入
+
+    chunks = (context or {}).get("chunks", [])
+    ref = "\n".join(
+        f"[参考{i + 1}] 答案：{c.get('answer', '')} 解析：{c.get('text', '')[:120]}"
+        for i, c in enumerate(chunks[:3])
+    ) or "（无参考答案，按通法判断）"
+    messages = [
+        {"role": "system", "content": _JUDGE_SYSTEM},
+        {
+            "role": "user",
+            "content": f"【题目】\n{question}\n\n【参考答案与解析】\n{ref}\n\n【学生的作答】\n{student_answer}",
+        },
+    ]
+    try:
+        client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+        resp = await client.chat.completions.create(
+            model=config.LLM_MODEL, messages=messages, temperature=0
+        )
+        data = _parse_json(resp.choices[0].message.content or "")
+        if isinstance(data.get("correct"), bool):
+            return {
+                "correct": data["correct"],
+                "partial": bool(data.get("partial", False)),
+                "comment": str(data.get("comment") or ""),
+            }
+    except Exception:  # noqa: BLE001 判分失败降级为兜底比对，不影响主链路
+        pass
+    return _dev_judge(student_answer, context)
+
+
+def _dev_judge(student_answer: str, context: dict | None) -> dict:
+    """无 LLM 时的兜底：与检索到的参考答案做归一化字符串比对。"""
+    target = _norm(student_answer)
+    if not target:
+        return {"correct": False, "partial": False, "comment": "未提交作答"}
+    for c in (context or {}).get("chunks", []):
+        ref = _norm(c.get("answer", ""))
+        if ref and (ref == target or ref in target or target in ref):
+            return {"correct": True, "partial": False, "comment": "与参考答案一致（兜底比对）"}
+    return {"correct": False, "partial": False, "comment": "与参考答案不一致（兜底比对）"}
+
+
 async def suggest_similar(question: str, context: dict | None = None) -> list[str]:
     if config.llm_ready():
         from openai import AsyncOpenAI  # 延迟导入

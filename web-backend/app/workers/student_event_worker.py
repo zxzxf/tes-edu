@@ -28,6 +28,8 @@ async def handle_events(events) -> None:
             async with SessionLocal() as db:
                 await learning.record_event(db, e)
                 kps = e.get("knowledge_points") or []
+                # correct 来自 agent-backend 的判分（未提交作答时为 None）
+                correct = e.get("correct")
                 for kp in kps:
                     await learning.bump_practice(
                         db,
@@ -35,6 +37,7 @@ async def handle_events(events) -> None:
                         knowledge_point=kp,
                         tenant_id=e.get("tenant_id"),
                         subject=e.get("subject"),
+                        correct=correct if isinstance(correct, bool) else None,
                     )
             logger.info(
                 "student_event recorded: student=%s type=%s kps=%d",

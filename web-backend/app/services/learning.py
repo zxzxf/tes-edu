@@ -45,8 +45,12 @@ async def bump_practice(
     tenant_id: Optional[str] = None,
     subject: Optional[str] = None,
     occurred_at: Optional[datetime] = None,
+    correct: Optional[bool] = None,
 ) -> None:
-    """按 学生×知识点 累计练习量（原子 upsert，避免并发丢更新）。"""
+    """按 学生×知识点 累计练习量与对错（原子 upsert，避免并发丢更新）。
+
+    correct=True -> correct_count+1；False -> wrong_count+1；None（未判分）-> 只计练习量。
+    """
     now = occurred_at or datetime.now(timezone.utc)
     stmt = pg_insert(StudentMastery).values(
         student_id=student_id,
@@ -54,18 +58,22 @@ async def bump_practice(
         subject=subject,
         knowledge_point=knowledge_point,
         practice_count=1,
-        correct_count=0,
-        wrong_count=0,
+        correct_count=1 if correct is True else 0,
+        wrong_count=1 if correct is False else 0,
         last_practiced_at=now,
     )
+    set_ = {
+        "practice_count": StudentMastery.practice_count + 1,
+        "last_practiced_at": now,
+        "tenant_id": tenant_id,
+        "subject": subject,
+    }
+    if correct is True:
+        set_["correct_count"] = StudentMastery.correct_count + 1
+    elif correct is False:
+        set_["wrong_count"] = StudentMastery.wrong_count + 1
     stmt = stmt.on_conflict_do_update(
-        index_elements=["student_id", "knowledge_point"],
-        set_={
-            "practice_count": StudentMastery.practice_count + 1,
-            "last_practiced_at": now,
-            "tenant_id": tenant_id,
-            "subject": subject,
-        },
+        index_elements=["student_id", "knowledge_point"], set_=set_
     )
     await db.execute(stmt)
     await db.commit()

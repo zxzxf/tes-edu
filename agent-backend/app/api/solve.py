@@ -20,8 +20,12 @@ def _identity(request: Request) -> dict:
 async def solve(req: SolveRequest, request: Request):
     """文本题：解题 + 分步讲解 + 触类旁通"""
     result = await orchestrator.handle_question(
-        req.question, mode=req.mode or "explain", subject=req.subject
+        req.question,
+        mode=req.mode or "explain",
+        subject=req.subject,
+        student_answer=req.student_answer,
     )
+    judgement = result.get("judgement") or {}
     events.emit_student_event_bg(
         {
             "event_type": "solve",
@@ -30,6 +34,9 @@ async def solve(req: SolveRequest, request: Request):
             "mode": req.mode or "explain",
             "question": req.question,
             "knowledge_points": result.get("knowledge_points") or [],
+            # 判分结果：未提交作答时为 None（消费端只累计练习量）
+            "correct": judgement.get("correct"),
+            "partial": judgement.get("partial"),
         }
     )
     return result

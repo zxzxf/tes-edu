@@ -7,7 +7,10 @@ from app.core import llm, rag, ocr
 
 
 async def handle_question(
-    question: str, mode: str = "explain", subject: str | None = None
+    question: str,
+    mode: str = "explain",
+    subject: str | None = None,
+    student_answer: str | None = None,
 ) -> dict:
     # 1) RAG 检索上下文（知识点 / 例题）
     ctx = await rag.retrieve(question, subject=subject)
@@ -15,11 +18,15 @@ async def handle_question(
     result = await llm.solve(question, context=ctx, mode=mode)
     # 3) 触类旁通
     similar = await llm.suggest_similar(question, context=ctx)
-    return {
+    out = {
         **result,
         "similar": similar,
         "knowledge_points": ctx.get("points", []),
     }
+    # 4) 学生提交了自己的作答 -> 顺带判分（产出 correct 信号，供掌握度计算）
+    if student_answer:
+        out["judgement"] = await llm.judge(question, student_answer, context=ctx)
+    return out
 
 
 async def handle_image(image_bytes: bytes) -> dict:
