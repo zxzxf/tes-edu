@@ -1,0 +1,61 @@
+# 多服务编排：Kafka (ZK 模式) —— Apache AGE/PostgreSQL 已移除（服务不再由此编排启动）
+services:
+
+  zookeeper:
+    image: registry.cn-shanghai.aliyuncs.com/mis_ser/zookeeper:3.9
+    container_name: zookeeper
+    restart: unless-stopped
+    ports:
+      - "2181:2181"
+    networks:
+      - default
+      - tes-edu-gateway_edu-net
+  kafka:
+    image: registry.cn-shanghai.aliyuncs.com/mis_ser/kafka:3.8.0
+    container_name: kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9094"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+    command:
+      - bash
+      - -c
+      - |
+        cf=/opt/kafka/config/server.properties
+        sed -i "s|^listeners=.*|listeners=PLAINTEXT://0.0.0.0:9092,PLAINTEXT://0.0.0.0:9094|" $$cf
+        sed -i "s|^advertised.listeners=.*|advertised.listeners=PLAINTEXT://kafka:9092,PLAINTEXT://124.221.253.137:9092|" $$cf
+        sed -i "s|^zookeeper.connect=.*|zookeeper.connect=zookeeper:2181|" $$cf
+        grep -q "^listener.security.protocol.map" $$cf && sed -i "s|^listener.security.protocol.map=.*|listener.security.protocol.map=PLAINTEXT:PLAINTEXT|" $$cf || echo "listener.security.protocol.map=PLAINTEXT:PLAINTEXT" >> $$cf
+        /opt/kafka/bin/kafka-server-start.sh $$cf
+    networks:
+      - default
+      - tes-edu-gateway_edu-net
+  kafka-init:
+    image: registry.cn-shanghai.aliyuncs.com/mis_ser/kafka:3.8.0
+    container_name: kafka-init
+    depends_on:
+      - kafka
+    restart: "no"
+    entrypoint: ["/bin/bash","-c"]
+    command:
+      - |
+        echo "waiting for kafka..."
+        for i in $(seq 1 30); do
+          /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092 >/dev/null 2>&1 && break
+          sleep 3
+        done
+        for t in course_kb_ingest question_parsed kg_build student_event drill_sync; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --topic $$t --partitions 1 --replication-factor 1 2>&1 | grep -v "already exists" || true
+        done
+        echo "TOPICS_READY"
+    networks:
+      - default
+
+networks:
+  # 与网关/后端编排(tes-edu-gateway)共用网络：
+  # 使 edu-agent-backend / edu-web-backend / gateway / redis 能按名访问 kafka
+  tes-edu-gateway_edu-net:
+    external: true

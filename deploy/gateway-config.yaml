@@ -1,0 +1,123 @@
+listen: ":8080"
+upstreams:
+  agent_backend: "http://agent-backend:8000"
+  web_backend: "http://web-backend:8000"
+# 熔断配置（按上游维度，多路由共享）。未列出的上游默认启用：
+# threshold=5（连续 5 次 5xx/代理错误后打开）、cooldown=10s。
+# 打开期间直接返回 503 + Retry-After，不打上游；冷却后放行单个探测请求。
+breakers:
+  agent_backend:
+    enabled: true
+    failure_threshold: 5
+    cooldown_seconds: 10
+  web_backend:
+    enabled: true
+    failure_threshold: 5
+    cooldown_seconds: 10
+# LLM 模型 endpoint 白名单（P5 合同硬要求：仅接受 OpenAI 兼容 /v1 接口，
+# 白名单外 endpoint 由网关拒绝）。
+# 契约：agent-backend 在 LLM 绑定请求头 X-LLM-Endpoint 声明目标端点，
+#       网关按 scheme+host:port+路径前缀 校验；未带该头的请求默认放行。
+# fail-closed：启用后若 endpoints 为空，任何带端点头的请求都会被 403——
+#              P5 灌入合同锁定的 endpoint 之前，宁可拒绝也不放行。
+# 环境变量覆盖：LLM_ALLOWLIST_ENABLED / LLM_ALLOWLIST_HEADER / LLM_ALLOWLIST_REQUIRE_HEADER
+# 注意：启用 dynamic_config 时，endpoints 仅作首次启动 seed，之后以 Redis 为准。
+llm_allowlist:
+  enabled: true
+  header: "X-LLM-Endpoint"
+  require_header: false
+  endpoints: []
+  # P5 定稿后按合同填入（示例）：
+  # endpoints:
+  #   - "https://api.deepseek.com/v1"        # H 档强推理
+  #   - "https://dashscope.aliyuncs.com/compatible-mode/v1"  # Qwen OpenAI 兼容
+  #   - "http://qwen32b.school.internal:8000/v1"             # L 档校内
+routes:
+  - match: "/api/app/"
+    upstream: agent_backend
+    mode: jwt_c
+    rate: 20
+    burst: 40
+  - match: "/api/admin/"
+    upstream: web_backend
+    mode: rbac
+    roles: ["admin", "teacher", "researcher", "operator"]
+    # 多租户强制隔离：B 端路由要求 JWT 带非空 tenant_id，无租户令牌一律 403，
+    # 防止跨空间访问（C 端路由按用户态设计，不强制租户）
+    require_tenant: true
+    rate: 10
+    burst: 20
+  - match: "/"
+    upstream: agent_backend
+    mode: ""
+    rate: 100
+    burst: 200
+
+# 限流用的 Redis（多副本全局令牌桶）。enabled=false 时使用进程内本地桶（仅单副本一致）。
+# 多副本部署请把 enabled 设为 true，并确保所有网关副本指向同一 Redis 实例。
+# 也可通过环境变量 REDIS_ENABLED/REDIS_ADDR/REDIS_PASSWORD/REDIS_DB/REDIS_KEY_PREFIX 覆盖。
+redis:
+  enabled: true
+  addr: "redis:6379"
+  password: ""
+  db: 0
+  key_prefix: "gw:rl:"
+  dial_timeout_ms: 1000
+  read_timeout_ms: 200
+  write_timeout_ms: 200
+
+# 白名单/敏感词动态配置（Redis 化 + Pub/Sub 热更新）。
+# Redis 为单一数据源；llm_allowlist.endpoints 与 content_safety.keywords
+# 仅作首次启动的初始 seed，之后以 Redis 为准
+# （key：gw:cfg:llm_allowlist / gw:cfg:content_safety:keywords，与限流 gw:rl:* 分离）。
+# 热更新流程：管理端改 Redis → PUBLISH gw:cfg:config_changed "llm_allowlist" |
+#   "content_safety" → 各副本收到即热重载，无需重启、多副本自动一致。
+# 防翻转：热重载时 Redis 读取失败，副本保留上一份快照，不会翻成空配置。
+# enabled=false 或 Redis 不可用时退化为 yaml 静态值（不热更）。
+# 环境变量覆盖：DYN_CONFIG_ENABLED / DYN_CONFIG_CHANNEL
+dynamic_config:
+  enabled: true
+  channel: "config_changed"
+
+# 授权/更新回连心跳（P5 合同硬要求：心跳 ≤100KB/天）。
+# 默认 6h 一次 ≈ 1.2KB/天；心跳体仅含匿名实例 ID + 版本 + 时间戳，不含学生内容。
+# 失败纯旁路（只记日志），健康状态经 /licensez（仅本机/内网）查看。
+# 环境变量覆盖：LICENSE_ENABLED / LICENSE_URL / LICENSE_INTERVAL_SECONDS
+license:
+  enabled: false
+  url: ""
+  interval_seconds: 21600
+
+# 匿名运行指标回传（P5 合同硬要求：仅指标与错误码，不含学生内容）。
+# 回传字段白名单由 metrics 包常量强制（11 个计数器键，无路径/uid/租户/题干）。
+# 环境变量覆盖：TELEMETRY_ENABLED / TELEMETRY_URL / TELEMETRY_INTERVAL_SECONDS
+telemetry:
+  enabled: false
+  url: ""
+  interval_seconds: 3600
+
+# 内容安全（未成年人保护）：JSON/文本请求体敏感词扫描，命中即 403 + 审计日志。
+# multipart（拍照上传）不做文本扫描，仅受 15MB 大小闸门约束，深审由后端负责。
+# 环境变量覆盖：CONTENT_SAFETY_ENABLED
+# 注意：启用 dynamic_config 时，keywords 仅作首次启动 seed，之后以 Redis 为准
+#       （key: gw:cfg:content_safety:keywords）；敏感词因此不必写进 git。
+content_safety:
+  enabled: true
+  keywords: []
+    # 按业务逐步补充示例（小写比较）：
+    # - "示例敏感词1"
+    # - "示例敏感词2"
+  max_scan_bytes: 262144
+
+# 审计日志保留期（天）。>0 时每次启动清理同目录超期的历史轮转日志；
+# 0 表示不启用保留期（不删任何文件）。环境变量覆盖：AUDIT_RETENTION_DAYS
+audit_retention_days: 180
+
+# 实例标识与版本（授权心跳/指标回传携带；均为匿名部署维度，不关联学校/学生）。
+# 环境变量覆盖：INSTANCE_ID / GATEWAY_VERSION；缺省自动生成 gw-<主机名>-<随机后缀>。
+# JWT 验签公钥（RS256）：由环境变量 JWT_PUBLIC_KEY 注入，不在本文件存留。
+# 网关仅持有公钥验证，私钥由签发方（web-backend）保管；未注入时启动即失败（fail fast）。
+# 注入方式见 docker-compose.yml + .env（deploy 侧 secrets/jwt_public.pem 为权威副本）。
+
+instance_id: ""
+version: ""
