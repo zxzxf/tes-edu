@@ -9,6 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/time/rate"
 
+	"gateway/internal/audit"
 	"gateway/internal/metrics"
 )
 
@@ -104,8 +105,16 @@ func (k *keyLimiter) get(key string) *rate.Limiter {
 	return l
 }
 
-// identityKey 取限流维度：优先 X-User-Id，其次 X-Tenant-Id，最后回退客户端 IP。
-// 需在鉴权之后调用，以拿到网关注入的 X-User-* 身份头。
+// identityKey 取限流维度：优先 X-User-Id，其次 X-Tenant-Id，最后回退
+// 客户端真实 IP（audit.ClientIP 信任链：CF-Connecting-IP > X-Real-IP >
+// RemoteAddr 去端口）。需在鉴权之后调用，以拿到网关注入的 X-User-* 身份头。
+//
+// 为什么不能直接用 RemoteAddr：请求经 lb 转发后，网关的 RemoteAddr 恒为
+// lb 容器 IP + 临时端口（lb→gateway 每条连接都不同），无鉴权路由
+// （catch-all /）配置的 "N rps / IP" 会退化成"每连接一个桶"，攻击者多开
+// 几条连接即可绕过（线上实测键形如 gw:rl:/:172.28.0.7:<port>）。
+// X-Real-IP 由入口 nginx 以 proxy_set_header 覆盖写入、同名头被替换，
+// 客户端无法伪造，可恢复按客户端 IP 聚合的限流语义。
 func identityKey(r *http.Request) string {
 	if v := r.Header.Get("X-User-Id"); v != "" {
 		return v
@@ -113,7 +122,7 @@ func identityKey(r *http.Request) string {
 	if v := r.Header.Get("X-Tenant-Id"); v != "" {
 		return v
 	}
-	return r.RemoteAddr
+	return audit.ClientIP(r)
 }
 
 // Wrap 构造限流中间件。

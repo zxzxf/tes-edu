@@ -66,13 +66,13 @@ func Log(next http.Handler, path string) (http.Handler, io.Closer) {
 
 		// 请求处理完成后，元信息已由鉴权中间件填充，统一落盘（PII 脱敏后）
 		logger.Printf("%s", MaskPII(fmt.Sprintf("%s %s %s %d uid=%s role=%s tenant=%s %s %s",
-			clientIP(r), r.Method, r.URL.Path, sw.status,
+			ClientIP(r), r.Method, r.URL.Path, sw.status,
 			meta.UserID, meta.Role, meta.TenantID,
 			r.UserAgent(), time.Since(start))))
 	}), closer
 }
 
-// clientIP 取客户端真实来源 IP，按信任链逐级回退：
+// ClientIP 取客户端真实来源 IP，按信任链逐级回退：
 //  1. CF-Connecting-IP：Cloudflare 边缘写入的最终用户 IP（经 cloudflared
 //     隧道透传）。仅当流量确实经过 Cloudflare 时可信；
 //  2. X-Real-IP：入口反代（edu-lb）以 proxy_set_header 覆盖写入的来源 IP，
@@ -83,7 +83,7 @@ func Log(next http.Handler, path string) (http.Handler, io.Closer) {
 // 记同一来源、审计无可追溯性；X-Real-IP 恢复来源区分。注意：若 137:80
 // 对公网开放，客户端可绕过 Cloudflare 伪造 CF-Connecting-IP，届时需去掉
 // 第一级（当前源站经 cloudflared 隧道暴露，不建议开放 80 入站）。
-func clientIP(r *http.Request) string {
+func ClientIP(r *http.Request) string {
 	for _, h := range []string{"CF-Connecting-IP", "X-Real-IP"} {
 		if v := strings.TrimSpace(r.Header.Get(h)); v != "" {
 			return v

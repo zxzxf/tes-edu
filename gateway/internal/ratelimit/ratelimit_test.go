@@ -146,11 +146,71 @@ func TestTenantFallbackThenIP(t *testing.T) {
 	if got := call(func(r *http.Request) { r.Header.Set("X-Tenant-Id", "t2") }); got != http.StatusOK {
 		t.Fatalf("不同 tenant 应隔离，实际 %d", got)
 	}
-	// 无身份头时回退 RemoteAddr：httptest 的请求 RemoteAddr 固定，
-	// 因此第二次必被限（验证 IP 维度确实生效且不 panic）。
+	// 无身份头时回退客户端 IP（RemoteAddr 去端口，走 audit.clientIP
+	// 信任链）：httptest 的请求 RemoteAddr 固定，因此第二次必被限
+	// （验证 IP 维度确实生效且不 panic）。
 	call(nil)
 	if got := call(nil); got != http.StatusTooManyRequests {
 		t.Fatalf("IP 回退维度应生效，第二次实际 %d", got)
+	}
+}
+
+// TestIPFallbackUsesTrustedHeaders：无身份头时回退真实客户端 IP 而非
+// RemoteAddr。回归用例：旧实现直接回退 RemoteAddr，而经 lb 后网关的
+// RemoteAddr 是 lb 容器 IP + 每连接不同的临时端口，无鉴权路由的
+// "N rps / IP" 退化成"每连接一个桶"，多开连接即可绕过（线上实测键
+// 形如 gw:rl:/:172.28.0.7:<port>）。
+func TestIPFallbackUsesTrustedHeaders(t *testing.T) {
+	h := Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}), opts(1, 0.0001)) // burst=1，同维度第二个必 429
+
+	call := func(set func(*http.Request)) int {
+		req := httptest.NewRequest(http.MethodGet, "/x", nil)
+		if set != nil {
+			set(req)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	// 核心回归：同一真实 IP（X-Real-IP）、不同 RemoteAddr（模拟 lb 两条
+	// 长连接）必须共享限流桶——第二次 429。旧实现下两者是独立键、都会放行。
+	call(func(r *http.Request) {
+		r.Header.Set("X-Real-IP", "203.0.113.9")
+		r.RemoteAddr = "172.28.0.7:50001"
+	})
+	if got := call(func(r *http.Request) {
+		r.Header.Set("X-Real-IP", "203.0.113.9")
+		r.RemoteAddr = "172.28.0.7:50002"
+	}); got != http.StatusTooManyRequests {
+		t.Fatalf("同一 X-Real-IP 不同连接应共享限流桶，第二次实际 %d", got)
+	}
+
+	// 不同真实 IP 互相隔离（桶已耗尽的 IP 不影响新 IP）
+	if got := call(func(r *http.Request) {
+		r.Header.Set("X-Real-IP", "198.51.100.1")
+	}); got != http.StatusOK {
+		t.Fatalf("不同 IP 应隔离，实际 %d", got)
+	}
+
+	// CF-Connecting-IP 优先于 X-Real-IP：同 CF 头、不同 X-Real-IP 仍共享桶
+	call(func(r *http.Request) {
+		r.Header.Set("CF-Connecting-IP", "203.0.113.9")
+		r.Header.Set("X-Real-IP", "10.0.0.1")
+	})
+	if got := call(func(r *http.Request) {
+		r.Header.Set("CF-Connecting-IP", "203.0.113.9")
+		r.Header.Set("X-Real-IP", "10.0.0.2")
+	}); got != http.StatusTooManyRequests {
+		t.Fatalf("CF-Connecting-IP 应优先于 X-Real-IP，第二次实际 %d", got)
+	}
+
+	// 无任何可信头时回退 RemoteAddr 去端口：同 IP 不同端口仍共享桶
+	call(func(r *http.Request) { r.RemoteAddr = "192.0.2.9:40001" })
+	if got := call(func(r *http.Request) { r.RemoteAddr = "192.0.2.9:40002" }); got != http.StatusTooManyRequests {
+		t.Fatalf("RemoteAddr 去端口后同 IP 应共享桶，第二次实际 %d", got)
 	}
 }
 

@@ -148,24 +148,24 @@ func TestClientIP(t *testing.T) {
 
 	r := newReq()
 	r.Header.Set("X-Real-IP", "203.0.113.7")
-	if got := clientIP(r); got != "203.0.113.7" {
+	if got := ClientIP(r); got != "203.0.113.7" {
 		t.Errorf("X-Real-IP 应优先于 RemoteAddr，got %q", got)
 	}
 
 	r = newReq()
 	r.Header.Set("CF-Connecting-IP", "198.51.100.9")
 	r.Header.Set("X-Real-IP", "172.18.0.9")
-	if got := clientIP(r); got != "198.51.100.9" {
+	if got := ClientIP(r); got != "198.51.100.9" {
 		t.Errorf("CF-Connecting-IP 应最优先，got %q", got)
 	}
 
 	r = newReq()
-	if got := clientIP(r); got != "172.18.0.5" {
+	if got := ClientIP(r); got != "172.18.0.5" {
 		t.Errorf("无头应回退 RemoteAddr 并去端口，got %q", got)
 	}
 
 	r.RemoteAddr = "172.18.0.5" // 无端口不坏
-	if got := clientIP(r); got != "172.18.0.5" {
+	if got := ClientIP(r); got != "172.18.0.5" {
 		t.Errorf("无端口 RemoteAddr 应原样返回，got %q", got)
 	}
 }
