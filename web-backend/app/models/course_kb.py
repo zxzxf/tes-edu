@@ -39,7 +39,8 @@ class CourseQuestion(Base):
     source_province = Column(String(32))                            # 来源省份
     knowledge_points = Column(JSON)                                 # 知识点标签 list[str]
     content_hash = Column(String(64), unique=True, index=True)       # 去重指纹
-    embedding = Column(Vector(1536))                                # 预留（P2）
+    # 维度须与所用 embedding 模型一致：当前 qwen3.7-text-embedding / text-embedding-v4 均为 1024
+    embedding = Column(Vector(1024))
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

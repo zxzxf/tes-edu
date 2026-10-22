@@ -13,7 +13,8 @@ from app.core.rbac import Role
 from app.core.security import require_role
 from app.models.course_kb import QuestionIn
 from app.services import course_kb as svc
-from app.services.parser import parse_file, parse_records
+# parse_file 定义在 app.services.course_kb（原从 parser 导入会 ImportError）
+from app.services.parser import parse_records
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 

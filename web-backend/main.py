@@ -31,8 +31,15 @@ app.add_middleware(
 
 
 @app.get("/healthz")
-def healthz():
-    return {"status": "ok"}
+async def healthz():
+    from app.core.config import settings
+
+    return {
+        "status": "ok",
+        "db_configured": bool(settings.database_url),
+        "tables": ["course_kb", "kb_knowledge_points", "wrong_questions",
+                   "submissions", "compliance_items"],
+    }
 
 
 # 统一前缀 /api/admin（网关已剥离此前缀再转发，这里重新挂上以便本地直连也一致）
@@ -62,4 +69,5 @@ async def on_startup():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    # 端口与网关上游一致（http://web-backend:8000）
+    uvicorn.run(app, host="0.0.0.0", port=8000)

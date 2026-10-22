@@ -33,6 +33,8 @@ class KnowledgePoint(BaseModel):
     content: str
     tags: List[str] = []
 
+    model_config = {"from_attributes": True}
+
 
 # ---------- 模块2：学情看板 ----------
 class AnalyticsSummary(BaseModel):
@@ -50,6 +52,8 @@ class WrongQuestion(BaseModel):
     wrong_answer: str
     correct_answer: str
     knowledge_point: str
+
+    model_config = {"from_attributes": True}
 
 
 # ---------- 模块4：自动组卷 ----------
@@ -69,6 +73,8 @@ class Submission(BaseModel):
     score: Optional[float] = None
     comment: Optional[str] = None
 
+    model_config = {"from_attributes": True}
+
 
 # ---------- 模块6：家长周报 ----------
 class WeeklyReport(BaseModel):
@@ -84,3 +90,5 @@ class ComplianceItem(BaseModel):
     type: str                     # 内容类型，如 题目/解析/图谱
     content: str
     status: str = "pending"       # pending / reviewed / rejected
+
+    model_config = {"from_attributes": True}

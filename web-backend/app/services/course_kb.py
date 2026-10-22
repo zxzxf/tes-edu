@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.db import engine
 from app.models.course_kb import Base, CourseQuestion
+from app.models import ops as _ops  # noqa: F401  注册运营实体表，随 create_all 一并建出
 
 
 async def init_course_kb() -> None:
