@@ -5,7 +5,16 @@
 """
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Column, DateTime, Float, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 
 from app.models.course_kb import Base
 
@@ -65,3 +74,44 @@ class ComplianceItem(Base):
     content = Column(Text, nullable=False)
     status = Column(String(16), nullable=False, default="pending", index=True)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class StudentEvent(Base):
+    """学情事件流水（来自 agent-backend 上报的 student_event）。"""
+
+    __tablename__ = "student_events"
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(String(64), nullable=False, index=True)
+    tenant_id = Column(String(64), index=True)
+    event_type = Column(String(32), nullable=False, index=True)  # solve / solve_image / similar
+    subject = Column(String(32))
+    mode = Column(String(16))
+    question = Column(Text)
+    knowledge_points = Column(JSON, default=list)
+    occurred_at = Column(DateTime(timezone=True))  # 事件原时间
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class StudentMastery(Base):
+    """知识点掌握度（按 学生×知识点 聚合）。
+
+    说明：当前事件不含判定结果，故只累计练习量；
+    掌握度 mastery = correct/(correct+wrong)，待接入判分后再更新对错计数。
+    """
+
+    __tablename__ = "student_mastery"
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(String(64), nullable=False, index=True)
+    tenant_id = Column(String(64), index=True)
+    subject = Column(String(32))
+    knowledge_point = Column(String(128), nullable=False, index=True)
+    practice_count = Column(Integer, default=0)
+    correct_count = Column(Integer, default=0)
+    wrong_count = Column(Integer, default=0)
+    last_practiced_at = Column(DateTime(timezone=True))
+
+    __table_args__ = (
+        UniqueConstraint("student_id", "knowledge_point", name="uq_mastery_student_kp"),
+    )

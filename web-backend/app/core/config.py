@@ -16,7 +16,9 @@ class Settings(BaseSettings):
     # 因此本服务必须同时接入 opt_default 才解析得到；容器内用 kafka:9092 引导
     kafka_bootstrap: str = ""
     kafka_topic_ingest: str = "course_kb_ingest"
+    kafka_topic_event: str = "student_event"
     kafka_group: str = "course-kb-ingest"
+    kafka_group_event: str = "student-event-consumer"
 
     @property
     def kafka_enabled(self) -> bool:
