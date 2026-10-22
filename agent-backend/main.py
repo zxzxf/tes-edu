@@ -12,7 +12,13 @@ async def lifespan(app: FastAPI):
     # 启动：dev 模式加载内存题库；真实模式建立 pg 连接池
     await rag.warm()
     yield
-    # 关闭：释放连接池
+    # 关闭：先把待发的学情事件收尾，再停生产者、释放连接池
+    try:
+        from app.core import events
+
+        await events.shutdown()
+    except Exception:
+        pass
     try:
         from app.db import pg
 
@@ -43,4 +49,5 @@ async def healthz():
         "embed": config.embed_ready(),
         "db": config.db_ready(),
         "vlm": config.vlm_ready(),
+        "kafka": config.kafka_ready(),
     }

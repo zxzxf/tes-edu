@@ -45,6 +45,11 @@ DB_DSN = _get("DB_DSN")  # postgresql://user:pass@host:5432/dbname
 TOP_K = int(_get("TOP_K", "4"))
 SEED_PATH = _get("SEED_PATH", "data/seed_questions.json")
 
+# ---- Kafka 学情事件上报 ----
+# 137 的 kafka 已接入 edu-net，容器内用 kafka:9092 即可；留空则不上报（不影响解题）
+KAFKA_BOOTSTRAP = _get("KAFKA_BOOTSTRAP")
+KAFKA_TOPIC_EVENT = _get("KAFKA_TOPIC_EVENT", "student_event")
+
 
 def llm_ready() -> bool:
     """是否具备真实大模型调用条件。"""
@@ -64,6 +69,11 @@ def db_ready() -> bool:
 def vlm_ready() -> bool:
     """是否启用视觉模型（拍照识题）。"""
     return bool(VLM_BASE_URL and LLM_API_KEY and VLM_MODEL)
+
+
+def kafka_ready() -> bool:
+    """是否启用学情事件上报。"""
+    return bool(KAFKA_BOOTSTRAP and KAFKA_TOPIC_EVENT)
 
 
 def mode() -> str:

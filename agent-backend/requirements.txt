@@ -11,6 +11,8 @@ openai>=1.35.0
 # pgvector 数据层（106 的 postgres/pg16）
 asyncpg>=0.29.0
 pgvector>=0.2.5
+# 学情事件上报（student_event → Kafka）
+aiokafka>=0.11.0
 
 # 拍照识题（可选，本地 OCR 方案，当前走视觉模型接口，无需此包）
 # paddleocr

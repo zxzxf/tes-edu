@@ -25,4 +25,7 @@ async def handle_question(
 async def handle_image(image_bytes: bytes) -> dict:
     # 拍照：先 OCR 抽题面，再走文本题链路
     text = await ocr.recognize(image_bytes)
-    return await handle_question(text)
+    result = await handle_question(text)
+    # 回传识别文本，供学情上报与前端核对（文本题链路不返回该字段）
+    result["recognized_text"] = text
+    return result
