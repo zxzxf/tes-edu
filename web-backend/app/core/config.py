@@ -11,6 +11,18 @@ class Settings(BaseSettings):
     embed_api_base: str = ""
     embed_api_key: str = ""
 
+    # Kafka 异步管道（course_kb_ingest 入库链路）
+    # 137 上的 kafka 在 opt_default 网络，broker 宣告地址是容器主机名，
+    # 因此本服务必须同时接入 opt_default 才解析得到；容器内用 kafka:9092 引导
+    kafka_bootstrap: str = ""
+    kafka_topic_ingest: str = "course_kb_ingest"
+    kafka_group: str = "course-kb-ingest"
+
+    @property
+    def kafka_enabled(self) -> bool:
+        """是否启用异步管道；未配置时降级为同步直写。"""
+        return bool(self.kafka_bootstrap)
+
     class Config:
         env_file = ".env"
         extra = "ignore"

@@ -2,24 +2,82 @@
 
 提供教研内容管理、学情看板、错题本、自动组卷、教师批改、家长周报、合规审核等接口。
 所有路由挂在 /api/admin 下（由 Go 网关剥离前缀后转发到此服务）。
+
+启动期：建表（幂等）+ 拉起 Kafka 入库消费端（未配置 Kafka 则走同步直写）。
 """
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
-    auth,
-    knowledge,
     analytics,
-    wrong_questions,
+    auth,
+    compliance,
     exam,
     grading,
-    reports,
-    compliance,
-    questions,
     ingest,
+    knowledge,
+    questions,
+    reports,
+    wrong_questions,
 )
+from app.core.config import settings
 
-app = FastAPI(title="Tes Edu Web Backend", version="0.1.0")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("web-backend")
+
+_worker_task = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _worker_task
+
+    # 1) 建表幂等；DB 未就绪时不阻断服务启动
+    try:
+        from app.services import course_kb as svc
+
+        await svc.init_course_kb()
+        logger.info("course_kb 表初始化完成")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("course_kb 初始化跳过：%s", e)
+
+    # 2) Kafka 入库消费端；未配置则接口自动降级为同步直写
+    if settings.kafka_enabled:
+        from app.workers.ingest_worker import run as run_worker
+
+        _worker_task = asyncio.create_task(run_worker())
+        logger.info("Kafka 入库消费端已启动：%s", settings.kafka_topic_ingest)
+    else:
+        logger.info("Kafka 未配置，入库走同步直写")
+
+    yield
+
+    # ---- 关闭 ----
+    if _worker_task is not None:
+        _worker_task.cancel()
+        try:
+            await _worker_task
+        except asyncio.CancelledError:
+            pass
+    try:
+        from app.core.kafka_client import stop_producer
+
+        await stop_producer()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from app.core.db import engine
+
+        await engine.dispose()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+app = FastAPI(title="Tes Edu Web Backend", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,13 +90,17 @@ app.add_middleware(
 
 @app.get("/healthz")
 async def healthz():
-    from app.core.config import settings
-
     return {
         "status": "ok",
         "db_configured": bool(settings.database_url),
-        "tables": ["course_kb", "kb_knowledge_points", "wrong_questions",
-                   "submissions", "compliance_items"],
+        "kafka_enabled": settings.kafka_enabled,
+        "tables": [
+            "course_kb",
+            "kb_knowledge_points",
+            "wrong_questions",
+            "submissions",
+            "compliance_items",
+        ],
     }
 
 
@@ -53,17 +115,6 @@ app.include_router(reports.router, prefix="/api/admin")
 app.include_router(compliance.router, prefix="/api/admin")
 app.include_router(questions.router, prefix="/api/admin")
 app.include_router(ingest.router, prefix="/api/admin")
-
-
-@app.on_event("startup")
-async def on_startup():
-    # course_kb 建表幂等；DB 未就绪时不阻断服务启动
-    try:
-        from app.services import course_kb as svc
-
-        await svc.init_course_kb()
-    except Exception as e:  # noqa: BLE001
-        print("[startup] course_kb 初始化跳过：", e)
 
 
 if __name__ == "__main__":
