@@ -39,6 +39,8 @@ RATE_LIMIT: "20"                  # 全局令牌桶，无用户级配额
 
 ## 3. 现状侧：服务器真实部署
 
+> **复核更新（2026-10-23）**：原报告（2026-10-21）仅描述 `124.221.253.137` 单机；实测存在**第二台服务器 `106`**（同账号，承载数据层）。以下为 2026-10-23 实测最新状态——原快照中"age Up 7h""无 postgres"等断言已过时。
+
 `124.221.253.137` 上实际运行的容器（含已停止）：
 
 | 容器名 | 镜像 | 状态 | 端口 | 备注 |
@@ -47,7 +49,7 @@ RATE_LIMIT: "20"                  # 全局令牌桶，无用户级配额
 | `edu-mock-backend` | `…/mis_ser/edu-mock-backend:latest` | Up 4h | 8000 | 进程 `/app/mock`，**是 Mock 桩，非 web-backend** |
 | `kafka` | `…/mis_ser/kafka:3.8.0` | Up 6h | 9092→9094 | **ZK 模式** |
 | `zookeeper` | `…/mis_ser/zookeeper:3.9` | Up 6h | 2181 | 独立 ZK，单点 |
-| `age` | `…/mis_ser/apache-age:latest` | Up 7h | 5444→5432 | 图谱库（PG 图扩展） |
+| ~~`age`~~ | `…/mis_ser/apache-age` | **已停止/不存在** | — | 图谱库；**2026-10-23 实测 137 无任何 age 容器在跑**（P0 DoD"AGE 初始化"暂未满足） |
 | `kafka-init` | `…/mis_ser/kafka:3.8.0` | Exited(0) 6h | — | 一次性初始化（正常） |
 | `optimistic_payne` | `hello-world` | Exited(0) 10d | — | 测试容器，可清理 |
 | `cloudflared` / `cf-quick` | `cloudflare/cloudflared` | Up | — | Cloudflare Tunnel（HTTPS 接入，与业务无关） |
@@ -55,7 +57,8 @@ RATE_LIMIT: "20"                  # 全局令牌桶，无用户级配额
 **关键事实确认**：
 - `edu-mock-backend` 容器内进程是 `/app/mock` —— 证实服务器跑的是**模拟后端桩**，不是设计文档里那个 7 模块的 FastAPI `web-backend`。
 - 镜像全部来自 `registry.cn-shanghai.aliyuncs.com/mis_ser/`（阿里云容器registry），**不是本地 `build:` 构建** —— 说明存在一套"构建→推镜像→拉取运行"的流水线，但 `docker-compose.yml` 里完全没体现（`build: ./xxx` 与线上镜像来源不一致）。
-- 服务器**没有 `postgres/pgvector` 容器**，却有 `apache-age`（图库，本质是 PG 的图扩展）；没有独立 `agent-backend` 容器；没有 `web-frontend` 容器。
+- 137 **没有 `postgres/pgvector` 容器**，也没有独立真实 `agent-backend` 容器、没有 `web-frontend` 容器；`apache-age` 当前亦未运行（见上方 age 行）。
+- **新增 `106` 数据层服务器**：`srv-postgres`（`pgvector/pgvector:pg16`，**向量底座已在**）+ `srv-redis`（**137 的 Redis 从库，`master_link_status:up`**）。数据层实际跨 137/106 两台机器，原报告仅画了 137，**遗漏 106 是现状基线最大的结构性盲区**。
 
 ---
 
@@ -63,14 +66,14 @@ RATE_LIMIT: "20"                  # 全局令牌桶，无用户级配额
 
 | # | 维度 | 计划（compose/文档） | 现状（服务器） | 偏差等级 | 影响 |
 |---|---|---|---|---|---|
-| G1 | 关系型/向量库 | `pgvector/pgvector:pg16`（向量底座，P1 RAG 核心） | 无 postgres；只有 `apache-age`（图谱） | 🔴 严重 | **RAG 向量检索无底座**，P1 卡住；图谱提前上 |
+| G1 | 关系型/向量库 | `pgvector/pgvector:pg16`（向量底座，P1 RAG 核心） | 106 已有 `srv-postgres`(pg16+pgvector)；137 无 postgres；`age` 当前未运行 | 🟠 重要 | 向量底座已具备（在 106），但**后端未连接**（仍内存占位）；图谱库 AGE 暂缺，P0 DoD"AGE 初始化"未满足 |
 | G2 | Kafka 模式 | bitnami KRaft 单节点（无 ZK） | `kafka:3.8.0` + 独立 `zookeeper:3.9`（ZK 模式） | 🟠 重要 | 部署形态与设计不符；ZK 是单点 SPOF |
 | G3 | Web 后端 | `web-backend`（FastAPI 7 模块） | `edu-mock-backend`（`/app/mock` 桩） | 🔴 严重 | 真实业务逻辑未部署，仅是联调桩 |
 | G4 | Agent 后端 | 独立 `agent-backend` 服务 | 无独立容器（疑似并入 mock 或未部署） | 🟠 重要 | AI 能力（RAG/OCR/VLM/编排）未独立可部署 |
 | G5 | 前端 | `web-frontend`（Vue3，:8081） | 未部署 | 🟡 渐进 | 无管理界面容器 |
 | G6 | 镜像来源 | `build: ./gateway` 等本地构建 | 阿里云 ACR 预构建镜像 | 🟠 重要 | 缺 CI 构建/推送环节，compose 不可一键复现线上 |
 | G7 | 网关端口 | 计划 8080 对外 | 实际 80→8080（Nginx/前置已介入） | 🟢 正常 | 端口映射差异，可接受 |
-| G8 | 安全密钥 | `JWT_SECRET: change-me-in-prod`（硬编码） | 同左（沿用 compose） | 🔴 严重 | 默认密钥=门没锁，生产不可用 |
+| G8 | 安全密钥 | `JWT_SECRET: change-me-in-prod`（硬编码） | 网关已升级 **RS256**（公钥经 env 注入，无硬编码对称密钥） | ✅ 已解除 | 原🔴随 RS256 改造消除；网关侧另已落地白名单拒绝 / 心跳回连 / 匿名指标回传三项合同硬要求 |
 | G9 | 密码登录 | 未提及 | 服务器 `PasswordAuthentication yes` | 🔴 严重 | 密钥已通但密码仍开，锁门风险 |
 | G10 | 限流 | 全局 `RATE_LIMIT=20` | 沿用 | 🟡 渐进 | 无用户级配额/计费管控 |
 
@@ -82,7 +85,7 @@ RATE_LIMIT: "20"                  # 全局令牌桶，无用户级配额
 
 | 维度 | 企业落地需要 | 现状 | 等级 |
 |---|---|---|---|
-| 安全 | TLS 全链路、密钥进 Vault/KMS、默认密钥必改 | 明文 HTTP(:80)；`change-me-in-prod` 未改；密码登录开着 | 🔴 |
+| 安全 | TLS 全链路、密钥进 Vault/KMS、默认密钥必改 | 明文 HTTP(:80)；**JWT 已改 RS256（无默认对称密钥）**；密码登录仍开 | 🟠 |
 | 合规（教育+未成年人） | 内容审核、PII 脱敏、数据留存策略 | 仅有"合规审核"路由桩，无实际逻辑 | 🔴 |
 | 可观测 | 日志聚合、指标、链路追踪、告警 | 仅审计日志占位 + `/healthz`；无 metrics/tracing/alert | 🟠 |
 | CI/CD | 自动构建/测试/灰度/回滚、多环境 | 无 CI；手动拉镜像 run；构建来源不在 compose | 🟠 |
@@ -103,7 +106,7 @@ RATE_LIMIT: "20"                  # 全局令牌桶，无用户级配额
 ## 7. 建议收敛路线（按优先级）
 
 **P0 — 上线前必做（否则一票否决）**
-- **改 `JWT_SECRET`**：生成真随机值，从 `.env` 注入，删除 `change-me-in-prod` 硬编码（详见 §8 待办）。
+- ~~**改 `JWT_SECRET`**~~（**已完成**：网关升级 RS256，公钥经 env 注入，无对称默认密钥；详见 §4 G8）：保留以下剩余项。
 - **关服务器密码登录**：密钥已验证可用（`ssh 137` 免密），改 `PasswordAuthentication no` 后保留 Web 控制台兜底。
 - **TLS 加密公网入口**：当前无域名，先用 Cloudflare Quick Tunnel（已通，临时地址 `https://identification-accommodate-nerve-carl.trycloudflare.com`）或自签证书 + Nginx；有域名后走固定 Tunnel。
 - **合规真实逻辑**：未成年人内容审核、PII 脱敏、数据留存策略。
@@ -122,9 +125,10 @@ RATE_LIMIT: "20"                  # 全局令牌桶，无用户级配额
 
 ## 8. 待确认 / 待办清单
 
-- [ ] `JWT_SECRET` 替换为随机值并重启 `edu-gateway` 生效（需确认其他服务是否共用该 secret）。
+- [x] `JWT_SECRET` 替换为随机值 → **已完成**：网关升级 **RS256**（公钥 env 注入，无默认对称密钥），原 G8 🔴 已解除。
 - [ ] 关闭服务器 `PasswordAuthentication`（先确认密钥可控 + 保留 Web 控制台）。
-- [ ] 澄清数据层规划：向量(pgvector)与图谱(AGE)是否并存？还是 AGE 兼任？直接决定 G1 怎么补。
+- [ ] **澄清并补全 `106` 数据层归属**：向量(pgvector)在 106、图谱(AGE)待常驻；Redis 主从已跨 137/106 建立（原报告仅描述 137，遗漏 106）。
+- [ ] `age` 容器重新常驻并初始化图谱，满足 P0 DoD 的"AGE 容器完成图谱初始化"。
 - [ ] 确认 `agent-backend` 是否并入 mock，还是需独立部署。
 - [ ] 是否清理 `optimistic_payne`（hello-world 测试容器）。
 - [ ] 是否将本报告回填进设计文档，并标注"当前部署为 mock 联调阶段"。
