@@ -19,7 +19,7 @@ func TestLogWritesToFile(t *testing.T) {
 	}), logPath)
 	defer closer.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/app/x", nil)
 	req.RemoteAddr = "10.0.0.9:1234"
 	h.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -28,10 +28,30 @@ func TestLogWritesToFile(t *testing.T) {
 		t.Fatalf("审计日志文件未生成: %v", err)
 	}
 	s := string(b)
-	for _, want := range []string{"/healthz", "10.0.0.9", "201"} {
+	for _, want := range []string{"/api/app/x", "10.0.0.9", "201"} {
 		if !contains(s, want) {
 			t.Errorf("审计日志缺少 %q，实际内容: %q", want, s)
 		}
+	}
+}
+
+// TestLogSkipsHealthz：探活请求 /healthz 不应写入审计日志（治理审计噪声）。
+func TestLogSkipsHealthz(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "access.log")
+
+	h, closer := Log(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}), logPath)
+	defer closer.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	// 审计直接跳过，文件可能不生成；若生成则不得含 /healthz
+	b, err := os.ReadFile(logPath)
+	if err == nil && contains(string(b), "/healthz") {
+		t.Errorf("探活请求不应写入审计日志，实际: %q", string(b))
 	}
 }
 

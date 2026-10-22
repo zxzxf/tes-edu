@@ -29,34 +29,34 @@ func writeCfg(t *testing.T, body string) string {
 	return p
 }
 
-// TestLoadRequiresJWTSecret：生产防裸奔的底线——没给密钥必须拒绝启动。
+// TestLoadRequiresJWTPublicKey：生产防裸奔的底线——没给公钥必须拒绝启动。
 // 这是 config.Load 里最有价值的一条约束，不能退化。
-func TestLoadRequiresJWTSecret(t *testing.T) {
-	t.Setenv("JWT_SECRET", "")
+func TestLoadRequiresJWTPublicKey(t *testing.T) {
+	t.Setenv("JWT_PUBLIC_KEY", "")
 	p := writeCfg(t, minimalYAML)
 
 	if _, err := Load(p); err == nil {
-		t.Fatal("期望 Load 在 jwt_secret 为空时报错，实际返回 nil")
+		t.Fatal("期望 Load 在 jwt_public_key 为空时报错，实际返回 nil")
 	}
 }
 
-// TestLoadEnvOverridesSecret：密钥从环境变量注入，不落进配置文件。
-func TestLoadEnvOverridesSecret(t *testing.T) {
-	t.Setenv("JWT_SECRET", "s3cret-from-env")
-	p := writeCfg(t, minimalYAML+"jwt_secret: \"written-in-file\"\n")
+// TestLoadEnvOverridesJWTPublicKey：公钥从环境变量注入，不落进配置文件。
+func TestLoadEnvOverridesJWTPublicKey(t *testing.T) {
+	t.Setenv("JWT_PUBLIC_KEY", "pub-from-env")
+	p := writeCfg(t, minimalYAML+"jwt_public_key: \"written-in-file\"\n")
 
 	cfg, err := Load(p)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if cfg.JWTSecret != "s3cret-from-env" {
-		t.Fatalf("环境变量未生效: got %q", cfg.JWTSecret)
+	if cfg.JWTPublicKey != "pub-from-env" {
+		t.Fatalf("环境变量未生效: got %q", cfg.JWTPublicKey)
 	}
 }
 
 // TestLoadAuditLogDefault：未显式配置审计路径时有兜底，防止审计静默丢失。
 func TestLoadAuditLogDefault(t *testing.T) {
-	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("JWT_PUBLIC_KEY", "x")
 	p := writeCfg(t, minimalYAML)
 
 	cfg, err := Load(p)
@@ -70,7 +70,7 @@ func TestLoadAuditLogDefault(t *testing.T) {
 
 // TestLoadRoutesAndUpstream：路由表与上游映射能正确解析（拼写错会导致静默 skip）。
 func TestLoadRoutesAndUpstream(t *testing.T) {
-	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("JWT_PUBLIC_KEY", "x")
 	p := writeCfg(t, minimalYAML)
 
 	cfg, err := Load(p)
@@ -95,7 +95,7 @@ func TestLoadRoutesAndUpstream(t *testing.T) {
 
 // TestRedisEnvOverrides：多副本部署靠环境变量开 Redis 全局限流。
 func TestRedisEnvOverrides(t *testing.T) {
-	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("JWT_PUBLIC_KEY", "x")
 	t.Setenv("REDIS_ENABLED", "true")
 	t.Setenv("REDIS_ADDR", "redis:6379")
 	t.Setenv("REDIS_DB", "3")
@@ -113,7 +113,7 @@ func TestRedisEnvOverrides(t *testing.T) {
 // TestLLMAllowlistValidation：启用白名单但端点配置非法必须启动即失败
 // （fail fast，不能静默变成放行所有）。
 func TestLLMAllowlistValidation(t *testing.T) {
-	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("JWT_PUBLIC_KEY", "x")
 	p := writeCfg(t, minimalYAML+`
 llm_allowlist:
   enabled: true
@@ -138,7 +138,7 @@ llm_allowlist:
 
 // TestLLMAllowlistEnvOverride：环境变量可覆盖开关/头名/强制头。
 func TestLLMAllowlistEnvOverride(t *testing.T) {
-	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("JWT_PUBLIC_KEY", "x")
 	t.Setenv("LLM_ALLOWLIST_ENABLED", "true")
 	t.Setenv("LLM_ALLOWLIST_HEADER", "X-Model-Endpoint")
 	t.Setenv("LLM_ALLOWLIST_REQUIRE_HEADER", "true")
@@ -158,7 +158,7 @@ func TestLLMAllowlistEnvOverride(t *testing.T) {
 // TestBreakerForDefaults：未配置熔断的上游回退默认值（启用/5次/10s）。
 // 默认启用是有意为之：漏配熔断不应等于裸奔（方案书 §十 明列网关职责）。
 func TestBreakerForDefaults(t *testing.T) {
-	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("JWT_PUBLIC_KEY", "x")
 	p := writeCfg(t, minimalYAML)
 
 	cfg, err := Load(p)
@@ -173,7 +173,7 @@ func TestBreakerForDefaults(t *testing.T) {
 
 // TestBreakerForExplicit：显式配置优先，enabled=false 可关闭。
 func TestBreakerForExplicit(t *testing.T) {
-	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("JWT_PUBLIC_KEY", "x")
 	p := writeCfg(t, minimalYAML+`
 breakers:
   agent_backend:
@@ -200,7 +200,7 @@ breakers:
 // 此前两份 compose 均设置 GATEWAY_LOG 但代码从不读取，审计路径实际走
 // config.yaml 的 audit_log，容器内卷挂载点与配置不一致。
 func TestGatewayLogEnvOverride(t *testing.T) {
-	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("JWT_PUBLIC_KEY", "x")
 	t.Setenv("GATEWAY_LOG", "/var/log/gateway/from-env.log")
 
 	// 优先级 1：环境变量覆盖 yaml

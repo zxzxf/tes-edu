@@ -136,12 +136,26 @@ go run .
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `PORT` | `8080` | 网关监听端口 |
-| `JWT_SECRET` | `change-me-in-prod` | JWT 校验密钥（生产务必修改） |
+| `JWT_PUBLIC_KEY` | （必填） | 网关 RS256 验签公钥（PEM）；生产务必使用自有密钥对的公钥 |
 | `AGENT_BACKEND_URL` | `http://localhost:8000` | Agent 后端地址 |
 | `WEB_BACKEND_URL` | `http://localhost:8001` | Web 后端地址 |
 | `RATE_LIMIT` | `20` | 单 IP 每秒令牌桶容量 |
 
+### JWT RS256 密钥对（gateway ↔ web-backend）
+网关与 web-backend 采用 RS256 非对称算法：web-backend 持私钥签发，网关持公钥验证。
+生成一对密钥（私钥给 web-backend 的 `JWT_PRIVATE_KEY`，公钥给网关的 `JWT_PUBLIC_KEY`）：
+
+```bash
+openssl genrsa -out jwt_private.pem 2048
+openssl rsa -in jwt_private.pem -pubout -out jwt_public.pem
+```
+
+将 `jwt_public.pem` 内容设为网关 `JWT_PUBLIC_KEY`、`jwt_private.pem` 内容设为 web-backend
+`JWT_PRIVATE_KEY`（建议通过 `.env` 注入，勿硬编码进仓库）。两端必须配对且**同步上线**——
+切换 RS256 会使旧 HS256 令牌立即失效。
+
 **后端 `agent-backend` / `web-backend`**
+- `JWT_PRIVATE_KEY`（web-backend）：RS256 签发私钥（PEM），与网关公钥成对。
 - 当前以占位为主，接入真实能力时建议补充：`LLM_API_KEY`、`LLM_BASE_URL`、`REDIS_URL`、`DATABASE_URL`、`KAFKA_BROKERS` 等（在各自 `app/core/` 配置中读取）。
 
 ## 数据层（设计参考）

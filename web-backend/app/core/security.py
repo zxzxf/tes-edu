@@ -3,7 +3,7 @@
 设计说明：
 - 真正校验 JWT 签名、限流、审计都在 Go 网关完成。
 - Web 后端处于内网，默认信任网关注入的 X-User-Id / X-User-Role 头。
-- 若需双校验（纵深防御），可在此用 python-jose 再用同一 JWT_SECRET 验一次签名。
+- 若需双校验（纵深防御），可在此用 python-jose 再用同一 RSA 公钥验一次签名（与网关共用密钥对）。
 """
 from typing import Optional
 

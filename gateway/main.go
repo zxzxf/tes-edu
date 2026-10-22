@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -222,7 +223,7 @@ func buildHandler(cfg *config.Config, ctx context.Context) (mux *http.ServeMux, 
 		}
 		handler = auth.Wrap(handler, auth.Options{
 			Mode:          r.Mode,
-			Secret:        cfg.JWTSecret,
+			PublicKey:     cfg.JWTPublicKey,
 			Roles:         roles,
 			RequireTenant: r.RequireTenant,
 		})
@@ -326,6 +327,7 @@ func main() {
 	if v := os.Getenv("CONFIG_PATH"); v != "" {
 		cfgPath = v
 	}
+	initMgmtAllow() // 解析 MGMT_ALLOW_CIDRS，加固运维端点访问来源
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		log.Fatalf("load config %s: %v", cfgPath, err)
@@ -381,8 +383,39 @@ func main() {
 	}
 }
 
-// isLocalRequest 判断请求是否来自本机或内网（/licensez、/metricsz 仅限运维访问）。
-// 容器化部署时 RemoteAddr 是 ingress/边车 IP，落在私网段即放行。
+// mgmtAllowCIDRs 运维端点（/licensez、/metricsz）允许访问的来源网段白名单。
+// 默认仅本机回环；如需从跳板机/监控网段访问，用 MGMT_ALLOW_CIDRS 显式授权
+// （逗号分隔的 CIDR 或单 IP，如 10.0.0.0/8,192.168.1.0/24,203.0.113.7）。
+// 收紧原因：原先 IsPrivate() 等于把整个 edu-net 私网任意容器都放行运维数据，
+// 过宽（纵深防御的第二道闸形同虚设）。nginx 入口已对这两个路径 return 403，
+// 此处只作为最后兜底，默认仅信任本机。
+var mgmtAllowCIDRs []net.IPNet
+
+// initMgmtAllow 解析 MGMT_ALLOW_CIDRS 环境变量（空则仅本机回环）。
+func initMgmtAllow() {
+	for _, s := range strings.Split(os.Getenv("MGMT_ALLOW_CIDRS"), ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if _, ipnet, err := net.ParseCIDR(s); err == nil {
+			mgmtAllowCIDRs = append(mgmtAllowCIDRs, *ipnet)
+			continue
+		}
+		if ip := net.ParseIP(s); ip != nil {
+			bits := 32
+			if ip.To4() == nil {
+				bits = 128
+			}
+			mgmtAllowCIDRs = append(mgmtAllowCIDRs, net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)})
+			continue
+		}
+		log.Printf("warn: 无效的 MGMT_ALLOW_CIDRS 条目 %q，已忽略", s)
+	}
+}
+
+// isLocalRequest 判断请求是否来自本机或显式授权的运维网段（/licensez、/metricsz 仅限运维访问）。
+// 容器化部署时 RemoteAddr 是 ingress/边车 IP；默认仅放行本机回环，避免“整个私网任意容器可读运维数据”。
 func isLocalRequest(r *http.Request) bool {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -392,5 +425,13 @@ func isLocalRequest(r *http.Request) bool {
 	if ip == nil {
 		return false
 	}
-	return ip.IsLoopback() || ip.IsPrivate()
+	if ip.IsLoopback() {
+		return true
+	}
+	for _, n := range mgmtAllowCIDRs {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }

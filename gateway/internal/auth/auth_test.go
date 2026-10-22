@@ -1,6 +1,10 @@
 package auth
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,11 +14,28 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-const testSecret = "unit-test-secret"
+// 测试用 RSA 密钥对：私钥模拟 web-backend 签发，公钥交给网关（auth 包）验证。
+var (
+	testPriv   *rsa.PrivateKey
+	testPubPEM string
+)
+
+func init() {
+	var err error
+	testPriv, err = rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+	pubBytes, err := x509.MarshalPKIXPublicKey(&testPriv.PublicKey)
+	if err != nil {
+		panic(err)
+	}
+	testPubPEM = string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubBytes}))
+}
 
 // 构造被测 handler：Wrap 之后接一个恒返回 200 的哨兵。
 func wrapTarget(mode string, roles []string) http.Handler {
-	return wrapTargetOpt(Options{Mode: mode, Roles: roles, Secret: testSecret})
+	return wrapTargetOpt(Options{Mode: mode, Roles: roles, PublicKey: testPubPEM})
 }
 
 func wrapTargetOpt(opt Options) http.Handler {
@@ -25,14 +46,14 @@ func wrapTargetOpt(opt Options) http.Handler {
 	return Wrap(sentinel, opt)
 }
 
-// sign 按给定 claims 签发 HS256 token（与网关 parseJWT 约定一致）。
+// sign 用测试私钥签发 RS256 token（与网关 parseJWT 约定一致）。
 func sign(t *testing.T, claims jwt.MapClaims) string {
 	t.Helper()
 	if claims["exp"] == nil {
 		claims["exp"] = time.Now().Add(time.Hour).Unix()
 	}
-	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	s, err := tok.SignedString([]byte(testSecret))
+	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	s, err := tok.SignedString(testPriv)
 	if err != nil {
 		t.Fatalf("sign: %v", err)
 	}
@@ -66,14 +87,29 @@ func TestJWTC_InvalidToken401(t *testing.T) {
 	}
 }
 
-// TestJWTC_WrongSecret401：用别的密钥签的 token 不能通过——防跨环境伪造。
-func TestJWTC_WrongSecret401(t *testing.T) {
-	foreign := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"sub": "u1"})
-	s, _ := foreign.SignedString([]byte("another-secret"))
+// TestJWTC_WrongKey401：用别的私钥签的 token 不能通过——防跨密钥伪造（RS256 核心收益）。
+func TestJWTC_WrongKey401(t *testing.T) {
+	otherPriv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("gen key: %v", err)
+	}
+	foreign := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{"sub": "u1", "exp": time.Now().Add(time.Hour).Unix()})
+	s, _ := foreign.SignedString(otherPriv)
 
 	h := wrapTarget("jwt_c", nil)
 	if got := do(t, h, "/api/app/solve", s).Code; got != http.StatusUnauthorized {
 		t.Fatalf("异密钥 token 应 401，实际 %d", got)
+	}
+}
+
+// TestJWTC_WrongAlg401：HS256 等对称算法签的 token 必须被拒（网关仅接受 RS256）。
+func TestJWTC_WrongAlg401(t *testing.T) {
+	foreign := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"sub": "u1", "exp": time.Now().Add(time.Hour).Unix()})
+	s, _ := foreign.SignedString([]byte("some-secret"))
+
+	h := wrapTarget("jwt_c", nil)
+	if got := do(t, h, "/api/app/solve", s).Code; got != http.StatusUnauthorized {
+		t.Fatalf("HS256 token 应 401（网关仅接受 RS256），实际 %d", got)
 	}
 }
 
@@ -131,7 +167,7 @@ func TestIdentityHeadersInjected(t *testing.T) {
 		got = r.Header.Clone()
 		w.WriteHeader(http.StatusOK)
 	})
-	h := Wrap(sentinel, Options{Mode: "jwt_c", Secret: testSecret})
+	h := Wrap(sentinel, Options{Mode: "jwt_c", PublicKey: testPubPEM})
 	tok := sign(t, jwt.MapClaims{"sub": "u42", "role": "teacher", "tenant_id": "t7"})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/app/x", nil)
@@ -150,14 +186,13 @@ func TestIdentityHeadersInjected(t *testing.T) {
 }
 
 // TestIdentityHeadersOverwriteForged：客户端自带 X-User-Id 必须被覆盖，否则可冒充任意用户。
-// 这是自研网关最典型的越权漏洞，专门用测试锁死。
 func TestIdentityHeadersOverwriteForged(t *testing.T) {
 	var got http.Header
 	sentinel := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = r.Header.Clone()
 		w.WriteHeader(http.StatusOK)
 	})
-	h := Wrap(sentinel, Options{Mode: "jwt_c", Secret: testSecret})
+	h := Wrap(sentinel, Options{Mode: "jwt_c", PublicKey: testPubPEM})
 	tok := sign(t, jwt.MapClaims{"sub": "real-user"})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/app/x", nil)
@@ -185,7 +220,7 @@ func TestUIDFallback(t *testing.T) {
 		got = r.Header.Clone()
 		w.WriteHeader(http.StatusOK)
 	})
-	h := Wrap(sentinel, Options{Mode: "jwt_c", Secret: testSecret})
+	h := Wrap(sentinel, Options{Mode: "jwt_c", PublicKey: testPubPEM})
 	tok := sign(t, jwt.MapClaims{"uid": "legacy-user"})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/app/x", nil)
@@ -225,11 +260,8 @@ func TestBearerPrefixExact(t *testing.T) {
 
 // --- 多租户强制隔离（require_tenant）---
 
-// TestRequireTenant_MissingClaim403：租户路由必须拒绝无 tenant_id 的令牌。
-// 这条是多租户隔离的网关侧底线：B 端令牌若不带租户声明，放行后
-// 下游只能靠 X-Tenant-Id 空串猜，跨机构数据可见。
 func TestRequireTenant_MissingClaim403(t *testing.T) {
-	h := wrapTargetOpt(Options{Mode: "jwt_c", Secret: testSecret, RequireTenant: true})
+	h := wrapTargetOpt(Options{Mode: "jwt_c", PublicKey: testPubPEM, RequireTenant: true})
 	tok := sign(t, jwt.MapClaims{"sub": "u1"}) // 无 tenant_id
 
 	if got := do(t, h, "/api/admin/x", tok).Code; got != http.StatusForbidden {
@@ -237,14 +269,13 @@ func TestRequireTenant_MissingClaim403(t *testing.T) {
 	}
 }
 
-// TestRequireTenant_WithClaim200：带 tenant_id 放行并注入 X-Tenant-Id。
 func TestRequireTenant_WithClaim200(t *testing.T) {
 	var got http.Header
 	sentinel := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = r.Header.Clone()
 		w.WriteHeader(http.StatusOK)
 	})
-	h := Wrap(sentinel, Options{Mode: "jwt_c", Secret: testSecret, RequireTenant: true})
+	h := Wrap(sentinel, Options{Mode: "jwt_c", PublicKey: testPubPEM, RequireTenant: true})
 	tok := sign(t, jwt.MapClaims{"sub": "u1", "tenant_id": "school-42"})
 
 	if code := do(t, h, "/api/admin/x", tok).Code; code != http.StatusOK {
@@ -255,9 +286,8 @@ func TestRequireTenant_WithClaim200(t *testing.T) {
 	}
 }
 
-// TestRequireTenant_EmptyClaim403：空串 tenant_id 等同没有（不能靠填空串绕过）。
 func TestRequireTenant_EmptyClaim403(t *testing.T) {
-	h := wrapTargetOpt(Options{Mode: "jwt_c", Secret: testSecret, RequireTenant: true})
+	h := wrapTargetOpt(Options{Mode: "jwt_c", PublicKey: testPubPEM, RequireTenant: true})
 	tok := sign(t, jwt.MapClaims{"sub": "u1", "tenant_id": ""})
 
 	if got := do(t, h, "/api/admin/x", tok).Code; got != http.StatusForbidden {
@@ -265,10 +295,8 @@ func TestRequireTenant_EmptyClaim403(t *testing.T) {
 	}
 }
 
-// TestRequireTenant_DisabledByDefault：不开 require_tenant 时无租户令牌照常放行
-// （C 端学生态没有租户概念，不能误伤）。
 func TestRequireTenant_DisabledByDefault(t *testing.T) {
-	h := wrapTargetOpt(Options{Mode: "jwt_c", Secret: testSecret})
+	h := wrapTargetOpt(Options{Mode: "jwt_c", PublicKey: testPubPEM})
 	tok := sign(t, jwt.MapClaims{"sub": "u1"})
 
 	if got := do(t, h, "/api/app/solve", tok).Code; got != http.StatusOK {
@@ -276,11 +304,9 @@ func TestRequireTenant_DisabledByDefault(t *testing.T) {
 	}
 }
 
-// TestRequireTenant_RBACStillWorks：rbac + require_tenant 叠加：
-// 角色不对先 403（角色校验在前），角色对但无租户也 403。
 func TestRequireTenant_RBACStillWorks(t *testing.T) {
 	h := wrapTargetOpt(Options{
-		Mode: "rbac", Secret: testSecret,
+		Mode: "rbac", PublicKey: testPubPEM,
 		Roles: []string{"admin"}, RequireTenant: true,
 	})
 

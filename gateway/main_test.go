@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -17,11 +21,33 @@ import (
 	"gateway/internal/metrics"
 )
 
-// makeToken 用与网关一致的 HS256 算法签发测试 JWT。
-func makeToken(t *testing.T, secret string, claims jwt.MapClaims) string {
+// 测试用 RSA 密钥对：私钥模拟 web-backend 签发，公钥交给网关验证。
+var (
+	testPriv   *rsa.PrivateKey
+	testPubPEM string
+)
+
+func init() {
+	var err error
+	testPriv, err = rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+	pubBytes, err := x509.MarshalPKIXPublicKey(&testPriv.PublicKey)
+	if err != nil {
+		panic(err)
+	}
+	testPubPEM = string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubBytes}))
+}
+
+// makeToken 用与网关一致的 RS256 算法（测试私钥）签发测试 JWT。
+func makeToken(t *testing.T, claims jwt.MapClaims) string {
 	t.Helper()
-	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	s, err := tok.SignedString([]byte(secret))
+	if claims["exp"] == nil {
+		claims["exp"] = time.Now().Add(time.Hour).Unix()
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	s, err := tok.SignedString(testPriv)
 	if err != nil {
 		t.Fatalf("sign token: %v", err)
 	}
@@ -50,11 +76,10 @@ func TestGatewayEndToEnd(t *testing.T) {
 	telSrv, telCount := recordingServer()
 	defer telSrv.Close()
 
-	secret := "testsecret"
 	cfg := &config.Config{
 		Listen:             ":0",
 		Upstreams:          map[string]string{"mock": upstream.URL},
-		JWTSecret:          secret,
+		JWTPublicKey:       testPubPEM,
 		AuditRetentionDays: 0,
 		InstanceID:         "test-instance",
 		Version:            "test-1",
@@ -78,9 +103,9 @@ func TestGatewayEndToEnd(t *testing.T) {
 	gw := httptest.NewServer(mux)
 	defer gw.Close()
 
-	cTok := makeToken(t, secret, jwt.MapClaims{"sub": "u123", "role": "student", "tenant_id": "t1"})
-	adminNoTenant := makeToken(t, secret, jwt.MapClaims{"sub": "adm1", "role": "admin"})
-	adminTenant := makeToken(t, secret, jwt.MapClaims{"sub": "adm1", "role": "admin", "tenant_id": "schoolA"})
+	cTok := makeToken(t, jwt.MapClaims{"sub": "u123", "role": "student", "tenant_id": "t1"})
+	adminNoTenant := makeToken(t, jwt.MapClaims{"sub": "adm1", "role": "admin"})
+	adminTenant := makeToken(t, jwt.MapClaims{"sub": "adm1", "role": "admin", "tenant_id": "schoolA"})
 
 	do := func(method, path, token string, body string) (int, string) {
 		req, _ := http.NewRequest(method, gw.URL+path, strings.NewReader(body))

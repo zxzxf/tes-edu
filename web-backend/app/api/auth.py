@@ -25,7 +25,7 @@ def login(req: LoginRequest):
     u = _FAKE_USERS.get(req.username)
     if not u or u["password"] != req.password:
         raise HTTPException(status_code=401, detail="invalid credentials")
-    # 用 python-jose 以 HS256 签发真实 JWT，载荷含 uid/role，与网关共用 JWT_SECRET
+    # 用 python-jose 以 RS256 签发真实 JWT，载荷含 uid/role，私钥对应网关 JWT_PUBLIC_KEY
     token = create_token(user_id=req.username, role=u["role"])
     return TokenResponse(access_token=token, token_type="bearer", role=u["role"])
 

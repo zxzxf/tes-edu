@@ -58,6 +58,12 @@ func Log(next http.Handler, path string) (http.Handler, io.Closer) {
 		sw := &statusWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(sw, r)
 
+		// 探活请求不写审计：/healthz 由 LB/编排层高频轮询，落入审计日志
+		// 只会产生大量无意义噪声并浪费存储（验证见 TestLogSkipsHealthz）。
+		if r.URL.Path == "/healthz" {
+			return
+		}
+
 		// 请求处理完成后，元信息已由鉴权中间件填充，统一落盘（PII 脱敏后）
 		logger.Printf("%s", MaskPII(fmt.Sprintf("%s %s %s %d uid=%s role=%s tenant=%s %s %s",
 			clientIP(r), r.Method, r.URL.Path, sw.status,

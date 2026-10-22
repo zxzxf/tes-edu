@@ -1,6 +1,10 @@
 package auth
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -15,9 +19,10 @@ import (
 //   - Roles  : mode=rbac 时的允许角色白名单
 //   - RequireTenant : true 时要求 JWT 必须带非空 tenant_id claim，
 //     否则 403（多租户强制隔离：B 端/机构路由防"无租户令牌"跨空间访问）
+//   - PublicKey : RS256 验签公钥（PEM 字符串），由签发方（web-backend）的私钥对应。
 type Options struct {
 	Mode          string
-	Secret        string
+	PublicKey     string
 	Roles         []string
 	RequireTenant bool
 }
@@ -34,7 +39,7 @@ func Wrap(next http.Handler, opt Options) http.Handler {
 			http.Error(w, `{"error":"missing token"}`, 401)
 			return
 		}
-		claims, err := parseJWT(tok, opt.Secret)
+		claims, err := parseJWT(tok, opt.PublicKey)
 		if err != nil {
 			metrics.Inc(metrics.KeyAuthReject)
 			http.Error(w, `{"error":"invalid token"}`, 401)
@@ -77,12 +82,35 @@ func extractBearer(r *http.Request) string {
 	return ""
 }
 
-func parseJWT(tokenStr, secret string) (jwt.MapClaims, error) {
+// parseRSAPublicKey 把 PEM 格式的公钥字符串解析为 *rsa.PublicKey。
+func parseRSAPublicKey(pemStr string) (*rsa.PublicKey, error) {
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		return nil, fmt.Errorf("公钥 PEM 解析失败：不是合法的 PEM 块")
+	}
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("公钥解析失败: %w", err)
+	}
+	rsaPub, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("公钥不是 RSA 公钥")
+	}
+	return rsaPub, nil
+}
+
+// parseJWT 用 RS256 非对称算法验证令牌：仅接受 RS256，且用配置的公钥验签。
+// 拒绝 HS256 等对称算法，避免“对称密钥泄露即可伪造令牌”的风险。
+func parseJWT(tokenStr, publicKeyPEM string) (jwt.MapClaims, error) {
+	pub, err := parseRSAPublicKey(publicKeyPEM)
+	if err != nil {
+		return nil, err
+	}
 	tok, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, jwt.ErrSignatureInvalid
 		}
-		return []byte(secret), nil
+		return pub, nil
 	})
 	if err != nil {
 		return nil, err

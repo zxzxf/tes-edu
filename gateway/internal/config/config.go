@@ -29,7 +29,7 @@ type Config struct {
 	InstanceID string `yaml:"instance_id"`
 	// Version 网关版本号（心跳/回传/排障用）。env GATEWAY_VERSION 覆盖。
 	Version         string                   `yaml:"version"`
-	JWTSecret       string                   `yaml:"jwt_secret"`
+	JWTPublicKey    string                   `yaml:"jwt_public_key"` // RS256 验签公钥（PEM）
 	AuditLog        string                   `yaml:"audit_log"`
 	Redis           RedisConfig              `yaml:"redis"`
 	DynamicConfig   DynamicConfig            `yaml:"dynamic_config"`
@@ -114,7 +114,7 @@ type LLMAllowlistConfig struct {
 	Endpoints     []string `yaml:"endpoints"`
 }
 
-// Load 读取 yaml 并允许用环境变量 JWT_SECRET 覆盖签名密钥
+// Load 读取 yaml 并允许用环境变量 JWT_PUBLIC_KEY 覆盖验签公钥
 func Load(path string) (*Config, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -124,8 +124,8 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(b, &c); err != nil {
 		return nil, err
 	}
-	if v := os.Getenv("JWT_SECRET"); v != "" {
-		c.JWTSecret = v
+	if v := os.Getenv("JWT_PUBLIC_KEY"); v != "" {
+		c.JWTPublicKey = v
 	}
 	if v := os.Getenv("REDIS_ADDR"); v != "" {
 		c.Redis.Addr = v
@@ -144,8 +144,8 @@ func Load(path string) (*Config, error) {
 	if v := os.Getenv("REDIS_KEY_PREFIX"); v != "" {
 		c.Redis.KeyPrefix = v
 	}
-	if c.JWTSecret == "" {
-		return nil, fmt.Errorf("jwt_secret 未配置：请通过环境变量 JWT_SECRET 或 config.yaml 的 jwt_secret 字段设置，生产环境禁止留空")
+	if c.JWTPublicKey == "" {
+		return nil, fmt.Errorf("jwt_public_key 未配置：请通过环境变量 JWT_PUBLIC_KEY 或 config.yaml 的 jwt_public_key 字段设置 RS256 验签公钥（PEM），生产环境禁止留空")
 	}
 	// 审计日志路径优先级：环境变量 GATEWAY_LOG（容器部署用）> config.yaml 的
 	// audit_log > 默认 /var/log/gateway/access.log。

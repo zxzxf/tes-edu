@@ -15,6 +15,5 @@ WORKDIR /app
 COPY --from=build /gateway /app/gateway
 COPY config.yaml /app/config.yaml
 ENV CONFIG_PATH=/app/config.yaml
-ENV JWT_SECRET=""
 EXPOSE 8080
 ENTRYPOINT ["/app/gateway"]

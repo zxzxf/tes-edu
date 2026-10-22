@@ -10,7 +10,7 @@ services:
       - "8080:8080"
     environment:
       PORT: "8080"
-      JWT_SECRET: "change-me-in-prod"
+      JWT_PUBLIC_KEY: "${JWT_PUBLIC_KEY:?请配置 RS256 公钥（见 README 密钥生成章节）}"
       AGENT_BACKEND_URL: "http://agent-backend:8000"
       WEB_BACKEND_URL: "http://web-backend:8001"
       RATE_LIMIT: "20"
@@ -31,7 +31,7 @@ services:
       - "8001"
     environment:
       PORT: "8001"
-      JWT_SECRET: "change-me-in-prod"
+      JWT_PRIVATE_KEY: "${JWT_PRIVATE_KEY:?请配置 RS256 私钥（见 README 密钥生成章节）}"
 
   web-frontend:
     build: ./web-frontend

@@ -115,5 +115,18 @@ audit_retention_days: 180
 
 # 实例标识与版本（授权心跳/指标回传携带；均为匿名部署维度，不关联学校/学生）。
 # 环境变量覆盖：INSTANCE_ID / GATEWAY_VERSION；缺省自动生成 gw-<主机名>-<随机后缀>。
+# JWT 验签公钥（RS256）。网关仅持有公钥验证，私钥由签发方（web-backend）保管。
+# 生产务必替换为自有密钥对的公钥；此处为演示用生成密钥，切勿用于生产环境。
+jwt_public_key: |
+  -----BEGIN PUBLIC KEY-----
+  MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA22YmRponJMWnvncZ850c
+  bu/9sThtX18830hMPEInCMVJ7nHaBEzhaPAm6OU7qvdMWm4UnhGz7Zj5+Ct1781h
+  KcAdAazH0cXPYp3xBLQvcujwmCDBXeLXu+eMAvF0ytylP5l6aMf91Wu5VkfYmg7p
+  QS6sroQ4bPGC84vlIeX7L3dEjSlVFc0nVPZWeWuxr2OFqCza8vEeaptq/dwNLJcZ
+  P8mfNdfOwZ6mOXIXD2dNQOg6AL2VCfyhQrobKIJBVEKpw1z/xqXIym1xG4xCvycA
+  q2VjfIeEwQwIOwnfcbvls5Hjg4GEBE/bBFIfOTjKja0OHCm7d5Wprqb+d5Q4/qou
+  sQIDAQAB
+  -----END PUBLIC KEY-----
+
 instance_id: ""
 version: ""
