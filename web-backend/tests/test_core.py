@@ -122,8 +122,25 @@ def test_login_request_required():
 def test_weekly_report_schema():
     from app.models.schemas import WeeklyReport
 
-    r = WeeklyReport(student_id="s1", week="2026-W43", summary="本周掌握度提升")
-    assert r.weak_points == []
+    # schema 已升级为真实周报结构（薄弱点推导 + 学习投入 + 建议）
+    r = WeeklyReport(
+        student_id="s1",
+        period_days=7,
+        generated_at="2026-10-23T12:00:00+00:00",
+        summary="共覆盖 3 个知识点；平均掌握度 53%；已掌握 1 个、薄弱 1 个",
+        total_knowledge_points=3,
+        avg_mastery=0.525,
+        mastered_count=1,
+        weak_count=1,
+        weak_points=[{"knowledge_point": "数列", "mastery": 0.25, "practice_count": 8}],
+        items=[],
+        study={"active_days": 1, "action_count": 1, "est_minutes": 3, "total_practice_count": 10},
+        recent_events=[],
+        suggestions=["本周薄弱知识点：数列，建议优先针对性练习。"],
+    )
+    assert r.weak_count == 1
+    assert r.study["est_minutes"] == 3
+    assert r.suggestions[0].startswith("本周薄弱知识点")
 
 
 # ---------- 学情时间解析 ----------

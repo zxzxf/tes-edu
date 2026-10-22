@@ -78,10 +78,21 @@ class Submission(BaseModel):
 
 # ---------- 模块6：家长周报 ----------
 class WeeklyReport(BaseModel):
+    """学情周报（真实数据，来源 student_mastery + student_events）。"""
+
     student_id: str
-    week: str
+    period_days: int
+    generated_at: str
     summary: str
-    weak_points: List[str] = []
+    total_knowledge_points: int
+    avg_mastery: Optional[float] = None
+    mastered_count: int = 0
+    weak_count: int = 0
+    weak_points: List[dict] = []
+    items: List[dict] = []
+    study: dict = {}
+    recent_events: List[dict] = []
+    suggestions: List[str] = []
 
 
 # ---------- 模块9：合规审核 ----------
