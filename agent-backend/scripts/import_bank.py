@@ -116,12 +116,12 @@ def _norm_difficulty(v) -> int:
 def _parse_file(content: bytes, filename: str) -> list[dict]:
     name = (filename or "").lower()
     if name.endswith(".json"):
-        data = json.loads(content.decode("utf-8"))
+        data = json.loads(content.decode("utf-8-sig"))
         return data.get("questions", [data]) if isinstance(data, dict) else data
     if name.endswith(".jsonl"):
-        return [json.loads(line) for line in content.decode("utf-8").splitlines() if line.strip()]
+        return [json.loads(line) for line in content.decode("utf-8-sig").splitlines() if line.strip()]
     if name.endswith(".csv"):
-        reader = csv.DictReader(io.StringIO(content.decode("utf-8")))
+        reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
         return [dict(r) for r in reader]
     if name.endswith((".xlsx", ".xls")):
         try:
@@ -180,13 +180,6 @@ async def _ensure_embeddings_table(pool) -> None:
 
 
 async def _run(args) -> None:
-    # 延迟导入：避免无依赖时 import 失败
-    from app.core import config, embeddings  # noqa: E402
-    from app.db import pg  # noqa: E402
-
-    if not config.db_ready():
-        raise SystemExit("未配置 DB_DSN，无法灌库。")
-
     raw = open(args.file, "rb").read()
     records = _parse_file(raw, args.file)
     if not records:
@@ -228,6 +221,13 @@ async def _run(args) -> None:
             print("  样例 ->", {k: demo[k] for k in ("subject", "type", "difficulty", "stem", "knowledge_points", "paper_type")})
         print("[dry-run] 未写入数据库。")
         return
+
+    # 延迟导入：避免无依赖时 import 失败（dry-run 不需要）
+    from app.core import config, embeddings  # noqa: E402
+    from app.db import pg  # noqa: E402
+
+    if not config.db_ready():
+        raise SystemExit("未配置 DB_DSN，无法灌库。")
 
     # 断点续跑：收集已存在的 content_hash
     pool = await pg.get_pool()
