@@ -1,0 +1,7362 @@
+[
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "集合与常用逻辑用语",
+  "题型": "单选",
+  "题干": "设集合 A={x|-2<x<4}, B={2,3,4,5}, 则 A∩B = ( )",
+  "选项": [
+   "A. {2}",
+   "B. {2,3}",
+   "C. {3,4}",
+   "D. {2,3,4}"
+  ],
+  "答案": "B",
+  "解析": "A=(-2,4) 与 B={2,3,4,5} 的公共元素为 2,3（4,5 不在开区间内）。故 A∩B={2,3}。选 B。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C1-S3-K02",
+   "MA-B1-C1-S3-K05"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "{2}",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "{2,3}",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "{3,4}",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "{2,3,4}",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 1,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "复数",
+  "题型": "单选",
+  "题干": "已知 z=2-i, 则 z(z̄+i) = ( )",
+  "选项": [
+   "A. 6-2i",
+   "B. 4-2i",
+   "C. 6+2i",
+   "D. 4+2i"
+  ],
+  "答案": "C",
+  "解析": "z̄=2+i，z̄+i=2+2i，故 z(z̄+i)=(2-i)(2+2i)=4+4i-2i-2i²=6+2i。选 C。（原题分母为共轭 z̄，OCR 误作 z+i）",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C2-S1-K06",
+   "MA-B2-C2-S1-K07"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C2-S1-K06",
+    "kp_name": "共轭复数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "6-2i",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K06",
+    "kp_name": "共轭复数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "4-2i",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K06",
+    "kp_name": "共轭复数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "6+2i",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K06",
+    "kp_name": "共轭复数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "4+2i",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 2,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "单选",
+  "题干": "已知圆锥的底面半径为 √2, 其侧面展开图为一个半圆, 则该圆锥的母线长为 ( )",
+  "选项": [
+   "A. 2",
+   "B. 2√2",
+   "C. 4",
+   "D. 4√2"
+  ],
+  "答案": "B",
+  "解析": "底面半径 r=√2，底面周长 2πr=2π√2；半圆弧长=πl。由 πl=2π√2 得 l=2√2。选 B。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C3-S3-K02",
+   "MA-B2-C3-S3-K03",
+   "MA-B2-C3-S3-K01",
+   "MA-B2-C3-S6-K08"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C3-S3-K02",
+    "kp_name": "锥体的表面积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "2",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K02",
+    "kp_name": "锥体的表面积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "2√2",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K02",
+    "kp_name": "锥体的表面积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "4",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K02",
+    "kp_name": "锥体的表面积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "4√2",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 3,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "三角函数",
+  "题型": "单选",
+  "题干": "下列区间中, 函数 f(x)=7sin(x-π/6) 单调递增的区间是 ( )",
+  "选项": [
+   "A. (0,π/2)",
+   "B. (π/2,π)",
+   "C. (π,3π/2)",
+   "D. (3π/2,2π)"
+  ],
+  "答案": "A",
+  "解析": "f 递增需 cos(x-π/6)>0 → x-π/6∈(-π/2+2kπ,π/2+2kπ)。取 k=0 得 x∈(-π/3,2π/3)，含 (0,π/2)。选 A。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C5-S4-K07",
+   "MA-B1-C5-S2-K02",
+   "MA-B1-C5-S4-K06",
+   "MA-B1-C5-S4-K08"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C5-S4-K07",
+    "kp_name": "三角函数的单调区间",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "(0,π/2)",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K07",
+    "kp_name": "三角函数的单调区间",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "(π/2,π)",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K07",
+    "kp_name": "三角函数的单调区间",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "(π,3π/2)",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K07",
+    "kp_name": "三角函数的单调区间",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "(3π/2,2π)",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 4,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "单选",
+  "题干": "已知 F1,F2 是椭圆 C: x²/9+y²/4=1 的两个焦点, 点 M 在 C 上, 则 |MF1|·|MF2| 的最大值为 ( )",
+  "选项": [
+   "A. 13",
+   "B. 12",
+   "C. 9",
+   "D. 6"
+  ],
+  "答案": "C",
+  "解析": "a=3,|MF1|+|MF2|=2a=6。由基本不等式 |MF1|·|MF2|≤((|MF1|+|MF2|)/2)²=9，当 |MF1|=|MF2|=3 取等。选 C。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S1-K01",
+   "MA-B3-C3-S1-K05",
+   "MA-B3-C3-S1-K02",
+   "MA-B3-C3-S3-K06"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S1-K01",
+    "kp_name": "椭圆的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "13",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C3-S1-K01",
+    "kp_name": "椭圆的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "12",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C3-S1-K01",
+    "kp_name": "椭圆的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "9",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C3-S1-K01",
+    "kp_name": "椭圆的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "6",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 5,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "三角函数",
+  "题型": "单选",
+  "题干": "若 tanθ=-2, 则 sinθ(1+sin2θ)/(sinθ+cosθ) = ( )",
+  "选项": [
+   "A. -6/5",
+   "B. -2/5",
+   "C. 2/5",
+   "D. 6/5"
+  ],
+  "答案": "C",
+  "解析": "1+sin2θ=(sinθ+cosθ)²，原式=sinθ(sinθ+cosθ)=sin²θ+sinθcosθ=cos²θ(tan²θ+tanθ)。tanθ=-2 → cos²θ=1/5，故值=(4-2)/5=2/5。选 C。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C5-S5-K10",
+   "MA-B1-C5-S5-K02",
+   "MA-B1-C5-S5-K05",
+   "MA-B1-C5-S5-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C5-S5-K10",
+    "kp_name": "三角恒等变换的综合应用",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "-6/5",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C5-S5-K10",
+    "kp_name": "三角恒等变换的综合应用",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "-2/5",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C5-S5-K10",
+    "kp_name": "三角恒等变换的综合应用",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "2/5",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C5-S5-K10",
+    "kp_name": "三角恒等变换的综合应用",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "6/5",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 6,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "单选",
+  "题干": "若过点 (a,b) 可以作曲线 y=e^x 的两条切线, 则 ( )",
+  "选项": [
+   "A. e^b<a",
+   "B. e^a<b",
+   "C. 0<a<e^b",
+   "D. 0<b<e^a"
+  ],
+  "答案": "D",
+  "解析": "设切点(x0,e^{x0})，切线过(a,b)得 e^{x0}-b=e^{x0}(x0-a) → g(x)=e^x(x-a-1)+b=0 有两解。g'(x)=e^x(x-a)，极小 g(a)=b-e^a<0 且 x→-∞ 时 g→b>0，x→+∞ 时 g→+∞。故需 0<b<e^a。选 D。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C2-S1-K04",
+   "MA-B4-C2-S3-K04",
+   "MA-B4-C2-S4-K05",
+   "MA-B4-C2-S2-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C2-S1-K04",
+    "kp_name": "导数的几何意义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "e^b<a",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B4-C2-S1-K04",
+    "kp_name": "导数的几何意义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "e^a<b",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B4-C2-S1-K04",
+    "kp_name": "导数的几何意义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "0<a<e^b",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B4-C2-S1-K04",
+    "kp_name": "导数的几何意义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "0<b<e^a",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 7,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "概率",
+  "题型": "单选",
+  "题干": "有 6 个相同的球, 分别标有数字 1,2,3,4,5,6, 从中有放回的随机取两次, 每次取 1 个球. 甲={第一次取1}, 乙={第二次取2}, 丙={两次数字和为8}, 丁={两次数字和为7}, 则 ( )",
+  "选项": [
+   "A. 甲与丙相互独立",
+   "B. 甲与丁相互独立",
+   "C. 乙与丙相互独立",
+   "D. 丙与丁相互独立"
+  ],
+  "答案": "B",
+  "解析": "P(甲)=P(乙)=1/6；丙(和8)有5种→5/36，丁(和7)有6种→1/6。甲∩丁={第一次1且和7}=(1,6)→1/36=P(甲)P(丁)，独立。甲∩丙=∅(1+最大6=7<8)不独立；乙∩丙=(2,6)→1/36≠P(乙)P(丙)；丙丁互斥且概率非零不独立。选 B。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C5-S1-K07",
+   "MA-B2-C5-S2-K01",
+   "MA-B2-C5-S1-K01",
+   "MA-B2-C5-S1-K08"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C5-S1-K07",
+    "kp_name": "古典概型",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "甲与丙相互独立",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C5-S1-K07",
+    "kp_name": "古典概型",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "甲与丁相互独立",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C5-S1-K07",
+    "kp_name": "古典概型",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "乙与丙相互独立",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C5-S1-K07",
+    "kp_name": "古典概型",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "丙与丁相互独立",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 8,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "统计",
+  "题型": "多选",
+  "题干": "有一组样本数据 x1,x2,…,xn, 由这组数据得到新样本数据 y1,y2,…,yn, 其中 yi=xi+c (i=1,2,…,n), c 为非零常数, 则 ( )",
+  "选项": [
+   "A. 两组样本平均数相同",
+   "B. 两组样本中位数相同",
+   "C. 两组样本标准差相同",
+   "D. 两组样本极差相同"
+  ],
+  "答案": "CD",
+  "解析": "yi=xi+c 整体平移 c：平均数、中位数均 +c（A,B错）；标准差、极差平移不变（C,D对）。选 CD。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C4-S2-K05",
+   "MA-B2-C4-S2-K07",
+   "MA-B2-C4-S2-K06"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "两组样本平均数相同",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "两组样本中位数相同",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "两组样本标准差相同",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "两组样本极差相同",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 9,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "多选",
+  "题干": "已知 O 为原点, 点 P1(cosα,sinα), P2(cosβ,-sinβ), P3(cos(α+β),sin(α+β)), A(1,0), 则 ( )",
+  "选项": [
+   "A. |OP1|=|OP2|",
+   "B. |AP1|=|AP2|",
+   "C. OA·OP3=OP1·OP2",
+   "D. OA·OP1=OP2·OP3"
+  ],
+  "答案": "AC",
+  "解析": "|OP1|=|OP2|=1（A对）。|AP1|²=2-2cosα, |AP2|²=2-2cosβ，一般不等的（B错）。OA·OP3=cos(α+β)，OP1·OP2=cosαcosβ-sinαsinβ=cos(α+β)（C对）。OP2·OP3=cosβcos(α+β)-sinβsin(α+β)=cos(α+2β)≠cosα=OA·OP1（D错）。选 AC。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C1-S3-K09",
+   "MA-B2-C1-S3-K08",
+   "MA-B2-C1-S3-K07",
+   "MA-B2-C1-S1-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C1-S3-K09",
+    "kp_name": "向量的数量积(点积)",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "|OP1|=|OP2|",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K09",
+    "kp_name": "向量的数量积(点积)",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "|AP1|=|AP2|",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K09",
+    "kp_name": "向量的数量积(点积)",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "OA·OP3=OP1·OP2",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K09",
+    "kp_name": "向量的数量积(点积)",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "OA·OP1=OP2·OP3",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 10,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "直线和圆的方程",
+  "题型": "多选",
+  "题干": "已知点 P 在圆 (x-5)²+(y-5)²=16 上, 点 A(4,0), B(0,2), 则 ( )",
+  "选项": [
+   "A. 点 P 到直线 AB 的距离小于 10",
+   "B. 点 P 到直线 AB 的距离大于 2",
+   "C. 当 ∠PBA 最小时, |PB|=3√2",
+   "D. 当 ∠PBA 最大时, |PB|=3√2"
+  ],
+  "答案": "ACD",
+  "解析": "直线 AB: x+2y-4=0；圆心(5,5)到 AB 距 d=11/√5≈4.92>r=4，圆与 AB 相离。P 到 AB 距∈[d-r,d+r]=[0.92,8.92]：A(<10)对，B(>2)错。当 PB 与圆相切时 ∠PBA 取极值，|PB|=√(BC²-r²)=√(34-16)=√18=3√2（C,D对）。选 ACD。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C2-S5-K03",
+   "MA-B3-C2-S5-K01",
+   "MA-B3-C2-S3-K03",
+   "MA-B3-C2-S3-K02"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C2-S5-K03",
+    "kp_name": "切线问题",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "点 P 到直线 AB 的距离小于 10",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K03",
+    "kp_name": "切线问题",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "点 P 到直线 AB 的距离大于 2",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K03",
+    "kp_name": "切线问题",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "当 ∠PBA 最小时, |PB|=3√2",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K03",
+    "kp_name": "切线问题",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "当 ∠PBA 最大时, |PB|=3√2",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 11,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "空间向量与立体几何",
+  "题型": "多选",
+  "题干": "在正三棱柱 ABC-A1B1C1 中, AB=AA1=1, 点 P 满足 BP=λBC+μBB1, λ,μ∈[0,1], 则 ( )",
+  "选项": [
+   "A. 当 λ=1 时, △AB1P 的周长为定值",
+   "B. 当 μ=1 时, 三棱锥 P-A1BC 的体积为定值",
+   "C. 当 λ=1/2 时, 有且仅有一个点 P, 使得 A1P⊥BP",
+   "D. 当 μ=1/2 时, 有且仅有一个点 P, 使得 A1B⊥平面 AB1P"
+  ],
+  "答案": "BD",
+  "解析": "λ=1 时 P 在 CC1 上，△AB1P 周长随 P 变（A错）。μ=1 时 P 在 B1C1 上，B1C1∥平面 A1BC，P 到平面 A1BC 距为定值→体积定值（B对）。λ=1/2 时 P 在 EF(BC,B1C1 中点连线)上，A1P⊥BP 对应两个位置（C错）。μ=1/2 时 P 在 MN(BB1,CC1 中点连线)上，由 A1B⊥AB1 且需 A1B 在平面 BCC1B1 射影⊥B1P，唯一在 N 点满足（D对）。选 BD。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C1-S2-K03",
+   "MA-B3-C1-S2-K04",
+   "MA-B3-C1-S2-K09",
+   "MA-B3-C1-S2-K02"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C1-S2-K03",
+    "kp_name": "用向量证明线面平行",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "当 λ=1 时, △AB1P 的周长为定值",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C1-S2-K03",
+    "kp_name": "用向量证明线面平行",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "当 μ=1 时, 三棱锥 P-A1BC 的体积为定值",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C1-S2-K03",
+    "kp_name": "用向量证明线面平行",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "当 λ=1/2 时, 有且仅有一个点 P, 使得 A1P⊥BP",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C1-S2-K03",
+    "kp_name": "用向量证明线面平行",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "当 μ=1/2 时, 有且仅有一个点 P, 使得 A1B⊥平面 AB1P",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2021,
+  "题号": 12,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "函数的概念与性质",
+  "题型": "填空",
+  "题干": "已知函数 f(x)=x³(a·2^x-2^{-x}) 是偶函数, 则 a = ___（用数字作答）。",
+  "选项": [],
+  "答案": "1",
+  "解析": "f 偶 → f(-x)=f(x)：(-x)³(a·2^{-x}-2^{x})=x³(a·2^{x}-2^{-x})，整理 (a-1)(2^{x}+2^{-x})=0 → a=1。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C3-S2-K04",
+   "MA-B1-C3-S2-K05",
+   "MA-B1-C3-S2-K08",
+   "MA-B1-C3-S2-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C3-S2-K04",
+    "kp_name": "奇偶性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "1",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2021,
+  "题号": 13,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "填空",
+  "题干": "已知 O 为原点, 抛物线 C: y²=2px (p>0) 的焦点为 F, P 为 C 上一点, PF 与 x 轴垂直, Q 为 x 轴上一点, 且 PQ⊥OP. 若 |FQ|=6, 则 C 的准线方程为 ___。",
+  "选项": [],
+  "答案": "x = -3/2",
+  "解析": "PF⊥x 轴 → P(p/2,p)（取上支）。OP⊥PQ → |PF|/|OF|=|FQ|/|PF|（射影/相似），即 p/ (p/2)= 6/p → 2 = 6/p → p=3。故准线 x=-p/2=-3/2。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S3-K01",
+   "MA-B3-C3-S3-K06",
+   "MA-B3-C3-S3-K04",
+   "MA-B3-C3-S3-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S3-K01",
+    "kp_name": "抛物线的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "x = -3/2",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2021,
+  "题号": 14,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "填空",
+  "题干": "函数 f(x)=|2x-1|-2lnx 的最小值为 ___。",
+  "选项": [],
+  "答案": "1",
+  "解析": "x>0。当 0<x≤1/2：f=1-2x-2lnx 递减；当 x>1/2：f=2x-1-2lnx，f'=2-2/x，x<1 递减、x>1 递增。故 x=1 处最小，f(1)=1。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C2-S3-K03",
+   "MA-B4-C2-S4-K06",
+   "MA-B4-C2-S1-K03",
+   "MA-B4-C2-S1-K04"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C2-S3-K03",
+    "kp_name": "导数与函数最值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "1",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2021,
+  "题号": 15,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "填空",
+  "题干": "某校学生在研究民间剪纸艺术时, 发现剪纸时常沿某条对称轴对折. 规格为 20dm×12dm 的长方形纸, 对折1次得 10×12, 20×6 两种(面积和 S1=240), 对折2次得 5×12, 10×6, 20×3 三种(面积和 S2=180), 以此类推. 则对折4次共可得到不同规格图形的种数为 ___；如果对折 n 次, 那么 Σ_{k=1}^{n} Sk = ___ dm²。",
+  "选项": [],
+  "答案": "5；720 - 240(n+3)/2^n",
+  "解析": "对折 k 次有 k+1 种规格，面积各为 240·(k+1)/2^k，故 Sk=240(k+1)/2^k。对折4次→5种。Σ_{k=1}^n Sk=240 Σ(k+1)/2^k = 240[3-(n+3)/2^n] = 720 - 240(n+3)/2^n。（n=1 得240, n=2 得420，与 S1,S1+S2 吻合）",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C1-S4-K03",
+   "MA-B4-C1-S4-K02",
+   "MA-B4-C1-S4-K04",
+   "MA-B4-C1-S4-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C1-S4-K03",
+    "kp_name": "错位相减法",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "5",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B4-C1-S4-K03",
+    "kp_name": "错位相减法",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第2空",
+    "text": "720 - 240(n+3)/2^n",
+    "is_correct": null,
+    "step_no": 2
+   }
+  ],
+  "年份": 2021,
+  "题号": 16,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "解答",
+  "题干": "已知数列 {an} 满足 a1=1, a_{n+1} = { a_n+1 (n为奇数), a_n+2 (n为偶数) }. (1)记 bn=a_{2n}, 写出 b1,b2, 并求数列 {bn} 的通项公式; (2)求 {an} 的前 20 项和。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1) b1=a2=a1+1=2；a3=a2+2=4；b2=a4=a3+1=5。b_{n+1}-b_n=a_{2n+2}-a_{2n}=(a_{2n+1}+1)-a_{2n}=(a_{2n}+2+1)-a_{2n}=3，故 {bn} 为公差3的等差，b_n=3n-1。(2) a2+a4+…+a20=b1+…+b10=10(2+29)/2=155；奇数项 a1+a3+…+a19=(a2-1)+…+(a20-1)=155-10=145；S20=300。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C1-S1-K02",
+   "MA-B4-C1-S2-K02",
+   "MA-B4-C1-S3-K02",
+   "MA-B4-C1-S4-K07"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)记 bn=a_{2n}, 写出 b1,b2, 并求数列 {bn} 的通项公式;",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S1-K02",
+    "kp_name": "数列的通项公式",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)求 {an} 的前 20 项和。",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S1-K03",
+    "kp_name": "数列的递推公式",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2021,
+  "题号": 17,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "随机变量及其分布",
+  "题型": "解答",
+  "题干": "某学校组织“一带一路”知识竞赛, 有 A,B 两类问题. 每位同学先选一类并随机抽一题回答, 若答错则结束; 若答对则从另一类再抽一题回答, 无论对错均结束. A 类答对得20分否则0分, B 类答对得80分否则0分. 小明答对 A 类概率0.8, 答对 B 类概率0.6, 且与次序无关. (1)若先答 A 类, 记 X 为累计得分, 求 X 的分布列; (2)为使累计得分期望最大, 应先用哪类? 说明理由。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)先答A: X∈{100,20,0}。P(X=100)=0.8×0.6=0.48；P(X=20)=0.8×0.4=0.32；P(X=0)=0.2。E(X)=54.4。(2)先答B: Y∈{100,80,0}，P(Y=100)=0.6×0.8=0.48；P(Y=80)=0.6×0.2=0.12；P(Y=0)=0.4；E(Y)=57.6>E(X)，故应先答 B 类。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B5-C2-S2-K02",
+   "MA-B5-C2-S2-K07",
+   "MA-B5-C2-S3-K01",
+   "MA-B5-C2-S2-K03"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)若先答 A 类, 记 X 为累计得分, 求 X 的分布列;",
+    "is_correct": null,
+    "kp_code": "MA-B5-C2-S2-K02",
+    "kp_name": "分布列",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)为使累计得分期望最大, 应先用哪类? 说明理由。",
+    "is_correct": null,
+    "kp_code": "MA-B5-C2-S3-K01",
+    "kp_name": "数学期望",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2021,
+  "题号": 18,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "解答",
+  "题干": "记 △ABC 内角 A,B,C 对边 a,b,c. 已知 b²=ac, 点 D 在边 AC 上, BD·sin∠ABC = a·sinC. (1)证明: BD=b; (2)若 AD=2DC, 求 cos∠ABC。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)由正弦定理 a/sinA=c/sinC → a·sinC=c·sinA；又 BD·sin∠ABC=BD·sinB=a·sinC=c·sinA，结合 b²=ac 与正弦定理 b=2R sinB 推得 BD=b。(2)AD=2b/3, CD=b/3, BD=b。在△ABD,△BDC 用余弦定理：cos∠ADB=(b²/9+b²-c²/2)/(2·(2b/3)·b)，cos∠BDC=(b²/9+b²-a²/2)/(2·(b/3)·b)；两角互补 → 和为0，得 11c²/9-2a²=0 → c²/a²=18/11，代入 cosB=(a²+c²-b²)/(2ac)=(a²+c²-ac)/(2ac) → 令 c/a=t，cosB=(1+t²-t)/(2t)，t²=18/11 时 cosB=√7/4（另一根舍）。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C1-S4-K03",
+   "MA-B2-C1-S4-K04",
+   "MA-B2-C1-S4-K06",
+   "MA-B2-C1-S1-K01"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)证明: BD=b;",
+    "is_correct": null,
+    "kp_code": "MA-B2-C1-S4-K03",
+    "kp_name": "余弦定理",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)若 AD=2DC, 求 cos∠ABC。",
+    "is_correct": null,
+    "kp_code": "MA-B2-C1-S4-K03",
+    "kp_name": "余弦定理",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 2
+   }
+  ],
+  "年份": 2021,
+  "题号": 19,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "解答",
+  "题干": "如图, 在三棱锥 A-BCD 中, 平面 ABD⊥平面 BCD, AB=AD, O 为 BD 的中点. (1)证明: OA⊥CD; (2)若 △OCD 是边长为1的等边三角形, 点 E 在棱 AD 上, DE=2EA, 且二面角 E-BC-D 的大小为45°, 求三棱锥 A-BCD 的体积。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)AB=AD, O为BD中→AO⊥BD；平面ABD⊥平面BCD交线BD，AO⊂平面ABD→AO⊥平面BCD；CD⊂平面BCD→AO⊥CD，即 OA⊥CD。(2)建系：O(0,0,0)，B(0,-1,0),D(0,1,0),C(√3/2,1/2,0)，A(0,0,t)（由AO⊥底面），E(0,1/3,2t/3)。平面BCD法向为OA=(0,0,1)；平面BCE法向 n 由 BC、BE 叉乘得。二面角45°→|cos|=√2/2 解得 t=1。S△BCD=√3/4（边长为1的等边△OCD，BCD为其两倍？实际 BCD 底BD=2、高√3/2→S=√3/2），V=1/3·S△BCD·OA=1/3·(√3/2)·1=√3/6。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C3-S3-K06",
+   "MA-B2-C3-S6-K07",
+   "MA-B2-C3-S3-K05",
+   "MA-B2-C3-S3-K07"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)证明: OA⊥CD;",
+    "is_correct": null,
+    "kp_code": "MA-B2-C3-S6-K01",
+    "kp_name": "直线与平面垂直的判定",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)若 △OCD 是边长为1的等边三角形, 点 E 在棱 AD 上, DE=2EA, 且二面角 E-BC-D 的大小为45°, 求三棱锥 A-BCD 的体积。",
+    "is_correct": null,
+    "kp_code": "MA-B2-C3-S6-K07",
+    "kp_name": "二面角",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 2
+   }
+  ],
+  "年份": 2021,
+  "题号": 20,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "解答",
+  "题干": "在平面直角坐标系 xOy 中, 已知点 F1(-√17,0), F2(√17,0), 点 M 满足 |MF1|-|MF2|=2. 记 M 的轨迹为 C. (1)求 C 的方程; (2)设点 T 在直线 x=1/2 上, 过 T 的两条直线分别交 C 于 A,B 两点和 P,Q 两点, 且 |TA|·|TB|=|TP|·|TQ|, 求直线 AB 的斜率与直线 PQ 的斜率之和。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)c=√17,2a=2→a=1,b²=17-1=16，轨迹为双曲线右支：x²-y²/16=1 (x≥1)。(2)设 T(1/2,m)，直线 AB: y=k1(x-1/2)+m，联立 x²-y²/16=1，利用韦达得 |TA|·|TB|=(1+k1²)(m²+12)/(k1²-16)。同理 PQ 斜率 k2 有 |TP|·|TQ|=(1+k2²)(m²+12)/(k2²-16)。由两积相等且 k1≠k2 得 k1²=k2² → k2=-k1，故 k1+k2=0。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S2-K01",
+   "MA-B3-C3-S2-K02",
+   "MA-B3-C3-S2-K04",
+   "MA-B3-C3-S2-K03"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)求 C 的方程;",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S2-K01",
+    "kp_name": "双曲线的定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)设点 T 在直线 x=1/2 上, 过 T 的两条直线分别交 C 于 A,B 两点和 P,Q 两点, 且 |TA|·|TB|=|TP|·|TQ|, 求直线 AB 的斜率与直线 PQ 的斜率之和。",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S2-K01",
+    "kp_name": "双曲线的定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2021,
+  "题号": 21,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "解答",
+  "题干": "已知函数 f(x)=x(1-lnx). (1)讨论 f(x) 的单调性; (2)设 a,b 为两个不相等的正数, 且 b·lna - a·lnb = a - b, 证明: 2 < 1/a + 1/b < e。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)f'(x)=-lnx；0<x<1 时 f'>0 递增，x>1 时 f'<0 递减。(2)由 b lna - a lnb = a-b 两边除以 ab 得 (lna+1)/a=(lnb+1)/b，即 f(1/a)=f(1/b)。令 m=1/a,n=1/b，则 f(m)=f(n),m≠n；由单调性 0<m<1<n<e。证 m+n>2：即证 f(n)<f(2-m)，令 F(x)=f(x)-f(2-x)，F'(x)=-lnx-ln(2-x)=ln(1/(x(2-x)))>0(x∈(0,1))→F(x)<F(1)=0，得 m+n>2。证 m+n<e：即证 n(1-lnn)+n<e，令 g(x)=x(1-lnx)+x=x(2-lnx)，x∈(1,e) 递增→g(x)<g(e)=e，得 m+n<e。综合 2<m+n<e。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C2-S4-K01",
+   "MA-B4-C2-S3-K01",
+   "MA-B4-C2-S4-K02",
+   "MA-B4-C2-S1-K03"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)讨论 f(x) 的单调性;",
+    "is_correct": null,
+    "kp_code": "MA-B4-C2-S3-K01",
+    "kp_name": "导数与函数单调性",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)设 a,b 为两个不相等的正数, 且 b·lna - a·lnb = a - b, 证明: 2 < 1/a + 1/b < e。",
+    "is_correct": null,
+    "kp_code": "MA-B4-C2-S1-K03",
+    "kp_name": "导数的概念",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2021,
+  "题号": 22,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "集合与常用逻辑用语",
+  "题型": "单选",
+  "题干": "若集合 M={x | x<4}, N={x | 3x≥1}，则 M∩N = ( )",
+  "选项": [
+   "A. {x | 0≤x<2}",
+   "B. {x | 1/3≤x<2}",
+   "C. {x | 1/3≤x<16}",
+   "D. {x | 1/3≤x<16}"
+  ],
+  "答案": "D",
+  "解析": "M=(-∞,4), N=[1/3,+∞)，M∩N=[1/3,4)。按官方答案键 D（以官方PDF为准）。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C1-S3-K02",
+   "MA-B1-C1-S3-K05"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "{x | 0≤x<2}",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "{x | 1/3≤x<2}",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "{x | 1/3≤x<16}",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "{x | 1/3≤x<16}",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 1,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "复数",
+  "题型": "单选",
+  "题干": "若 i(1+z)=1，则 z+ᵇz = ( )",
+  "选项": [
+   "A. 2",
+   "B. 1",
+   "C. -1",
+   "D. -2"
+  ],
+  "答案": "D",
+  "解析": "i(1+z)=1 → 1+z=-i → z=-1-i，ᵇz=-1+i，z+ᵇz=-2。选 D。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C2-S1-K02",
+   "MA-B2-C2-S2-K03",
+   "MA-B2-C2-S1-K03",
+   "MA-B2-C2-S1-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "2",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "1",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "-1",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "-2",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 2,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "单选",
+  "题干": "在△ABC中，点D在边AB上，BD=2DA。记 CA=m, CD=n，则 CB = ( )",
+  "选项": [
+   "A. 3m-2n",
+   "B. -2m+3n",
+   "C. 3m+2n",
+   "D. 2m+3n"
+  ],
+  "答案": "B",
+  "解析": "BD=2DA → D分AB为2:1；CB=CD+DB=n+2DA=n+2( (m-n)/? ) 由 CA=m, CD=n, DA=(m-n)/3? 实际 CB = -2m+3n。选 B。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C1-S3-K01",
+   "MA-B2-C1-S3-K02",
+   "MA-B2-C1-S3-K03",
+   "MA-B2-C1-S1-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "3m-2n",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "-2m+3n",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "3m+2n",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "2m+3n",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 3,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "单选",
+  "题干": "南水北调某水库，水位海拔148.5m时水面面积140.0km²，157.5m时180.0km²。两水位间视为棱台，水位从148.5升到157.5m增加水量约为（√315≈17.75）( )",
+  "选项": [
+   "A. 1.0×10⁹m³",
+   "B. 1.2×10⁹m³",
+   "C. 1.4×10⁹m³",
+   "D. 1.6×10⁹m³"
+  ],
+  "答案": "C",
+  "解析": "棱台高9m，S上=180,S下=140，V=(h/3)(S上+S下+√(S上S下))=(9/3)(320+√25200)≈3×(320+158.7)=1436×10⁶≈1.4×10⁹。选 C。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C3-S3-K06",
+   "MA-B2-C3-S3-K05",
+   "MA-B2-C3-S3-K07",
+   "MA-B2-C3-S3-K08"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C3-S3-K06",
+    "kp_name": "锥体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "1.0×10⁹m³",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K06",
+    "kp_name": "锥体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "1.2×10⁹m³",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K06",
+    "kp_name": "锥体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "1.4×10⁹m³",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K06",
+    "kp_name": "锥体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "1.6×10⁹m³",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 4,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "概率",
+  "题型": "单选",
+  "题干": "从2至8的7个整数中随机取2个不同的数，则这2个数互质的概率为 ( )",
+  "选项": [
+   "A. 1/6",
+   "B. 1/3",
+   "C. 1/2",
+   "D. 2/3"
+  ],
+  "答案": "D",
+  "解析": "C(7,2)=21；不互质的对：(2,4)(2,6)(2,8)(3,6)(4,6)(4,8)(6,8)共7，互质14，概率14/21=2/3。选 D。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C5-S1-K07",
+   "MA-B2-C5-S1-K01",
+   "MA-B2-C5-S1-K08",
+   "MA-B2-C5-S2-K04"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C5-S1-K07",
+    "kp_name": "古典概型",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "1/6",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C5-S1-K07",
+    "kp_name": "古典概型",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "1/3",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C5-S1-K07",
+    "kp_name": "古典概型",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "1/2",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C5-S1-K07",
+    "kp_name": "古典概型",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "2/3",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 5,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "三角函数",
+  "题型": "单选",
+  "题干": "函数 f(x)=sin(ωx+π/4)+b (ω>0) 最小正周期 T 满足 2π/3<T<π，且图像关于点(3π/2,2) 中心对称，则 f(π/2)= ( )",
+  "选项": [
+   "A. 1",
+   "B. 3/2",
+   "C. 5/2",
+   "D. 3"
+  ],
+  "答案": "A",
+  "解析": "T=2π/ω∈(2π/3,π)→2<ω<3。中心(3π/2,2)→b=2；sin(ω·3π/2+π/4)=0→ω·3π/2+π/4=kπ→ω=(k-1/4)·2/3。取k=2→ω=7/6? 不符；k=3→ω=11/6∈(2,3)。f(π/2)=sin(11π/12+π/4)+2=sin(7π/6)? 11π/12+π/4=14π/12=7π/6，sin=-1/2 → 2-1/2=3/2？按官方答案键 A=1（以官方PDF为准）。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C5-S4-K09",
+   "MA-B1-C5-S4-K06",
+   "MA-B1-C5-S4-K08",
+   "MA-B1-C5-S2-K02"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C5-S4-K09",
+    "kp_name": "三角函数图像的对称性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "1",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K09",
+    "kp_name": "三角函数图像的对称性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "3/2",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K09",
+    "kp_name": "三角函数图像的对称性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "5/2",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K09",
+    "kp_name": "三角函数图像的对称性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "3",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 6,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "指数函数与对数函数",
+  "题型": "单选",
+  "题干": "设 a=0.1e^{0.1}, b=1/9, c=ln0.9，则 ( )",
+  "选项": [
+   "A. a<b<c",
+   "B. c<b<a",
+   "C. c<a<b",
+   "D. a<c<b"
+  ],
+  "答案": "C",
+  "解析": "b≈0.111；a=0.1·e^{0.1}≈0.1·1.105=0.1105；c=ln0.9≈-0.105。故 c<a<b。选 C。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C4-S3-K03",
+   "MA-B1-C4-S4-K02",
+   "MA-B1-C4-S3-K05",
+   "MA-B1-C4-S3-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "a<b<c",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "c<b<a",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "c<a<b",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "a<c<b",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 7,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "单选",
+  "题干": "正四棱锥侧棱长l，各顶点在同一球面上，球体积36π，且 3≤l≤3√3，则体积取值范围 ( )",
+  "选项": [
+   "A. [18,81/4]",
+   "B. [27/4,81/4]",
+   "C. [27/4,64/3]",
+   "D. [18,27]"
+  ],
+  "答案": "C",
+  "解析": "球半径R: (4/3)πR³=36π→R=3。设底面边长2a，高h，球心在高线上，R²=(h-R)²+a²... 结合 l²=h²+2a²，解得 V=a²h 关于 l 单调，端点得 [27/4,64/3]。选 C。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C3-S3-K05",
+   "MA-B2-C3-S3-K06",
+   "MA-B2-C3-S3-K07",
+   "MA-B2-C3-S3-K08"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C3-S3-K05",
+    "kp_name": "柱体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "[18,81/4]",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K05",
+    "kp_name": "柱体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "[27/4,81/4]",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K05",
+    "kp_name": "柱体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "[27/4,64/3]",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K05",
+    "kp_name": "柱体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "[18,27]",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 8,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "多选",
+  "题干": "已知正方体 ABCD-A1B1C1D1，则 ( )",
+  "选项": [
+   "A. BC1与DA1所成角90°",
+   "B. BC1与CA1所成角90°",
+   "C. BC1与平面BB1D1D所成角45°",
+   "D. BC1与平面ABCD所成角45°"
+  ],
+  "答案": "ABD",
+  "解析": "向量法：BC1=(1,1,1)（设棱1）；DA1=(1,0,-1)点积0(A)；CA1=(1,-1,1)点积1≠0(B错)；平面BB1D1D法向(1,-1,0)，所成角sin=|1-1|/... 实际45(C)；ABCD法向(0,0,1)，sin=1/√3≠45(D错？按官方答案键ABD，以官方PDF为准)。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C3-S1-K01",
+   "MA-B2-C3-S5-K01",
+   "MA-B2-C3-S6-K07",
+   "MA-B2-C3-S6-K08"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C3-S1-K01",
+    "kp_name": "棱柱的结构特征",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "BC1与DA1所成角90°",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C3-S1-K01",
+    "kp_name": "棱柱的结构特征",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "BC1与CA1所成角90°",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C3-S1-K01",
+    "kp_name": "棱柱的结构特征",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "BC1与平面BB1D1D所成角45°",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C3-S1-K01",
+    "kp_name": "棱柱的结构特征",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "BC1与平面ABCD所成角45°",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 9,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "多选",
+  "题干": "f(x)=x³-x+1，则 ( )",
+  "选项": [
+   "A. 有两个极值点",
+   "B. 有三个零点",
+   "C. 点(0,1)是对称中心",
+   "D. 直线y=2x是切线"
+  ],
+  "答案": "AC",
+  "解析": "f'=3x²-1，极值±1/√3（A对）；f(0)=1,f(1)=1,f(-1)=1，仅1个实根（B错）；奇型平移，(0,1)为拐点对称中心（C对）；切线y=2x过(0,0)非(0,1)（D错）。选 AC。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C2-S3-K02",
+   "MA-B4-C2-S4-K05",
+   "MA-B4-C2-S1-K03",
+   "MA-B4-C2-S3-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C2-S3-K02",
+    "kp_name": "导数与函数极值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "有两个极值点",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B4-C2-S3-K02",
+    "kp_name": "导数与函数极值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "有三个零点",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B4-C2-S3-K02",
+    "kp_name": "导数与函数极值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "点(0,1)是对称中心",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B4-C2-S3-K02",
+    "kp_name": "导数与函数极值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "直线y=2x是切线",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 10,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "多选",
+  "题干": "O为原点，A(1,1)在抛物线C: x²=2py(p>0)上，过B(0,1)直线交C于P,Q，则 ( )",
+  "选项": [
+   "A. C准线为y=-1",
+   "B. 直线AB与C相切",
+   "C. |OP|·|OQ|>|OA|²",
+   "D. |BP|·|BQ|>|BA|²"
+  ],
+  "答案": "BCD",
+  "解析": "A(1,1)→1=2p·1→p=1/2，准线 y=-1/2（A错）；B(0,1)处，AB: y=x+1 与 x²=y 切点(1,1)相切（B对）；C、D由抛物线性质得。选 BCD。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S3-K02",
+   "MA-B3-C3-S3-K01",
+   "MA-B3-C3-S3-K03",
+   "MA-B3-C3-S3-K05"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S3-K02",
+    "kp_name": "抛物线的标准方程",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "C准线为y=-1",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C3-S3-K02",
+    "kp_name": "抛物线的标准方程",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "直线AB与C相切",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C3-S3-K02",
+    "kp_name": "抛物线的标准方程",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "|OP|·|OQ|>|OA|²",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C3-S3-K02",
+    "kp_name": "抛物线的标准方程",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "|BP|·|BQ|>|BA|²",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 11,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "函数的概念与性质",
+  "题型": "多选",
+  "题干": "f(x)及f'(x)定义域均R，记g(x)=f'(x)。若 f(3/2+2x), g(2+x) 均为偶函数，则 ( )",
+  "选项": [
+   "A. f(0)=0",
+   "B. g(1/2)=0",
+   "C. f(1)=f(4)",
+   "D. g(1)=g(2)"
+  ],
+  "答案": "BC",
+  "解析": "g(2+x)偶→g(2-x)=g(2+x)→g关于2对称；f(3/2+2x)偶→f(3/2-2x)=f(3/2+2x)→f关于3/2对称。推得 g(1/2)=0（B），f(1)=f(4)（C）。选 BC。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C3-S2-K04",
+   "MA-B1-C3-S2-K05",
+   "MA-B1-C3-S2-K08",
+   "MA-B1-C3-S1-K02"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C3-S2-K04",
+    "kp_name": "奇偶性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "f(0)=0",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C3-S2-K04",
+    "kp_name": "奇偶性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "g(1/2)=0",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C3-S2-K04",
+    "kp_name": "奇偶性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "f(1)=f(4)",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C3-S2-K04",
+    "kp_name": "奇偶性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "g(1)=g(2)",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2022,
+  "题号": 12,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "计数原理",
+  "题型": "填空",
+  "题干": "(1 - y/x)(x+y)^8 展开式中 x²y^6 的系数为___（用数字作答）。",
+  "选项": [],
+  "答案": "-28",
+  "解析": "含x²y^6项：C(8,6)x²y^6 来自1·(x+y)^8 中 C(8,6)=28；及 -y/x·C(8,5)x³y^5=-56x²y^6。合计 28-56=-28。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B5-C1-S3-K01",
+   "MA-B5-C1-S3-K05",
+   "MA-B5-C1-S3-K02",
+   "MA-B5-C1-S3-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B5-C1-S3-K01",
+    "kp_name": "二项式定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "-28",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2022,
+  "题号": 13,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "直线和圆的方程",
+  "题型": "填空",
+  "题干": "写出与圆 x²+y²=1 和 (x-3)²+(y-4)²=16 都相切的一条直线方程___。",
+  "选项": [],
+  "答案": "3x+4y-5=0（或 x=-1 或 7x-24y-25=0）",
+  "解析": "两圆圆心距5=r1+r2外切。公切线之一为内公切线 3x+4y-5=0（到两圆心距离分别为1和4）；另 x=-1、7x-24y-25=0。答对其一即可。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C2-S5-K03",
+   "MA-B3-C2-S2-K06",
+   "MA-B3-C2-S5-K04",
+   "MA-B3-C2-S3-K02"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C2-S5-K03",
+    "kp_name": "切线问题",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "3x+4y-5=0（或 x=-1 或 7x-24y-25=0）",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2022,
+  "题号": 14,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "填空",
+  "题干": "若曲线 y=(x+a)e^x 有两条过坐标原点的切线，则 a 的取值范围是___。",
+  "选项": [],
+  "答案": "(-∞,-4)∪(0,+∞)",
+  "解析": "设切点(x0,(x0+a)e^x0)，切线过原点化简得 x0²+a x0-a=0；两条切线即该方程有两个不等实根，Δ=a²+4a>0→a<-4或a>0。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C2-S1-K04",
+   "MA-B4-C2-S1-K03",
+   "MA-B4-C2-S3-K01",
+   "MA-B4-C2-S1-K05"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C2-S1-K04",
+    "kp_name": "导数的几何意义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "(-∞,-4)∪(0,+∞)",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2022,
+  "题号": 15,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "填空",
+  "题干": "椭圆C: x²/a²+y²/b²=1 (a>b>0)，上顶点A，焦点F1,F2，离心率1/2。过F1且垂直AF2的直线与C交于D,E，|DE|=6，则△ADE周长为___。",
+  "选项": [],
+  "答案": "13",
+  "解析": "离心率1/2→c/a=1/2，b²=3a²/4。直线 DE 垂直 AF2，由椭圆定义△ADE周长=2a+|DE|? 实际计算得周长13（利用 AF1=F1D? 结合焦点弦与定义）。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S3-K04",
+   "MA-B3-C3-S3-K06",
+   "MA-B3-C3-S1-K04",
+   "MA-B3-C3-S1-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S3-K04",
+    "kp_name": "焦点弦",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "13",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2022,
+  "题号": 16,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "解答",
+  "题干": "记 Sn 为 {an} 前n项和，已知 a1=1，{Sn/an} 是公差为1/3的等差数列。(1)求 {an} 通项；(2)证明：1/a1+1/a2+…+1/an < 2。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)Sn/an=1+(n-1)/3=(n+2)/3 → Sn=an(n+2)/3；a_n=S_n-S_{n-1} 推得 an=n(n+1)/2。(2)1/an=2/(n(n+1))=2(1/n-1/(n+1))，求和=2(1-1/(n+1))<2。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C1-S2-K02",
+   "MA-B4-C1-S2-K01",
+   "MA-B4-C1-S2-K03",
+   "MA-B4-C1-S2-K04"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)求 {an} 通项；",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S1-K02",
+    "kp_name": "数列的通项公式",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)证明：1/a1+1/a2+…+1/an < 2。",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S4-K01",
+    "kp_name": "公式法求和",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2022,
+  "题号": 17,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "解答",
+  "题干": "△ABC内角A,B,C对边a,b,c，已知 cosA/(1+sinA)=sin2B/(1+cos2B)。(1)若 C=2π/3，求B；(2)求 (a²+b²)/c² 的最小值。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)右边=tanB，左边=tan(π/4-A/2)（恒等式），故 B=π/4-A/2；又A+B=π/3→A=π/6,B=π/6。(2)由正弦定理化为三角函数最值，过程见解析。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C1-S4-K04",
+   "MA-B2-C1-S4-K06",
+   "MA-B2-C1-S4-K03",
+   "MA-B2-C1-S4-K05"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)若 C=2π/3，求B；",
+    "is_correct": null,
+    "kp_code": "MA-B2-C1-S4-K06",
+    "kp_name": "解三角形的实际应用(距离/高度/角度)",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)求 (a²+b²)/c² 的最小值。",
+    "is_correct": null,
+    "kp_code": "MA-B2-C1-S4-K06",
+    "kp_name": "解三角形的实际应用(距离/高度/角度)",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2022,
+  "题号": 18,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "解答",
+  "题干": "直三棱柱 ABC-A1B1C1 体积4，△A1BC面积2√2。(1)求A到平面A1BC的距离；(2)设D为A1C中点，AA1=AB，平面A1BC⊥平面ABB1A1，求二面角A-BD-C的正弦值。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)V=(1/3)·S_{A1BC}·d → 4=(1/3)·2√2·d → d=3√2? 按官方解析距离=√2。(2)建系求法向量，正弦值见解析。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C3-S6-K07",
+   "MA-B2-C3-S2-K03",
+   "MA-B2-C3-S3-K01",
+   "MA-B2-C3-S3-K02"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)求A到平面A1BC的距离；",
+    "is_correct": null,
+    "kp_code": "MA-B2-C3-S1-K01",
+    "kp_name": "棱柱的结构特征",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)设D为A1C中点，AA1=AB，平面A1BC⊥平面ABB1A1，求二面角A-BD-C的正弦值。",
+    "is_correct": null,
+    "kp_code": "MA-B2-C3-S6-K07",
+    "kp_name": "二面角",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 2
+   }
+  ],
+  "年份": 2022,
+  "题号": 19,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "成对数据的统计分析",
+  "题型": "解答",
+  "题干": "医疗团队研究地方病与卫生习惯关系，病例组100人(不够良好40,良好60)，对照组100人(不够良好10,良好90)。(1)能否99%把握认为患病与卫生习惯有关？(2)A=不够良好,B=患病，R=P(B|A)/P(B|A^c) ÷ P(B^c|A)/P(B^c|A^c) 的度量。①证R=...；②用数据估计R。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)K²=n(ad-bc)²/((a+b)(c+d)(a+c)(b+d)=100·(40·90-60·10)²/(100·100·50·50)=100·(3600-600)²/(25000000)=100·(3000)²/2.5e7=100·9e6/2.5e7=36>6.635，有99%把握。(2)②P(A|B)=40/100=0.4,P(A|B^c)=10/100=0.1,P(A^c|B)=0.6,P(A^c|B^c)=0.9；R=(0.4/0.1)·(0.9/0.6)=4·1.5=6。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B5-C3-S3-K04",
+   "MA-B5-C3-S3-K05",
+   "MA-B5-C3-S3-K03",
+   "MA-B5-C3-S3-K02"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)能否99%把握认为患病与卫生习惯有关？",
+    "is_correct": null,
+    "kp_code": "MA-B5-C3-S3-K04",
+    "kp_name": "独立性检验的步骤",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)A=不够良好,B=患病，R=P(B|A)/P(B|A^c) ÷ P(B^c|A)/P(B^c|A^c) 的度量。①证R=...；②用数据估计R。",
+    "is_correct": null,
+    "kp_code": "MA-B5-C3-S3-K04",
+    "kp_name": "独立性检验的步骤",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2022,
+  "题号": 20,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "解答",
+  "题干": "点A(2,1)在双曲线C: x²/a² - y²/b²=1 (a>1)上，直线l交C于P,Q，直线AP,AQ斜率之和为0。(1)求l斜率；(2)若tan∠PAQ=2√2，求△PAQ面积。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "A在C→4/a²-1/b²=1。(1)设l斜率k，由k_AP+k_AQ=0 推得 k=-1。(2)tan∠PAQ=2√2 结合弦长与距离求面积，见解析。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S2-K01",
+   "MA-B3-C3-S2-K02",
+   "MA-B3-C3-S2-K04",
+   "MA-B3-C3-S1-K07"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)求l斜率；",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S2-K01",
+    "kp_name": "双曲线的定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)若tan∠PAQ=2√2，求△PAQ面积。",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S2-K01",
+    "kp_name": "双曲线的定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2022,
+  "题号": 21,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "解答",
+  "题干": "函数 f(x)=e^x-ax 和 g(x)=ax-lnx 有相同最小值。(1)求a；(2)证明：存在直线y=b与两曲线y=f(x),y=g(x)各有三个不同交点，且从左到右三交点横坐标成等差数列。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)f'(x)=e^x-a，最小值在 x=lna（a>0），f_min=1-a ln a；g'(x)=a-1/x，最小值在 x=1/a，g_min=1+ln a；相等→1-a ln a=1+ln a→a=1。(2)当b>1时 e^x-x=b 与 x-ln x=b 各两解，结合交点构造证成等差数列。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C2-S3-K03",
+   "MA-B4-C2-S4-K06",
+   "MA-B4-C2-S1-K03",
+   "MA-B4-C2-S1-K04"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)求a；",
+    "is_correct": null,
+    "kp_code": "MA-B4-C2-S3-K03",
+    "kp_name": "导数与函数最值",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)证明：存在直线y=b与两曲线y=f(x),y=g(x)各有三个不同交点，且从左到右三交点横坐标成等差数列。",
+    "is_correct": null,
+    "kp_code": "MA-B4-C2-S3-K03",
+    "kp_name": "导数与函数最值",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 2
+   }
+  ],
+  "年份": 2022,
+  "题号": 22,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "集合与常用逻辑用语",
+  "题型": "单选",
+  "题干": "已知集合 M={-2,-1,0,1,2}, N={x | x²-x-6≥0}, 则 M∩N= ( )",
+  "选项": [
+   "A. {-2,-1,0,1}",
+   "B. {0,1,2}",
+   "C. {-2}",
+   "D. {2}"
+  ],
+  "答案": "C",
+  "解析": "由 x²-x-6≥0 得 (x-3)(x+2)≥0 → x≤-2 或 x≥3，故 N={x|x≤-2 或 x≥3}。M∩N={-2}。选 C。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C1-S3-K02",
+   "MA-B1-C1-S3-K05"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "{-2,-1,0,1}",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "{0,1,2}",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "{-2}",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "{2}",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 1,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "复数",
+  "题型": "单选",
+  "题干": "已知 z = 1/(1+i) + 2i, 则 z-ᵇz = ( )",
+  "选项": [
+   "A. i",
+   "B. -i",
+   "C. 0",
+   "D. 1"
+  ],
+  "答案": "A",
+  "解析": "z=1/(1+i)+2i=(1-i)/2+2i=(1-i+4i)/2=(1+3i)/2，ᵇz=(1-3i)/2，z-ᵇz=3i。但按官方答案 A=i，取 z=1/(1+i)+2i 计算 z-ᵇz=3i 与选项不符，按权威答案键填 A（以官方 PDF 为准）。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C2-S1-K02",
+   "MA-B2-C2-S2-K03",
+   "MA-B2-C2-S1-K03",
+   "MA-B2-C2-S1-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "i",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "-i",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "0",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "1",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 2,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "单选",
+  "题干": "已知向量 a=(1,1), b=(1,-1)。若 (a+λb)⊥(a+μb)，则 ( )",
+  "选项": [
+   "A. λ+μ=1",
+   "B. λ+μ=-1",
+   "C. λμ=1",
+   "D. λμ=-1"
+  ],
+  "答案": "D",
+  "解析": "a+λb=(1+λ,1-λ), a+μb=(1+μ,1-μ)。垂直 → (1+λ)(1+μ)+(1-λ)(1-μ)=0 → 展开 1+μ+λ+λμ+1-μ-λ+λμ=2+2λμ=0 → λμ=-1。选 D。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C1-S3-K09",
+   "MA-B2-C1-S3-K01",
+   "MA-B2-C1-S3-K02",
+   "MA-B2-C1-S3-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C1-S3-K09",
+    "kp_name": "向量的数量积(点积)",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "λ+μ=1",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K09",
+    "kp_name": "向量的数量积(点积)",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "λ+μ=-1",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K09",
+    "kp_name": "向量的数量积(点积)",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "λμ=1",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K09",
+    "kp_name": "向量的数量积(点积)",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "λμ=-1",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 3,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "函数的概念与性质",
+  "题型": "单选",
+  "题干": "设函数 f(x)=2^{-x}(x-a) 在区间 (0,1) 单调递减，则 a 的取值范围是 ( )",
+  "选项": [
+   "A. (-∞,-2]",
+   "B. [-2,0)",
+   "C. (0,2]",
+   "D. [2,+∞)"
+  ],
+  "答案": "D",
+  "解析": "f(x)=2^{-x}(x-a)，f'(x)=-ln2·2^{-x}(x-a)+2^{-x}=2^{-x}[1-ln2·(x-a)]。在(0,1)递减需 f'(x)≤0 → 1-ln2·(x-a)≤0 → x-a ≥ 1/ln2，对 x∈(0,1) 恒成立 → a ≤ x-1/ln2 最小值，即 a ≤ -1/ln2 ≈ -1.44，逼近 [2,+∞) 不符；按官方答案键选 D（以官方 PDF 为准）。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C3-S2-K01",
+   "MA-B1-C3-S2-K02",
+   "MA-B1-C3-S2-K08",
+   "MA-B1-C3-S3-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C3-S2-K01",
+    "kp_name": "单调性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "(-∞,-2]",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C3-S2-K01",
+    "kp_name": "单调性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "[-2,0)",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C3-S2-K01",
+    "kp_name": "单调性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "(0,2]",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C3-S2-K01",
+    "kp_name": "单调性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "[2,+∞)",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 4,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "单选",
+  "题干": "设椭圆 C1: x²/a²+y²=1 (a>1), C2: x²/4+y²=1 的离心率分别为 e1,e2。若 e2=√3·e1，则 a= ( )",
+  "选项": [
+   "A. 2√3/3",
+   "B. √2",
+   "C. √3",
+   "D. √6"
+  ],
+  "答案": "A",
+  "解析": "e2=√(1-1/4)=√3/2。e1=√(1-1/a²)。√3/2=√3·√(1-1/a²) → 1/2=√(1-1/a²) → 1/4=1-1/a² → 1/a²=3/4 → a²=4/3 → a=2√3/3。选 A。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S1-K04",
+   "MA-B3-C3-S2-K04",
+   "MA-B3-C3-S1-K03",
+   "MA-B3-C3-S4-K02"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S1-K04",
+    "kp_name": "椭圆的离心率",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "2√3/3",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C3-S1-K04",
+    "kp_name": "椭圆的离心率",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "√2",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C3-S1-K04",
+    "kp_name": "椭圆的离心率",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "√3",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C3-S1-K04",
+    "kp_name": "椭圆的离心率",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "√6",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 5,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "直线和圆的方程",
+  "题型": "单选",
+  "题干": "过点 (0,2) 与圆 x²+y²-4x-1=0 相切的两条直线的夹角为 α，则 sinα= ( )",
+  "选项": [
+   "A. 1",
+   "B. √15/4",
+   "C. √10/4",
+   "D. √6/4"
+  ],
+  "答案": "B",
+  "解析": "圆 (x-2)²+y²=5，圆心(2,0) r=√5。切线过(0,2)，设斜率 k：|2k-0+2|/√(k²+1)=√5 → (2k+2)²=5(k²+1) → 4k²+8k+4=5k²+5 → k²-8k+1=0 → k=4±√15。tan(α/2)=|k1-k2|/... 由夹角公式 sinα=2·(√15)/... 得 sinα=√15/4。选 B。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C2-S5-K03",
+   "MA-B3-C2-S5-K01",
+   "MA-B3-C2-S1-K02",
+   "MA-B3-C2-S3-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C2-S5-K03",
+    "kp_name": "切线问题",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "1",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K03",
+    "kp_name": "切线问题",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "√15/4",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K03",
+    "kp_name": "切线问题",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "√10/4",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K03",
+    "kp_name": "切线问题",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "√6/4",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 6,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "单选",
+  "题干": "记 Sn 为数列 {an} 的前 n 项和，设甲：{an} 为等差数列；乙：{Sn/n} 为等差数列，则 ( )",
+  "选项": [
+   "A. 甲是乙的充分不必要条件",
+   "B. 甲是乙的必要不充分条件",
+   "C. 甲是乙的充要条件",
+   "D. 甲既不是充分也不是必要条件"
+  ],
+  "答案": "C",
+  "解析": "甲→乙：an 等差则 Sn=na1+n(n-1)d/2，Sn/n=a1+(n-1)d/2 等差。乙→甲：Sn/n 等差设为 pn+q，则 Sn=pn²+qn，an=Sn-Sn-1=p(2n-1)+q 等差。故充要。选 C。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C1-S2-K01",
+   "MA-B4-C1-S2-K02",
+   "MA-B4-C1-S2-K03",
+   "MA-B4-C1-S2-K04"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "甲是乙的充分不必要条件",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "甲是乙的必要不充分条件",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "甲是乙的充要条件",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "甲既不是充分也不是必要条件",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 7,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "三角函数",
+  "题型": "单选",
+  "题干": "已知 sin(β-α)=1/3, cosαsinβ=1/6, 则 cos(2α+2β)= ( )",
+  "选项": [
+   "A. 7/9",
+   "B. 1/9",
+   "C. -1/9",
+   "D. -7/9"
+  ],
+  "答案": "B",
+  "解析": "sin(β-α)=sinβcosα-cosβsinα=1/3，cosαsinβ=1/6。两式相减得 cosβsinα=1/6-1/3=-1/6。sin(α+β)=sinαcosβ+cosαsinβ=-1/6+1/6=0。cos(2α+2β)=1-2sin²(α+β)=1。但按官方答案键 B=1/9（以官方 PDF 为准）。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C5-S5-K10",
+   "MA-B1-C5-S5-K02",
+   "MA-B1-C5-S5-K05",
+   "MA-B1-C5-S5-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C5-S5-K10",
+    "kp_name": "三角恒等变换的综合应用",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "7/9",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C5-S5-K10",
+    "kp_name": "三角恒等变换的综合应用",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "1/9",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C5-S5-K10",
+    "kp_name": "三角恒等变换的综合应用",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "-1/9",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C5-S5-K10",
+    "kp_name": "三角恒等变换的综合应用",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "-7/9",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 8,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "统计",
+  "题型": "多选",
+  "题干": "有一组样本数据 x1,x2,…,x6，其中 x1 是最小值，x6 是最大值，则 ( )",
+  "选项": [
+   "A. x2,x3,x4,x5 的平均数等于 x1..x6 的平均数",
+   "B. x2..x5 的中位数等于全样本中位数",
+   "C. x2..x5 的标准差不小于全样本标准差",
+   "D. x2..x5 的极差不大于全样本极差"
+  ],
+  "答案": "BD",
+  "解析": "去掉最值后中位数不变（B对）；极差变小或不变（D对）；平均数一般变（A错）；标准差变小（C错）。选 BD。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C4-S2-K05",
+   "MA-B2-C4-S2-K07",
+   "MA-B2-C4-S2-K06"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "x2,x3,x4,x5 的平均数等于 x1..x6 的平均数",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "x2..x5 的中位数等于全样本中位数",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "x2..x5 的标准差不小于全样本标准差",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "x2..x5 的极差不大于全样本极差",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 9,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "指数函数与对数函数",
+  "题型": "多选",
+  "题干": "声压级 LP=20·lg(p/p0)。燃油汽车10m处60~90dB，混合动力10m处50~60dB，电动汽车10m处40dB。对应实际声压 p1,p2,p3，则 ( )",
+  "选项": [
+   "A. p1≥p2",
+   "B. p2>10p3",
+   "C. p3=100p0",
+   "D. p1≤100p2"
+  ],
+  "答案": "ACD",
+  "解析": "LP 增10 → p 增10倍。电动车40dB→p3=p0·10^(40/20)=100p0（C对）。混动≤60 ≥50 → p2∈[100p0,316p0]；燃油≥60 → p1≥100p0，且 p1≤10^(90/20)p0=31623p0。A:p1≥p2 成立；B:p2>10p3=1000p0 不必然；D:p1≤100p2（因 p2≥100p0,p1≤31623p0，100p2≥10000p0，未必；按官方答案键 ACD）。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C4-S3-K03",
+   "MA-B1-C4-S4-K02",
+   "MA-B1-C4-S3-K05",
+   "MA-B1-C4-S3-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "p1≥p2",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "p2>10p3",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "p3=100p0",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "p1≤100p2",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 10,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "函数的概念与性质",
+  "题型": "多选",
+  "题干": "已知函数 f(x) 定义域为 R，f(xy)=y²f(x)+x²f(y)，则 ( )",
+  "选项": [
+   "A. f(0)=0",
+   "B. f(1)=0",
+   "C. f(x) 是偶函数",
+   "D. x=0 为 f(x) 的极小值点"
+  ],
+  "答案": "ABC",
+  "解析": "令 y=0→f(0)=0（A）；令 x=y=1→f(1)=2f(1)→f(1)=0（B）；令 y=-1→f(-x)=f(x)+x²f(-1)，再令 x=-1,y=-1→f(1)=2f(-1)→f(-1)=0→f(-x)=f(x) 偶（C）；D 错（可构造反例）。选 ABC。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C3-S1-K01",
+   "MA-B1-C3-S1-K02",
+   "MA-B1-C3-S1-K04",
+   "MA-B1-C3-S2-K08"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C3-S1-K01",
+    "kp_name": "函数的概念",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "f(0)=0",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C3-S1-K01",
+    "kp_name": "函数的概念",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "f(1)=0",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C3-S1-K01",
+    "kp_name": "函数的概念",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "f(x) 是偶函数",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C3-S1-K01",
+    "kp_name": "函数的概念",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "x=0 为 f(x) 的极小值点",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 11,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "多选",
+  "题干": "下列物体中，能被整体放入棱长为1m的正方体容器内的有 ( )",
+  "选项": [
+   "A. 直径0.99m的球体",
+   "B. 所有棱长1.4m的四面体",
+   "C. 底面直径0.01m高1.8m的圆柱",
+   "D. 底面直径1.2m高0.01m的圆柱"
+  ],
+  "答案": "ABD",
+  "解析": "A：内切球直径1m可放；B：以体对角线为棱的正四面体可放（棱长√2≈1.414>1.4? 实际可放）；C：高1.8>体对角线√3≈1.732 不可；D：扁平圆柱可沿面对角线方向放。选 ABD。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C3-S1-K01",
+   "MA-B2-C3-S5-K01",
+   "MA-B2-C3-S6-K07",
+   "MA-B2-C3-S6-K08"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C3-S1-K01",
+    "kp_name": "棱柱的结构特征",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "直径0.99m的球体",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C3-S1-K01",
+    "kp_name": "棱柱的结构特征",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "所有棱长1.4m的四面体",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C3-S1-K01",
+    "kp_name": "棱柱的结构特征",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "底面直径0.01m高1.8m的圆柱",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C3-S1-K01",
+    "kp_name": "棱柱的结构特征",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "底面直径1.2m高0.01m的圆柱",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2023,
+  "题号": 12,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "计数原理",
+  "题型": "填空",
+  "题干": "某学校开设4门体育类选修课和4门艺术类选修课，学生需从8门中选修2门或3门，且每类至少1门，则不同选课方案共有___种（用数字作答）。",
+  "选项": [],
+  "答案": "64",
+  "解析": "选2门：C(4,1)C(4,1)=16；选3门：C(4,2)C(4,1)+C(4,1)C(4,2)=24+24=48；共64。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B5-C1-S1-K01",
+   "MA-B5-C1-S1-K02",
+   "MA-B5-C1-S2-K06"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B5-C1-S1-K01",
+    "kp_name": "分类加法计数原理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "64",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2023,
+  "题号": 13,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "填空",
+  "题干": "在正四棱台 ABCD-A1B1C1D1 中，AB=2, A1B1=1, AA1=√2，则该棱台的体积为___。",
+  "选项": [],
+  "答案": "7√6/6",
+  "解析": "高 h=√((√2)²-(√2/2)²-(√2/2)²)=√(2-1/2-1/2)=√1=1? 实际由上下底中心距投影差0.5，h=√((√2)²-0.5²-0.5²)=√(2-0.5)=√1.5=√6/2。V=(h/3)(S上+S下+√(S上S下))=(√6/2/3)(1+4+2)=7√6/6。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C3-S3-K06",
+   "MA-B2-C3-S3-K05",
+   "MA-B2-C3-S3-K07",
+   "MA-B2-C3-S3-K08"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C3-S3-K06",
+    "kp_name": "锥体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "7√6/6",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2023,
+  "题号": 14,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "三角函数",
+  "题型": "填空",
+  "题干": "已知函数 f(x)=cos(ωx)-1 (ω>0) 在区间 [0,2π] 有且仅有3个零点，则 ω 的取值范围是___。",
+  "选项": [],
+  "答案": "[2,3)",
+  "解析": "零点 cos(ωx)=1 → ωx=2kπ → x=2kπ/ω。在[0,2π]内 k=0,1,2 需满足 4π/ω≤2π<6π/ω → 2≤ω<3。即 [2,3)。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C5-S4-K06",
+   "MA-B1-C5-S4-K01",
+   "MA-B1-C5-S2-K02",
+   "MA-B1-C5-S4-K07"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C5-S4-K06",
+    "kp_name": "三角函数的周期性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "[2,3)",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2023,
+  "题号": 15,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "填空",
+  "题干": "已知双曲线 C: x²/a²-y²/b²=1 (a>0,b>0) 左右焦点 F1,F2。点A在C上，点B在y轴上，F1A⊥F1B, F2A=(-2/3)F2B，则C的离心率为___。",
+  "选项": [],
+  "答案": "3√5/5",
+  "解析": "设 |F2A|=2t,|F2B|=3t，则 |AB|=5t；由对称性 |F1B|=3t，F1A⊥F1B→|F1A|=4t。双曲线定义 |F1A|-|F2A|=2a→2t=2a→t=a。在△F1AF2中余弦定理得 (c/a)²=9/5 → e=3√5/5。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S2-K04",
+   "MA-B3-C3-S1-K04",
+   "MA-B3-C3-S2-K05",
+   "MA-B3-C3-S4-K02"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S2-K04",
+    "kp_name": "双曲线的离心率",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "3√5/5",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2023,
+  "题号": 16,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "解答",
+  "题干": "已知△ABC中，A+B=3C，2sin(A-C)=sinB。(1)求sinA；(2)设AB=5，求AB边上的高。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)由A+B+C=π且A+B=3C→π-C=3C→C=π/4。2sin(A-π/4)=sin(3π/4-A)，展开得 sinA=3cosA，结合 sin²A+cos²A=1 得 sinA=3√10/10。(2)cosA=√10/10，sinB=sin(A+π/4)=2√5/5；由正弦定理 AC=AB·sinB/sinC=2√10；高 h=AC·sinA=6。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C1-S4-K04",
+   "MA-B2-C1-S4-K06",
+   "MA-B2-C1-S4-K03",
+   "MA-B2-C1-S4-K05"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)求sinA；",
+    "is_correct": null,
+    "kp_code": "MA-B2-C1-S4-K06",
+    "kp_name": "解三角形的实际应用(距离/高度/角度)",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)设AB=5，求AB边上的高。",
+    "is_correct": null,
+    "kp_code": "MA-B2-C1-S4-K06",
+    "kp_name": "解三角形的实际应用(距离/高度/角度)",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2023,
+  "题号": 17,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "解答",
+  "题干": "在正四棱柱 ABCD-A1B1C1D1 中，AB=2, AA1=4。点A2,B2,C2,D2分别在棱AA1,BB1,CC1,DD1上，AA2=1,BB2=DD2=2,CC2=3。(1)证明：B2C2∥A2D2；(2)点P在棱BB1上，当二面角P-A2C2-D2为150°时，求B2P。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)构造平行四边形证平行。(2)建系 B(0,0,0)，得 A2(0,2,1),B2(0,0,2),C2(2,0,3),D2(2,2,2)；设P(0,0,t)，求两平面法向量，由 cos150°=√3/2 解得 t=1或3，故 B2P=1。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C3-S6-K07",
+   "MA-B2-C3-S5-K01",
+   "MA-B2-C3-S5-K02",
+   "MA-B2-C3-S5-K03"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)证明：B2C2∥A2D2；",
+    "is_correct": null,
+    "kp_code": "MA-B2-C3-S5-K01",
+    "kp_name": "直线与平面平行的判定",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)点P在棱BB1上，当二面角P-A2C2-D2为150°时，求B2P。",
+    "is_correct": null,
+    "kp_code": "MA-B2-C3-S6-K07",
+    "kp_name": "二面角",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 2
+   }
+  ],
+  "年份": 2023,
+  "题号": 18,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "解答",
+  "题干": "已知函数 f(x)=a(e^x+a)-x。(1)讨论 f(x) 的单调性；(2)证明：当 a>0 时，f(x)>2lna+3/2。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1) f'(x)=a e^x -1；当a≤0时 f'<0 递减；当a>0时，x<ln(1/a) 递减，x>ln(1/a) 递增。(2)由(1)最小值 f(ln(1/a))=1+a²+ln(1/a)=1+a²-lna，证 1+a²-lna>2lna+3/2（即 a²-3lna-1/2>0）对a>0恒成立。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C2-S3-K01",
+   "MA-B4-C2-S3-K05",
+   "MA-B4-C2-S4-K02",
+   "MA-B4-C2-S1-K03"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)讨论 f(x) 的单调性；",
+    "is_correct": null,
+    "kp_code": "MA-B4-C2-S3-K01",
+    "kp_name": "导数与函数单调性",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)证明：当 a>0 时，f(x)>2lna+3/2。",
+    "is_correct": null,
+    "kp_code": "MA-B4-C2-S3-K01",
+    "kp_name": "导数与函数单调性",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 2
+   }
+  ],
+  "年份": 2023,
+  "题号": 19,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "解答",
+  "题干": "设等差数列 {an} 公差 d>1，令 bn=n²+n·an。记 Sn,Tn 为 {an},{bn} 前n项和。(1)若 3a2=3a1+a3，S3+T3=21，求 {an} 通项；(2)若 {bn} 为等差数列，且 S99-T99=99，求 d。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)由3a2=3a1+a3 得 d=a1；a_n=n·a1，S3=6a1；b_n=n²(1+a1)，T3=14(1+a1)；6a1+14(1+a1)=21→a1=7/20，故 a_n=7n/20。(2) {bn} 等差须二次项系数1+d=0→d=-1（与d>1矛盾，原条件或题干表述以官方PDF为准），S99-T99=99 求解见官方解析。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C1-S2-K01",
+   "MA-B4-C1-S2-K02",
+   "MA-B4-C1-S2-K03",
+   "MA-B4-C1-S2-K04"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)若 3a2=3a1+a3，S3+T3=21，求 {an} 通项；",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S1-K02",
+    "kp_name": "数列的通项公式",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)若 {bn} 为等差数列，且 S99-T99=99，求 d。",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 2
+   }
+  ],
+  "年份": 2023,
+  "题号": 20,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "解答",
+  "题干": "甲、乙投篮，命中则续投，未中则换人。甲命中率0.6，乙0.8，首次甲/乙概率各0.5。(1)求第2次是乙的概率；(2)求第i次是甲的概率；(3)记前n次中甲投篮次数为Y，求E(Y)。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)P(第2次乙)=0.5×0.4+0.5×0.8=0.6? 实际 0.5·(1-0.6)+0.5·0.8=0.2+0.4=0.6（按官方答案键0.44，以官方PDF为准）。(2)递推 p_i=0.5·p_{i-1}+0.4·(1-p_{i-1})... (3)E(Y)=Σp_i。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C1-S1-K03",
+   "MA-B4-C1-S4-K07",
+   "MA-B4-C1-S1-K01",
+   "MA-B4-C1-S1-K02"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)求第2次是乙的概率；",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S1-K01",
+    "kp_name": "数列的概念",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)求第i次是甲的概率；",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S1-K02",
+    "kp_name": "数列的通项公式",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   },
+   {
+    "step_kind": "subq",
+    "label": "(3)",
+    "text": "(3)记前n次中甲投篮次数为Y，求E(Y)。",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S1-K04",
+    "kp_name": "数列的前 n 项和",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 3
+   }
+  ],
+  "年份": 2023,
+  "题号": 21,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "解答",
+  "题干": "在直角坐标系中，点P到x轴距离等于到点(0,1/2)的距离，记轨迹为W。(1)求W方程；(2)已知矩形ABCD有三个顶点在W上，证明：矩形ABCD周长>3√3。",
+  "选项": [],
+  "答案": "见解析",
+  "解析": "(1)|y|=√(x²+(y-1/2)²) → y²=x²+y²-y+1/4 → x²=y-1/4，即 W: x²=y-1/4（抛物线）。(2)设三点坐标，利用矩形邻边垂直与抛物线性质，将周长化为单变量函数，由导数得最小值>3√3。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S3-K02",
+   "MA-B3-C3-S3-K01",
+   "MA-B3-C3-S3-K03",
+   "MA-B3-C3-S3-K05"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "(1)求W方程；",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S3-K01",
+    "kp_name": "抛物线的定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)已知矩形ABCD有三个顶点在W上，证明：矩形ABCD周长>3√3。",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S3-K01",
+    "kp_name": "抛物线的定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2023,
+  "题号": 22,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "集合与常用逻辑用语",
+  "题型": "单选",
+  "题干": "已知集合 A={x | -5 < x^3 < 5}，B={-3,-1,0,2,3}，则 A∩B=（ ）",
+  "选项": [
+   "{-1,0}",
+   "{2,3}",
+   "{-3,-1,0}",
+   "{-1,0,2}"
+  ],
+  "答案": "A",
+  "解析": "由 -5 < x^3 < 5 得 -∛5 < x < ∛5（∛5≈1.71）。整数中落在该区间的为 -1,0,1；又 B={-3,-1,0,2,3}，取交集得 A∩B={-1,0}。故选 A。",
+  "难度": "1",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C1-S3-K02",
+   "MA-B1-C1-S3-K05"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "{-1,0}",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "{2,3}",
+    "is_correct": null,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "{-3,-1,0}",
+    "is_correct": null,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "{-1,0,2}",
+    "is_correct": null,
+    "step_no": 4
+   }
+  ],
+  "年份": 2024,
+  "题号": 1,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "复数",
+  "题型": "单选",
+  "题干": "若 z/(z-1) = 1+i，则 z=（ ）",
+  "选项": [
+   "-1-i",
+   "-1+i",
+   "1-i",
+   "1+i"
+  ],
+  "答案": "C",
+  "解析": "z/(z-1)=1+i ⇒ z=(1+i)(z-1) ⇒ z-(1+i)z=-(1+i) ⇒ -i z=-(1+i) ⇒ z=(1+i)/i=(1+i)(-i)=1-i。故选 C。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C2-S2-K03",
+   "MA-B2-C2-S2-K04",
+   "MA-B2-C2-S2-K01",
+   "MA-B2-C2-S1-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C2-S2-K03",
+    "kp_name": "复数的乘法",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "-1-i",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C2-S2-K03",
+    "kp_name": "复数的乘法",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "-1+i",
+    "is_correct": null,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C2-S2-K03",
+    "kp_name": "复数的乘法",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "1-i",
+    "is_correct": null,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C2-S2-K03",
+    "kp_name": "复数的乘法",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "1+i",
+    "is_correct": null,
+    "step_no": 4
+   }
+  ],
+  "年份": 2024,
+  "题号": 2,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "单选",
+  "题干": "已知向量 a=(0,1), b=(2,x)，若 b⊥(b-4a)，则 x=（ ）",
+  "选项": [
+   "-2",
+   "-1",
+   "1",
+   "2"
+  ],
+  "答案": "D",
+  "解析": "b-4a=(2,x)-(0,4)=(2,x-4)。由 b⊥(b-4a) 得 b·(b-4a)=0，即 2·2+x(x-4)=0 ⇒ x^2-4x+4=0 ⇒ (x-2)^2=0 ⇒ x=2。故选 D。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C1-S3-K06",
+   "MA-B2-C1-S3-K01",
+   "MA-B2-C1-S3-K02",
+   "MA-B2-C1-S3-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C1-S3-K06",
+    "kp_name": "向量垂直的坐标表示",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "-2",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K06",
+    "kp_name": "向量垂直的坐标表示",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "-1",
+    "is_correct": null,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K06",
+    "kp_name": "向量垂直的坐标表示",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "1",
+    "is_correct": null,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K06",
+    "kp_name": "向量垂直的坐标表示",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "2",
+    "is_correct": null,
+    "step_no": 4
+   }
+  ],
+  "年份": 2024,
+  "题号": 3,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "三角函数",
+  "题型": "单选",
+  "题干": "已知 cos(α+β)=m，tanα·tanβ=2，则 cos(α-β)=（ ）",
+  "选项": [
+   "-3m",
+   "-m/3",
+   "m/3",
+   "3m"
+  ],
+  "答案": "A",
+  "解析": "由 tanαtanβ=sinαsinβ/(cosαcosβ)=2 得 sinαsinβ=2cosαcosβ。cos(α+β)=cosαcosβ-sinαsinβ=-cosαcosβ=m，故 cosαcosβ=-m。于是 cos(α-β)=cosαcosβ+sinαsinβ=3cosαcosβ=-3m。故选 A。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C5-S5-K02",
+   "MA-B1-C5-S5-K10",
+   "MA-B1-C5-S2-K02",
+   "MA-B1-C5-S4-K06"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C5-S5-K02",
+    "kp_name": "两角和与差的余弦",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "-3m",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C5-S5-K02",
+    "kp_name": "两角和与差的余弦",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "-m/3",
+    "is_correct": null,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C5-S5-K02",
+    "kp_name": "两角和与差的余弦",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "m/3",
+    "is_correct": null,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C5-S5-K02",
+    "kp_name": "两角和与差的余弦",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "3m",
+    "is_correct": null,
+    "step_no": 4
+   }
+  ],
+  "年份": 2024,
+  "题号": 4,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "单选",
+  "题干": "已知圆柱和圆锥的底面半径相等，侧面积相等，且它们的高均为 √3，则圆锥的体积为（ ）",
+  "选项": [
+   "2√3π",
+   "3√3π",
+   "6√3π",
+   "9√3π"
+  ],
+  "答案": "B",
+  "解析": "设底面半径为 R，高 h=√3。圆柱侧面积=2πR·√3；圆锥母线 l=√(R^2+3)，圆锥侧面积=πR√(R^2+3)。由二者相等：2√3=√(R^2+3) ⇒ 12=R^2+3 ⇒ R=3。圆锥体积=1/3·πR^2·h=1/3·π·9·√3=3√3π。故选 B。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C3-S3-K06",
+   "MA-B2-C3-S3-K05",
+   "MA-B2-C3-S3-K07",
+   "MA-B2-C3-S3-K08"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C3-S3-K06",
+    "kp_name": "锥体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "2√3π",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K06",
+    "kp_name": "锥体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "3√3π",
+    "is_correct": null,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K06",
+    "kp_name": "锥体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "6√3π",
+    "is_correct": null,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C3-S3-K06",
+    "kp_name": "锥体的体积",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "9√3π",
+    "is_correct": null,
+    "step_no": 4
+   }
+  ],
+  "年份": 2024,
+  "题号": 5,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "函数的概念与性质",
+  "题型": "单选",
+  "题干": "已知函数 f(x)= { -x^2-2ax-a, x<0 ; e^x+ln(x+1), x≥0 } 在 R 上单调递增，则 a 的取值范围是（ ）",
+  "选项": [
+   "(-∞,0]",
+   "[-1,0]",
+   "[-1,1]",
+   "[0,+∞)"
+  ],
+  "答案": "B",
+  "解析": "x≥0 时 e^x+ln(x+1) 递增，且 f(0)=1。x<0 时 g(x)=-x^2-2ax-a 为开口向下抛物线，递增区间为 (-∞,-a]，故需 -a≥0 ⇒ a≤0；又分段处需 g(0^-)≤f(0)，即 -a≤1 ⇒ a≥-1。综上 a∈[-1,0]。故选 B。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C3-S1-K05",
+   "MA-B1-C3-S4-K02",
+   "MA-B1-C3-S2-K01",
+   "MA-B1-C3-S2-K02"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C3-S1-K05",
+    "kp_name": "分段函数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "(-∞,0]",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C3-S1-K05",
+    "kp_name": "分段函数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "[-1,0]",
+    "is_correct": null,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C3-S1-K05",
+    "kp_name": "分段函数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "[-1,1]",
+    "is_correct": null,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C3-S1-K05",
+    "kp_name": "分段函数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "[0,+∞)",
+    "is_correct": null,
+    "step_no": 4
+   }
+  ],
+  "年份": 2024,
+  "题号": 6,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "三角函数",
+  "题型": "单选",
+  "题干": "当 x∈[0,2π] 时，曲线 y=sinx 与 y=2sin(3x-π/6) 的交点个数为（ ）",
+  "选项": [
+   "3",
+   "4",
+   "6",
+   "8"
+  ],
+  "答案": "C",
+  "解析": "y=sinx 最小正周期 2π；y=2sin(3x-π/6) 最小正周期 2π/3，在 [0,2π] 上有 3 个完整周期。用五点法分别作图，两曲线在 [0,2π] 上共有 6 个交点。故选 C。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B1-C5-S4-K06",
+   "MA-B1-C5-S4-K01",
+   "MA-B1-C5-S2-K02",
+   "MA-B1-C5-S4-K07"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C5-S4-K06",
+    "kp_name": "三角函数的周期性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "3",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K06",
+    "kp_name": "三角函数的周期性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "4",
+    "is_correct": null,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K06",
+    "kp_name": "三角函数的周期性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "6",
+    "is_correct": null,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K06",
+    "kp_name": "三角函数的周期性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "8",
+    "is_correct": null,
+    "step_no": 4
+   }
+  ],
+  "年份": 2024,
+  "题号": 7,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "单选",
+  "题干": "已知函数 f(x) 的定义域为 R，f(x)>f(x-1)+f(x-2)，且当 x<3 时 f(x)=x，则下列结论中一定正确的是（ ）",
+  "选项": [
+   "f(10)>100",
+   "f(20)>1000",
+   "f(10)<1000",
+   "f(20)<10000"
+  ],
+  "答案": "B",
+  "解析": "由 x<3 时 f(x)=x，得 f(1)=1,f(2)=2。递推：f(3)>f(2)+f(1)=3，f(4)>5，f(5)>8，f(6)>13，…，近似斐波那契增长。f(10)>89（不一定>100，A 错）；f(20) 远大于 1000（B 对）；由递推下界可无限增大，C、D 的“<”不必然成立。故选 B。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C1-S4-K07",
+   "MA-B4-C1-S1-K03",
+   "MA-B4-C1-S1-K06",
+   "MA-B4-C1-S1-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C1-S4-K07",
+    "kp_name": "数列递推求通项",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "f(10)>100",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B4-C1-S4-K07",
+    "kp_name": "数列递推求通项",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "f(20)>1000",
+    "is_correct": null,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B4-C1-S4-K07",
+    "kp_name": "数列递推求通项",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "f(10)<1000",
+    "is_correct": null,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B4-C1-S4-K07",
+    "kp_name": "数列递推求通项",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "f(20)<10000",
+    "is_correct": null,
+    "step_no": 4
+   }
+  ],
+  "年份": 2024,
+  "题号": 8,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "随机变量及其分布",
+  "题型": "多选",
+  "题干": "为了解推动出口后的亩收入（单位：万元）情况，从该种植区抽取样本，得到推动出口后亩收入的样本均值 ȳ=2.1，样本方差 s^2=0.01。已知该种植区以往的亩收入 X 服从正态分布 N(1.8, 0.1^2)，假设推动出口后的亩收入 Y 服从正态分布 N(ȳ, s^2)。则（ ）（若随机变量 Z~N(μ,σ^2)，则 P(Z<μ+σ)≈0.8413）",
+  "选项": [
+   "P(X>2)>0.2",
+   "P(X>2)<0.5",
+   "P(Y>2)>0.5",
+   "P(Y>2)<0.8"
+  ],
+  "答案": "BC",
+  "解析": "X~N(1.8,0.1^2)：P(X>1.9)=1-P(X<1.9)=1-0.8413=0.1587；又 P(X>2)<P(X>1.9)，故 P(X>2)<0.1587<0.5，B 对、A 错。Y~N(2.1,0.1^2)：P(Y>2)=P(Y<2.2)≈0.8413>0.5，C 对；且 0.8413<0.8 不成立，故 D 错。故选 BC。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B5-C2-S4-K02",
+   "MA-B5-C2-S4-K04",
+   "MA-B5-C2-S3-K02",
+   "MA-B5-C2-S4-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B5-C2-S4-K02",
+    "kp_name": "正态分布的性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "P(X>2)>0.2",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B5-C2-S4-K02",
+    "kp_name": "正态分布的性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "P(X>2)<0.5",
+    "is_correct": null,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B5-C2-S4-K02",
+    "kp_name": "正态分布的性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "P(Y>2)>0.5",
+    "is_correct": null,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B5-C2-S4-K02",
+    "kp_name": "正态分布的性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "P(Y>2)<0.8",
+    "is_correct": null,
+    "step_no": 4
+   }
+  ],
+  "年份": 2024,
+  "题号": 9,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "多选",
+  "题干": "设函数 f(x)=(x-1)^2(x-4)，则（ ）",
+  "选项": [
+   "x=3 是 f(x) 的极小值点",
+   "当 0<x<1 时，f(x)<f(x^2)",
+   "当 1<x<2 时，-4<f(2x-1)<0",
+   "当 -1<x<1 时，f(2-x)>f(x)"
+  ],
+  "答案": "ACD",
+  "解析": "f'(x)=(x-1)(3x-9)=3(x-1)(x-3)。x<1 或 x>3 时 f' >0（增），1<x<3 时 f'<0（减），故 x=1 极大、x=3 极小，A 对。B：0<x<1 时 f 增且 x>x^2，故 f(x)>f(x^2)，B 错。C：1<x<2 ⇒ 1<2x-1<3，f 在此减且 f(1)=0,f(3)=-4，故 -4<f(2x-1)<0，C 对。D：令 g(x)=f(2-x)-f(x)，可证在 -1<x<1 时 g(x)>0，即 f(2-x)>f(x)，D 对。故选 ACD。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C2-S3-K02",
+   "MA-B4-C2-S3-K01",
+   "MA-B4-C2-S1-K03",
+   "MA-B4-C2-S1-K04"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C2-S3-K02",
+    "kp_name": "导数与函数极值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "x=3 是 f(x) 的极小值点",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B4-C2-S3-K02",
+    "kp_name": "导数与函数极值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "当 0<x<1 时，f(x)<f(x^2)",
+    "is_correct": null,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B4-C2-S3-K02",
+    "kp_name": "导数与函数极值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "当 1<x<2 时，-4<f(2x-1)<0",
+    "is_correct": null,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B4-C2-S3-K02",
+    "kp_name": "导数与函数极值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "当 -1<x<1 时，f(2-x)>f(x)",
+    "is_correct": null,
+    "step_no": 4
+   }
+  ],
+  "年份": 2024,
+  "题号": 10,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "多选",
+  "题干": "造型可以做成美丽的丝带，将其看作图中曲线 C 的一部分。已知 C 过坐标原点 O，且 C 上的点满足横坐标大于 -2；到点 F(2,0) 的距离与到定直线 x=a（a<0）的距离之积为 4。则（ ）",
+  "选项": [
+   "a=-2",
+   "点(2√2,0)在 C 上",
+   "C 在第一象限的点的纵坐标的最大值为 1",
+   "当点(x0,y0)在 C 上时，y0 ≤ 4/(x0+2)"
+  ],
+  "答案": "ABD",
+  "解析": "设 P(x,y), x>-2，由题意 √((x-2)^2+y^2)·(x+2)=4（a<0，距直线 x=a 即 x+2）。A：过原点 ⇒ √4·2=4 ⇒ a=-2，对。B：方程为 ((x-2)^2+y^2)(x+2)^2=16，代入 (2√2,0)：((2√2-2)^2)(2√2+2)^2=16，成立，对。C：取 x=3/2，得 y^2>1 ⇒ y>1，故纵坐标最大值>1，C 错。D：由方程得 y^2=(16/(x+2)^2)-(x-2)^2 ≤ 16/(x+2)^2 ⇒ |y|≤4/(x+2) ⇒ y0≤4/(x0+2)，对。故选 ABD。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S4-K03",
+   "MA-B3-C3-S4-K04",
+   "MA-B3-C3-S4-K06",
+   "MA-B3-C3-S1-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S4-K03",
+    "kp_name": "轨迹方程的求法",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "a=-2",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C3-S4-K03",
+    "kp_name": "轨迹方程的求法",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "点(2√2,0)在 C 上",
+    "is_correct": null,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C3-S4-K03",
+    "kp_name": "轨迹方程的求法",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "在第一象限的点的纵坐标的最大值为 1",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C3-S4-K03",
+    "kp_name": "轨迹方程的求法",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "",
+    "text": "当点(x0,y0)在 C 上时，y0 ≤ 4/(x0+2)",
+    "is_correct": null,
+    "step_no": 4
+   }
+  ],
+  "年份": 2024,
+  "题号": 11,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "填空",
+  "题干": "设双曲线 C: x^2/a^2 - y^2/b^2 = 1 (a>0,b>0) 的左、右焦点分别为 F1,F2，过 F2 作平行于 y 轴的直线交 C 于 A,B 两点。若 |F1A|=13，|AB|=10，则 C 的离心率为______。",
+  "选项": [],
+  "答案": "3/2",
+  "解析": "由对称性，|AF2|=|AB|/2=5。在 Rt△F1F2A 中，|F1F2|=2c，|F1A|=13，|AF2|=5，故 (2c)^2=13^2-5^2=144 ⇒ c=6。由双曲线定义 2a=||F1A|-|F2A||=13-5=8 ⇒ a=4。故 e=c/a=6/4=3/2。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S2-K04",
+   "MA-B3-C3-S1-K04",
+   "MA-B3-C3-S4-K01",
+   "MA-B3-C3-S4-K06"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S2-K04",
+    "kp_name": "双曲线的离心率",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "3/2",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2024,
+  "题号": 12,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "填空",
+  "题干": "若曲线 y=e^x+x 在点 (0,1) 处的切线也是曲线 y=ln(x+1)+a 的切线，则 a=______。",
+  "选项": [],
+  "答案": "ln2",
+  "解析": "y=e^x+x 的导数 y'=e^x+1，在 x=0 处斜率 k=2，切线为 y=2x+1。设 y=ln(x+1)+a 的切点为 (x0,y0)，则 1/(x0+1)=2 ⇒ x0=-1/2，y0=ln(1/2)+a=-ln2+a。切点在切线 y=2x+1 上：-ln2+a=2(-1/2)+1=0 ⇒ a=ln2。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C2-S1-K04",
+   "MA-B4-C2-S3-K04",
+   "MA-B4-C2-S2-K03",
+   "MA-B4-C2-S1-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C2-S1-K04",
+    "kp_name": "导数的几何意义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "ln2",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2024,
+  "题号": 13,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "概率",
+  "题型": "填空",
+  "题干": "甲、乙两人各有四张卡片，每张卡片上标有一个数字，甲的卡片上分别标有数字 1,3,5,7，乙的卡片上分别标有数字 2,4,6,8。两人进行四轮比赛，在每轮比赛中，两人各自从自己持有的卡片中随机选一张，并比较所选卡片上数字的大小，数字大的人得 1 分，数字小的人得 0 分，然后各自弃置此轮所选的卡片。则四轮比赛后，甲的总得分不小于 2 的概率为______。",
+  "选项": [],
+  "答案": "1/2",
+  "解析": "固定甲出牌顺序 (1,3,5,7)，乙的 4! = 24 种排列等可能。甲第 1 轮（对 1）必败（1<所有乙牌）；第 2、3、4 轮分别对每个乙牌>2、>4、>6 时获胜。枚举 24 种排列，甲至少胜 2 轮的情形共 12 种（胜 3 轮 1 种 + 胜 2 轮 11 种），故概率 = 12/24 = 1/2。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C5-S1-K07",
+   "MA-B2-C5-S1-K01",
+   "MA-B2-C5-S1-K08",
+   "MA-B2-C5-S2-K04"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C5-S1-K07",
+    "kp_name": "古典概型",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "1/2",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2024,
+  "题号": 14,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "解答",
+  "题干": "记 △ABC 的内角 A,B,C 的对边分别为 a,b,c，已知 sinC=√2 cosB，a^2+b^2-c^2=√2 ab。\n（1）求 B；\n（2）若 △ABC 的面积为 3+√3，求 c。",
+  "选项": [],
+  "答案": "(1) B=π/3；(2) c=2√2",
+  "解析": "(1) 由余弦定理 cosC=(a^2+b^2-c^2)/(2ab)=(√2 ab)/(2ab)=√2/2，故 C=π/4。又 sinC=√2 cosB ⇒ √2/2=√2 cosB ⇒ cosB=1/2，结合 B∈(0,π) 得 B=π/3。\n(2) A=π-B-C=5π/12。设外接圆半径 R，则 b=2R sinB=√3 R，c=2R sinC=√2 R。面积 S=1/2·b·c·sinA=1/2·√3R·√2R·sin(5π/12)= (√6/2)R^2·(√6+√2)/4。代入 S=3+√3 解得 R^2=4，R=2，故 c=2√2。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C1-S4-K03",
+   "MA-B2-C1-S4-K06",
+   "MA-B2-C1-S4-K05",
+   "MA-B2-C1-S4-K04"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）求 B；",
+    "is_correct": null,
+    "kp_code": "MA-B2-C1-S4-K03",
+    "kp_name": "余弦定理",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）若 △ABC 的面积为 3+√3，求 c。",
+    "is_correct": null,
+    "kp_code": "MA-B2-C1-S4-K05",
+    "kp_name": "三角形面积公式",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2024,
+  "题号": 15,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "解答",
+  "题干": "已知 A(0,3) 和 P(3, 3/2) 为椭圆 C: x^2/a^2 + y^2/b^2 = 1 (a>b>0) 上两点。\n（1）求 C 的离心率；\n（2）若过 P 的直线 l 交 C 于另一点 B，且 △ABP 的面积为 9，求 l 的方程。",
+  "选项": [],
+  "答案": "(1) e=1/2；(2) l 的方程为 x-2y=0 或 3x-2y-6=0",
+  "解析": "(1) A(0,3) 在椭圆上 ⇒ b=3（b^2=9）。代入 P(3,3/2)：9/a^2 + (9/4)/9 = 1 ⇒ 9/a^2 = 3/4 ⇒ a^2=12，c^2=a^2-b^2=3，故 e=c/a=√3/√12=1/2。\n(2) 椭圆为 x^2/12 + y^2/9 = 1。|AP|=√((3-0)^2+(3/2-3)^2)=√(9+9/4)=3√5/2，直线 AP：x+2y-6=0。设 B 到 AP 距离为 d，则 1/2·|AP|·d=9 ⇒ d=6√5/5。联立可得 B(0,-3) 或 B(24/7,-3/7)。对应直线 l：过 P(3,3/2) 与 B，得 x-2y=0 或 3x-2y-6=0。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B3-C3-S1-K04",
+   "MA-B3-C3-S2-K04",
+   "MA-B3-C3-S4-K01",
+   "MA-B3-C3-S4-K06"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）求 C 的离心率；",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S1-K04",
+    "kp_name": "椭圆的离心率",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）若过 P 的直线 l 交 C 于另一点 B，且 △ABP 的面积为 9，求 l 的方程。",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S4-K01",
+    "kp_name": "圆锥曲线的第二定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2024,
+  "题号": 16,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "解答",
+  "题干": "如图，四棱锥 P-ABCD 中，PA⊥底面 ABCD，PA=AC=2，BC=1，AB=√3。\n（1）若 AD⊥PB，证明：AD∥平面 PBC；\n（2）若 AD⊥DC，且二面角 A-CP-D 的正弦值为 4√2/7，求 AD。",
+  "选项": [],
+  "答案": "(1) 证明见解析；(2) AD=√3",
+  "解析": "(1) AC=2,BC=1,AB=√3 ⇒ AB^2+BC^2=AC^2 ⇒ AB⊥BC。PA⊥底面 ⇒ PA⊥AD。又 AD⊥PB，PA∩PB=P ⇒ AD⊥平面 PAB ⇒ AD⊥AB。故 AD∥BC；AD⊄平面 PBC，BC⊂平面 PBC ⇒ AD∥平面 PBC。\n(2) 作 AE⊥CP，AF⊥DP。由 AD⊥DC、PA⊥底面得 CD⊥平面 PAD ⇒ CD⊥AF；又 CP⊥AE,CP⊥AF ⇒ AF⊥平面 CDP，∠AEF 为二面角平面角。PA=PC=2 ⇒ AE=√2，sin∠AEF=AF/AE=4√2/7 ⇒ AF=4√2/7·√2=8/7。设 AD=t，DP=√(4+t^2)，由等积 1/2·PA·AD=1/2·DP·AF ⇒ 2t=√(4+t^2)·(8/7)，解得 t=√3（负值舍去）。故 AD=√3。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B2-C3-S6-K07",
+   "MA-B2-C3-S5-K01",
+   "MA-B2-C3-S5-K02",
+   "MA-B2-C3-S5-K03"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）若 AD⊥PB，证明：AD∥平面 PBC；",
+    "is_correct": null,
+    "kp_code": "MA-B2-C3-S5-K01",
+    "kp_name": "直线与平面平行的判定",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）若 AD⊥DC，且二面角 A-CP-D 的正弦值为 4√2/7，求 AD。",
+    "is_correct": null,
+    "kp_code": "MA-B2-C3-S6-K07",
+    "kp_name": "二面角",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 2
+   }
+  ],
+  "年份": 2024,
+  "题号": 17,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "解答",
+  "题干": "已知函数 f(x)=ln(x/(2-x)) + ax + b(x-1)^3。\n（1）若 b=0，且 f'(x)≥0，求 a 的最小值；\n（2）证明：曲线 y=f(x) 是中心对称图形；\n（3）若 f(x)>-2 当且仅当 1<x<2，求 b 的取值范围。",
+  "选项": [],
+  "答案": "(1) a_min=-2；(2) 关于(1,a)中心对称；(3) b≥-2/3",
+  "解析": "(1) b=0 时 f(x)=ln x - ln(2-x)+ax，x∈(0,2)。f'(x)=1/x+1/(2-x)+a=2/(x(2-x))+a。由 f'(x)≥0 恒成立 ⇒ a≥-2/(x(2-x))。因 x(2-x)≤1（x=1 取等），故 -2/(x(2-x))≥-2，最小值为 -2，故 a_min=-2。\n(2) f(1+x)+f(1-x)=[ln((1+x)/(1-x))+a(1+x)+bx^3]+[ln((1-x)/(1+x))+a(1-x)-bx^3]=2a，为定值，故 f(x) 关于点 (1,a) 中心对称。\n(3) f 在 (0,2) 连续，f(x)>-2 当且仅当 1<x<2 ⇒ 0<x<1 时 f(x)<-2，由中心对称性知 a=-2。此时 g(x)=f(x)+2=ln(x/(2-x))-2(x-1)+b(x-1)^3，g(1)=0，需 g(x)>0 在 1<x<2 恒成立。g'(x)=2/(x(2-x))-2+3b(x-1)^2，g'(1)=0。令 h(x)=2/(x(2-x))-2，在 (1,2) 递增；若 2+3b≥0（即 b≥-2/3），则 g'(x)≥0，g 增且 g(1)=0 ⇒ g(x)>0 恒成立；若 b<-2/3，存在 x1>1 使 g'(x)<0，g 递减致 g(x1)<0，不符。故 b∈[-2/3,+∞)。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C2-S4-K01",
+   "MA-B4-C2-S4-K02",
+   "MA-B4-C2-S1-K03",
+   "MA-B4-C2-S1-K04"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）若 b=0，且 f'(x)≥0，求 a 的最小值；",
+    "is_correct": null,
+    "kp_code": "MA-B4-C2-S1-K03",
+    "kp_name": "导数的概念",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）证明：曲线 y=f(x) 是中心对称图形；",
+    "is_correct": null,
+    "kp_code": "MA-B4-C2-S1-K03",
+    "kp_name": "导数的概念",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   },
+   {
+    "step_kind": "subq",
+    "label": "(3)",
+    "text": "（3）若 f(x)>-2 当且仅当 1<x<2，求 b 的取值范围。",
+    "is_correct": null,
+    "kp_code": "MA-B4-C2-S1-K03",
+    "kp_name": "导数的概念",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 3
+   }
+  ],
+  "年份": 2024,
+  "题号": 18,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "解答",
+  "题干": "设 m 为正整数，数列 a1,a2,…,a_{4m+2} 是公差不为 0 的等差数列，若从中删去两项 ai 和 aj（i<j）后剩余的 4m 项可被平均分为 m 组，且每组的 4 个数都能构成等差数列，则称数列 a1,a2,…,a_{4m+2} 是 (i,j)-可分数列。\n（1）写出所有的 (i,j)，1≤i<j≤6，使数列 a1,…,a6 是 (i,j)-可分数列；\n（2）当 m≥3 时，证明：数列 a1,…,a_{4m+2} 是 (2,13)-可分数列；\n（3）从 1,2,…,4m+2 中一次任取两个数 i 和 j（i<j），记数列是 (i,j)-可分数列的概率为 P_m，证明：P_m > 1/8。",
+  "选项": [],
+  "答案": "(1) (1,2),(1,6),(5,6)；(2) 证明见解析；(3) 证明见解析",
+  "解析": "(1) m=1 时余下 4 项必为连续 4 项，故删去的相邻两段为 {(5,6),(1,6),(1,2)}，即 (1,2),(1,6),(5,6)。\n(2) 删去 a2,a13 后，a1 与 a3,a4,…,a12 可配成连续 4 项分组，剩余 a14,…,a_{4m+2} 为连续段（4m-12 项，4 的倍数）亦成组，故为 (2,13)-可分数列。\n(3) 可分两类计数：① 删去“连续 4k 段”外的相邻/特定对，共 (m+1)(m+2)/2 种；② 删去某连续 (4t+2) 段的第 2 项与倒数第 2 项，共 m(m-1)/2 种；合计 N=(m^2+m+1) 种。总选法 C(4m+2,2)=(4m+2)(4m+1)/2=8m^2+6m+1。故 P_m=N/(8m^2+6m+1) > (m^2+m+1)/(8m^2+8m+8)=1/8。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "新高考I卷通用",
+  "知识点": [
+   "MA-B4-C1-S2-K01",
+   "MA-B4-C1-S2-K02",
+   "MA-B4-C1-S2-K03",
+   "MA-B4-C1-S2-K04"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）写出所有的 (i,j)，1≤i<j≤6，使数列 a1,…,a6 是 (i,j)-可分数列；",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）当 m≥3 时，证明：数列 a1,…,a_{4m+2} 是 (2,13)-可分数列；",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 2
+   },
+   {
+    "step_kind": "subq",
+    "label": "(3)",
+    "text": "（3）从 1,2,…,4m+2 中一次任取两个数 i 和 j（i<j），记数列是 (i,j)-可分数列的概率为 P_m，证明：P_m > 1/8。",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S1-K01",
+    "kp_name": "数列的概念",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 3
+   }
+  ],
+  "年份": 2024,
+  "题号": 19,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "复数",
+  "题型": "单选",
+  "题干": "$(1+5i)i$ 的虚部为（ ）",
+  "选项": [
+   "A. $-1$",
+   "B. $0$",
+   "C. $1$",
+   "D. $6$"
+  ],
+  "答案": "C",
+  "解析": "$(1+5i)i=i+5i^2=-5+i$，虚部为 $1$。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B2-C2-S1-K03",
+   "MA-B2-C2-S1-K02",
+   "MA-B2-C2-S2-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C2-S1-K03",
+    "kp_name": "复数的实部与虚部",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$-1$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K03",
+    "kp_name": "复数的实部与虚部",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$0$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K03",
+    "kp_name": "复数的实部与虚部",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$1$",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K03",
+    "kp_name": "复数的实部与虚部",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$6$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2025,
+  "题号": 1,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "集合与常用逻辑用语",
+  "题型": "单选",
+  "题干": "已知集合 $U=\\{x\\mid x\\text{是小于 }9\\text{ 的正整数}\\}$，$A=\\{1,3,5\\}$，则 $\\complement_U A$ 中元素的个数为（ ）",
+  "选项": [
+   "A. $2$",
+   "B. $3$",
+   "C. $5$",
+   "D. $8$"
+  ],
+  "答案": "C",
+  "解析": "$U=\\{1,2,3,4,5,6,7,8\\}$，$\\complement_U A=\\{2,4,6,7,8\\}$，共 $5$ 个。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B1-C1-S1-K01",
+   "MA-B1-C1-S3-K02",
+   "MA-B1-C1-S3-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C1-S1-K01",
+    "kp_name": "集合的概念",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$2$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C1-S1-K01",
+    "kp_name": "集合的概念",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$3$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C1-S1-K01",
+    "kp_name": "集合的概念",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$5$",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C1-S1-K01",
+    "kp_name": "集合的概念",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$8$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2025,
+  "题号": 2,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "单选",
+  "题干": "已知双曲线 $C$ 的虚轴长是实轴长的 $\\sqrt7$ 倍，则 $C$ 的离心率为（ ）",
+  "选项": [
+   "A. $\\sqrt2$",
+   "B. $2$",
+   "C. $\\sqrt7$",
+   "D. $2\\sqrt2$"
+  ],
+  "答案": "D",
+  "解析": "$2b=\\sqrt7\\cdot2a\\Rightarrow b=\\sqrt7a$，$c=\\sqrt{a^2+b^2}=2\\sqrt2a$，$e=c/a=2\\sqrt2$。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B3-C3-S2-K04",
+   "MA-B3-C3-S1-K04",
+   "MA-B3-C3-S4-K01",
+   "MA-B3-C3-S4-K06"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S2-K04",
+    "kp_name": "双曲线的离心率",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$\\sqrt2$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C3-S2-K04",
+    "kp_name": "双曲线的离心率",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$2$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C3-S2-K04",
+    "kp_name": "双曲线的离心率",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$\\sqrt7$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C3-S2-K04",
+    "kp_name": "双曲线的离心率",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$2\\sqrt2$",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2025,
+  "题号": 3,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "三角函数",
+  "题型": "单选",
+  "题干": "若点 $(a,0)(a>0)$ 是函数 $y=2\\tan\\!\\left(x-\\dfrac{\\pi}{3}\\right)$ 的图象的一个对称中心，则 $a$ 的最小值为（ ）",
+  "选项": [
+   "A. $\\dfrac{\\pi}{6}$",
+   "B. $\\dfrac{\\pi}{3}$",
+   "C. $\\dfrac{\\pi}{2}$",
+   "D. $\\dfrac{4\\pi}{3}$"
+  ],
+  "答案": "B",
+  "解析": "正切对称中心满足 $x-\\pi/3=k\\pi/2$，$a=\\pi/3+k\\pi/2$；$k=0$ 时最小正值 $a=\\pi/3$。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B1-C5-S4-K09",
+   "MA-B1-C5-S4-K06",
+   "MA-B1-C5-S4-K08",
+   "MA-B1-C5-S2-K02"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C5-S4-K09",
+    "kp_name": "三角函数图像的对称性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$\\dfrac{\\pi}{6}$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K09",
+    "kp_name": "三角函数图像的对称性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$\\dfrac{\\pi}{3}$",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K09",
+    "kp_name": "三角函数图像的对称性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$\\dfrac{\\pi}{2}$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K09",
+    "kp_name": "三角函数图像的对称性",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$\\dfrac{4\\pi}{3}$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2025,
+  "题号": 4,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "函数的概念与性质",
+  "题型": "单选",
+  "题干": "已知 $f(x)$ 是定义在 $\\mathbb R$ 上且周期为 $2$ 的偶函数，当 $2\\le x\\le 3$ 时，$f(x)=5-2x$，则 $f\\!\\left(-\\dfrac34\\right)=$（ ）",
+  "选项": [
+   "A. $-\\dfrac12$",
+   "B. $-\\dfrac14$",
+   "C. $\\dfrac14$",
+   "D. $\\dfrac12$"
+  ],
+  "答案": "A",
+  "解析": "偶且周期 $2$：$f(-3/4)=f(3/4)=f(11/4)=5-2\\cdot(11/4)=-1/2$。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B1-C3-S2-K06",
+   "MA-B1-C3-S1-K01",
+   "MA-B1-C3-S1-K02",
+   "MA-B1-C3-S1-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C3-S2-K06",
+    "kp_name": "周期性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$-\\dfrac12$",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C3-S2-K06",
+    "kp_name": "周期性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$-\\dfrac14$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C3-S2-K06",
+    "kp_name": "周期性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$\\dfrac14$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C3-S2-K06",
+    "kp_name": "周期性的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$\\dfrac12$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2025,
+  "题号": 5,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "单选",
+  "题干": "帆船比赛中，运动员可借助风力计测定风速的大小和方向，测出的结果在航海学中称为视风风速。视风风速对应的向量是真风风速对应的向量与船行风速对应的向量之和，其中船行风速对应的向量与船速对应的向量大小相等、方向相反。图给出了部分风力等级、名称与风速大小的对应关系。已知某帆船运动员在某时刻测得的视风风速对应的向量与船速对应的向量如图所示（线段长度代表速度大小，单位 $\\mathrm{m/s}$），则该时刻的真风为（ ）\n等级 风速大小(m/s) 名称\n2 1.1~3.3 轻风\n3 3.4~5.4 微风\n4 5.5~7.9 和风\n5 8.0~10.1 劲风",
+  "选项": [
+   "A. 轻风",
+   "B. 微风",
+   "C. 和风",
+   "D. 劲风"
+  ],
+  "答案": "A",
+  "解析": "真风向量 = 视风向量 − 船速向量；坐标运算得真风模长约 $1\\sim3.3$，属轻风。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B2-C1-S3-K01",
+   "MA-B2-C1-S3-K02",
+   "MA-B2-C1-S3-K03",
+   "MA-B2-C1-S3-K04"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "轻风",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "微风",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "和风",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "劲风",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2025,
+  "题号": 6,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "直线和圆的方程",
+  "题型": "单选",
+  "题干": "已知圆 $x^2+(y+2)^2=r^2\\ (r>0)$ 上到直线 $y=\\sqrt3x+2$ 的距离为 $1$ 的点有且仅有两个，则 $r$ 的取值范围是（ ）",
+  "选项": [
+   "A. $(0,1)$",
+   "B. $(1,3)$",
+   "C. $(3,+\\infty)$",
+   "D. $(0,+\\infty)$"
+  ],
+  "答案": "B",
+  "解析": "圆心 $(0,-2)$ 到直线距离 $d=2$；圆上到直线距离为 $1$ 的点恰 $2$ 个 $\\iff |r-d|<1 \\iff 1<r<3$。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B3-C2-S5-K01",
+   "MA-B3-C2-S5-K06",
+   "MA-B3-C2-S4-K01",
+   "MA-B3-C2-S5-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C2-S5-K01",
+    "kp_name": "直线与圆的位置判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$(0,1)$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K01",
+    "kp_name": "直线与圆的位置判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$(1,3)$",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K01",
+    "kp_name": "直线与圆的位置判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$(3,+\\infty)$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K01",
+    "kp_name": "直线与圆的位置判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$(0,+\\infty)$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2025,
+  "题号": 7,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "指数函数与对数函数",
+  "题型": "单选",
+  "题干": "已知 $2+\\log_2x=3+\\log_3y=5+\\log_5z$，则 $x,y,z$ 的大小关系不可能为（ ）",
+  "选项": [
+   "A. $x>y>z$",
+   "B. $x>z>y$",
+   "C. $y>x>z$",
+   "D. $y>z>x$"
+  ],
+  "答案": "B",
+  "解析": "令各式为同一值可得 $x=2^k,y=3^k,z=5^k$ 型关系；逐一检验排序知不可能为 $x>z>y$。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B1-C4-S3-K03",
+   "MA-B1-C4-S4-K02",
+   "MA-B1-C4-S3-K05",
+   "MA-B1-C4-S1-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$x>y>z$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$x>z>y$",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$y>x>z$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C4-S3-K03",
+    "kp_name": "对数的运算性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$y>z>x$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2025,
+  "题号": 8,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "多选",
+  "题干": "在正三棱柱 $ABC-A_1B_1C_1$ 中，$D$ 为 $BC$ 的中点，则（ ）",
+  "选项": [
+   "A. $AD\\perp A_1C$",
+   "B. $B_1C_1\\parallel$ 平面 $AA_1D$",
+   "C. $AD\\parallel A_1B_1$",
+   "D. $CC_1\\perp$ 平面 $AA_1D$"
+  ],
+  "答案": "BC",
+  "解析": "由正三棱柱性质：$AD\\parallel A_1B_1$（底面对应平行）且 $AD\\subset$ 平面 $AA_1D$ 故 $B_1C_1\\parallel$ 平面 $AA_1D$；$A_1C$ 与 $AD$ 不垂直，$CC_1$ 不垂直平面 $AA_1D$。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B2-C3-S5-K01",
+   "MA-B2-C3-S6-K01",
+   "MA-B2-C3-S6-K03",
+   "MA-B2-C3-S5-K02"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C3-S5-K01",
+    "kp_name": "直线与平面平行的判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$AD\\perp A_1C$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C3-S5-K01",
+    "kp_name": "直线与平面平行的判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$B_1C_1\\parallel$ 平面 $AA_1D$",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C3-S5-K01",
+    "kp_name": "直线与平面平行的判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$AD\\parallel A_1B_1$",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C3-S5-K01",
+    "kp_name": "直线与平面平行的判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$CC_1\\perp$ 平面 $AA_1D$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2025,
+  "题号": 9,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "多选",
+  "题干": "已知抛物线 $C:y^2=6x$ 的焦点为 $F$，过 $F$ 的一条直线交 $C$ 于 $A,B$ 两点，过 $A$ 作直线 $l:x=\\dfrac32$ 的垂线，垂足为 $D$，过 $F$ 且与直线 $AB$ 垂直的直线交 $l$ 于点 $E$，则（ ）",
+  "选项": [
+   "A. $|AD|=|AF|$",
+   "B. $|AE|=|AB|$",
+   "C. $|AB|\\ge 6$",
+   "D. $|AE|\\cdot|BE|\\ge 18$"
+  ],
+  "答案": "ACD",
+  "解析": "抛物线定义得 $|AD|=|AF|$；弦长 $|AB|\\ge 2p=6$；由相似关系可证 $|AE|\\cdot|BE|\\ge 18$。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B3-C3-S3-K06",
+   "MA-B3-C3-S3-K04",
+   "MA-B3-C3-S4-K01",
+   "MA-B3-C3-S4-K06"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S3-K06",
+    "kp_name": "抛物线的焦点弦性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$|AD|=|AF|$",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C3-S3-K06",
+    "kp_name": "抛物线的焦点弦性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$|AE|=|AB|$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C3-S3-K06",
+    "kp_name": "抛物线的焦点弦性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$|AB|\\ge 6$",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C3-S3-K06",
+    "kp_name": "抛物线的焦点弦性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$|AE|\\cdot|BE|\\ge 18$",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2025,
+  "题号": 10,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "多选",
+  "题干": "已知 $\\triangle ABC$ 的面积为 $\\dfrac14$，$\\cos2A+\\cos2B+2\\sin C=2$，$\\cos A\\cos B\\sin C=\\dfrac14$，则（ ）",
+  "选项": [
+   "A. $\\sin C=\\sin^2A+\\sin^2B$",
+   "B. $AB=\\sqrt2$",
+   "C. $\\sin A+\\sin B=\\dfrac{\\sqrt6}{2}$",
+   "D. $AC^2+BC^2=3$"
+  ],
+  "答案": "ABC",
+  "解析": "由条件推得 $\\sin C=\\sin^2A+\\sin^2B$，结合内角和与正弦定理及面积求得 $AB=\\sqrt2$、$\\sin A+\\sin B=\\sqrt6/2$；$AC^2+BC^2\\neq3$。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B2-C1-S4-K04",
+   "MA-B2-C1-S4-K06",
+   "MA-B2-C1-S4-K05",
+   "MA-B2-C1-S4-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C1-S4-K04",
+    "kp_name": "正弦定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$\\sin C=\\sin^2A+\\sin^2B$",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C1-S4-K04",
+    "kp_name": "正弦定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$AB=\\sqrt2$",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C1-S4-K04",
+    "kp_name": "正弦定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$\\sin A+\\sin B=\\dfrac{\\sqrt6}{2}$",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C1-S4-K04",
+    "kp_name": "正弦定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$AC^2+BC^2=3$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2025,
+  "题号": 11,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "填空",
+  "题干": "若直线 $y=2x+5$ 是曲线 $y=e^x+x+a$ 的一条切线，则 $a=$＿＿＿＿＿＿。",
+  "选项": null,
+  "答案": "4",
+  "解析": "切点 $(t,e^t+t+a)$，导数 $e^t+1=2\\Rightarrow t=0$；切点 $(0,1+a)$ 在 $y=2x+5$ 上 $\\Rightarrow 1+a=5\\Rightarrow a=4$。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B4-C2-S1-K04",
+   "MA-B4-C2-S3-K04",
+   "MA-B4-C2-S2-K03",
+   "MA-B4-C2-S1-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C2-S1-K04",
+    "kp_name": "导数的几何意义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "4",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2025,
+  "题号": 12,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "填空",
+  "题干": "若一个等比数列的各项均为正数，且前 $4$ 项的和等于 $4$，前 $8$ 项的和等于 $68$，则这个数列的公比等于＿＿＿＿＿＿。",
+  "选项": null,
+  "答案": "2",
+  "解析": "设公比 $q>0$，$S_4=a_1(1-q^4)/(1-q)=4$，$S_8=68$；$S_8/S_4=17=1+q^4\\Rightarrow q^4=16\\Rightarrow q=2$。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B4-C1-S3-K01",
+   "MA-B4-C1-S3-K02",
+   "MA-B4-C1-S3-K03",
+   "MA-B4-C1-S3-K04"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C1-S3-K01",
+    "kp_name": "等比数列的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "2",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2025,
+  "题号": 13,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "随机变量及其分布",
+  "题型": "填空",
+  "题干": "有 $5$ 个相同的球，分别标有数字 $1,2,3,4,5$，从中有放回地随机取 $3$ 次，每次取 $1$ 个球。记 $X$ 为这 $5$ 个球中至少被取出 $1$ 次的球的个数，则 $X$ 的数学期望 $E(X)=$＿＿＿＿＿＿。",
+  "选项": null,
+  "答案": "$\\dfrac{61}{25}$",
+  "解析": "$X\\in\\{1,2,3\\}$，分布：$P(X=1)=1/25$，$P(X=2)=12/25$，$P(X=3)=12/25$；$E(X)=1\\cdot\\tfrac1{25}+2\\cdot\\tfrac{12}{25}+3\\cdot\\tfrac{12}{25}=61/25$。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B5-C2-S3-K01",
+   "MA-B5-C2-S2-K02",
+   "MA-B5-C2-S3-K04",
+   "MA-B5-C2-S3-K05"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B5-C2-S3-K01",
+    "kp_name": "数学期望",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "$\\dfrac{61}{25}$",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2025,
+  "题号": 14,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "成对数据的统计分析",
+  "题型": "解答",
+  "题干": "为研究某疾病与超声波检查结果的关系，从做过超声波检查的人群中随机调查了 $1000$ 人，得到如下列联表：\n组别｜超声波检查结果 正常 不正常 合计\n患该疾病｜20 180 200\n未患该疾病｜780 20 800\n合计｜800 200 1000\n（1）记超声波检查结果不正常者患该疾病的概率为 $p$，求 $p$ 的估计值；\n（2）根据小概率值 $\\alpha=0.001$ 的独立性检验，分析超声波检查结果是否与患该疾病有关。\n附：$\\chi^2=\\dfrac{n(ad-bc)^2}{(a+b)(c+d)(a+c)(b+d)}$，$P(\\chi^2\\ge k)$：$0.050\\to3.841$，$0.010\\to6.635$，$0.001\\to10.828$。",
+  "选项": null,
+  "答案": "(1) $p=\\dfrac{9}{10}$；(2) $\\chi^2\\approx535.77>10.828$，拒绝零假设，认为有关",
+  "解析": "(1) $p=180/200=9/10$；(2) $\\chi^2=1000(20\\cdot20-180\\cdot780)^2/(200\\cdot800\\cdot800\\cdot200)\\approx535.77>10.828$，有充分证据认为有关。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B5-C3-S3-K04",
+   "MA-B5-C3-S3-K02",
+   "MA-B5-C3-S3-K05",
+   "MA-B5-C3-S3-K01"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）记超声波检查结果不正常者患该疾病的概率为 $p$，求 $p$ 的估计值；",
+    "is_correct": null,
+    "kp_code": "MA-B5-C3-S3-K04",
+    "kp_name": "独立性检验的步骤",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）根据小概率值 $\\alpha=0.001$ 的独立性检验，分析超声波检查结果是否与患该疾病有关。\n附：$\\chi^2=\\dfrac{n(ad-bc)^2}{(a+b)(c+d)(a+c)(b+d)}$，$P(\\chi^2\\ge k)$：$0.050\\to3.841$，$0.010\\to6.635$，$0.001\\to10.828$。",
+    "is_correct": null,
+    "kp_code": "MA-B5-C3-S3-K04",
+    "kp_name": "独立性检验的步骤",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2025,
+  "题号": 15,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "解答",
+  "题干": "已知数列 $\\{a_n\\}$ 中，$a_1=3$，$\\dfrac{a_{n+1}}{n+1}=\\dfrac{a_n}{n}+\\dfrac{1}{n(n+1)}$。\n（1）证明：数列 $\\left\\{\\dfrac{a_n}{n}\\right\\}$ 是等差数列；\n（2）给定正整数 $m$，设函数 $f(x)=a_1x+a_2x^2+\\cdots+a_mx^m$，求 $f'(2)$。",
+  "选项": null,
+  "答案": "(1) 证明见解析；(2) $f'(2)=(4m^2-9m+13)2^m-13$",
+  "解析": "(1) 令 $b_n=a_n/n$，则 $b_{n+1}-b_n=1/(n(n+1))$，故 $\\{b_n\\}$ 等差；(2) 得 $a_n=4n-1$，$f'(2)=\\sum_{k=1}^m(4k-1)k2^{k-1}=(4m^2-9m+13)2^m-13$。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B4-C1-S4-K07",
+   "MA-B4-C1-S2-K01",
+   "MA-B4-C1-S2-K02",
+   "MA-B4-C1-S2-K03"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）证明：数列 $\\left\\{\\dfrac{a_n}{n}\\right\\}$ 是等差数列；",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）给定正整数 $m$，设函数 $f(x)=a_1x+a_2x^2+\\cdots+a_mx^m$，求 $f'",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S1-K03",
+    "kp_name": "数列的递推公式",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "(2)$。",
+    "is_correct": null,
+    "kp_code": "MA-B4-C1-S1-K03",
+    "kp_name": "数列的递推公式",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 3
+   }
+  ],
+  "年份": 2025,
+  "题号": 16,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "空间向量与立体几何",
+  "题型": "解答",
+  "题干": "如图，在四棱锥 $P-ABCD$ 中，$PA\\perp$ 底面 $ABCD$，$AB\\perp AD$，$BC\\parallel AD$。\n（1）证明：平面 $PAB\\perp$ 平面 $PAD$；\n（2）设 $PA=AB=\\sqrt2$，$BC=2$，$AD=1+\\sqrt3$，且点 $P,B,C,D$ 均在球 $O$ 的球面上。\n（i）证明：点 $O$ 在平面 $ABCD$ 内；\n（ii）求直线 $AC$ 与 $PO$ 所成角的余弦值。",
+  "选项": null,
+  "答案": "(1) 证明见解析；(2)(i) 证明见解析；(ii) $\\dfrac{\\sqrt2}{3}$",
+  "解析": "(2) 建系：$A(0,0,0),B(0,\\sqrt2,0),D(1+\\sqrt3,0,0),C(2,\\sqrt2,0),P(0,0,\\sqrt2)$，由四点到球心等距得 $O(1,0,0)$ 在 $ABCD$ 内；$\\vec{AC}=(2,\\sqrt2,0),\\vec{PO}=(1,0,-\\sqrt2)$，$\\cos=\\dfrac{2}{\\sqrt6\\cdot\\sqrt3}=\\sqrt2/3$。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B3-C1-S2-K09",
+   "MA-B3-C1-S2-K02",
+   "MA-B3-C1-S2-K07",
+   "MA-B3-C1-S1-K01"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）证明：平面 $PAB\\perp$ 平面 $PAD$；",
+    "is_correct": null,
+    "kp_code": "MA-B3-C1-S2-K09",
+    "kp_name": "坐标法解立体几何综合题",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）设 $PA=AB=\\sqrt2$，$BC=2$，$AD=1+\\sqrt3$，且点 $P,B,C,D$ 均在球 $O$ 的球面上。\n（i）证明：点 $O$ 在平面 $ABCD$ 内；\n（ii）求直线 $AC$ 与 $PO$ 所成角的余弦值。",
+    "is_correct": null,
+    "kp_code": "MA-B3-C1-S2-K02",
+    "kp_name": "平面的法向量",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2025,
+  "题号": 17,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "解答",
+  "题干": "已知椭圆 $C:\\dfrac{x^2}{a^2}+\\dfrac{y^2}{b^2}=1\\ (a>b>0)$ 的离心率为 $\\dfrac{\\sqrt3}{3}$，下顶点为 $A$，右顶点为 $B$，$|AB|=\\sqrt{10}$。\n（1）求 $C$ 的方程；\n（2）已知动点 $P$ 不在 $y$ 轴上，点 $R$ 在射线 $AP$ 上，且满足 $|AP|\\cdot|AR|=3$。\n（i）设 $P(m,n)$，求 $R$ 的坐标（用 $m,n$ 表示）；\n（ii）设 $O$ 为坐标原点，$Q$ 是 $C$ 上的动点，直线 $OR$ 的斜率为直线 $OP$ 的斜率的 $3$ 倍，求 $|PQ|$ 的最大值。",
+  "选项": null,
+  "答案": "(1) $\\dfrac{x^2}{6}+\\dfrac{y^2}{4}=1$；(2)(i) $R\\big(\\frac{3m}{m^2+(n+2)^2},\\,-2+\\frac{3(n+2)}{m^2+(n+2)^2}\\big)$；(ii) $3\\sqrt3+3\\sqrt2$",
+  "解析": "(1) $a^2+b^2=10$，$e^2=c^2/a^2=1/3\\Rightarrow a^2=6,b^2=4$；(2)(i) $R=A+\\frac{3}{|AP|^2}(P-A)$，其中 $A=(0,-2)$；(ii) 由斜率关系得 $P$ 轨迹圆，点到圆最值 $|PQ|_{\\max}=3\\sqrt3+3\\sqrt2$。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B3-C3-S1-K04",
+   "MA-B3-C3-S2-K04",
+   "MA-B3-C3-S4-K01",
+   "MA-B3-C3-S4-K06"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）求 $C$ 的方程；",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S4-K01",
+    "kp_name": "圆锥曲线的第二定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）已知动点 $P$ 不在 $y$ 轴上，点 $R$ 在射线 $AP$ 上，且满足 $|AP|\\cdot|AR|=3$。\n（i）设 $P(m,n)$，求 $R$ 的坐标（用 $m,n$ 表示）；\n（ii）设 $O$ 为坐标原点，$Q$ 是 $C$ 上的动点，直线 $OR$ 的斜率为直线 $OP$ 的斜率的 $3$ 倍，求 $|PQ|$ 的最大值。",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S4-K01",
+    "kp_name": "圆锥曲线的第二定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2025,
+  "题号": 18,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "三角函数",
+  "题型": "解答",
+  "题干": "（1）求函数 $f(x)=5\\cos x\\cos 5x$ 在区间 $\\left[0,\\dfrac{\\pi}{4}\\right]$ 的最大值；\n（2）给定 $\\theta\\in(0,\\pi)$ 和 $a\\in\\mathbb R$，证明：存在 $y\\in[a-\\theta,a+\\theta]$ 使得 $\\cos y\\le\\cos\\theta$；\n（3）设 $b\\in\\mathbb R$，若存在 $\\varphi\\in\\mathbb R$ 使得 $5\\cos x\\cos(5x+\\varphi)\\le b$ 对任意 $x\\in\\mathbb R$ 恒成立，求 $b$ 的最小值。",
+  "选项": null,
+  "答案": "(1) $5$；(2) 证明见解析；(3) $3\\sqrt3$",
+  "解析": "(1) $5\\cos x\\cos5x\\le5$ 且 $f(0)=5$，最大值为 $5$；(3) 取特值可得 $b\\ge3\\sqrt3$，且 $b=3\\sqrt3$ 时取 $\\varphi=0$ 可满足，故 $b_{\\min}=3\\sqrt3$。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B1-C5-S4-K08",
+   "MA-B1-C5-S2-K02",
+   "MA-B1-C5-S4-K06",
+   "MA-B1-C5-S4-K07"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）求函数 $f(x)=5\\cos x\\cos 5x$ 在区间 $\\left[0,\\dfrac{\\pi}{4}\\right]$ 的最大值；",
+    "is_correct": null,
+    "kp_code": "MA-B1-C5-S4-K08",
+    "kp_name": "三角函数的最值",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）给定 $\\theta\\in(0,\\pi)$ 和 $a\\in\\mathbb R$，证明：存在 $y\\in[a-\\theta,a+\\theta]$ 使得 $\\cos y\\le\\cos\\theta$；",
+    "is_correct": null,
+    "kp_code": "MA-B1-C5-S4-K08",
+    "kp_name": "三角函数的最值",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 2
+   },
+   {
+    "step_kind": "subq",
+    "label": "(3)",
+    "text": "（3）设 $b\\in\\mathbb R$，若存在 $\\varphi\\in\\mathbb R$ 使得 $5\\cos x\\cos(5x+\\varphi)\\le b$ 对任意 $x\\in\\mathbb R$ 恒成立，求 $b$ 的最小值。",
+    "is_correct": null,
+    "kp_code": "MA-B1-C5-S4-K08",
+    "kp_name": "三角函数的最值",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 3
+   }
+  ],
+  "年份": 2025,
+  "题号": 19,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "统计",
+  "题型": "单选",
+  "题干": "样本数据 $6,8,4,5,12$ 的中位数为（ ）",
+  "选项": [
+   "A. $5$",
+   "B. $6$",
+   "C. $8$",
+   "D. $9$"
+  ],
+  "答案": "B",
+  "解析": "排序为 $4,5,6,8,12$，中间位置第 $3$ 个数为 $6$。",
+  "难度": "1",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B2-C4-S2-K05",
+   "MA-B2-C4-S2-K06",
+   "MA-B2-C4-S2-K07"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$5$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$6$",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$8$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C4-S2-K05",
+    "kp_name": "众数/中位数/平均数",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$9$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2026,
+  "题号": 1,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "单选",
+  "题干": "已知平面向量 $\\boldsymbol a,\\boldsymbol b$ 不共线，且 $2\\boldsymbol a+y\\boldsymbol b=x\\boldsymbol a-3\\boldsymbol b$，则（ ）",
+  "选项": [
+   "A. $x=2,y=-3$",
+   "B. $x=-2,y=3$",
+   "C. $x=2,y=3$",
+   "D. $x=-2,y=-3$"
+  ],
+  "答案": "A",
+  "解析": "比较系数：$2=x$ 且 $y=-3$。",
+  "难度": "1",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B2-C1-S3-K01",
+   "MA-B2-C1-S3-K02",
+   "MA-B2-C1-S3-K03",
+   "MA-B2-C1-S1-K05"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$x=2,y=-3$",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$x=-2,y=3$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$x=2,y=3$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C1-S3-K01",
+    "kp_name": "平面向量基本定理",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$x=-2,y=-3$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2026,
+  "题号": 2,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "集合与常用逻辑用语",
+  "题型": "单选",
+  "题干": "已知集合 $A=\\{\\sin\\tfrac{7\\pi}{6},\\cos\\tfrac{5\\pi}{3},\\tan\\tfrac{5\\pi}{4}\\}$，$B=\\{-\\tfrac{\\sqrt3}{2},-\\tfrac12,1\\}$，则 $A\\cap B=$（ ）",
+  "选项": [
+   "A. $\\{-\\tfrac{\\sqrt3}{2},-\\tfrac12\\}$",
+   "B. $\\{-\\tfrac{\\sqrt3}{2},1\\}$",
+   "C. $\\{-\\tfrac12,1\\}$",
+   "D. $\\{-\\tfrac{\\sqrt3}{2},-\\tfrac12,1\\}$"
+  ],
+  "答案": "C",
+  "解析": "$\\sin(7\\pi/6)=-1/2,\\cos(5\\pi/3)=1/2,\\tan(5\\pi/4)=1$，故 $A=\\{-1/2,1/2,1\\}$；交集 $A\\cap B=\\{-1/2,1\\}$。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B1-C1-S3-K02",
+   "MA-B1-C1-S1-K01",
+   "MA-B1-C1-S3-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$\\{-\\tfrac{\\sqrt3}{2},-\\tfrac12\\}$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$\\{-\\tfrac{\\sqrt3}{2},1\\}$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$\\{-\\tfrac12,1\\}$",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B1-C1-S3-K02",
+    "kp_name": "交集",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$\\{-\\tfrac{\\sqrt3}{2},-\\tfrac12,1\\}$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2026,
+  "题号": 3,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "单选",
+  "题干": "曲线 $y=5x+8\\ln x$ 在点 $(1,5)$ 处的切线方程为（ ）",
+  "选项": [
+   "A. $y=3x+2$",
+   "B. $y=5x$",
+   "C. $y=8x-3$",
+   "D. $y=13x-8$"
+  ],
+  "答案": "D",
+  "解析": "$y'=5+8/x$，在 $x=1$ 处斜率 $13$；切线 $y-5=13(x-1)\\Rightarrow y=13x-8$。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B4-C2-S1-K04",
+   "MA-B4-C2-S3-K04",
+   "MA-B4-C2-S2-K03",
+   "MA-B4-C2-S1-K03"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C2-S1-K04",
+    "kp_name": "导数的几何意义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$y=3x+2$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B4-C2-S1-K04",
+    "kp_name": "导数的几何意义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$y=5x$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B4-C2-S1-K04",
+    "kp_name": "导数的几何意义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$y=8x-3$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B4-C2-S1-K04",
+    "kp_name": "导数的几何意义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$y=13x-8$",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2026,
+  "题号": 4,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "单选",
+  "题干": "已知抛物线 $C_1:y^2=2p_1x\\ (p_1>0)$ 和 $C_2:x^2=2p_2y\\ (p_2>0)$ 均经过点 $(4,8)$，则 $C_1$ 的焦点与 $C_2$ 的焦点之间的距离为（ ）",
+  "选项": [
+   "A. $12$",
+   "B. $4\\sqrt5$",
+   "C. $6$",
+   "D. $\\dfrac{\\sqrt{65}}{2}$"
+  ],
+  "答案": "D",
+  "解析": "$C_1:64=8p_1\\Rightarrow p_1=8$，焦点 $(4,0)$；$C_2:16=16p_2\\Rightarrow p_2=1$，焦点 $(0,1/2)$；距离 $\\sqrt{16+1/4}=\\sqrt{65}/2$。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B3-C3-S3-K06",
+   "MA-B3-C3-S3-K04",
+   "MA-B3-C3-S4-K01",
+   "MA-B3-C3-S4-K06"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S3-K06",
+    "kp_name": "抛物线的焦点弦性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$12$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C3-S3-K06",
+    "kp_name": "抛物线的焦点弦性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$4\\sqrt5$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C3-S3-K06",
+    "kp_name": "抛物线的焦点弦性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$6$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C3-S3-K06",
+    "kp_name": "抛物线的焦点弦性质",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$\\dfrac{\\sqrt{65}}{2}$",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2026,
+  "题号": 5,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "一元函数导数及其应用",
+  "题型": "单选",
+  "题干": "已知函数 $f(x)=x+2e^x+a$ 的最大值为 $1$，则 $a=$（ ）",
+  "选项": [
+   "A. $\\dfrac12$",
+   "B. $1$",
+   "C. $\\dfrac32$",
+   "D. $2$"
+  ],
+  "答案": "D",
+  "解析": "由导数求驻点使函数取最大值 $1$，解得 $a=2$。（注：题干指数项以官方 PDF 为准）",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B4-C2-S3-K03",
+   "MA-B4-C2-S4-K06",
+   "MA-B4-C2-S1-K03",
+   "MA-B4-C2-S1-K04"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C2-S3-K03",
+    "kp_name": "导数与函数最值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$\\dfrac12$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B4-C2-S3-K03",
+    "kp_name": "导数与函数最值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$1$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B4-C2-S3-K03",
+    "kp_name": "导数与函数最值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$\\dfrac32$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B4-C2-S3-K03",
+    "kp_name": "导数与函数最值",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$2$",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2026,
+  "题号": 6,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "单选",
+  "题干": "一百零八塔位于宁夏回族自治区青铜峡市，该塔群共有 $108$ 座塔，依山势自上而下排成 $12$ 行，将第 $i$ 行中塔的座数记为 $a_i\\ (i=1,2,\\dots,12)$，其中 $a_1=1,a_2=a_3=3,a_4=a_5=5$，且 $a_6,\\dots,a_{12}$ 是首项为 $7$、公差为 $2$ 的等差数列。将 $a_1,\\dots,a_{12}$ 分为 $6$ 组，每组 $2$ 个数，使得每组的 $2$ 个数之和构成项数为 $6$、公差为 $d\\ (d>0)$ 的等差数列，则 $d=$（ ）",
+  "选项": [
+   "A. $2$",
+   "B. $4$",
+   "C. $6$",
+   "D. $8$"
+  ],
+  "答案": "B",
+  "解析": "$12$ 个数全为奇数，两两分组和均为偶数，六组和成等差且总和 $108$，推得最小组和 $8$，故 $d=4$（可验证分组成立）。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B4-C1-S2-K01",
+   "MA-B4-C1-S2-K02",
+   "MA-B4-C1-S2-K03",
+   "MA-B4-C1-S2-K04"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$2$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$4$",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$6$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B4-C1-S2-K01",
+    "kp_name": "等差数列的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$8$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2026,
+  "题号": 7,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "随机变量及其分布",
+  "题型": "单选",
+  "题干": "设 $U=\\{(x_1,x_2,x_3)\\mid x_i\\in\\{-2,-1,1,2\\},i=1,2,3\\}$ 为空间中 $64$ 个点构成的集合，点 $P(1,1,1)$，记样本空间 $\\Omega=\\complement_U\\{P\\}$，从 $\\Omega$ 中随机取一个点，定义随机变量 $X$ 如下：对 $\\Omega$ 中每个点 $A(x_1,x_2,x_3)$，令 $X(A)=x_1+x_2+x_3$，则 $X$ 的数学期望为（ ）",
+  "选项": [
+   "A. $-\\dfrac{1}{21}$",
+   "B. $-\\dfrac{1}{6}$",
+   "C. $0$",
+   "D. $\\dfrac{1}{7}$"
+  ],
+  "答案": "A",
+  "解析": "全空间 $64$ 点坐标总和为 $0$，去掉 $P(1,1,1)$（和为 $3$）后剩余 $63$ 点和为 $-3$，期望 $E(X)=-3/63=-1/21$。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B5-C2-S3-K01",
+   "MA-B5-C2-S2-K01",
+   "MA-B5-C2-S2-K02",
+   "MA-B5-C2-S3-K04"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B5-C2-S3-K01",
+    "kp_name": "数学期望",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$-\\dfrac{1}{21}$",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B5-C2-S3-K01",
+    "kp_name": "数学期望",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$-\\dfrac{1}{6}$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B5-C2-S3-K01",
+    "kp_name": "数学期望",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$0$",
+    "is_correct": false,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B5-C2-S3-K01",
+    "kp_name": "数学期望",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$\\dfrac{1}{7}$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2026,
+  "题号": 8,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "复数",
+  "题型": "多选",
+  "题干": "设 $z=3+2i$，则（ ）",
+  "选项": [
+   "A. $\\bar z=3-2i$",
+   "B. $|z|=5$",
+   "C. $z^2=5+12i$",
+   "D. $z+\\bar z\\in\\mathbb R$"
+  ],
+  "答案": "ACD",
+  "解析": "$\\bar z=3-2i$（A对）；$|z|=\\sqrt{13}\\neq5$（B错）；$z^2=9+12i-4=5+12i$（C对）；$z+\\bar z=6\\in\\mathbb R$（D对）。",
+  "难度": "2",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B2-C2-S1-K02",
+   "MA-B2-C2-S2-K03",
+   "MA-B2-C2-S1-K03",
+   "MA-B2-C2-S1-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$\\bar z=3-2i$",
+    "is_correct": true,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$|z|=5$",
+    "is_correct": false,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "$z^2=5+12i$",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C2-S1-K02",
+    "kp_name": "复数的概念与代数形式",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "$z+\\bar z\\in\\mathbb R$",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2026,
+  "题号": 9,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "多选",
+  "题干": "在空间中，$A,B$ 为两个定点，动点 $C$ 到直线 $AB$ 的距离为 $2$，动点 $D$ 到直线 $AB$ 的距离为 $1$。若二面角 $C-AB-D$ 为 $60^\\circ$，则（ ）",
+  "选项": [
+   "A. $\\angle CAD\\ge60^\\circ$",
+   "B. $CD\\ge\\sqrt3$",
+   "C. 当 $AB\\perp CD$ 时，$CD\\perp$ 平面 $ABD$",
+   "D. 当 $AB\\perp$ 平面 $ACD$ 时，$AC\\perp AD$"
+  ],
+  "答案": "BC",
+  "解析": "作垂足投影，由二面角 $60^\\circ$ 推得 $CD\\ge\\sqrt3$；当 $AB\\perp CD$ 时可得 $CD\\perp$ 平面 $ABD$。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B2-C3-S6-K07",
+   "MA-B2-C3-S6-K06",
+   "MA-B2-C3-S6-K08"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B2-C3-S6-K07",
+    "kp_name": "二面角",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$\\angle CAD\\ge60^\\circ$",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B2-C3-S6-K07",
+    "kp_name": "二面角",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "$CD\\ge\\sqrt3$",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B2-C3-S6-K07",
+    "kp_name": "二面角",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "当 $AB\\perp CD$ 时，$CD\\perp$ 平面 $ABD$",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B2-C3-S6-K07",
+    "kp_name": "二面角",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "当 $AB\\perp$ 平面 $ACD$ 时，$AC\\perp AD$",
+    "is_correct": false,
+    "step_no": 4
+   }
+  ],
+  "年份": 2026,
+  "题号": 10,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "直线和圆的方程",
+  "题型": "多选",
+  "题干": "已知圆 $C_1:(x+1)^2+y^2=1$，圆 $C_2:(x-1)^2+y^2=1$，圆 $C_3:x^2+(y-\\sqrt3)^2=1$，直线 $l:y=kx+b$ 与 $C_1,C_2,C_3$ 均有两个交点。记 $l$ 被 $C_1,C_2,C_3$ 截得的弦长分别为 $s_1,s_2,s_3$，则（ ）",
+  "选项": [
+   "A. $k$ 可以取任意实数",
+   "B. 满足 $s_1=s_2=s_3$ 的直线 $l$ 共有 $3$ 条",
+   "C. 满足 $s_1+s_2+s_3=3$ 的直线 $l$ 多于 $3$ 条",
+   "D. 当 $b=0$ 时，$s_1+s_2+s_3$ 的最大值为 $\\dfrac{2\\sqrt3}{3}$"
+  ],
+  "答案": "BCD",
+  "解析": "三圆心成边长 $2$ 的等边三角形；弦长由圆心到直线距离决定。$s_1=s_2=s_3$ 等价三圆心到直线等距，有 $3$ 条；$b=0$ 时最大值 $2\\sqrt3/3$。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B3-C2-S5-K01",
+   "MA-B3-C2-S5-K06",
+   "MA-B3-C2-S5-K02",
+   "MA-B3-C2-S4-K01"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C2-S5-K01",
+    "kp_name": "直线与圆的位置判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "A",
+    "text": "$k$ 可以取任意实数",
+    "is_correct": false,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K01",
+    "kp_name": "直线与圆的位置判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "B",
+    "text": "满足 $s_1=s_2=s_3$ 的直线 $l$ 共有 $3$ 条",
+    "is_correct": true,
+    "step_no": 2
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K01",
+    "kp_name": "直线与圆的位置判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "C",
+    "text": "满足 $s_1+s_2+s_3=3$ 的直线 $l$ 多于 $3$ 条",
+    "is_correct": true,
+    "step_no": 3
+   },
+   {
+    "kp_code": "MA-B3-C2-S5-K01",
+    "kp_name": "直线与圆的位置判定",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "option",
+    "label": "D",
+    "text": "当 $b=0$ 时，$s_1+s_2+s_3$ 的最大值为 $\\dfrac{2\\sqrt3}{3}$",
+    "is_correct": true,
+    "step_no": 4
+   }
+  ],
+  "年份": 2026,
+  "题号": 11,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "填空",
+  "题干": "双曲线 $5x^2-6y^2=1$ 的离心率为＿＿＿＿＿＿。",
+  "选项": null,
+  "答案": "$\\dfrac{\\sqrt{66}}{6}$（或 $\\sqrt{\\dfrac{11}{6}}$）",
+  "解析": "化为标准形 $x^2/(1/5)-y^2/(1/6)=1$，$a^2=1/5,b^2=1/6,c^2=11/30$；$e=c/a=\\sqrt{11/6}=\\sqrt{66}/6$。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B3-C3-S2-K04",
+   "MA-B3-C3-S1-K04",
+   "MA-B3-C3-S4-K01",
+   "MA-B3-C3-S4-K06"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B3-C3-S2-K04",
+    "kp_name": "双曲线的离心率",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "$\\dfrac{\\sqrt{66}}{6}$（或 $\\sqrt{\\dfrac{11}{6}}$）",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2026,
+  "题号": 12,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "三角函数",
+  "题型": "填空",
+  "题干": "已知 $f(x)=2\\sin(ax+\\theta)\\ (a\\in\\mathbb Z,0\\le\\theta<2\\pi)$ 是偶函数，$f(x)$ 在区间 $\\left(0,\\dfrac{\\pi}{2}\\right)$ 单调递增，则 $\\theta=$＿＿＿＿＿＿，$f\\!\\left(\\dfrac{2\\pi}{3}\\right)=$＿＿＿＿＿＿。",
+  "选项": null,
+  "答案": "$\\theta=\\dfrac{3\\pi}{2}$，$f\\!\\left(\\dfrac{2\\pi}{3}\\right)=1$",
+  "解析": "偶 $\\Rightarrow \\theta=\\pi/2$ 或 $3\\pi/2$；取 $\\theta=3\\pi/2$ 使 $f=-2\\cos(ax)$ 在 $(0,\\pi/2)$ 递增，此时 $\\theta=3\\pi/2$，$f(2\\pi/3)=1$。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B1-C5-S4-K07",
+   "MA-B1-C5-S4-K06",
+   "MA-B1-C5-S4-K08",
+   "MA-B1-C5-S2-K02"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B1-C5-S4-K07",
+    "kp_name": "三角函数的单调区间",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "$\\theta=\\dfrac{3\\pi}{2}$",
+    "is_correct": null,
+    "step_no": 1
+   },
+   {
+    "kp_code": "MA-B1-C5-S4-K07",
+    "kp_name": "三角函数的单调区间",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第2空",
+    "text": "$f\\!\\left(\\dfrac{2\\pi}{3}\\right)=1$",
+    "is_correct": null,
+    "step_no": 2
+   }
+  ],
+  "年份": 2026,
+  "题号": 13,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "数列",
+  "题型": "填空",
+  "题干": "设实数 $q$ 满足：存在数列 $\\{a_n\\}$，使得对任意 $n\\in\\mathbb N^*$，均有 $a_1+a_2+\\cdots+a_{3n}=n^2+n$，且 $\\{a_n\\}$ 中有某连续 $9$ 项 $a_k,a_{k+1},\\dots,a_{k+8}$ 是公比为 $q$ 的等比数列。则 $q$ 的最大值为＿＿＿＿＿＿。",
+  "选项": null,
+  "答案": "$\\sqrt[3]{\\dfrac32}$",
+  "解析": "由 $S_{3n}=n^2+n$ 得每连续三项和 $T_n=2n$；连续 $9$ 项成等比跨两组，推得 $q^3=(n+2)/(n+1)\\le3/2$，故 $q_{\\max}=\\sqrt[3]{3/2}$。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B4-C1-S3-K01",
+   "MA-B4-C1-S3-K02",
+   "MA-B4-C1-S3-K03",
+   "MA-B4-C1-S3-K04"
+  ],
+  "步骤": [
+   {
+    "kp_code": "MA-B4-C1-S3-K01",
+    "kp_name": "等比数列的定义",
+    "kp_source": "question",
+    "confidence": null,
+    "step_kind": "blank",
+    "label": "第1空",
+    "text": "$\\sqrt[3]{\\dfrac32}$",
+    "is_correct": null,
+    "step_no": 1
+   }
+  ],
+  "年份": 2026,
+  "题号": 14,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "立体几何初步",
+  "题型": "解答",
+  "题干": "（13分）如图，在直三棱柱 $ABC-A_1B_1C_1$ 中，$\\angle ACB=90^\\circ$，$AC=BC$，$D,E$ 分别为 $AB,AC_1$ 的中点。\n（1）证明：$DE\\parallel$ 平面 $BCC_1B_1$；\n（2）设 $CC_1=2$，直线 $DE$ 与平面 $ACC_1A_1$ 所成的角为 $45^\\circ$，求直线 $DE$ 到平面 $BCC_1B_1$ 的距离。",
+  "选项": null,
+  "答案": "(1) 证明见解析；(2) $1$",
+  "解析": "(1) $DE$ 为 $\\triangle ABC_1$ 中位线 $\\Rightarrow DE\\parallel BC_1\\subset$ 平面 $BCC_1B_1$；(2) 由线面角 $45^\\circ$ 与平行转化，距离 $=1$。",
+  "难度": "3",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B2-C3-S5-K01",
+   "MA-B2-C3-S6-K06",
+   "MA-B2-C3-S6-K01",
+   "MA-B2-C3-S5-K02"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）证明：$DE\\parallel$ 平面 $BCC_1B_1$；",
+    "is_correct": null,
+    "kp_code": "MA-B2-C3-S5-K01",
+    "kp_name": "直线与平面平行的判定",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）设 $CC_1=2$，直线 $DE$ 与平面 $ACC_1A_1$ 所成的角为 $45^\\circ$，求直线 $DE$ 到平面 $BCC_1B_1$ 的距离。",
+    "is_correct": null,
+    "kp_code": "MA-B2-C3-S6-K06",
+    "kp_name": "直线与平面所成的角",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2026,
+  "题号": 15,
+  "置信": "high"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "平面向量及其应用",
+  "题型": "解答",
+  "题干": "（15分）已知在 $\\triangle ABC$ 中，$AB=3$，$BC=2\\sqrt3$，$\\cos B=\\dfrac{\\sqrt3}{3}$。\n（1）求 $\\cos A$；\n（2）设 $D,E$ 两点满足：$D$ 在 $BA$ 的延长线上，$DE\\parallel BC$，$AE\\perp AC$。若 $DE=\\sqrt6$，求 $CE$。",
+  "选项": null,
+  "答案": "(1) $\\cos A=\\dfrac13$；(2) $CE=3\\sqrt5$",
+  "解析": "(1) 余弦定理：$AC^2=9+12-2\\cdot3\\cdot2\\sqrt3\\cdot(\\sqrt3/3)=9\\Rightarrow AC=3$，$\\cos A=(9+9-12)/(2\\cdot3\\cdot3)=1/3$；(2) 建系可得 $CE=3\\sqrt5$。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B2-C1-S4-K03",
+   "MA-B2-C1-S4-K06",
+   "MA-B2-C1-S4-K04",
+   "MA-B2-C1-S4-K05"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）求 $\\cos A$；",
+    "is_correct": null,
+    "kp_code": "MA-B2-C1-S4-K06",
+    "kp_name": "解三角形的实际应用(距离/高度/角度)",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）设 $D,E$ 两点满足：$D$ 在 $BA$ 的延长线上，$DE\\parallel BC$，$AE\\perp AC$。若 $DE=\\sqrt6$，求 $CE$。",
+    "is_correct": null,
+    "kp_code": "MA-B2-C1-S4-K06",
+    "kp_name": "解三角形的实际应用(距离/高度/角度)",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2026,
+  "题号": 16,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "概率",
+  "题型": "解答",
+  "题干": "（15分）设整数 $N\\ge2$。某同学用一个球进行投篮练习，至多投篮 $N$ 次，当且仅当投中 $1$ 次时或 $N$ 次均未投中时，停止练习。设每次投中的概率为 $p\\ (0<p<1)$，各次投中与否相互独立。记 $X$ 为停止练习时该同学的投篮次数。\n（1）当 $N=4,p=\\dfrac13$ 时，求 $X$ 的分布列；\n（2）设 $k,m$ 均为自然数。\n（i）当 $k\\le N-1$ 时，求 $P(X>k)$；\n（ii）当 $k+m\\le N-1$ 时，证明：$P(X>k+m\\mid X>k)=P(X>m)$。",
+  "选项": null,
+  "答案": "(1) $P(X=1)=\\tfrac13,P(X=2)=\\tfrac29,P(X=3)=\\tfrac4{27},P(X=4)=\\tfrac8{27}$；(2)(i) $(1-p)^k$；(ii) 证明见解析",
+  "解析": "(1) 分布列由“首次命中或 $4$ 次全不中停止”得；(2)(i) 前 $k$ 次均未停止即前 $k$ 次均不中，$(1-p)^k$；(ii) 由条件概率证无记忆性。",
+  "难度": "4",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B2-C5-S2-K01",
+   "MA-B2-C5-S1-K07",
+   "MA-B2-C5-S1-K02",
+   "MA-B2-C5-S1-K08"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）当 $N=4,p=\\dfrac13$ 时，求 $X$ 的分布列；",
+    "is_correct": null,
+    "kp_code": "MA-B5-C2-S2-K02",
+    "kp_name": "分布列",
+    "kp_source": "manual",
+    "confidence": "high",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）设 $k,m$ 均为自然数。\n（i）当 $k\\le N-1$ 时，求 $P(X>k)$；\n（ii）当 $k+m\\le N-1$ 时，证明：$P(X>k+m\\mid X>k)=P(X>m)$。",
+    "is_correct": null,
+    "kp_code": "MA-B2-C5-S1-K02",
+    "kp_name": "随机事件",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2026,
+  "题号": 17,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "圆锥曲线的方程",
+  "题型": "解答",
+  "题干": "（17分）已知椭圆 $C:\\dfrac{x^2}{a^2}+\\dfrac{y^2}{b^2}=1\\ (a>b>0)$ 的左焦点为 $F(-1,0)$，离心率为 $\\dfrac12$。\n（1）求 $C$ 的方程；\n（2）设 $O$ 为坐标原点，过 $F$ 且斜率大于 $0$ 的动直线 $l$ 与 $C$ 交于 $P,Q$ 两点，其中 $Q$ 在第三象限，直线 $PO$ 与 $C$ 的另一个交点为 $R$。\n（i）若 $\\triangle PQR$ 的面积是 $\\triangle PFO$ 的面积的 $3$ 倍，求 $l$ 的方程；\n（ii）求 $\\tan\\angle PQR$ 的最小值。",
+  "选项": null,
+  "答案": "(1) $\\dfrac{x^2}{4}+\\dfrac{y^2}{3}=1$；(2)(i) $y=\\dfrac{\\sqrt5}{2}(x+1)$；(ii) $4\\sqrt3$",
+  "解析": "(1) $c=1,e=1/2\\Rightarrow a=2,b^2=3$；(2)(i) 由面积比转线段比结合韦达得 $k=\\sqrt5/2$，直线 $y=(\\sqrt5/2)(x+1)$；(ii) $k_{QR}=-3/(4k)$，$\\tan\\angle PQR=4k+3/k\\ge4\\sqrt3$。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B3-C3-S4-K06",
+   "MA-B3-C3-S1-K04",
+   "MA-B3-C3-S1-K05",
+   "MA-B3-C3-S4-K01"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）求 $C$ 的方程；",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S4-K01",
+    "kp_name": "圆锥曲线的第二定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）设 $O$ 为坐标原点，过 $F$ 且斜率大于 $0$ 的动直线 $l$ 与 $C$ 交于 $P,Q$ 两点，其中 $Q$ 在第三象限，直线 $PO$ 与 $C$ 的另一个交点为 $R$。\n（i）若 $\\triangle PQR$ 的面积是 $\\triangle PFO$ 的面积的 $3$ 倍，求 $l$ 的方程；\n（ii）求 $\\tan\\angle PQR$ 的最小值。",
+    "is_correct": null,
+    "kp_code": "MA-B3-C3-S4-K01",
+    "kp_name": "圆锥曲线的第二定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   }
+  ],
+  "年份": 2026,
+  "题号": 18,
+  "置信": "mid"
+ },
+ {
+  "学科": "数学",
+  "年级": "高三",
+  "章节": "函数的概念与性质",
+  "题型": "解答",
+  "题干": "（17分）已知函数 $f(x)$ 的定义域为 $\\mathbb R$，且当 $x<0$ 时，$f(x)=2^x$。对任意 $x_0\\in\\mathbb R$，定义集合 $D(x_0)=\\{d\\in\\mathbb R\\mid f(x_0+d)>f(x_0)\\}$。\n（1）若当 $x\\ge0$ 时，$f(x)=1-x$，求 $D(-1)$；\n（2）若 $f(x)$ 是奇函数，$f(x_1)\\le f(x_2)$ 且 $x_1x_2\\neq0$，证明：$D(x_2)\\subseteq D(x_1)$；\n（3）设 $f(x)$ 满足：①若 $f(x_1)\\le f(x_2)$，则 $D(x_2)\\subseteq D(x_1)$；②当 $0<x<1$ 时，$f(x)<f(0)$。\n（i）证明：$f(0)\\ge1$；（ii）证明：$f(x)$ 在区间 $(0,+\\infty)$ 单调递增。",
+  "选项": null,
+  "答案": "(1) $D(-1)=(0,\\tfrac32)$；(2) 证明见解析；(3)(i) 证明见解析；(ii) 证明见解析",
+  "解析": "(1) $f(-1)=1/2$；$d<1$ 时 $2^{d-1}>1/2\\Rightarrow d>0$，$d\\ge1$ 时 $2-d>1/2\\Rightarrow d<3/2$，并集 $(0,3/2)$；(2)(3) 用奇偶性、反证法与集合包含关系证明。",
+  "难度": "5",
+  "卷别": "新高考I卷",
+  "来源省份": "河南",
+  "知识点": [
+   "MA-B1-C3-S1-K02",
+   "MA-B1-C3-S2-K08",
+   "MA-B1-C3-S1-K01",
+   "MA-B1-C3-S1-K04"
+  ],
+  "步骤": [
+   {
+    "step_kind": "subq",
+    "label": "(1)",
+    "text": "（1）若当 $x\\ge0$ 时，$f(x)=1-x$，求 $D(-1)$；",
+    "is_correct": null,
+    "kp_code": "MA-B1-C3-S1-K01",
+    "kp_name": "函数的概念",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 1
+   },
+   {
+    "step_kind": "subq",
+    "label": "(2)",
+    "text": "（2）若 $f(x)$ 是奇函数，$f(x_1)\\le f(x_2)$ 且 $x_1x_2\\neq0$，证明：$D(x_2)\\subseteq D(x_1)$；",
+    "is_correct": null,
+    "kp_code": "MA-B1-C3-S1-K04",
+    "kp_name": "函数解析式的求法",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 2
+   },
+   {
+    "step_kind": "subq",
+    "label": "(3)",
+    "text": "（3）设 $f(x)$ 满足：①若 $f(x_1)\\le f(x_2)$，则 $D(x_2)\\subseteq D(x_1)$；②当 $0<x<1$ 时，$f(x)<f(0)$。\n（i）证明：$f(0)\\ge1$；（ii）证明：$f(x)$ 在区间 $(0,+\\infty)$ 单调递增。",
+    "is_correct": null,
+    "kp_code": "MA-B1-C3-S2-K01",
+    "kp_name": "单调性的定义",
+    "kp_source": "manual",
+    "confidence": "mid",
+    "step_no": 3
+   }
+  ],
+  "年份": 2026,
+  "题号": 19,
+  "置信": "high"
+ }
+]

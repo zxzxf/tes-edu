@@ -47,6 +47,7 @@ ALIASES = {
     "paper_type": ["卷别", "试卷", "考卷", "paper_type", "paper", "exam"],
     "source_province": ["来源省份", "省份", "来源", "source_province", "source", "province"],
     "knowledge_points": ["知识点", "考点", "knowledge_points", "kp", "points"],
+    "steps": ["步骤", "steps", "子问题", "小问"],
 }
 _KP_SPLIT = "；;、/|，,"
 
@@ -78,6 +79,36 @@ def _split_kp(v) -> list[str]:
     for ch in _KP_SPLIT:
         s = s.replace(ch, "|")
     return [p.strip() for p in s.split("|") if p.strip()]
+
+
+def _norm_steps(v, row=None) -> list[dict]:
+    """校验/兜底步骤列表。没有步骤字段时生成兜底 single 步（全题型覆盖的最后防线）。"""
+    if isinstance(v, list) and v:
+        out = []
+        for st in v:
+            if not isinstance(st, dict):
+                continue
+            out.append({
+                "step_kind": str(st.get("step_kind") or "single")[:32],
+                "label": str(st.get("label") or "")[:64],
+                "text": str(st.get("text") or "")[:2000],
+                "is_correct": st.get("is_correct"),
+                "kp_code": (str(st.get("kp_code") or "")[:64] or None),
+                "kp_name": (str(st.get("kp_name") or "")[:128] or None),
+                "kp_source": str(st.get("kp_source") or "question")[:16],
+                "confidence": (str(st.get("confidence") or "")[:16] or None),
+            })
+        if out:
+            return out
+    # 兜底：一步 single，kp 继承题级第一个知识点
+    kps = (row or {}).get("knowledge_points") or []
+    kp0 = str(kps[0]) if kps else None
+    return [{
+        "step_kind": "single", "label": "全题",
+        "text": str((row or {}).get("stem") or "")[:300],
+        "is_correct": None, "kp_code": kp0, "kp_name": None,
+        "kp_source": "question", "confidence": None,
+    }]
 
 
 def _norm_type(v) -> str:
@@ -190,6 +221,57 @@ async def _ensure_embeddings_table(pool) -> None:
         )
 
 
+async def _ensure_steps_table(pool) -> None:
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS course_kb_steps (
+                content_hash text NOT NULL,
+                step_no      integer NOT NULL,
+                step_kind    text NOT NULL,
+                label        text,
+                text         text,
+                is_correct   boolean,
+                kp_code      text,
+                kp_name      text,
+                kp_source    text NOT NULL DEFAULT 'question',
+                confidence   text,
+                PRIMARY KEY (content_hash, step_no)
+            )
+            """
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_steps_kp_code ON course_kb_steps(kp_code)"
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_steps_kind ON course_kb_steps(step_kind)"
+        )
+
+
+async def _upsert_steps(conn, row) -> int:
+    """幂等写步骤：先删该题的旧步骤再插。**独立于 course_kb 存在性检查**，
+    这样已灌过的题重跑 import 也能补上/更新步骤（2026-10-23 回灌 213 题靠它）。"""
+    await conn.execute(
+        "DELETE FROM course_kb_steps WHERE content_hash = $1", row["content_hash"]
+    )
+    n = 0
+    for i, st in enumerate(row["steps"], 1):
+        await conn.execute(
+            """
+            INSERT INTO course_kb_steps
+                (content_hash, step_no, step_kind, label, text, is_correct,
+                 kp_code, kp_name, kp_source, confidence)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            ON CONFLICT (content_hash, step_no) DO NOTHING
+            """,
+            row["content_hash"], i, st["step_kind"], st["label"], st["text"],
+            st["is_correct"], st["kp_code"], st["kp_name"], st["kp_source"],
+            st["confidence"],
+        )
+        n += 1
+    return n
+
+
 async def _run(args) -> None:
     raw = open(args.file, "rb").read()
     records = _parse_file(raw, args.file)
@@ -213,6 +295,8 @@ async def _run(args) -> None:
         row["difficulty"] = _norm_difficulty(row.get("difficulty"))
         kp = _split_kp(row.get("knowledge_points"))
         row["knowledge_points"] = kp
+        # 全题型步骤（步骤级归因）；缺失则兜底 single 步
+        row["steps"] = _norm_steps(row.get("steps"), row)
         opts = row.get("options")
         row["options"] = opts if isinstance(opts, list) else None
         row["stem"] = (row.get("stem") or "").strip()
@@ -230,6 +314,11 @@ async def _run(args) -> None:
     if args.dry_run:
         for demo in norm[:3]:
             print("  样例 ->", {k: demo[k] for k in ("subject", "type", "difficulty", "stem", "knowledge_points", "paper_type")})
+        kinds = {}
+        for r in norm:
+            for s in r["steps"]:
+                kinds[s["step_kind"]] = kinds.get(s["step_kind"], 0) + 1
+        print(f"  [dry-run] 步骤总数 {sum(kinds.values())}，按 kind: {kinds}")
         print("[dry-run] 未写入数据库。")
         return
 
@@ -243,12 +332,20 @@ async def _run(args) -> None:
     # 断点续跑：收集已存在的 content_hash
     pool = await pg.get_pool()
     await _ensure_embeddings_table(pool)
+    await _ensure_steps_table(pool)
     existing: set[str] = set()
     async with pool.acquire() as conn:
         rows = await conn.fetch("SELECT content_hash FROM course_kb WHERE content_hash = ANY($1)", [r["content_hash"] for r in norm])
         existing.update(r["content_hash"] for r in rows)
         rows2 = await conn.fetch("SELECT content_hash FROM course_kb_embeddings WHERE content_hash = ANY($1)", [r["content_hash"] for r in norm])
         existing.update(r["content_hash"] for r in rows2)
+        # 步骤回灌独立于存在性跳过：已存在的老题也要补步骤（DELETE+INSERT 幂等）
+        steps_written = 0
+        async with conn.transaction():
+            for r in norm:
+                steps_written += await _upsert_steps(conn, r)
+    print(f"步骤回灌完成：{len(norm)} 题 / {steps_written} 步（含已存在题）")
+
     todo = [r for r in norm if r["content_hash"] not in existing]
     print(f"已存在跳过：{total - len(todo)}，待写入：{len(todo)}")
 
