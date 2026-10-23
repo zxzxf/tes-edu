@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS course_kb_steps (
     kp_name      text,                     -- 知识点中文名（物理为章节域名）
     kp_source    text NOT NULL DEFAULT 'question',  -- manual/question
     confidence   text,                     -- high/mid/low，仅 manual 有值
+    explanation  text,                     -- 详解：推导过程 + 知识点串联
+    error_reason text,                     -- 常见错误原因（正确步骤可空）
     PRIMARY KEY (content_hash, step_no)
 );
 CREATE INDEX IF NOT EXISTS idx_steps_kp_code ON course_kb_steps(kp_code);
