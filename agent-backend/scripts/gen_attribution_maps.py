@@ -43,8 +43,22 @@ TAXONOMY = (
 
 def _parse_json(text: str) -> dict:
     text = (text or "").strip()
-    if text.startswith("```"):
-        text = text.strip("`").replace("json", "", 1).strip()
+    if not text:
+        return {}
+    # 1) 去掉 markdown 代码围栏：围栏可能不在开头（模型常加“好的/分析如下”等前言），
+    #    且可能带 json 语言标注。取第一段围栏内的内容。
+    if "```" in text:
+        parts = text.split("```")
+        if len(parts) >= 3:
+            inner = parts[1].strip()
+            if inner[:4].lower() == "json":
+                inner = inner[4:].strip()
+            text = inner
+    # 2) 截取第一个 '{' 到最后一个 '}' 之间的内容，剥离任何前导/尾部散文或解释。
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end >= start:
+        text = text[start : end + 1]
     try:
         return json.loads(text)
     except json.JSONDecodeError:
