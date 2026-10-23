@@ -7,7 +7,7 @@
 
 | 顺位 | 项目 | 任务号 | 状态 |
 |---|---|---|---|
-| ① | 真实题库灌 3000 题 | #23 | 🔄 进行中（远端已大幅推进） |
+| ① | 真实题库灌 3000 题 | #23 | ✅ 已确认灌库（106 生产库，2026-10-23 连库核验） |
 | ② | 测试 / CI | #19 | ✅ 完成 |
 | ③ | AGE 图库常驻 | #20 | ⬜ 待办 |
 | ④ | **P4 家长端** | | |
@@ -30,21 +30,37 @@
 - **④ P4 家长端**：产品面，直接消费既有掌握度数据，可与 ③ 并行。
 - **⑤ P5 商业化**：多租户 / 计费 / To B，依赖前面全部数据资产 + 家长端。
 
-## ① 真实题库灌 3000 题（🔄 进行中，远端已大幅推进）
+## ① 真实题库灌 3000 题（✅ 已确认灌库，2026-10-23 连 106 核验）
 
 - 工程流水线 `import_bank.py` 已就绪（commit `e6276db`），支持 csv/json/jsonl/xlsx、中英文列名自动映射、
   知识点按 `；、/|,，` 自动拆分、批量 embedding（分批 + 指数退避重试 + 可重跑）、`content_hash` 幂等去重、
   **双写** `course_kb`（Web 规范库）+ `course_kb_embeddings`（Agent RAG 检索表）、`--dry-run` 不连库校验。
 - 已用 2025 新高考I卷公开真题 7 题做 dry-run 验证（commit `e6276db`）。
 - **远端新增（7cb867f→e60361d，11 提交 / 297 文件 / +63716 行）**：
-  - 真题素材：`真题素材/gaokao-system/` 历年真题干货（1952–2026 年 xlsx/docx，含数学 / 语文等）。
+  - 真题素材：`真题素材/gaokao-system/` 历年真题干货（1952–2026 年 xlsx/docc，含数学 / 语文等）。
   - 知识点本体：knowledge_points 全量 JSON + `build_knowledge_dag.py` + knowledge_dag JSON/MD（人教A版高中数学）。
   - 步骤级归因：全题型落地，`course_kb_steps` **674 步、213 题 100% 覆盖**；`p0_attribution_maps.sql` 迁移
     （distractor_map / wrong_value_map / typical_errors + student_step_errors）；`gen_attribution_maps.py` 内容生成器。
   - 配套文档：步骤级归因落地计划书 / 标注 Schema v1 / 真题校验报告；修正河南新高考首考年份 2026→2025。
   - `.env.example` 纳入版本管理；隔离 seed demo 假题、统一题型 / 学科口径、补后端发版脚本。
-- **待确认**：上述素材与归因结构是否已灌入 106 生产库（course_kb / course_kb_steps / knowledge DAG）。
-  若仅在仓库内（源码 + 脚本），需在 137 跑迁移脚本 + `import_bank` / `import_knowledge_dag` 后复测召回率（目标 ≥85%）。
+
+### 连库核验结果（2026-10-23，SSH 隧道 137→106:5432，DSN `postgresql://tes:****@106.12.25.5:5432/tes_edu`）
+
+| 表 | 行数 | 说明 |
+|---|---|---|
+| `course_kb` | **213** | 真实题库（数学 123 + 物理 90；卷别：新高考I卷/河南卷·物理/新课标卷·理综物理/全国乙卷·理综物理），`content_hash` 唯一约束在位 |
+| `course_kb_steps` | **674** | 步骤级归因，含 `distractor_map`/`wrong_value_map`/`typical_errors` 列，样本为真实每步判分 + 错因 |
+| `course_kb_embeddings` | **259** | RAG 向量（213 题全覆盖，部分题多段向量），**1024 维**（= qwen text-embedding-v4），HNSW 余弦索引 `idx_kb_embeddings_vec` 在位 |
+| `kb_knowledge_points` | **435** | 知识点本体（code/章节/重要度/教材/理解·记忆·类比 教学法字段） |
+| `kb_kp_prerequisites` | **435** | 知识图谱 DAG 边（kp_code→prereq_code，relation_type=prerequisite） |
+| `student_mastery` | 12 | 真实学情（tenant_id=henan_01，掌握度按 correct/(correct+wrong) 计算） |
+| `student_events` | 4 | 真实学情事件流水 |
+| `student_step_errors` | **0** | ⚠️ 步骤级错因归因**数据未灌**（迁移 SQL `p0_attribution_maps.sql` 在仓库内，但生产库为空） |
+| `_bak_steps_20261023` | 43 | 早期 steps 备份（2026-10-23），已被 674 步版取代 |
+
+- **结论**：题库 / 步骤归因 / RAG 向量 / 知识点本体 / 知识图谱 DAG **均已真灌入 106 生产库**，链路可用（向量索引、`content_hash` 去重均在位）。
+- **遗留 1**：`student_step_errors` 为空——步骤级错因归因数据（distractor/wrong_value/typical_errors 的"学生侧"落地）未导入，目前仅 `course_kb_steps` 自带错因。若需"错因→薄弱点"闭环需补灌。
+- **遗留 2（建议复测）**：召回率尚未用 `eval_retrieval.py` 实测（仅验了向量维度与索引存在）。建议跑一次确认 ≥85%，并视结果决定是否需重新 embedding 或调 HNSW 参数。
 - 新分支 `feature/redis-master-slave`（Redis 主从），与 deploy/Redis 相关，③ 与部署编排可关注。
 
 ## ② 测试 / CI（✅ 完成）
