@@ -1,0 +1,5413 @@
+{
+  "meta": {
+    "subject": "数学",
+    "stage": "高中",
+    "province": "河南",
+    "textbook": "人教A版（2019版）",
+    "exam": "新高考I卷",
+    "version": "0.1-草案",
+    "total_knowledge_points": 435,
+    "total_chapters": 18,
+    "note": "草案：术语与粒度需教研对照教材目录终校；前置边为最小可用骨架（同章串行 + 跨章关键依赖）"
+  },
+  "chapters": {
+    "集合与常用逻辑用语": {
+      "book": "必修第一册",
+      "count": 30,
+      "sections": [
+        "集合的概念",
+        "集合间的基本关系",
+        "集合的基本运算",
+        "充分条件与必要条件",
+        "全称量词与存在量词"
+      ]
+    },
+    "一元二次函数、方程和不等式": {
+      "book": "必修第一册",
+      "count": 18,
+      "sections": [
+        "等式性质与不等式性质",
+        "基本不等式",
+        "二次函数与一元二次方程、不等式"
+      ]
+    },
+    "函数的概念与性质": {
+      "book": "必修第一册",
+      "count": 24,
+      "sections": [
+        "函数的概念及其表示",
+        "函数的基本性质",
+        "幂函数",
+        "函数的应用(一)"
+      ]
+    },
+    "指数函数与对数函数": {
+      "book": "必修第一册",
+      "count": 23,
+      "sections": [
+        "指数",
+        "指数函数",
+        "对数",
+        "对数函数",
+        "函数的应用(二)"
+      ]
+    },
+    "三角函数": {
+      "book": "必修第一册",
+      "count": 47,
+      "sections": [
+        "任意角和弧度制",
+        "三角函数的概念",
+        "诱导公式",
+        "三角函数的图像与性质",
+        "三角恒等变换",
+        "函数 y=Asin(ωx+φ)",
+        "三角函数的应用"
+      ]
+    },
+    "平面向量及其应用": {
+      "book": "必修第二册",
+      "count": 27,
+      "sections": [
+        "平面向量的概念",
+        "平面向量的运算",
+        "平面向量基本定理及坐标表示",
+        "平面向量的应用"
+      ]
+    },
+    "复数": {
+      "book": "必修第二册",
+      "count": 14,
+      "sections": [
+        "复数的概念",
+        "复数的运算"
+      ]
+    },
+    "立体几何初步": {
+      "book": "必修第二册",
+      "count": 39,
+      "sections": [
+        "基本立体图形",
+        "立体图形的直观图",
+        "简单几何体的表面积与体积",
+        "空间点、直线、平面之间的位置关系",
+        "直线、平面平行的判定与性质",
+        "直线、平面垂直的判定与性质"
+      ]
+    },
+    "统计": {
+      "book": "必修第二册",
+      "count": 18,
+      "sections": [
+        "随机抽样",
+        "用样本估计总体",
+        "统计分析案例"
+      ]
+    },
+    "概率": {
+      "book": "必修第二册",
+      "count": 15,
+      "sections": [
+        "随机事件与概率",
+        "事件的相互独立性",
+        "频率与概率"
+      ]
+    },
+    "空间向量与立体几何": {
+      "book": "选择性必修第一册",
+      "count": 17,
+      "sections": [
+        "空间向量及其运算",
+        "空间向量在立体几何中的应用"
+      ]
+    },
+    "直线和圆的方程": {
+      "book": "选择性必修第一册",
+      "count": 29,
+      "sections": [
+        "直线的倾斜角与斜率",
+        "直线的方程",
+        "直线的交点坐标与距离公式",
+        "圆的方程",
+        "直线与圆、圆与圆的位置关系",
+        "空间直角坐标系初步"
+      ]
+    },
+    "圆锥曲线的方程": {
+      "book": "选择性必修第一册",
+      "count": 26,
+      "sections": [
+        "椭圆",
+        "双曲线",
+        "抛物线",
+        "圆锥曲线的统一性质与综合"
+      ]
+    },
+    "数列": {
+      "book": "选择性必修第二册",
+      "count": 26,
+      "sections": [
+        "数列的概念",
+        "等差数列",
+        "等比数列",
+        "数列求和与综合"
+      ]
+    },
+    "一元函数导数及其应用": {
+      "book": "选择性必修第二册",
+      "count": 25,
+      "sections": [
+        "导数的概念及其意义",
+        "导数的运算",
+        "导数在研究函数中的应用",
+        "导数的综合应用",
+        "定积分初步(选修拓展)"
+      ]
+    },
+    "计数原理": {
+      "book": "选择性必修第三册",
+      "count": 18,
+      "sections": [
+        "分类加法与分步乘法计数原理",
+        "排列与组合",
+        "二项式定理"
+      ]
+    },
+    "随机变量及其分布": {
+      "book": "选择性必修第三册",
+      "count": 23,
+      "sections": [
+        "随机事件的条件概率",
+        "离散型随机变量及其分布列",
+        "离散型随机变量的数字特征",
+        "正态分布"
+      ]
+    },
+    "成对数据的统计分析": {
+      "book": "选择性必修第三册",
+      "count": 16,
+      "sections": [
+        "成对数据的统计相关性",
+        "一元线性回归模型",
+        "列联表与独立性检验"
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "id": "MA-B1-C1-S1-K01",
+      "name": "集合的概念",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的概念",
+      "level": "knowledge_point",
+      "prerequisites": [],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S1-K02",
+      "name": "元素的确定性",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S1-K03",
+      "name": "元素的互异性",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S1-K04",
+      "name": "元素的无序性",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S1-K05",
+      "name": "元素与集合的关系(∈/∉)",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S1-K06",
+      "name": "常用数集记号(N/Z/Q/R)",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S1-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S1-K07",
+      "name": "列举法",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S1-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S1-K08",
+      "name": "描述法",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S1-K07"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S2-K01",
+      "name": "子集",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合间的基本关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S1-K08"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S2-K02",
+      "name": "真子集",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合间的基本关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S2-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S2-K03",
+      "name": "集合相等",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合间的基本关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S2-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S2-K04",
+      "name": "空集",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合间的基本关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S2-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S2-K05",
+      "name": "子集个数计算",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合间的基本关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S2-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S2-K06",
+      "name": "韦恩图表示关系",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合间的基本关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S2-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S3-K01",
+      "name": "并集",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的基本运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S2-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S3-K02",
+      "name": "交集",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的基本运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S3-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S3-K03",
+      "name": "补集",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的基本运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S3-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S3-K04",
+      "name": "全集",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的基本运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S3-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S3-K05",
+      "name": "集合运算的性质",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的基本运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S3-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S3-K06",
+      "name": "韦恩图求解运算",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的基本运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S3-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S4-K01",
+      "name": "充分条件",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "充分条件与必要条件",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S3-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S4-K02",
+      "name": "必要条件",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "充分条件与必要条件",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S4-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S4-K03",
+      "name": "充要条件",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "充分条件与必要条件",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S4-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S4-K04",
+      "name": "既不充分也不必要",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "充分条件与必要条件",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S4-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S4-K05",
+      "name": "充分必要条件的判定",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "充分条件与必要条件",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S4-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S4-K06",
+      "name": "集合视角下的充分必要",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "充分条件与必要条件",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S4-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S5-K01",
+      "name": "全称量词",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "全称量词与存在量词",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S4-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S5-K02",
+      "name": "存在量词",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "全称量词与存在量词",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S5-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S5-K03",
+      "name": "全称量词命题的否定",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "全称量词与存在量词",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S5-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C1-S5-K04",
+      "name": "存在量词命题的否定",
+      "book": "必修第一册",
+      "chapter": "集合与常用逻辑用语",
+      "section": "全称量词与存在量词",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S5-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C2-S1-K01",
+      "name": "不等式的基本性质",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "等式性质与不等式性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S5-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C2-S1-K02",
+      "name": "作差法比较大小",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "等式性质与不等式性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C2-S1-K03",
+      "name": "作商法比较大小",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "等式性质与不等式性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C2-S1-K04",
+      "name": "等式的基本性质",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "等式性质与不等式性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C2-S1-K05",
+      "name": "不等式链的传递",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "等式性质与不等式性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S1-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C2-S2-K01",
+      "name": "基本不等式 √(ab)≤(a+b)/2",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "基本不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S1-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C2-S2-K02",
+      "name": "基本不等式的证明",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "基本不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S2-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C2-S2-K03",
+      "name": "利用基本不等式求最值",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "基本不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S2-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C2-S2-K04",
+      "name": "定值条件(一正二定三相等)",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "基本不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S2-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C2-S2-K05",
+      "name": "\"1\"的代换技巧",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "基本不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S2-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C2-S3-K01",
+      "name": "二次函数的图像与性质",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "二次函数与一元二次方程、不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S2-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C2-S3-K02",
+      "name": "一元二次方程根的判别式",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "二次函数与一元二次方程、不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S3-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C2-S3-K03",
+      "name": "韦达定理",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "二次函数与一元二次方程、不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S3-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C2-S3-K04",
+      "name": "一元二次不等式的解法",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "二次函数与一元二次方程、不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S3-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C2-S3-K05",
+      "name": "三个二次的关系",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "二次函数与一元二次方程、不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S3-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C2-S3-K06",
+      "name": "含参一元二次不等式",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "二次函数与一元二次方程、不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S3-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C2-S3-K07",
+      "name": "简单高次不等式(穿根法)",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "二次函数与一元二次方程、不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S3-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C2-S3-K08",
+      "name": "分式不等式",
+      "book": "必修第一册",
+      "chapter": "一元二次函数、方程和不等式",
+      "section": "二次函数与一元二次方程、不等式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C2-S3-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C3-S1-K01",
+      "name": "函数的概念",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的概念及其表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C1-S5-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S1-K02",
+      "name": "函数的定义域",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的概念及其表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S1-K03",
+      "name": "函数的值域",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的概念及其表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S1-K04",
+      "name": "函数解析式的求法",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的概念及其表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S1-K05",
+      "name": "分段函数",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的概念及其表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S1-K06",
+      "name": "函数的图像",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的概念及其表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S1-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S1-K07",
+      "name": "映射的概念",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的概念及其表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S1-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S2-K01",
+      "name": "单调性的定义",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的基本性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S1-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C3-S2-K02",
+      "name": "单调性的判定与证明",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的基本性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S2-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C3-S2-K03",
+      "name": "函数的最大(小)值",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的基本性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S2-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S2-K04",
+      "name": "奇偶性的定义",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的基本性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S2-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S2-K05",
+      "name": "奇偶性的判定",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的基本性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S2-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S2-K06",
+      "name": "周期性的定义",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的基本性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S2-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S2-K07",
+      "name": "函数图像的对称性",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的基本性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S2-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S2-K08",
+      "name": "单调性与奇偶性的综合",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的基本性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S2-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C3-S3-K01",
+      "name": "幂函数的概念",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "幂函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S2-K08"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S3-K02",
+      "name": "五个幂函数的图像与性质",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "幂函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S3-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S3-K03",
+      "name": "幂函数单调性的应用",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "幂函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S3-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C3-S4-K01",
+      "name": "一次/二次函数模型",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的应用(一)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S3-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S4-K02",
+      "name": "分段函数模型",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的应用(一)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S4-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S4-K03",
+      "name": "函数的零点",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的应用(一)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S4-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C3-S4-K04",
+      "name": "零点存在定理",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的应用(一)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S4-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C3-S4-K05",
+      "name": "二分法求近似解",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的应用(一)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S4-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C3-S4-K06",
+      "name": "函数与方程的关系",
+      "book": "必修第一册",
+      "chapter": "函数的概念与性质",
+      "section": "函数的应用(一)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S4-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S1-K01",
+      "name": "根式的概念",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "指数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S4-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S1-K02",
+      "name": "分数指数幂",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "指数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S1-K03",
+      "name": "实数指数幂",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "指数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S1-K04",
+      "name": "指数幂的运算性质",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "指数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S2-K01",
+      "name": "指数函数的概念",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "指数函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S2-K02",
+      "name": "指数函数的图像",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "指数函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S2-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S2-K03",
+      "name": "指数函数的性质",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "指数函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S2-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S2-K04",
+      "name": "指数函数单调性的应用",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "指数函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S2-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C4-S2-K05",
+      "name": "指数型复合函数",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "指数函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S2-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S3-K01",
+      "name": "对数的概念",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "对数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S2-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S3-K02",
+      "name": "对数恒等式",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "对数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S3-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S3-K03",
+      "name": "对数的运算性质",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "对数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S3-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S3-K04",
+      "name": "换底公式",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "对数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S3-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S3-K05",
+      "name": "对数式的化简与求值",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "对数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S3-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S4-K01",
+      "name": "对数函数的概念",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "对数函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S3-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S4-K02",
+      "name": "对数函数的图像与性质",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "对数函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S4-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S4-K03",
+      "name": "反函数",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "对数函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S4-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S4-K04",
+      "name": "指数函数与对数函数的关系",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "对数函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S4-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S4-K05",
+      "name": "对数型复合函数",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "对数函数",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S4-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S5-K01",
+      "name": "指数函数与幂函数增长差异",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "函数的应用(二)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S4-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S5-K02",
+      "name": "对数增长模型",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "函数的应用(二)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S5-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S5-K03",
+      "name": "函数增长快慢的比较",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "函数的应用(二)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S5-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C4-S5-K04",
+      "name": "函数模型的拟合与选择",
+      "book": "必修第一册",
+      "chapter": "指数函数与对数函数",
+      "section": "函数的应用(二)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C4-S5-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S1-K01",
+      "name": "任意角的概念",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "任意角和弧度制",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S4-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S1-K02",
+      "name": "象限角与轴线角",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "任意角和弧度制",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S1-K03",
+      "name": "终边相同的角",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "任意角和弧度制",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S1-K04",
+      "name": "弧度制",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "任意角和弧度制",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S1-K05",
+      "name": "弧度与角度的换算",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "任意角和弧度制",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S1-K06",
+      "name": "弧长公式",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "任意角和弧度制",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S1-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S1-K07",
+      "name": "扇形面积公式",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "任意角和弧度制",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S1-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S2-K01",
+      "name": "单位圆与三角函数定义",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S1-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C5-S2-K02",
+      "name": "三角函数值在各象限的符号",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S2-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C5-S2-K03",
+      "name": "诱导公式一",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S2-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S2-K04",
+      "name": "同角三角函数基本关系(平方关系)",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S2-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C5-S2-K05",
+      "name": "同角三角函数基本关系(商数关系)",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S2-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C5-S2-K06",
+      "name": "sin/cos/tan 的定义域",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S2-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S3-K01",
+      "name": "诱导公式二(π+α)",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "诱导公式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S2-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S3-K02",
+      "name": "诱导公式三(-α)",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "诱导公式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S3-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S3-K03",
+      "name": "诱导公式四(π-α)",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "诱导公式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S3-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S3-K04",
+      "name": "诱导公式五(π/2-α)",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "诱导公式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S3-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S3-K05",
+      "name": "诱导公式六(π/2+α)",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "诱导公式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S3-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S3-K06",
+      "name": "奇变偶不变、符号看象限",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "诱导公式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S3-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S4-K01",
+      "name": "正弦函数的图像",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的图像与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S3-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S4-K02",
+      "name": "正弦函数的性质",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的图像与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S4-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S4-K03",
+      "name": "余弦函数的图像",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的图像与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S4-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S4-K04",
+      "name": "余弦函数的性质",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的图像与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S4-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S4-K05",
+      "name": "正切函数的图像与性质",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的图像与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S4-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S4-K06",
+      "name": "三角函数的周期性",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的图像与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S4-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C5-S4-K07",
+      "name": "三角函数的单调区间",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的图像与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S4-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C5-S4-K08",
+      "name": "三角函数的最值",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的图像与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S4-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C5-S4-K09",
+      "name": "三角函数图像的对称性",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的图像与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S4-K08"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C5-S5-K01",
+      "name": "两角差的余弦公式",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角恒等变换",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S4-K09"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S5-K02",
+      "name": "两角和与差的余弦",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角恒等变换",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S5-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S5-K03",
+      "name": "两角和与差的正弦",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角恒等变换",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S5-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S5-K04",
+      "name": "两角和与差的正切",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角恒等变换",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S5-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S5-K05",
+      "name": "二倍角公式(正弦/余弦/正切)",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角恒等变换",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S5-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S5-K06",
+      "name": "半角公式",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角恒等变换",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S5-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S5-K07",
+      "name": "辅助角公式 asin+bcos",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角恒等变换",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S5-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S5-K08",
+      "name": "和差化积公式",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角恒等变换",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S5-K07"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S5-K09",
+      "name": "积化和差公式",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角恒等变换",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S5-K08"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S5-K10",
+      "name": "三角恒等变换的综合应用",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角恒等变换",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S5-K09"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S6-K01",
+      "name": "图像变换(平移)",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "函数 y=Asin(ωx+φ)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S5-K10"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S6-K02",
+      "name": "图像变换(伸缩)",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "函数 y=Asin(ωx+φ)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S6-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S6-K03",
+      "name": "参数 A 的求法",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "函数 y=Asin(ωx+φ)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S6-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S6-K04",
+      "name": "参数 ω 的求法",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "函数 y=Asin(ωx+φ)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S6-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S6-K05",
+      "name": "参数 φ 的求法",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "函数 y=Asin(ωx+φ)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S6-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S6-K06",
+      "name": "由图像求解析式",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "函数 y=Asin(ωx+φ)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S6-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S7-K01",
+      "name": "简谐运动模型",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S6-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B1-C5-S7-K02",
+      "name": "三角函数在测量中的应用",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S7-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B1-C5-S7-K03",
+      "name": "周期现象建模",
+      "book": "必修第一册",
+      "chapter": "三角函数",
+      "section": "三角函数的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S7-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C1-S1-K01",
+      "name": "向量的概念",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C5-S7-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S1-K02",
+      "name": "向量的几何表示",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S1-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S1-K03",
+      "name": "零向量与单位向量",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S1-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S1-K04",
+      "name": "相等向量",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S1-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S1-K05",
+      "name": "共线(平行)向量",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S1-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S2-K01",
+      "name": "向量的加法(三角形法则)",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S1-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S2-K02",
+      "name": "向量的加法(平行四边形法则)",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S2-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S2-K03",
+      "name": "向量的减法",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S2-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S2-K04",
+      "name": "向量的数乘",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S2-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S2-K05",
+      "name": "向量共线定理",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S2-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S2-K06",
+      "name": "向量的线性运算",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S2-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S3-K01",
+      "name": "平面向量基本定理",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量基本定理及坐标表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S2-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S3-K02",
+      "name": "平面向量的正交分解",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量基本定理及坐标表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S3-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S3-K03",
+      "name": "平面向量的坐标表示",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量基本定理及坐标表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S3-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S3-K04",
+      "name": "向量加/减/数乘的坐标运算",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量基本定理及坐标表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S3-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S3-K05",
+      "name": "向量共线的坐标表示",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量基本定理及坐标表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S3-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S3-K06",
+      "name": "向量垂直的坐标表示",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量基本定理及坐标表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S3-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S3-K07",
+      "name": "向量的模(长度)",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量基本定理及坐标表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S3-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S3-K08",
+      "name": "向量的夹角",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量基本定理及坐标表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S3-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S3-K09",
+      "name": "向量的数量积(点积)",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量基本定理及坐标表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S3-K08"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S3-K10",
+      "name": "投影向量",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量基本定理及坐标表示",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S3-K09"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S4-K01",
+      "name": "平面几何中的向量方法",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S3-K10"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S4-K02",
+      "name": "向量在物理中的应用举例",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S4-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C1-S4-K03",
+      "name": "余弦定理",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S4-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C1-S4-K04",
+      "name": "正弦定理",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S4-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C1-S4-K05",
+      "name": "三角形面积公式",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S4-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C1-S4-K06",
+      "name": "解三角形的实际应用(距离/高度/角度)",
+      "book": "必修第二册",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S4-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C2-S1-K01",
+      "name": "虚数单位 i",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S4-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S1-K02",
+      "name": "复数的概念与代数形式",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S1-K03",
+      "name": "复数的实部与虚部",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S1-K04",
+      "name": "复数相等",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S1-K05",
+      "name": "复平面与复数几何意义",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S1-K06",
+      "name": "共轭复数",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S1-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S1-K07",
+      "name": "复数的模",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S1-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S2-K01",
+      "name": "复数的加法",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S1-K07"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S2-K02",
+      "name": "复数的减法",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S2-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S2-K03",
+      "name": "复数的乘法",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S2-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S2-K04",
+      "name": "复数的除法",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S2-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S2-K05",
+      "name": "复数的乘方",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S2-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S2-K06",
+      "name": "i 的周期性",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S2-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C2-S2-K07",
+      "name": "复数范围内解方程",
+      "book": "必修第二册",
+      "chapter": "复数",
+      "section": "复数的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C2-S2-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S1-K01",
+      "name": "棱柱的结构特征",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "基本立体图形",
+      "level": "knowledge_point",
+      "prerequisites": [],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S1-K02",
+      "name": "棱锥的结构特征",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "基本立体图形",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S1-K03",
+      "name": "棱台的结构特征",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "基本立体图形",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S1-K04",
+      "name": "圆柱的结构特征",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "基本立体图形",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S1-K05",
+      "name": "圆锥的结构特征",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "基本立体图形",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S1-K06",
+      "name": "圆台的结构特征",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "基本立体图形",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S1-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S1-K07",
+      "name": "球的结构特征",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "基本立体图形",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S1-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S1-K08",
+      "name": "简单组合体",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "基本立体图形",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S1-K07"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S2-K01",
+      "name": "斜二测画法",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "立体图形的直观图",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S1-K08"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S2-K02",
+      "name": "直观图与实物图的对应",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "立体图形的直观图",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S2-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S2-K03",
+      "name": "直观图的面积还原",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "立体图形的直观图",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S2-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S3-K01",
+      "name": "柱体的表面积",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "简单几何体的表面积与体积",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S2-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S3-K02",
+      "name": "锥体的表面积",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "简单几何体的表面积与体积",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S3-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S3-K03",
+      "name": "台体的表面积",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "简单几何体的表面积与体积",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S3-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S3-K04",
+      "name": "球的表面积",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "简单几何体的表面积与体积",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S3-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S3-K05",
+      "name": "柱体的体积",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "简单几何体的表面积与体积",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S3-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S3-K06",
+      "name": "锥体的体积",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "简单几何体的表面积与体积",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S3-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S3-K07",
+      "name": "台体的体积",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "简单几何体的表面积与体积",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S3-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S3-K08",
+      "name": "球的体积",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "简单几何体的表面积与体积",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S3-K07"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S4-K01",
+      "name": "平面的基本性质(三个公理)",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "空间点、直线、平面之间的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S3-K08"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S4-K02",
+      "name": "空间中点与直线的位置关系",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "空间点、直线、平面之间的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S4-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S4-K03",
+      "name": "空间中直线与直线的位置关系",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "空间点、直线、平面之间的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S4-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S4-K04",
+      "name": "异面直线及其夹角",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "空间点、直线、平面之间的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S4-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S4-K05",
+      "name": "直线与平面的位置关系",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "空间点、直线、平面之间的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S4-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S4-K06",
+      "name": "平面与平面的位置关系",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "空间点、直线、平面之间的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S4-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S4-K07",
+      "name": "空间图形的公理体系",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "空间点、直线、平面之间的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S4-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S5-K01",
+      "name": "直线与平面平行的判定",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面平行的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S4-K07"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S5-K02",
+      "name": "直线与平面平行的性质",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面平行的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S5-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S5-K03",
+      "name": "平面与平面平行的判定",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面平行的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S5-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S5-K04",
+      "name": "平面与平面平行的性质",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面平行的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S5-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S5-K05",
+      "name": "平行的综合证明",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面平行的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S5-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S6-K01",
+      "name": "直线与平面垂直的判定",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面垂直的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S5-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S6-K02",
+      "name": "直线与平面垂直的性质",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面垂直的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S6-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S6-K03",
+      "name": "平面与平面垂直的判定",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面垂直的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S6-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S6-K04",
+      "name": "平面与平面垂直的性质",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面垂直的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S6-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S6-K05",
+      "name": "三垂线定理",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面垂直的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S6-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S6-K06",
+      "name": "直线与平面所成的角",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面垂直的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S6-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S6-K07",
+      "name": "二面角",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面垂直的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S6-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C3-S6-K08",
+      "name": "距离(点到平面/线到平面)",
+      "book": "必修第二册",
+      "chapter": "立体几何初步",
+      "section": "直线、平面垂直的判定与性质",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S6-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C4-S1-K01",
+      "name": "简单随机抽样",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "随机抽样",
+      "level": "knowledge_point",
+      "prerequisites": [],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S1-K02",
+      "name": "抽签法",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "随机抽样",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S1-K03",
+      "name": "随机数法",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "随机抽样",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S1-K04",
+      "name": "分层随机抽样",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "随机抽样",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S1-K05",
+      "name": "系统抽样",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "随机抽样",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S1-K06",
+      "name": "样本量与代表性",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "随机抽样",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S1-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S2-K01",
+      "name": "频率分布表",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "用样本估计总体",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S1-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S2-K02",
+      "name": "频率分布直方图",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "用样本估计总体",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S2-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S2-K03",
+      "name": "条形图与扇形图",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "用样本估计总体",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S2-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S2-K04",
+      "name": "折线图",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "用样本估计总体",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S2-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S2-K05",
+      "name": "众数/中位数/平均数",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "用样本估计总体",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S2-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S2-K06",
+      "name": "百分位数",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "用样本估计总体",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S2-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S2-K07",
+      "name": "方差与标准差",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "用样本估计总体",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S2-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C4-S2-K08",
+      "name": "用样本估计总体",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "用样本估计总体",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S2-K07"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S3-K01",
+      "name": "统计图表的选择",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "统计分析案例",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S2-K08"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S3-K02",
+      "name": "数据集中趋势的比较",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "统计分析案例",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S3-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S3-K03",
+      "name": "数据离散程度的比较",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "统计分析案例",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S3-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C4-S3-K04",
+      "name": "统计结果的解释与误读",
+      "book": "必修第二册",
+      "chapter": "统计",
+      "section": "统计分析案例",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S3-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S1-K01",
+      "name": "样本点与样本空间",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "随机事件与概率",
+      "level": "knowledge_point",
+      "prerequisites": [],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S1-K02",
+      "name": "随机事件",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "随机事件与概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S1-K03",
+      "name": "事件的关系(包含/相等)",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "随机事件与概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S1-K04",
+      "name": "事件的运算(和/积)",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "随机事件与概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S1-K05",
+      "name": "互斥事件",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "随机事件与概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S1-K06",
+      "name": "对立事件",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "随机事件与概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S1-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S1-K07",
+      "name": "古典概型",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "随机事件与概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S1-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S1-K08",
+      "name": "概率的基本性质",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "随机事件与概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S1-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C5-S2-K01",
+      "name": "相互独立事件",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "事件的相互独立性",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S1-K08"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S2-K02",
+      "name": "独立性的判定",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "事件的相互独立性",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S2-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S2-K03",
+      "name": "独立重复试验",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "事件的相互独立性",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S2-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S2-K04",
+      "name": "独立事件的概率乘法",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "事件的相互独立性",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S2-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C5-S3-K01",
+      "name": "频率的稳定性",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "频率与概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S2-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B2-C5-S3-K02",
+      "name": "用频率估计概率",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "频率与概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S3-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B2-C5-S3-K03",
+      "name": "概率的意义与应用",
+      "book": "必修第二册",
+      "chapter": "概率",
+      "section": "频率与概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C5-S3-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S1-K01",
+      "name": "空间向量的概念",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量及其运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C3-S6-K08",
+        "MA-B2-C1-S4-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S1-K02",
+      "name": "空间向量的加减运算",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量及其运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S1-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S1-K03",
+      "name": "空间向量的数乘",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量及其运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S1-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S1-K04",
+      "name": "共线向量定理",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量及其运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S1-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S1-K05",
+      "name": "空间向量基本定理",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量及其运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S1-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S1-K06",
+      "name": "空间向量的数量积",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量及其运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S1-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S1-K07",
+      "name": "空间向量的坐标表示",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量及其运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S1-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S1-K08",
+      "name": "空间向量运算的坐标表示",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量及其运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S1-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S2-K01",
+      "name": "直线的方向向量",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量在立体几何中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S1-K08"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S2-K02",
+      "name": "平面的法向量",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量在立体几何中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S2-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S2-K03",
+      "name": "用向量证明线面平行",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量在立体几何中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S2-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S2-K04",
+      "name": "用向量证明线面垂直",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量在立体几何中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S2-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S2-K05",
+      "name": "用向量求线线角",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量在立体几何中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S2-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S2-K06",
+      "name": "用向量求线面角",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量在立体几何中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S2-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S2-K07",
+      "name": "用向量求二面角",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量在立体几何中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S2-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S2-K08",
+      "name": "用向量求空间距离",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量在立体几何中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S2-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C1-S2-K09",
+      "name": "坐标法解立体几何综合题",
+      "book": "选择性必修第一册",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量在立体几何中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C1-S2-K08"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C2-S1-K01",
+      "name": "倾斜角",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的倾斜角与斜率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C1-S4-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S1-K02",
+      "name": "斜率",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的倾斜角与斜率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S1-K03",
+      "name": "斜率公式",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的倾斜角与斜率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S1-K04",
+      "name": "两点间斜率",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的倾斜角与斜率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S1-K05",
+      "name": "倾斜角与斜率的关系",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的倾斜角与斜率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S2-K01",
+      "name": "点斜式",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的方程",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S1-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S2-K02",
+      "name": "斜截式",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的方程",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S2-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S2-K03",
+      "name": "两点式",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的方程",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S2-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S2-K04",
+      "name": "截距式",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的方程",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S2-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S2-K05",
+      "name": "一般式",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的方程",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S2-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S2-K06",
+      "name": "直线方程的互化",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的方程",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S2-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S3-K01",
+      "name": "两直线的交点",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的交点坐标与距离公式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S2-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S3-K02",
+      "name": "两点间距离公式",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的交点坐标与距离公式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S3-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C2-S3-K03",
+      "name": "点到直线的距离公式",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的交点坐标与距离公式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S3-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C2-S3-K04",
+      "name": "两平行线间的距离",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的交点坐标与距离公式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S3-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C2-S3-K05",
+      "name": "对称问题(点关于点/直线)",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线的交点坐标与距离公式",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S3-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S4-K01",
+      "name": "圆的标准方程",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "圆的方程",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S3-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S4-K02",
+      "name": "圆的一般方程",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "圆的方程",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S4-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S4-K03",
+      "name": "圆的方程的求法",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "圆的方程",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S4-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S4-K04",
+      "name": "点与圆的位置关系",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "圆的方程",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S4-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S5-K01",
+      "name": "直线与圆的位置判定",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线与圆、圆与圆的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S4-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S5-K02",
+      "name": "弦长问题",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线与圆、圆与圆的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S5-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S5-K03",
+      "name": "切线问题",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线与圆、圆与圆的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S5-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S5-K04",
+      "name": "圆与圆的位置关系",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线与圆、圆与圆的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S5-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S5-K05",
+      "name": "圆的公共弦",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线与圆、圆与圆的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S5-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S5-K06",
+      "name": "直线与圆综合",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "直线与圆、圆与圆的位置关系",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S5-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S6-K01",
+      "name": "空间直角坐标系",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "空间直角坐标系初步",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S5-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S6-K02",
+      "name": "空间点的坐标",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "空间直角坐标系初步",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S6-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C2-S6-K03",
+      "name": "空间两点间距离公式",
+      "book": "选择性必修第一册",
+      "chapter": "直线和圆的方程",
+      "section": "空间直角坐标系初步",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S6-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S1-K01",
+      "name": "椭圆的定义",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "椭圆",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C2-S6-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S1-K02",
+      "name": "椭圆的标准方程",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "椭圆",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S1-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S1-K03",
+      "name": "椭圆的几何性质",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "椭圆",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S1-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S1-K04",
+      "name": "椭圆的离心率",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "椭圆",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S1-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S1-K05",
+      "name": "椭圆的焦点三角形",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "椭圆",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S1-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S1-K06",
+      "name": "直线与椭圆的位置关系",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "椭圆",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S1-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S1-K07",
+      "name": "椭圆的弦长",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "椭圆",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S1-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S2-K01",
+      "name": "双曲线的定义",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "双曲线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S1-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S2-K02",
+      "name": "双曲线的标准方程",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "双曲线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S2-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S2-K03",
+      "name": "双曲线的几何性质",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "双曲线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S2-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S2-K04",
+      "name": "双曲线的离心率",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "双曲线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S2-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S2-K05",
+      "name": "渐近线",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "双曲线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S2-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C3-S2-K06",
+      "name": "等轴双曲线",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "双曲线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S2-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S2-K07",
+      "name": "直线与双曲线的位置关系",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "双曲线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S2-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S3-K01",
+      "name": "抛物线的定义",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "抛物线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S2-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S3-K02",
+      "name": "抛物线的标准方程",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "抛物线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S3-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S3-K03",
+      "name": "抛物线的几何性质",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "抛物线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S3-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S3-K04",
+      "name": "焦点弦",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "抛物线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S3-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C3-S3-K05",
+      "name": "直线与抛物线的位置关系",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "抛物线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S3-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S3-K06",
+      "name": "抛物线的焦点弦性质",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "抛物线",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S3-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S4-K01",
+      "name": "圆锥曲线的第二定义",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "圆锥曲线的统一性质与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S3-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S4-K02",
+      "name": "离心率的统一含义",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "圆锥曲线的统一性质与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S4-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C3-S4-K03",
+      "name": "轨迹方程的求法",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "圆锥曲线的统一性质与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S4-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C3-S4-K04",
+      "name": "定点定值问题",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "圆锥曲线的统一性质与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S4-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B3-C3-S4-K05",
+      "name": "范围与最值问题",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "圆锥曲线的统一性质与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S4-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B3-C3-S4-K06",
+      "name": "圆锥曲线综合(联立韦达)",
+      "book": "选择性必修第一册",
+      "chapter": "圆锥曲线的方程",
+      "section": "圆锥曲线的统一性质与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B3-C3-S4-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S1-K01",
+      "name": "数列的概念",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S4-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S1-K02",
+      "name": "数列的通项公式",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S1-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S1-K03",
+      "name": "数列的递推公式",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S1-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S1-K04",
+      "name": "数列的前 n 项和",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S1-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S1-K05",
+      "name": "an 与 Sn 的关系",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C1-S1-K06",
+      "name": "数列的单调性",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列的概念",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S1-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S2-K01",
+      "name": "等差数列的定义",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等差数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S1-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S2-K02",
+      "name": "等差数列的通项公式",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等差数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S2-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S2-K03",
+      "name": "等差数列的前 n 项和公式",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等差数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S2-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S2-K04",
+      "name": "等差数列的性质",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等差数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S2-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S2-K05",
+      "name": "等差数列的判定",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等差数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S2-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S2-K06",
+      "name": "等差数列的应用",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等差数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S2-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S3-K01",
+      "name": "等比数列的定义",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等比数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S2-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S3-K02",
+      "name": "等比数列的通项公式",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等比数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S3-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S3-K03",
+      "name": "等比数列的前 n 项和公式",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等比数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S3-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S3-K04",
+      "name": "等比数列的性质",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等比数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S3-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S3-K05",
+      "name": "等比数列的判定",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等比数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S3-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S3-K06",
+      "name": "等比数列的应用",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "等比数列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S3-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S4-K01",
+      "name": "公式法求和",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列求和与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S3-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C1-S4-K02",
+      "name": "分组求和",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列求和与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S4-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C1-S4-K03",
+      "name": "错位相减法",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列求和与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S4-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C1-S4-K04",
+      "name": "裂项相消法",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列求和与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S4-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C1-S4-K05",
+      "name": "倒序相加法",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列求和与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S4-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C1-S4-K06",
+      "name": "奇偶项分段求和",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列求和与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S4-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C1-S4-K07",
+      "name": "数列递推求通项",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列求和与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S4-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C1-S4-K08",
+      "name": "数列的综合应用",
+      "book": "选择性必修第二册",
+      "chapter": "数列",
+      "section": "数列求和与综合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C1-S4-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S1-K01",
+      "name": "平均变化率",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的概念及其意义",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B1-C3-S4-K06",
+        "MA-B1-C4-S5-K04",
+        "MA-B1-C5-S7-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C2-S1-K02",
+      "name": "瞬时变化率",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的概念及其意义",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C2-S1-K03",
+      "name": "导数的概念",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的概念及其意义",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S1-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S1-K04",
+      "name": "导数的几何意义",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的概念及其意义",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S1-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S1-K05",
+      "name": "基本初等函数的导数",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的概念及其意义",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S1-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S1-K06",
+      "name": "导数的物理意义",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的概念及其意义",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S1-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S2-K01",
+      "name": "导数的四则运算法则",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S1-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S2-K02",
+      "name": "复合函数的求导法则",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S2-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C2-S2-K03",
+      "name": "常见函数导数公式",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S2-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S2-K04",
+      "name": "求导的综合运算",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的运算",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S2-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C2-S3-K01",
+      "name": "导数与函数单调性",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数在研究函数中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S2-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S3-K02",
+      "name": "导数与函数极值",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数在研究函数中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S3-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S3-K03",
+      "name": "导数与函数最值",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数在研究函数中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S3-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S3-K04",
+      "name": "导数与函数图像",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数在研究函数中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S3-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S3-K05",
+      "name": "含参函数的单调性讨论",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数在研究函数中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S3-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S3-K06",
+      "name": "极值点偏移",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数在研究函数中的应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S3-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S4-K01",
+      "name": "利用导数证明不等式",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的综合应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S3-K06"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S4-K02",
+      "name": "恒成立问题",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的综合应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S4-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C2-S4-K03",
+      "name": "存在性问题",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的综合应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S4-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C2-S4-K04",
+      "name": "零点问题",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的综合应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S4-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S4-K05",
+      "name": "导数与函数零点个数",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的综合应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S4-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S4-K06",
+      "name": "导数在实际问题中的最值应用",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的综合应用",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S4-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B4-C2-S5-K01",
+      "name": "定积分的概念",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "定积分初步(选修拓展)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S4-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C2-S5-K02",
+      "name": "微积分基本定理",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "定积分初步(选修拓展)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S5-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B4-C2-S5-K03",
+      "name": "定积分的简单计算",
+      "book": "选择性必修第二册",
+      "chapter": "一元函数导数及其应用",
+      "section": "定积分初步(选修拓展)",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B4-C2-S5-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S1-K01",
+      "name": "分类加法计数原理",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "分类加法与分步乘法计数原理",
+      "level": "knowledge_point",
+      "prerequisites": [],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S1-K02",
+      "name": "分步乘法计数原理",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "分类加法与分步乘法计数原理",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S1-K03",
+      "name": "两个原理的综合应用",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "分类加法与分步乘法计数原理",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S2-K01",
+      "name": "排列的概念",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "排列与组合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S2-K02",
+      "name": "排列数公式",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "排列与组合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S2-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S2-K03",
+      "name": "组合的概念",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "排列与组合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S2-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S2-K04",
+      "name": "组合数公式",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "排列与组合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S2-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S2-K05",
+      "name": "组合数的性质",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "排列与组合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S2-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S2-K06",
+      "name": "排列组合综合",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "排列与组合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S2-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S2-K07",
+      "name": "捆绑法",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "排列与组合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S2-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S2-K08",
+      "name": "插空法",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "排列与组合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S2-K07"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S2-K09",
+      "name": "隔板法",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "排列与组合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S2-K08"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S2-K10",
+      "name": "分组分配问题",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "排列与组合",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S2-K09"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S3-K01",
+      "name": "二项式定理",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "二项式定理",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S2-K10"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S3-K02",
+      "name": "二项展开式的通项",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "二项式定理",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S3-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S3-K03",
+      "name": "二项式系数的性质",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "二项式定理",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S3-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S3-K04",
+      "name": "系数和与赋值法",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "二项式定理",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S3-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C1-S3-K05",
+      "name": "二项式定理的应用",
+      "book": "选择性必修第三册",
+      "chapter": "计数原理",
+      "section": "二项式定理",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S3-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S1-K01",
+      "name": "条件概率",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "随机事件的条件概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C1-S3-K05",
+        "MA-B2-C5-S3-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C2-S1-K02",
+      "name": "乘法公式",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "随机事件的条件概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S1-K03",
+      "name": "全概率公式",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "随机事件的条件概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S1-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C2-S1-K04",
+      "name": "贝叶斯公式",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "随机事件的条件概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S1-K05",
+      "name": "事件的独立性再认识",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "随机事件的条件概率",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S2-K01",
+      "name": "离散型随机变量",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量及其分布列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S1-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S2-K02",
+      "name": "分布列",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量及其分布列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S2-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S2-K03",
+      "name": "分布列的性质",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量及其分布列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S2-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S2-K04",
+      "name": "两点分布",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量及其分布列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S2-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S2-K05",
+      "name": "超几何分布",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量及其分布列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S2-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S2-K06",
+      "name": "二项分布",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量及其分布列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S2-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C2-S2-K07",
+      "name": "分布列的求解",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量及其分布列",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S2-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S3-K01",
+      "name": "数学期望",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量的数字特征",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S2-K07"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C2-S3-K02",
+      "name": "方差",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量的数字特征",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S3-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C2-S3-K03",
+      "name": "标准差",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量的数字特征",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S3-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S3-K04",
+      "name": "期望与方差的性质",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量的数字特征",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S3-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C2-S3-K05",
+      "name": "二项分布的期望与方差",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量的数字特征",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S3-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C2-S3-K06",
+      "name": "决策与期望最优化",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量的数字特征",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S3-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C2-S4-K01",
+      "name": "正态曲线",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "正态分布",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S3-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S4-K02",
+      "name": "正态分布的性质",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "正态分布",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S4-K01"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C2-S4-K03",
+      "name": "3σ 原则",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "正态分布",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S4-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C2-S4-K04",
+      "name": "正态分布的应用",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "正态分布",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S4-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C2-S4-K05",
+      "name": "标准化",
+      "book": "选择性必修第三册",
+      "chapter": "随机变量及其分布",
+      "section": "正态分布",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C2-S4-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C3-S1-K01",
+      "name": "变量的相关关系",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "成对数据的统计相关性",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B2-C4-S3-K04",
+        "MA-B2-C5-S3-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C3-S1-K02",
+      "name": "散点图",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "成对数据的统计相关性",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S1-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C3-S1-K03",
+      "name": "正相关与负相关",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "成对数据的统计相关性",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S1-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C3-S1-K04",
+      "name": "样本相关系数",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "成对数据的统计相关性",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S1-K03"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C3-S1-K05",
+      "name": "相关性强弱的判定",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "成对数据的统计相关性",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S1-K04"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C3-S2-K01",
+      "name": "一元线性回归模型",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "一元线性回归模型",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S1-K05"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C3-S2-K02",
+      "name": "最小二乘法",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "一元线性回归模型",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S2-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C3-S2-K03",
+      "name": "经验回归方程",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "一元线性回归模型",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S2-K02"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C3-S2-K04",
+      "name": "回归系数的含义",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "一元线性回归模型",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S2-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C3-S2-K05",
+      "name": "利用回归方程预测",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "一元线性回归模型",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S2-K04"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C3-S2-K06",
+      "name": "残差分析",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "一元线性回归模型",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S2-K05"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C3-S3-K01",
+      "name": "分类变量与列联表",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "列联表与独立性检验",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S2-K06"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C3-S3-K02",
+      "name": "2×2 列联表",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "列联表与独立性检验",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S3-K01"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C3-S3-K03",
+      "name": "卡方统计量",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "列联表与独立性检验",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S3-K02"
+      ],
+      "importance": "std"
+    },
+    {
+      "id": "MA-B5-C3-S3-K04",
+      "name": "独立性检验的步骤",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "列联表与独立性检验",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S3-K03"
+      ],
+      "importance": "core"
+    },
+    {
+      "id": "MA-B5-C3-S3-K05",
+      "name": "独立性检验的应用与解释",
+      "book": "选择性必修第三册",
+      "chapter": "成对数据的统计分析",
+      "section": "列联表与独立性检验",
+      "level": "knowledge_point",
+      "prerequisites": [
+        "MA-B5-C3-S3-K04"
+      ],
+      "importance": "core"
+    }
+  ]
+}

@@ -1,0 +1,1742 @@
+[
+ {
+  "kp_code": "MA-B1-C1-S1-K02",
+  "prereq_code": "MA-B1-C1-S1-K01"
+ },
+ {
+  "kp_code": "MA-B1-C1-S1-K03",
+  "prereq_code": "MA-B1-C1-S1-K02"
+ },
+ {
+  "kp_code": "MA-B1-C1-S1-K04",
+  "prereq_code": "MA-B1-C1-S1-K03"
+ },
+ {
+  "kp_code": "MA-B1-C1-S1-K05",
+  "prereq_code": "MA-B1-C1-S1-K04"
+ },
+ {
+  "kp_code": "MA-B1-C1-S1-K06",
+  "prereq_code": "MA-B1-C1-S1-K05"
+ },
+ {
+  "kp_code": "MA-B1-C1-S1-K07",
+  "prereq_code": "MA-B1-C1-S1-K06"
+ },
+ {
+  "kp_code": "MA-B1-C1-S1-K08",
+  "prereq_code": "MA-B1-C1-S1-K07"
+ },
+ {
+  "kp_code": "MA-B1-C1-S2-K01",
+  "prereq_code": "MA-B1-C1-S1-K08"
+ },
+ {
+  "kp_code": "MA-B1-C1-S2-K02",
+  "prereq_code": "MA-B1-C1-S2-K01"
+ },
+ {
+  "kp_code": "MA-B1-C1-S2-K03",
+  "prereq_code": "MA-B1-C1-S2-K02"
+ },
+ {
+  "kp_code": "MA-B1-C1-S2-K04",
+  "prereq_code": "MA-B1-C1-S2-K03"
+ },
+ {
+  "kp_code": "MA-B1-C1-S2-K05",
+  "prereq_code": "MA-B1-C1-S2-K04"
+ },
+ {
+  "kp_code": "MA-B1-C1-S2-K06",
+  "prereq_code": "MA-B1-C1-S2-K05"
+ },
+ {
+  "kp_code": "MA-B1-C1-S3-K01",
+  "prereq_code": "MA-B1-C1-S2-K06"
+ },
+ {
+  "kp_code": "MA-B1-C1-S3-K02",
+  "prereq_code": "MA-B1-C1-S3-K01"
+ },
+ {
+  "kp_code": "MA-B1-C1-S3-K03",
+  "prereq_code": "MA-B1-C1-S3-K02"
+ },
+ {
+  "kp_code": "MA-B1-C1-S3-K04",
+  "prereq_code": "MA-B1-C1-S3-K03"
+ },
+ {
+  "kp_code": "MA-B1-C1-S3-K05",
+  "prereq_code": "MA-B1-C1-S3-K04"
+ },
+ {
+  "kp_code": "MA-B1-C1-S3-K06",
+  "prereq_code": "MA-B1-C1-S3-K05"
+ },
+ {
+  "kp_code": "MA-B1-C1-S4-K01",
+  "prereq_code": "MA-B1-C1-S3-K06"
+ },
+ {
+  "kp_code": "MA-B1-C1-S4-K02",
+  "prereq_code": "MA-B1-C1-S4-K01"
+ },
+ {
+  "kp_code": "MA-B1-C1-S4-K03",
+  "prereq_code": "MA-B1-C1-S4-K02"
+ },
+ {
+  "kp_code": "MA-B1-C1-S4-K04",
+  "prereq_code": "MA-B1-C1-S4-K03"
+ },
+ {
+  "kp_code": "MA-B1-C1-S4-K05",
+  "prereq_code": "MA-B1-C1-S4-K04"
+ },
+ {
+  "kp_code": "MA-B1-C1-S4-K06",
+  "prereq_code": "MA-B1-C1-S4-K05"
+ },
+ {
+  "kp_code": "MA-B1-C1-S5-K01",
+  "prereq_code": "MA-B1-C1-S4-K06"
+ },
+ {
+  "kp_code": "MA-B1-C1-S5-K02",
+  "prereq_code": "MA-B1-C1-S5-K01"
+ },
+ {
+  "kp_code": "MA-B1-C1-S5-K03",
+  "prereq_code": "MA-B1-C1-S5-K02"
+ },
+ {
+  "kp_code": "MA-B1-C1-S5-K04",
+  "prereq_code": "MA-B1-C1-S5-K03"
+ },
+ {
+  "kp_code": "MA-B1-C2-S1-K01",
+  "prereq_code": "MA-B1-C1-S5-K04"
+ },
+ {
+  "kp_code": "MA-B1-C2-S1-K02",
+  "prereq_code": "MA-B1-C2-S1-K01"
+ },
+ {
+  "kp_code": "MA-B1-C2-S1-K03",
+  "prereq_code": "MA-B1-C2-S1-K02"
+ },
+ {
+  "kp_code": "MA-B1-C2-S1-K04",
+  "prereq_code": "MA-B1-C2-S1-K03"
+ },
+ {
+  "kp_code": "MA-B1-C2-S1-K05",
+  "prereq_code": "MA-B1-C2-S1-K04"
+ },
+ {
+  "kp_code": "MA-B1-C2-S2-K01",
+  "prereq_code": "MA-B1-C2-S1-K05"
+ },
+ {
+  "kp_code": "MA-B1-C2-S2-K02",
+  "prereq_code": "MA-B1-C2-S2-K01"
+ },
+ {
+  "kp_code": "MA-B1-C2-S2-K03",
+  "prereq_code": "MA-B1-C2-S2-K02"
+ },
+ {
+  "kp_code": "MA-B1-C2-S2-K04",
+  "prereq_code": "MA-B1-C2-S2-K03"
+ },
+ {
+  "kp_code": "MA-B1-C2-S2-K05",
+  "prereq_code": "MA-B1-C2-S2-K04"
+ },
+ {
+  "kp_code": "MA-B1-C2-S3-K01",
+  "prereq_code": "MA-B1-C2-S2-K05"
+ },
+ {
+  "kp_code": "MA-B1-C2-S3-K02",
+  "prereq_code": "MA-B1-C2-S3-K01"
+ },
+ {
+  "kp_code": "MA-B1-C2-S3-K03",
+  "prereq_code": "MA-B1-C2-S3-K02"
+ },
+ {
+  "kp_code": "MA-B1-C2-S3-K04",
+  "prereq_code": "MA-B1-C2-S3-K03"
+ },
+ {
+  "kp_code": "MA-B1-C2-S3-K05",
+  "prereq_code": "MA-B1-C2-S3-K04"
+ },
+ {
+  "kp_code": "MA-B1-C2-S3-K06",
+  "prereq_code": "MA-B1-C2-S3-K05"
+ },
+ {
+  "kp_code": "MA-B1-C2-S3-K07",
+  "prereq_code": "MA-B1-C2-S3-K06"
+ },
+ {
+  "kp_code": "MA-B1-C2-S3-K08",
+  "prereq_code": "MA-B1-C2-S3-K07"
+ },
+ {
+  "kp_code": "MA-B1-C3-S1-K01",
+  "prereq_code": "MA-B1-C1-S5-K04"
+ },
+ {
+  "kp_code": "MA-B1-C3-S1-K02",
+  "prereq_code": "MA-B1-C3-S1-K01"
+ },
+ {
+  "kp_code": "MA-B1-C3-S1-K03",
+  "prereq_code": "MA-B1-C3-S1-K02"
+ },
+ {
+  "kp_code": "MA-B1-C3-S1-K04",
+  "prereq_code": "MA-B1-C3-S1-K03"
+ },
+ {
+  "kp_code": "MA-B1-C3-S1-K05",
+  "prereq_code": "MA-B1-C3-S1-K04"
+ },
+ {
+  "kp_code": "MA-B1-C3-S1-K06",
+  "prereq_code": "MA-B1-C3-S1-K05"
+ },
+ {
+  "kp_code": "MA-B1-C3-S1-K07",
+  "prereq_code": "MA-B1-C3-S1-K06"
+ },
+ {
+  "kp_code": "MA-B1-C3-S2-K01",
+  "prereq_code": "MA-B1-C3-S1-K07"
+ },
+ {
+  "kp_code": "MA-B1-C3-S2-K02",
+  "prereq_code": "MA-B1-C3-S2-K01"
+ },
+ {
+  "kp_code": "MA-B1-C3-S2-K03",
+  "prereq_code": "MA-B1-C3-S2-K02"
+ },
+ {
+  "kp_code": "MA-B1-C3-S2-K04",
+  "prereq_code": "MA-B1-C3-S2-K03"
+ },
+ {
+  "kp_code": "MA-B1-C3-S2-K05",
+  "prereq_code": "MA-B1-C3-S2-K04"
+ },
+ {
+  "kp_code": "MA-B1-C3-S2-K06",
+  "prereq_code": "MA-B1-C3-S2-K05"
+ },
+ {
+  "kp_code": "MA-B1-C3-S2-K07",
+  "prereq_code": "MA-B1-C3-S2-K06"
+ },
+ {
+  "kp_code": "MA-B1-C3-S2-K08",
+  "prereq_code": "MA-B1-C3-S2-K07"
+ },
+ {
+  "kp_code": "MA-B1-C3-S3-K01",
+  "prereq_code": "MA-B1-C3-S2-K08"
+ },
+ {
+  "kp_code": "MA-B1-C3-S3-K02",
+  "prereq_code": "MA-B1-C3-S3-K01"
+ },
+ {
+  "kp_code": "MA-B1-C3-S3-K03",
+  "prereq_code": "MA-B1-C3-S3-K02"
+ },
+ {
+  "kp_code": "MA-B1-C3-S4-K01",
+  "prereq_code": "MA-B1-C3-S3-K03"
+ },
+ {
+  "kp_code": "MA-B1-C3-S4-K02",
+  "prereq_code": "MA-B1-C3-S4-K01"
+ },
+ {
+  "kp_code": "MA-B1-C3-S4-K03",
+  "prereq_code": "MA-B1-C3-S4-K02"
+ },
+ {
+  "kp_code": "MA-B1-C3-S4-K04",
+  "prereq_code": "MA-B1-C3-S4-K03"
+ },
+ {
+  "kp_code": "MA-B1-C3-S4-K05",
+  "prereq_code": "MA-B1-C3-S4-K04"
+ },
+ {
+  "kp_code": "MA-B1-C3-S4-K06",
+  "prereq_code": "MA-B1-C3-S4-K05"
+ },
+ {
+  "kp_code": "MA-B1-C4-S1-K01",
+  "prereq_code": "MA-B1-C3-S4-K06"
+ },
+ {
+  "kp_code": "MA-B1-C4-S1-K02",
+  "prereq_code": "MA-B1-C4-S1-K01"
+ },
+ {
+  "kp_code": "MA-B1-C4-S1-K03",
+  "prereq_code": "MA-B1-C4-S1-K02"
+ },
+ {
+  "kp_code": "MA-B1-C4-S1-K04",
+  "prereq_code": "MA-B1-C4-S1-K03"
+ },
+ {
+  "kp_code": "MA-B1-C4-S2-K01",
+  "prereq_code": "MA-B1-C4-S1-K04"
+ },
+ {
+  "kp_code": "MA-B1-C4-S2-K02",
+  "prereq_code": "MA-B1-C4-S2-K01"
+ },
+ {
+  "kp_code": "MA-B1-C4-S2-K03",
+  "prereq_code": "MA-B1-C4-S2-K02"
+ },
+ {
+  "kp_code": "MA-B1-C4-S2-K04",
+  "prereq_code": "MA-B1-C4-S2-K03"
+ },
+ {
+  "kp_code": "MA-B1-C4-S2-K05",
+  "prereq_code": "MA-B1-C4-S2-K04"
+ },
+ {
+  "kp_code": "MA-B1-C4-S3-K01",
+  "prereq_code": "MA-B1-C4-S2-K05"
+ },
+ {
+  "kp_code": "MA-B1-C4-S3-K02",
+  "prereq_code": "MA-B1-C4-S3-K01"
+ },
+ {
+  "kp_code": "MA-B1-C4-S3-K03",
+  "prereq_code": "MA-B1-C4-S3-K02"
+ },
+ {
+  "kp_code": "MA-B1-C4-S3-K04",
+  "prereq_code": "MA-B1-C4-S3-K03"
+ },
+ {
+  "kp_code": "MA-B1-C4-S3-K05",
+  "prereq_code": "MA-B1-C4-S3-K04"
+ },
+ {
+  "kp_code": "MA-B1-C4-S4-K01",
+  "prereq_code": "MA-B1-C4-S3-K05"
+ },
+ {
+  "kp_code": "MA-B1-C4-S4-K02",
+  "prereq_code": "MA-B1-C4-S4-K01"
+ },
+ {
+  "kp_code": "MA-B1-C4-S4-K03",
+  "prereq_code": "MA-B1-C4-S4-K02"
+ },
+ {
+  "kp_code": "MA-B1-C4-S4-K04",
+  "prereq_code": "MA-B1-C4-S4-K03"
+ },
+ {
+  "kp_code": "MA-B1-C4-S4-K05",
+  "prereq_code": "MA-B1-C4-S4-K04"
+ },
+ {
+  "kp_code": "MA-B1-C4-S5-K01",
+  "prereq_code": "MA-B1-C4-S4-K05"
+ },
+ {
+  "kp_code": "MA-B1-C4-S5-K02",
+  "prereq_code": "MA-B1-C4-S5-K01"
+ },
+ {
+  "kp_code": "MA-B1-C4-S5-K03",
+  "prereq_code": "MA-B1-C4-S5-K02"
+ },
+ {
+  "kp_code": "MA-B1-C4-S5-K04",
+  "prereq_code": "MA-B1-C4-S5-K03"
+ },
+ {
+  "kp_code": "MA-B1-C5-S1-K01",
+  "prereq_code": "MA-B1-C3-S4-K06"
+ },
+ {
+  "kp_code": "MA-B1-C5-S1-K02",
+  "prereq_code": "MA-B1-C5-S1-K01"
+ },
+ {
+  "kp_code": "MA-B1-C5-S1-K03",
+  "prereq_code": "MA-B1-C5-S1-K02"
+ },
+ {
+  "kp_code": "MA-B1-C5-S1-K04",
+  "prereq_code": "MA-B1-C5-S1-K03"
+ },
+ {
+  "kp_code": "MA-B1-C5-S1-K05",
+  "prereq_code": "MA-B1-C5-S1-K04"
+ },
+ {
+  "kp_code": "MA-B1-C5-S1-K06",
+  "prereq_code": "MA-B1-C5-S1-K05"
+ },
+ {
+  "kp_code": "MA-B1-C5-S1-K07",
+  "prereq_code": "MA-B1-C5-S1-K06"
+ },
+ {
+  "kp_code": "MA-B1-C5-S2-K01",
+  "prereq_code": "MA-B1-C5-S1-K07"
+ },
+ {
+  "kp_code": "MA-B1-C5-S2-K02",
+  "prereq_code": "MA-B1-C5-S2-K01"
+ },
+ {
+  "kp_code": "MA-B1-C5-S2-K03",
+  "prereq_code": "MA-B1-C5-S2-K02"
+ },
+ {
+  "kp_code": "MA-B1-C5-S2-K04",
+  "prereq_code": "MA-B1-C5-S2-K03"
+ },
+ {
+  "kp_code": "MA-B1-C5-S2-K05",
+  "prereq_code": "MA-B1-C5-S2-K04"
+ },
+ {
+  "kp_code": "MA-B1-C5-S2-K06",
+  "prereq_code": "MA-B1-C5-S2-K05"
+ },
+ {
+  "kp_code": "MA-B1-C5-S3-K01",
+  "prereq_code": "MA-B1-C5-S2-K06"
+ },
+ {
+  "kp_code": "MA-B1-C5-S3-K02",
+  "prereq_code": "MA-B1-C5-S3-K01"
+ },
+ {
+  "kp_code": "MA-B1-C5-S3-K03",
+  "prereq_code": "MA-B1-C5-S3-K02"
+ },
+ {
+  "kp_code": "MA-B1-C5-S3-K04",
+  "prereq_code": "MA-B1-C5-S3-K03"
+ },
+ {
+  "kp_code": "MA-B1-C5-S3-K05",
+  "prereq_code": "MA-B1-C5-S3-K04"
+ },
+ {
+  "kp_code": "MA-B1-C5-S3-K06",
+  "prereq_code": "MA-B1-C5-S3-K05"
+ },
+ {
+  "kp_code": "MA-B1-C5-S4-K01",
+  "prereq_code": "MA-B1-C5-S3-K06"
+ },
+ {
+  "kp_code": "MA-B1-C5-S4-K02",
+  "prereq_code": "MA-B1-C5-S4-K01"
+ },
+ {
+  "kp_code": "MA-B1-C5-S4-K03",
+  "prereq_code": "MA-B1-C5-S4-K02"
+ },
+ {
+  "kp_code": "MA-B1-C5-S4-K04",
+  "prereq_code": "MA-B1-C5-S4-K03"
+ },
+ {
+  "kp_code": "MA-B1-C5-S4-K05",
+  "prereq_code": "MA-B1-C5-S4-K04"
+ },
+ {
+  "kp_code": "MA-B1-C5-S4-K06",
+  "prereq_code": "MA-B1-C5-S4-K05"
+ },
+ {
+  "kp_code": "MA-B1-C5-S4-K07",
+  "prereq_code": "MA-B1-C5-S4-K06"
+ },
+ {
+  "kp_code": "MA-B1-C5-S4-K08",
+  "prereq_code": "MA-B1-C5-S4-K07"
+ },
+ {
+  "kp_code": "MA-B1-C5-S4-K09",
+  "prereq_code": "MA-B1-C5-S4-K08"
+ },
+ {
+  "kp_code": "MA-B1-C5-S5-K01",
+  "prereq_code": "MA-B1-C5-S4-K09"
+ },
+ {
+  "kp_code": "MA-B1-C5-S5-K02",
+  "prereq_code": "MA-B1-C5-S5-K01"
+ },
+ {
+  "kp_code": "MA-B1-C5-S5-K03",
+  "prereq_code": "MA-B1-C5-S5-K02"
+ },
+ {
+  "kp_code": "MA-B1-C5-S5-K04",
+  "prereq_code": "MA-B1-C5-S5-K03"
+ },
+ {
+  "kp_code": "MA-B1-C5-S5-K05",
+  "prereq_code": "MA-B1-C5-S5-K04"
+ },
+ {
+  "kp_code": "MA-B1-C5-S5-K06",
+  "prereq_code": "MA-B1-C5-S5-K05"
+ },
+ {
+  "kp_code": "MA-B1-C5-S5-K07",
+  "prereq_code": "MA-B1-C5-S5-K06"
+ },
+ {
+  "kp_code": "MA-B1-C5-S5-K08",
+  "prereq_code": "MA-B1-C5-S5-K07"
+ },
+ {
+  "kp_code": "MA-B1-C5-S5-K09",
+  "prereq_code": "MA-B1-C5-S5-K08"
+ },
+ {
+  "kp_code": "MA-B1-C5-S5-K10",
+  "prereq_code": "MA-B1-C5-S5-K09"
+ },
+ {
+  "kp_code": "MA-B1-C5-S6-K01",
+  "prereq_code": "MA-B1-C5-S5-K10"
+ },
+ {
+  "kp_code": "MA-B1-C5-S6-K02",
+  "prereq_code": "MA-B1-C5-S6-K01"
+ },
+ {
+  "kp_code": "MA-B1-C5-S6-K03",
+  "prereq_code": "MA-B1-C5-S6-K02"
+ },
+ {
+  "kp_code": "MA-B1-C5-S6-K04",
+  "prereq_code": "MA-B1-C5-S6-K03"
+ },
+ {
+  "kp_code": "MA-B1-C5-S6-K05",
+  "prereq_code": "MA-B1-C5-S6-K04"
+ },
+ {
+  "kp_code": "MA-B1-C5-S6-K06",
+  "prereq_code": "MA-B1-C5-S6-K05"
+ },
+ {
+  "kp_code": "MA-B1-C5-S7-K01",
+  "prereq_code": "MA-B1-C5-S6-K06"
+ },
+ {
+  "kp_code": "MA-B1-C5-S7-K02",
+  "prereq_code": "MA-B1-C5-S7-K01"
+ },
+ {
+  "kp_code": "MA-B1-C5-S7-K03",
+  "prereq_code": "MA-B1-C5-S7-K02"
+ },
+ {
+  "kp_code": "MA-B2-C1-S1-K01",
+  "prereq_code": "MA-B1-C5-S7-K03"
+ },
+ {
+  "kp_code": "MA-B2-C1-S1-K02",
+  "prereq_code": "MA-B2-C1-S1-K01"
+ },
+ {
+  "kp_code": "MA-B2-C1-S1-K03",
+  "prereq_code": "MA-B2-C1-S1-K02"
+ },
+ {
+  "kp_code": "MA-B2-C1-S1-K04",
+  "prereq_code": "MA-B2-C1-S1-K03"
+ },
+ {
+  "kp_code": "MA-B2-C1-S1-K05",
+  "prereq_code": "MA-B2-C1-S1-K04"
+ },
+ {
+  "kp_code": "MA-B2-C1-S2-K01",
+  "prereq_code": "MA-B2-C1-S1-K05"
+ },
+ {
+  "kp_code": "MA-B2-C1-S2-K02",
+  "prereq_code": "MA-B2-C1-S2-K01"
+ },
+ {
+  "kp_code": "MA-B2-C1-S2-K03",
+  "prereq_code": "MA-B2-C1-S2-K02"
+ },
+ {
+  "kp_code": "MA-B2-C1-S2-K04",
+  "prereq_code": "MA-B2-C1-S2-K03"
+ },
+ {
+  "kp_code": "MA-B2-C1-S2-K05",
+  "prereq_code": "MA-B2-C1-S2-K04"
+ },
+ {
+  "kp_code": "MA-B2-C1-S2-K06",
+  "prereq_code": "MA-B2-C1-S2-K05"
+ },
+ {
+  "kp_code": "MA-B2-C1-S3-K01",
+  "prereq_code": "MA-B2-C1-S2-K06"
+ },
+ {
+  "kp_code": "MA-B2-C1-S3-K02",
+  "prereq_code": "MA-B2-C1-S3-K01"
+ },
+ {
+  "kp_code": "MA-B2-C1-S3-K03",
+  "prereq_code": "MA-B2-C1-S3-K02"
+ },
+ {
+  "kp_code": "MA-B2-C1-S3-K04",
+  "prereq_code": "MA-B2-C1-S3-K03"
+ },
+ {
+  "kp_code": "MA-B2-C1-S3-K05",
+  "prereq_code": "MA-B2-C1-S3-K04"
+ },
+ {
+  "kp_code": "MA-B2-C1-S3-K06",
+  "prereq_code": "MA-B2-C1-S3-K05"
+ },
+ {
+  "kp_code": "MA-B2-C1-S3-K07",
+  "prereq_code": "MA-B2-C1-S3-K06"
+ },
+ {
+  "kp_code": "MA-B2-C1-S3-K08",
+  "prereq_code": "MA-B2-C1-S3-K07"
+ },
+ {
+  "kp_code": "MA-B2-C1-S3-K09",
+  "prereq_code": "MA-B2-C1-S3-K08"
+ },
+ {
+  "kp_code": "MA-B2-C1-S3-K10",
+  "prereq_code": "MA-B2-C1-S3-K09"
+ },
+ {
+  "kp_code": "MA-B2-C1-S4-K01",
+  "prereq_code": "MA-B2-C1-S3-K10"
+ },
+ {
+  "kp_code": "MA-B2-C1-S4-K02",
+  "prereq_code": "MA-B2-C1-S4-K01"
+ },
+ {
+  "kp_code": "MA-B2-C1-S4-K03",
+  "prereq_code": "MA-B2-C1-S4-K02"
+ },
+ {
+  "kp_code": "MA-B2-C1-S4-K04",
+  "prereq_code": "MA-B2-C1-S4-K03"
+ },
+ {
+  "kp_code": "MA-B2-C1-S4-K05",
+  "prereq_code": "MA-B2-C1-S4-K04"
+ },
+ {
+  "kp_code": "MA-B2-C1-S4-K06",
+  "prereq_code": "MA-B2-C1-S4-K05"
+ },
+ {
+  "kp_code": "MA-B2-C2-S1-K01",
+  "prereq_code": "MA-B2-C1-S4-K06"
+ },
+ {
+  "kp_code": "MA-B2-C2-S1-K02",
+  "prereq_code": "MA-B2-C2-S1-K01"
+ },
+ {
+  "kp_code": "MA-B2-C2-S1-K03",
+  "prereq_code": "MA-B2-C2-S1-K02"
+ },
+ {
+  "kp_code": "MA-B2-C2-S1-K04",
+  "prereq_code": "MA-B2-C2-S1-K03"
+ },
+ {
+  "kp_code": "MA-B2-C2-S1-K05",
+  "prereq_code": "MA-B2-C2-S1-K04"
+ },
+ {
+  "kp_code": "MA-B2-C2-S1-K06",
+  "prereq_code": "MA-B2-C2-S1-K05"
+ },
+ {
+  "kp_code": "MA-B2-C2-S1-K07",
+  "prereq_code": "MA-B2-C2-S1-K06"
+ },
+ {
+  "kp_code": "MA-B2-C2-S2-K01",
+  "prereq_code": "MA-B2-C2-S1-K07"
+ },
+ {
+  "kp_code": "MA-B2-C2-S2-K02",
+  "prereq_code": "MA-B2-C2-S2-K01"
+ },
+ {
+  "kp_code": "MA-B2-C2-S2-K03",
+  "prereq_code": "MA-B2-C2-S2-K02"
+ },
+ {
+  "kp_code": "MA-B2-C2-S2-K04",
+  "prereq_code": "MA-B2-C2-S2-K03"
+ },
+ {
+  "kp_code": "MA-B2-C2-S2-K05",
+  "prereq_code": "MA-B2-C2-S2-K04"
+ },
+ {
+  "kp_code": "MA-B2-C2-S2-K06",
+  "prereq_code": "MA-B2-C2-S2-K05"
+ },
+ {
+  "kp_code": "MA-B2-C2-S2-K07",
+  "prereq_code": "MA-B2-C2-S2-K06"
+ },
+ {
+  "kp_code": "MA-B2-C3-S1-K02",
+  "prereq_code": "MA-B2-C3-S1-K01"
+ },
+ {
+  "kp_code": "MA-B2-C3-S1-K03",
+  "prereq_code": "MA-B2-C3-S1-K02"
+ },
+ {
+  "kp_code": "MA-B2-C3-S1-K04",
+  "prereq_code": "MA-B2-C3-S1-K03"
+ },
+ {
+  "kp_code": "MA-B2-C3-S1-K05",
+  "prereq_code": "MA-B2-C3-S1-K04"
+ },
+ {
+  "kp_code": "MA-B2-C3-S1-K06",
+  "prereq_code": "MA-B2-C3-S1-K05"
+ },
+ {
+  "kp_code": "MA-B2-C3-S1-K07",
+  "prereq_code": "MA-B2-C3-S1-K06"
+ },
+ {
+  "kp_code": "MA-B2-C3-S1-K08",
+  "prereq_code": "MA-B2-C3-S1-K07"
+ },
+ {
+  "kp_code": "MA-B2-C3-S2-K01",
+  "prereq_code": "MA-B2-C3-S1-K08"
+ },
+ {
+  "kp_code": "MA-B2-C3-S2-K02",
+  "prereq_code": "MA-B2-C3-S2-K01"
+ },
+ {
+  "kp_code": "MA-B2-C3-S2-K03",
+  "prereq_code": "MA-B2-C3-S2-K02"
+ },
+ {
+  "kp_code": "MA-B2-C3-S3-K01",
+  "prereq_code": "MA-B2-C3-S2-K03"
+ },
+ {
+  "kp_code": "MA-B2-C3-S3-K02",
+  "prereq_code": "MA-B2-C3-S3-K01"
+ },
+ {
+  "kp_code": "MA-B2-C3-S3-K03",
+  "prereq_code": "MA-B2-C3-S3-K02"
+ },
+ {
+  "kp_code": "MA-B2-C3-S3-K04",
+  "prereq_code": "MA-B2-C3-S3-K03"
+ },
+ {
+  "kp_code": "MA-B2-C3-S3-K05",
+  "prereq_code": "MA-B2-C3-S3-K04"
+ },
+ {
+  "kp_code": "MA-B2-C3-S3-K06",
+  "prereq_code": "MA-B2-C3-S3-K05"
+ },
+ {
+  "kp_code": "MA-B2-C3-S3-K07",
+  "prereq_code": "MA-B2-C3-S3-K06"
+ },
+ {
+  "kp_code": "MA-B2-C3-S3-K08",
+  "prereq_code": "MA-B2-C3-S3-K07"
+ },
+ {
+  "kp_code": "MA-B2-C3-S4-K01",
+  "prereq_code": "MA-B2-C3-S3-K08"
+ },
+ {
+  "kp_code": "MA-B2-C3-S4-K02",
+  "prereq_code": "MA-B2-C3-S4-K01"
+ },
+ {
+  "kp_code": "MA-B2-C3-S4-K03",
+  "prereq_code": "MA-B2-C3-S4-K02"
+ },
+ {
+  "kp_code": "MA-B2-C3-S4-K04",
+  "prereq_code": "MA-B2-C3-S4-K03"
+ },
+ {
+  "kp_code": "MA-B2-C3-S4-K05",
+  "prereq_code": "MA-B2-C3-S4-K04"
+ },
+ {
+  "kp_code": "MA-B2-C3-S4-K06",
+  "prereq_code": "MA-B2-C3-S4-K05"
+ },
+ {
+  "kp_code": "MA-B2-C3-S4-K07",
+  "prereq_code": "MA-B2-C3-S4-K06"
+ },
+ {
+  "kp_code": "MA-B2-C3-S5-K01",
+  "prereq_code": "MA-B2-C3-S4-K07"
+ },
+ {
+  "kp_code": "MA-B2-C3-S5-K02",
+  "prereq_code": "MA-B2-C3-S5-K01"
+ },
+ {
+  "kp_code": "MA-B2-C3-S5-K03",
+  "prereq_code": "MA-B2-C3-S5-K02"
+ },
+ {
+  "kp_code": "MA-B2-C3-S5-K04",
+  "prereq_code": "MA-B2-C3-S5-K03"
+ },
+ {
+  "kp_code": "MA-B2-C3-S5-K05",
+  "prereq_code": "MA-B2-C3-S5-K04"
+ },
+ {
+  "kp_code": "MA-B2-C3-S6-K01",
+  "prereq_code": "MA-B2-C3-S5-K05"
+ },
+ {
+  "kp_code": "MA-B2-C3-S6-K02",
+  "prereq_code": "MA-B2-C3-S6-K01"
+ },
+ {
+  "kp_code": "MA-B2-C3-S6-K03",
+  "prereq_code": "MA-B2-C3-S6-K02"
+ },
+ {
+  "kp_code": "MA-B2-C3-S6-K04",
+  "prereq_code": "MA-B2-C3-S6-K03"
+ },
+ {
+  "kp_code": "MA-B2-C3-S6-K05",
+  "prereq_code": "MA-B2-C3-S6-K04"
+ },
+ {
+  "kp_code": "MA-B2-C3-S6-K06",
+  "prereq_code": "MA-B2-C3-S6-K05"
+ },
+ {
+  "kp_code": "MA-B2-C3-S6-K07",
+  "prereq_code": "MA-B2-C3-S6-K06"
+ },
+ {
+  "kp_code": "MA-B2-C3-S6-K08",
+  "prereq_code": "MA-B2-C3-S6-K07"
+ },
+ {
+  "kp_code": "MA-B2-C4-S1-K02",
+  "prereq_code": "MA-B2-C4-S1-K01"
+ },
+ {
+  "kp_code": "MA-B2-C4-S1-K03",
+  "prereq_code": "MA-B2-C4-S1-K02"
+ },
+ {
+  "kp_code": "MA-B2-C4-S1-K04",
+  "prereq_code": "MA-B2-C4-S1-K03"
+ },
+ {
+  "kp_code": "MA-B2-C4-S1-K05",
+  "prereq_code": "MA-B2-C4-S1-K04"
+ },
+ {
+  "kp_code": "MA-B2-C4-S1-K06",
+  "prereq_code": "MA-B2-C4-S1-K05"
+ },
+ {
+  "kp_code": "MA-B2-C4-S2-K01",
+  "prereq_code": "MA-B2-C4-S1-K06"
+ },
+ {
+  "kp_code": "MA-B2-C4-S2-K02",
+  "prereq_code": "MA-B2-C4-S2-K01"
+ },
+ {
+  "kp_code": "MA-B2-C4-S2-K03",
+  "prereq_code": "MA-B2-C4-S2-K02"
+ },
+ {
+  "kp_code": "MA-B2-C4-S2-K04",
+  "prereq_code": "MA-B2-C4-S2-K03"
+ },
+ {
+  "kp_code": "MA-B2-C4-S2-K05",
+  "prereq_code": "MA-B2-C4-S2-K04"
+ },
+ {
+  "kp_code": "MA-B2-C4-S2-K06",
+  "prereq_code": "MA-B2-C4-S2-K05"
+ },
+ {
+  "kp_code": "MA-B2-C4-S2-K07",
+  "prereq_code": "MA-B2-C4-S2-K06"
+ },
+ {
+  "kp_code": "MA-B2-C4-S2-K08",
+  "prereq_code": "MA-B2-C4-S2-K07"
+ },
+ {
+  "kp_code": "MA-B2-C4-S3-K01",
+  "prereq_code": "MA-B2-C4-S2-K08"
+ },
+ {
+  "kp_code": "MA-B2-C4-S3-K02",
+  "prereq_code": "MA-B2-C4-S3-K01"
+ },
+ {
+  "kp_code": "MA-B2-C4-S3-K03",
+  "prereq_code": "MA-B2-C4-S3-K02"
+ },
+ {
+  "kp_code": "MA-B2-C4-S3-K04",
+  "prereq_code": "MA-B2-C4-S3-K03"
+ },
+ {
+  "kp_code": "MA-B2-C5-S1-K02",
+  "prereq_code": "MA-B2-C5-S1-K01"
+ },
+ {
+  "kp_code": "MA-B2-C5-S1-K03",
+  "prereq_code": "MA-B2-C5-S1-K02"
+ },
+ {
+  "kp_code": "MA-B2-C5-S1-K04",
+  "prereq_code": "MA-B2-C5-S1-K03"
+ },
+ {
+  "kp_code": "MA-B2-C5-S1-K05",
+  "prereq_code": "MA-B2-C5-S1-K04"
+ },
+ {
+  "kp_code": "MA-B2-C5-S1-K06",
+  "prereq_code": "MA-B2-C5-S1-K05"
+ },
+ {
+  "kp_code": "MA-B2-C5-S1-K07",
+  "prereq_code": "MA-B2-C5-S1-K06"
+ },
+ {
+  "kp_code": "MA-B2-C5-S1-K08",
+  "prereq_code": "MA-B2-C5-S1-K07"
+ },
+ {
+  "kp_code": "MA-B2-C5-S2-K01",
+  "prereq_code": "MA-B2-C5-S1-K08"
+ },
+ {
+  "kp_code": "MA-B2-C5-S2-K02",
+  "prereq_code": "MA-B2-C5-S2-K01"
+ },
+ {
+  "kp_code": "MA-B2-C5-S2-K03",
+  "prereq_code": "MA-B2-C5-S2-K02"
+ },
+ {
+  "kp_code": "MA-B2-C5-S2-K04",
+  "prereq_code": "MA-B2-C5-S2-K03"
+ },
+ {
+  "kp_code": "MA-B2-C5-S3-K01",
+  "prereq_code": "MA-B2-C5-S2-K04"
+ },
+ {
+  "kp_code": "MA-B2-C5-S3-K02",
+  "prereq_code": "MA-B2-C5-S3-K01"
+ },
+ {
+  "kp_code": "MA-B2-C5-S3-K03",
+  "prereq_code": "MA-B2-C5-S3-K02"
+ },
+ {
+  "kp_code": "MA-B3-C1-S1-K01",
+  "prereq_code": "MA-B2-C3-S6-K08"
+ },
+ {
+  "kp_code": "MA-B3-C1-S1-K01",
+  "prereq_code": "MA-B2-C1-S4-K06"
+ },
+ {
+  "kp_code": "MA-B3-C1-S1-K02",
+  "prereq_code": "MA-B3-C1-S1-K01"
+ },
+ {
+  "kp_code": "MA-B3-C1-S1-K03",
+  "prereq_code": "MA-B3-C1-S1-K02"
+ },
+ {
+  "kp_code": "MA-B3-C1-S1-K04",
+  "prereq_code": "MA-B3-C1-S1-K03"
+ },
+ {
+  "kp_code": "MA-B3-C1-S1-K05",
+  "prereq_code": "MA-B3-C1-S1-K04"
+ },
+ {
+  "kp_code": "MA-B3-C1-S1-K06",
+  "prereq_code": "MA-B3-C1-S1-K05"
+ },
+ {
+  "kp_code": "MA-B3-C1-S1-K07",
+  "prereq_code": "MA-B3-C1-S1-K06"
+ },
+ {
+  "kp_code": "MA-B3-C1-S1-K08",
+  "prereq_code": "MA-B3-C1-S1-K07"
+ },
+ {
+  "kp_code": "MA-B3-C1-S2-K01",
+  "prereq_code": "MA-B3-C1-S1-K08"
+ },
+ {
+  "kp_code": "MA-B3-C1-S2-K02",
+  "prereq_code": "MA-B3-C1-S2-K01"
+ },
+ {
+  "kp_code": "MA-B3-C1-S2-K03",
+  "prereq_code": "MA-B3-C1-S2-K02"
+ },
+ {
+  "kp_code": "MA-B3-C1-S2-K04",
+  "prereq_code": "MA-B3-C1-S2-K03"
+ },
+ {
+  "kp_code": "MA-B3-C1-S2-K05",
+  "prereq_code": "MA-B3-C1-S2-K04"
+ },
+ {
+  "kp_code": "MA-B3-C1-S2-K06",
+  "prereq_code": "MA-B3-C1-S2-K05"
+ },
+ {
+  "kp_code": "MA-B3-C1-S2-K07",
+  "prereq_code": "MA-B3-C1-S2-K06"
+ },
+ {
+  "kp_code": "MA-B3-C1-S2-K08",
+  "prereq_code": "MA-B3-C1-S2-K07"
+ },
+ {
+  "kp_code": "MA-B3-C1-S2-K09",
+  "prereq_code": "MA-B3-C1-S2-K08"
+ },
+ {
+  "kp_code": "MA-B3-C2-S1-K01",
+  "prereq_code": "MA-B2-C1-S4-K06"
+ },
+ {
+  "kp_code": "MA-B3-C2-S1-K02",
+  "prereq_code": "MA-B3-C2-S1-K01"
+ },
+ {
+  "kp_code": "MA-B3-C2-S1-K03",
+  "prereq_code": "MA-B3-C2-S1-K02"
+ },
+ {
+  "kp_code": "MA-B3-C2-S1-K04",
+  "prereq_code": "MA-B3-C2-S1-K03"
+ },
+ {
+  "kp_code": "MA-B3-C2-S1-K05",
+  "prereq_code": "MA-B3-C2-S1-K04"
+ },
+ {
+  "kp_code": "MA-B3-C2-S2-K01",
+  "prereq_code": "MA-B3-C2-S1-K05"
+ },
+ {
+  "kp_code": "MA-B3-C2-S2-K02",
+  "prereq_code": "MA-B3-C2-S2-K01"
+ },
+ {
+  "kp_code": "MA-B3-C2-S2-K03",
+  "prereq_code": "MA-B3-C2-S2-K02"
+ },
+ {
+  "kp_code": "MA-B3-C2-S2-K04",
+  "prereq_code": "MA-B3-C2-S2-K03"
+ },
+ {
+  "kp_code": "MA-B3-C2-S2-K05",
+  "prereq_code": "MA-B3-C2-S2-K04"
+ },
+ {
+  "kp_code": "MA-B3-C2-S2-K06",
+  "prereq_code": "MA-B3-C2-S2-K05"
+ },
+ {
+  "kp_code": "MA-B3-C2-S3-K01",
+  "prereq_code": "MA-B3-C2-S2-K06"
+ },
+ {
+  "kp_code": "MA-B3-C2-S3-K02",
+  "prereq_code": "MA-B3-C2-S3-K01"
+ },
+ {
+  "kp_code": "MA-B3-C2-S3-K03",
+  "prereq_code": "MA-B3-C2-S3-K02"
+ },
+ {
+  "kp_code": "MA-B3-C2-S3-K04",
+  "prereq_code": "MA-B3-C2-S3-K03"
+ },
+ {
+  "kp_code": "MA-B3-C2-S3-K05",
+  "prereq_code": "MA-B3-C2-S3-K04"
+ },
+ {
+  "kp_code": "MA-B3-C2-S4-K01",
+  "prereq_code": "MA-B3-C2-S3-K05"
+ },
+ {
+  "kp_code": "MA-B3-C2-S4-K02",
+  "prereq_code": "MA-B3-C2-S4-K01"
+ },
+ {
+  "kp_code": "MA-B3-C2-S4-K03",
+  "prereq_code": "MA-B3-C2-S4-K02"
+ },
+ {
+  "kp_code": "MA-B3-C2-S4-K04",
+  "prereq_code": "MA-B3-C2-S4-K03"
+ },
+ {
+  "kp_code": "MA-B3-C2-S5-K01",
+  "prereq_code": "MA-B3-C2-S4-K04"
+ },
+ {
+  "kp_code": "MA-B3-C2-S5-K02",
+  "prereq_code": "MA-B3-C2-S5-K01"
+ },
+ {
+  "kp_code": "MA-B3-C2-S5-K03",
+  "prereq_code": "MA-B3-C2-S5-K02"
+ },
+ {
+  "kp_code": "MA-B3-C2-S5-K04",
+  "prereq_code": "MA-B3-C2-S5-K03"
+ },
+ {
+  "kp_code": "MA-B3-C2-S5-K05",
+  "prereq_code": "MA-B3-C2-S5-K04"
+ },
+ {
+  "kp_code": "MA-B3-C2-S5-K06",
+  "prereq_code": "MA-B3-C2-S5-K05"
+ },
+ {
+  "kp_code": "MA-B3-C2-S6-K01",
+  "prereq_code": "MA-B3-C2-S5-K06"
+ },
+ {
+  "kp_code": "MA-B3-C2-S6-K02",
+  "prereq_code": "MA-B3-C2-S6-K01"
+ },
+ {
+  "kp_code": "MA-B3-C2-S6-K03",
+  "prereq_code": "MA-B3-C2-S6-K02"
+ },
+ {
+  "kp_code": "MA-B3-C3-S1-K01",
+  "prereq_code": "MA-B3-C2-S6-K03"
+ },
+ {
+  "kp_code": "MA-B3-C3-S1-K02",
+  "prereq_code": "MA-B3-C3-S1-K01"
+ },
+ {
+  "kp_code": "MA-B3-C3-S1-K03",
+  "prereq_code": "MA-B3-C3-S1-K02"
+ },
+ {
+  "kp_code": "MA-B3-C3-S1-K04",
+  "prereq_code": "MA-B3-C3-S1-K03"
+ },
+ {
+  "kp_code": "MA-B3-C3-S1-K05",
+  "prereq_code": "MA-B3-C3-S1-K04"
+ },
+ {
+  "kp_code": "MA-B3-C3-S1-K06",
+  "prereq_code": "MA-B3-C3-S1-K05"
+ },
+ {
+  "kp_code": "MA-B3-C3-S1-K07",
+  "prereq_code": "MA-B3-C3-S1-K06"
+ },
+ {
+  "kp_code": "MA-B3-C3-S2-K01",
+  "prereq_code": "MA-B3-C3-S1-K07"
+ },
+ {
+  "kp_code": "MA-B3-C3-S2-K02",
+  "prereq_code": "MA-B3-C3-S2-K01"
+ },
+ {
+  "kp_code": "MA-B3-C3-S2-K03",
+  "prereq_code": "MA-B3-C3-S2-K02"
+ },
+ {
+  "kp_code": "MA-B3-C3-S2-K04",
+  "prereq_code": "MA-B3-C3-S2-K03"
+ },
+ {
+  "kp_code": "MA-B3-C3-S2-K05",
+  "prereq_code": "MA-B3-C3-S2-K04"
+ },
+ {
+  "kp_code": "MA-B3-C3-S2-K06",
+  "prereq_code": "MA-B3-C3-S2-K05"
+ },
+ {
+  "kp_code": "MA-B3-C3-S2-K07",
+  "prereq_code": "MA-B3-C3-S2-K06"
+ },
+ {
+  "kp_code": "MA-B3-C3-S3-K01",
+  "prereq_code": "MA-B3-C3-S2-K07"
+ },
+ {
+  "kp_code": "MA-B3-C3-S3-K02",
+  "prereq_code": "MA-B3-C3-S3-K01"
+ },
+ {
+  "kp_code": "MA-B3-C3-S3-K03",
+  "prereq_code": "MA-B3-C3-S3-K02"
+ },
+ {
+  "kp_code": "MA-B3-C3-S3-K04",
+  "prereq_code": "MA-B3-C3-S3-K03"
+ },
+ {
+  "kp_code": "MA-B3-C3-S3-K05",
+  "prereq_code": "MA-B3-C3-S3-K04"
+ },
+ {
+  "kp_code": "MA-B3-C3-S3-K06",
+  "prereq_code": "MA-B3-C3-S3-K05"
+ },
+ {
+  "kp_code": "MA-B3-C3-S4-K01",
+  "prereq_code": "MA-B3-C3-S3-K06"
+ },
+ {
+  "kp_code": "MA-B3-C3-S4-K02",
+  "prereq_code": "MA-B3-C3-S4-K01"
+ },
+ {
+  "kp_code": "MA-B3-C3-S4-K03",
+  "prereq_code": "MA-B3-C3-S4-K02"
+ },
+ {
+  "kp_code": "MA-B3-C3-S4-K04",
+  "prereq_code": "MA-B3-C3-S4-K03"
+ },
+ {
+  "kp_code": "MA-B3-C3-S4-K05",
+  "prereq_code": "MA-B3-C3-S4-K04"
+ },
+ {
+  "kp_code": "MA-B3-C3-S4-K06",
+  "prereq_code": "MA-B3-C3-S4-K05"
+ },
+ {
+  "kp_code": "MA-B4-C1-S1-K01",
+  "prereq_code": "MA-B1-C3-S4-K06"
+ },
+ {
+  "kp_code": "MA-B4-C1-S1-K02",
+  "prereq_code": "MA-B4-C1-S1-K01"
+ },
+ {
+  "kp_code": "MA-B4-C1-S1-K03",
+  "prereq_code": "MA-B4-C1-S1-K02"
+ },
+ {
+  "kp_code": "MA-B4-C1-S1-K04",
+  "prereq_code": "MA-B4-C1-S1-K03"
+ },
+ {
+  "kp_code": "MA-B4-C1-S1-K05",
+  "prereq_code": "MA-B4-C1-S1-K04"
+ },
+ {
+  "kp_code": "MA-B4-C1-S1-K06",
+  "prereq_code": "MA-B4-C1-S1-K05"
+ },
+ {
+  "kp_code": "MA-B4-C1-S2-K01",
+  "prereq_code": "MA-B4-C1-S1-K06"
+ },
+ {
+  "kp_code": "MA-B4-C1-S2-K02",
+  "prereq_code": "MA-B4-C1-S2-K01"
+ },
+ {
+  "kp_code": "MA-B4-C1-S2-K03",
+  "prereq_code": "MA-B4-C1-S2-K02"
+ },
+ {
+  "kp_code": "MA-B4-C1-S2-K04",
+  "prereq_code": "MA-B4-C1-S2-K03"
+ },
+ {
+  "kp_code": "MA-B4-C1-S2-K05",
+  "prereq_code": "MA-B4-C1-S2-K04"
+ },
+ {
+  "kp_code": "MA-B4-C1-S2-K06",
+  "prereq_code": "MA-B4-C1-S2-K05"
+ },
+ {
+  "kp_code": "MA-B4-C1-S3-K01",
+  "prereq_code": "MA-B4-C1-S2-K06"
+ },
+ {
+  "kp_code": "MA-B4-C1-S3-K02",
+  "prereq_code": "MA-B4-C1-S3-K01"
+ },
+ {
+  "kp_code": "MA-B4-C1-S3-K03",
+  "prereq_code": "MA-B4-C1-S3-K02"
+ },
+ {
+  "kp_code": "MA-B4-C1-S3-K04",
+  "prereq_code": "MA-B4-C1-S3-K03"
+ },
+ {
+  "kp_code": "MA-B4-C1-S3-K05",
+  "prereq_code": "MA-B4-C1-S3-K04"
+ },
+ {
+  "kp_code": "MA-B4-C1-S3-K06",
+  "prereq_code": "MA-B4-C1-S3-K05"
+ },
+ {
+  "kp_code": "MA-B4-C1-S4-K01",
+  "prereq_code": "MA-B4-C1-S3-K06"
+ },
+ {
+  "kp_code": "MA-B4-C1-S4-K02",
+  "prereq_code": "MA-B4-C1-S4-K01"
+ },
+ {
+  "kp_code": "MA-B4-C1-S4-K03",
+  "prereq_code": "MA-B4-C1-S4-K02"
+ },
+ {
+  "kp_code": "MA-B4-C1-S4-K04",
+  "prereq_code": "MA-B4-C1-S4-K03"
+ },
+ {
+  "kp_code": "MA-B4-C1-S4-K05",
+  "prereq_code": "MA-B4-C1-S4-K04"
+ },
+ {
+  "kp_code": "MA-B4-C1-S4-K06",
+  "prereq_code": "MA-B4-C1-S4-K05"
+ },
+ {
+  "kp_code": "MA-B4-C1-S4-K07",
+  "prereq_code": "MA-B4-C1-S4-K06"
+ },
+ {
+  "kp_code": "MA-B4-C1-S4-K08",
+  "prereq_code": "MA-B4-C1-S4-K07"
+ },
+ {
+  "kp_code": "MA-B4-C2-S1-K01",
+  "prereq_code": "MA-B1-C3-S4-K06"
+ },
+ {
+  "kp_code": "MA-B4-C2-S1-K01",
+  "prereq_code": "MA-B1-C4-S5-K04"
+ },
+ {
+  "kp_code": "MA-B4-C2-S1-K01",
+  "prereq_code": "MA-B1-C5-S7-K03"
+ },
+ {
+  "kp_code": "MA-B4-C2-S1-K02",
+  "prereq_code": "MA-B4-C2-S1-K01"
+ },
+ {
+  "kp_code": "MA-B4-C2-S1-K03",
+  "prereq_code": "MA-B4-C2-S1-K02"
+ },
+ {
+  "kp_code": "MA-B4-C2-S1-K04",
+  "prereq_code": "MA-B4-C2-S1-K03"
+ },
+ {
+  "kp_code": "MA-B4-C2-S1-K05",
+  "prereq_code": "MA-B4-C2-S1-K04"
+ },
+ {
+  "kp_code": "MA-B4-C2-S1-K06",
+  "prereq_code": "MA-B4-C2-S1-K05"
+ },
+ {
+  "kp_code": "MA-B4-C2-S2-K01",
+  "prereq_code": "MA-B4-C2-S1-K06"
+ },
+ {
+  "kp_code": "MA-B4-C2-S2-K02",
+  "prereq_code": "MA-B4-C2-S2-K01"
+ },
+ {
+  "kp_code": "MA-B4-C2-S2-K03",
+  "prereq_code": "MA-B4-C2-S2-K02"
+ },
+ {
+  "kp_code": "MA-B4-C2-S2-K04",
+  "prereq_code": "MA-B4-C2-S2-K03"
+ },
+ {
+  "kp_code": "MA-B4-C2-S3-K01",
+  "prereq_code": "MA-B4-C2-S2-K04"
+ },
+ {
+  "kp_code": "MA-B4-C2-S3-K02",
+  "prereq_code": "MA-B4-C2-S3-K01"
+ },
+ {
+  "kp_code": "MA-B4-C2-S3-K03",
+  "prereq_code": "MA-B4-C2-S3-K02"
+ },
+ {
+  "kp_code": "MA-B4-C2-S3-K04",
+  "prereq_code": "MA-B4-C2-S3-K03"
+ },
+ {
+  "kp_code": "MA-B4-C2-S3-K05",
+  "prereq_code": "MA-B4-C2-S3-K04"
+ },
+ {
+  "kp_code": "MA-B4-C2-S3-K06",
+  "prereq_code": "MA-B4-C2-S3-K05"
+ },
+ {
+  "kp_code": "MA-B4-C2-S4-K01",
+  "prereq_code": "MA-B4-C2-S3-K06"
+ },
+ {
+  "kp_code": "MA-B4-C2-S4-K02",
+  "prereq_code": "MA-B4-C2-S4-K01"
+ },
+ {
+  "kp_code": "MA-B4-C2-S4-K03",
+  "prereq_code": "MA-B4-C2-S4-K02"
+ },
+ {
+  "kp_code": "MA-B4-C2-S4-K04",
+  "prereq_code": "MA-B4-C2-S4-K03"
+ },
+ {
+  "kp_code": "MA-B4-C2-S4-K05",
+  "prereq_code": "MA-B4-C2-S4-K04"
+ },
+ {
+  "kp_code": "MA-B4-C2-S4-K06",
+  "prereq_code": "MA-B4-C2-S4-K05"
+ },
+ {
+  "kp_code": "MA-B4-C2-S5-K01",
+  "prereq_code": "MA-B4-C2-S4-K06"
+ },
+ {
+  "kp_code": "MA-B4-C2-S5-K02",
+  "prereq_code": "MA-B4-C2-S5-K01"
+ },
+ {
+  "kp_code": "MA-B4-C2-S5-K03",
+  "prereq_code": "MA-B4-C2-S5-K02"
+ },
+ {
+  "kp_code": "MA-B5-C1-S1-K02",
+  "prereq_code": "MA-B5-C1-S1-K01"
+ },
+ {
+  "kp_code": "MA-B5-C1-S1-K03",
+  "prereq_code": "MA-B5-C1-S1-K02"
+ },
+ {
+  "kp_code": "MA-B5-C1-S2-K01",
+  "prereq_code": "MA-B5-C1-S1-K03"
+ },
+ {
+  "kp_code": "MA-B5-C1-S2-K02",
+  "prereq_code": "MA-B5-C1-S2-K01"
+ },
+ {
+  "kp_code": "MA-B5-C1-S2-K03",
+  "prereq_code": "MA-B5-C1-S2-K02"
+ },
+ {
+  "kp_code": "MA-B5-C1-S2-K04",
+  "prereq_code": "MA-B5-C1-S2-K03"
+ },
+ {
+  "kp_code": "MA-B5-C1-S2-K05",
+  "prereq_code": "MA-B5-C1-S2-K04"
+ },
+ {
+  "kp_code": "MA-B5-C1-S2-K06",
+  "prereq_code": "MA-B5-C1-S2-K05"
+ },
+ {
+  "kp_code": "MA-B5-C1-S2-K07",
+  "prereq_code": "MA-B5-C1-S2-K06"
+ },
+ {
+  "kp_code": "MA-B5-C1-S2-K08",
+  "prereq_code": "MA-B5-C1-S2-K07"
+ },
+ {
+  "kp_code": "MA-B5-C1-S2-K09",
+  "prereq_code": "MA-B5-C1-S2-K08"
+ },
+ {
+  "kp_code": "MA-B5-C1-S2-K10",
+  "prereq_code": "MA-B5-C1-S2-K09"
+ },
+ {
+  "kp_code": "MA-B5-C1-S3-K01",
+  "prereq_code": "MA-B5-C1-S2-K10"
+ },
+ {
+  "kp_code": "MA-B5-C1-S3-K02",
+  "prereq_code": "MA-B5-C1-S3-K01"
+ },
+ {
+  "kp_code": "MA-B5-C1-S3-K03",
+  "prereq_code": "MA-B5-C1-S3-K02"
+ },
+ {
+  "kp_code": "MA-B5-C1-S3-K04",
+  "prereq_code": "MA-B5-C1-S3-K03"
+ },
+ {
+  "kp_code": "MA-B5-C1-S3-K05",
+  "prereq_code": "MA-B5-C1-S3-K04"
+ },
+ {
+  "kp_code": "MA-B5-C2-S1-K01",
+  "prereq_code": "MA-B5-C1-S3-K05"
+ },
+ {
+  "kp_code": "MA-B5-C2-S1-K01",
+  "prereq_code": "MA-B2-C5-S3-K03"
+ },
+ {
+  "kp_code": "MA-B5-C2-S1-K02",
+  "prereq_code": "MA-B5-C2-S1-K01"
+ },
+ {
+  "kp_code": "MA-B5-C2-S1-K03",
+  "prereq_code": "MA-B5-C2-S1-K02"
+ },
+ {
+  "kp_code": "MA-B5-C2-S1-K04",
+  "prereq_code": "MA-B5-C2-S1-K03"
+ },
+ {
+  "kp_code": "MA-B5-C2-S1-K05",
+  "prereq_code": "MA-B5-C2-S1-K04"
+ },
+ {
+  "kp_code": "MA-B5-C2-S2-K01",
+  "prereq_code": "MA-B5-C2-S1-K05"
+ },
+ {
+  "kp_code": "MA-B5-C2-S2-K02",
+  "prereq_code": "MA-B5-C2-S2-K01"
+ },
+ {
+  "kp_code": "MA-B5-C2-S2-K03",
+  "prereq_code": "MA-B5-C2-S2-K02"
+ },
+ {
+  "kp_code": "MA-B5-C2-S2-K04",
+  "prereq_code": "MA-B5-C2-S2-K03"
+ },
+ {
+  "kp_code": "MA-B5-C2-S2-K05",
+  "prereq_code": "MA-B5-C2-S2-K04"
+ },
+ {
+  "kp_code": "MA-B5-C2-S2-K06",
+  "prereq_code": "MA-B5-C2-S2-K05"
+ },
+ {
+  "kp_code": "MA-B5-C2-S2-K07",
+  "prereq_code": "MA-B5-C2-S2-K06"
+ },
+ {
+  "kp_code": "MA-B5-C2-S3-K01",
+  "prereq_code": "MA-B5-C2-S2-K07"
+ },
+ {
+  "kp_code": "MA-B5-C2-S3-K02",
+  "prereq_code": "MA-B5-C2-S3-K01"
+ },
+ {
+  "kp_code": "MA-B5-C2-S3-K03",
+  "prereq_code": "MA-B5-C2-S3-K02"
+ },
+ {
+  "kp_code": "MA-B5-C2-S3-K04",
+  "prereq_code": "MA-B5-C2-S3-K03"
+ },
+ {
+  "kp_code": "MA-B5-C2-S3-K05",
+  "prereq_code": "MA-B5-C2-S3-K04"
+ },
+ {
+  "kp_code": "MA-B5-C2-S3-K06",
+  "prereq_code": "MA-B5-C2-S3-K05"
+ },
+ {
+  "kp_code": "MA-B5-C2-S4-K01",
+  "prereq_code": "MA-B5-C2-S3-K06"
+ },
+ {
+  "kp_code": "MA-B5-C2-S4-K02",
+  "prereq_code": "MA-B5-C2-S4-K01"
+ },
+ {
+  "kp_code": "MA-B5-C2-S4-K03",
+  "prereq_code": "MA-B5-C2-S4-K02"
+ },
+ {
+  "kp_code": "MA-B5-C2-S4-K04",
+  "prereq_code": "MA-B5-C2-S4-K03"
+ },
+ {
+  "kp_code": "MA-B5-C2-S4-K05",
+  "prereq_code": "MA-B5-C2-S4-K04"
+ },
+ {
+  "kp_code": "MA-B5-C3-S1-K01",
+  "prereq_code": "MA-B2-C4-S3-K04"
+ },
+ {
+  "kp_code": "MA-B5-C3-S1-K01",
+  "prereq_code": "MA-B2-C5-S3-K03"
+ },
+ {
+  "kp_code": "MA-B5-C3-S1-K02",
+  "prereq_code": "MA-B5-C3-S1-K01"
+ },
+ {
+  "kp_code": "MA-B5-C3-S1-K03",
+  "prereq_code": "MA-B5-C3-S1-K02"
+ },
+ {
+  "kp_code": "MA-B5-C3-S1-K04",
+  "prereq_code": "MA-B5-C3-S1-K03"
+ },
+ {
+  "kp_code": "MA-B5-C3-S1-K05",
+  "prereq_code": "MA-B5-C3-S1-K04"
+ },
+ {
+  "kp_code": "MA-B5-C3-S2-K01",
+  "prereq_code": "MA-B5-C3-S1-K05"
+ },
+ {
+  "kp_code": "MA-B5-C3-S2-K02",
+  "prereq_code": "MA-B5-C3-S2-K01"
+ },
+ {
+  "kp_code": "MA-B5-C3-S2-K03",
+  "prereq_code": "MA-B5-C3-S2-K02"
+ },
+ {
+  "kp_code": "MA-B5-C3-S2-K04",
+  "prereq_code": "MA-B5-C3-S2-K03"
+ },
+ {
+  "kp_code": "MA-B5-C3-S2-K05",
+  "prereq_code": "MA-B5-C3-S2-K04"
+ },
+ {
+  "kp_code": "MA-B5-C3-S2-K06",
+  "prereq_code": "MA-B5-C3-S2-K05"
+ },
+ {
+  "kp_code": "MA-B5-C3-S3-K01",
+  "prereq_code": "MA-B5-C3-S2-K06"
+ },
+ {
+  "kp_code": "MA-B5-C3-S3-K02",
+  "prereq_code": "MA-B5-C3-S3-K01"
+ },
+ {
+  "kp_code": "MA-B5-C3-S3-K03",
+  "prereq_code": "MA-B5-C3-S3-K02"
+ },
+ {
+  "kp_code": "MA-B5-C3-S3-K04",
+  "prereq_code": "MA-B5-C3-S3-K03"
+ },
+ {
+  "kp_code": "MA-B5-C3-S3-K05",
+  "prereq_code": "MA-B5-C3-S3-K04"
+ }
+]

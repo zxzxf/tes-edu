@@ -1,0 +1,1080 @@
+[
+  {
+    "no": 1,
+    "type": "single",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "$(1+5i)i$ 的虚部为（ ）",
+    "options": [
+      "A. $-1$",
+      "B. $0$",
+      "C. $1$",
+      "D. $6$"
+    ],
+    "answer": "C",
+    "analysis": "$(1+5i)i=i+5i^2=-5+i$，虚部为 $1$。",
+    "knowledge_point": "复数",
+    "difficulty": 2,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": true,
+    "kp_chapter": "复数",
+    "kp_primary": {
+      "id": "MA-B2-C2-S1-K03",
+      "name": "复数的实部与虚部",
+      "chapter": "复数",
+      "section": "复数的概念"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B2-C2-S1-K02",
+        "name": "复数的概念与代数形式",
+        "chapter": "复数",
+        "section": "复数的概念"
+      },
+      {
+        "id": "MA-B2-C2-S2-K03",
+        "name": "复数的乘法",
+        "chapter": "复数",
+        "section": "复数的运算"
+      }
+    ],
+    "kp_confidence": "mid",
+    "kp_chapter_top3": {
+      "复数": "coarse"
+    }
+  },
+  {
+    "no": 2,
+    "type": "single",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "已知集合 $U=\\{x\\mid x\\text{是小于 }9\\text{ 的正整数}\\}$，$A=\\{1,3,5\\}$，则 $\\complement_U A$ 中元素的个数为（ ）",
+    "options": [
+      "A. $2$",
+      "B. $3$",
+      "C. $5$",
+      "D. $8$"
+    ],
+    "answer": "C",
+    "analysis": "$U=\\{1,2,3,4,5,6,7,8\\}$，$\\complement_U A=\\{2,4,6,7,8\\}$，共 $5$ 个。",
+    "knowledge_point": "集合",
+    "difficulty": 2,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": true,
+    "kp_chapter": "集合与常用逻辑用语",
+    "kp_primary": {
+      "id": "MA-B1-C1-S1-K01",
+      "name": "集合的概念",
+      "chapter": "集合与常用逻辑用语",
+      "section": "集合的概念"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B1-C1-S3-K02",
+        "name": "交集",
+        "chapter": "集合与常用逻辑用语",
+        "section": "集合的基本运算"
+      },
+      {
+        "id": "MA-B1-C1-S3-K01",
+        "name": "并集",
+        "chapter": "集合与常用逻辑用语",
+        "section": "集合的基本运算"
+      }
+    ],
+    "kp_confidence": "mid",
+    "kp_chapter_top3": {
+      "集合与常用逻辑用语": "coarse"
+    }
+  },
+  {
+    "no": 3,
+    "type": "single",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "已知双曲线 $C$ 的虚轴长是实轴长的 $\\sqrt7$ 倍，则 $C$ 的离心率为（ ）",
+    "options": [
+      "A. $\\sqrt2$",
+      "B. $2$",
+      "C. $\\sqrt7$",
+      "D. $2\\sqrt2$"
+    ],
+    "answer": "D",
+    "analysis": "$2b=\\sqrt7\\cdot2a\\Rightarrow b=\\sqrt7a$，$c=\\sqrt{a^2+b^2}=2\\sqrt2a$，$e=c/a=2\\sqrt2$。",
+    "knowledge_point": "圆锥曲线-双曲线",
+    "difficulty": 3,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": false,
+    "kp_chapter": "圆锥曲线的方程",
+    "kp_primary": {
+      "id": "MA-B3-C3-S2-K04",
+      "name": "双曲线的离心率",
+      "chapter": "圆锥曲线的方程",
+      "section": "双曲线"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B3-C3-S1-K04",
+        "name": "椭圆的离心率",
+        "chapter": "圆锥曲线的方程",
+        "section": "椭圆"
+      },
+      {
+        "id": "MA-B3-C3-S4-K01",
+        "name": "圆锥曲线的第二定义",
+        "chapter": "圆锥曲线的方程",
+        "section": "圆锥曲线的统一性质与综合"
+      },
+      {
+        "id": "MA-B3-C3-S4-K06",
+        "name": "圆锥曲线综合(联立韦达)",
+        "chapter": "圆锥曲线的方程",
+        "section": "圆锥曲线的统一性质与综合"
+      }
+    ],
+    "kp_confidence": "mid",
+    "kp_chapter_top3": {
+      "圆锥曲线的方程": "coarse"
+    }
+  },
+  {
+    "no": 4,
+    "type": "single",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "若点 $(a,0)(a>0)$ 是函数 $y=2\\tan\\!\\left(x-\\dfrac{\\pi}{3}\\right)$ 的图象的一个对称中心，则 $a$ 的最小值为（ ）",
+    "options": [
+      "A. $\\dfrac{\\pi}{6}$",
+      "B. $\\dfrac{\\pi}{3}$",
+      "C. $\\dfrac{\\pi}{2}$",
+      "D. $\\dfrac{4\\pi}{3}$"
+    ],
+    "answer": "B",
+    "analysis": "正切对称中心满足 $x-\\pi/3=k\\pi/2$，$a=\\pi/3+k\\pi/2$；$k=0$ 时最小正值 $a=\\pi/3$。",
+    "knowledge_point": "三角函数",
+    "difficulty": 2,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": false,
+    "kp_chapter": "三角函数",
+    "kp_primary": {
+      "id": "MA-B1-C5-S4-K09",
+      "name": "三角函数图像的对称性",
+      "chapter": "三角函数",
+      "section": "三角函数的图像与性质"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B1-C5-S4-K06",
+        "name": "三角函数的周期性",
+        "chapter": "三角函数",
+        "section": "三角函数的图像与性质"
+      },
+      {
+        "id": "MA-B1-C5-S4-K08",
+        "name": "三角函数的最值",
+        "chapter": "三角函数",
+        "section": "三角函数的图像与性质"
+      },
+      {
+        "id": "MA-B1-C5-S2-K02",
+        "name": "三角函数值在各象限的符号",
+        "chapter": "三角函数",
+        "section": "三角函数的概念"
+      }
+    ],
+    "kp_confidence": "mid",
+    "kp_chapter_top3": {
+      "三角函数": "coarse"
+    }
+  },
+  {
+    "no": 5,
+    "type": "single",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "已知 $f(x)$ 是定义在 $\\mathbb R$ 上且周期为 $2$ 的偶函数，当 $2\\le x\\le 3$ 时，$f(x)=5-2x$，则 $f\\!\\left(-\\dfrac34\\right)=$（ ）",
+    "options": [
+      "A. $-\\dfrac12$",
+      "B. $-\\dfrac14$",
+      "C. $\\dfrac14$",
+      "D. $\\dfrac12$"
+    ],
+    "answer": "A",
+    "analysis": "偶且周期 $2$：$f(-3/4)=f(3/4)=f(11/4)=5-2\\cdot(11/4)=-1/2$。",
+    "knowledge_point": "函数性质",
+    "difficulty": 2,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": true,
+    "kp_chapter": "函数的概念与性质",
+    "kp_primary": {
+      "id": "MA-B1-C3-S2-K06",
+      "name": "周期性的定义",
+      "chapter": "函数的概念与性质",
+      "section": "函数的基本性质"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B1-C3-S1-K01",
+        "name": "函数的概念",
+        "chapter": "函数的概念与性质",
+        "section": "函数的概念及其表示"
+      },
+      {
+        "id": "MA-B1-C3-S1-K02",
+        "name": "函数的定义域",
+        "chapter": "函数的概念与性质",
+        "section": "函数的概念及其表示"
+      },
+      {
+        "id": "MA-B1-C3-S1-K03",
+        "name": "函数的值域",
+        "chapter": "函数的概念与性质",
+        "section": "函数的概念及其表示"
+      }
+    ],
+    "kp_confidence": "mid",
+    "kp_chapter_top3": {
+      "函数的概念与性质": "coarse"
+    }
+  },
+  {
+    "no": 6,
+    "type": "single",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "帆船比赛中，运动员可借助风力计测定风速的大小和方向，测出的结果在航海学中称为视风风速。视风风速对应的向量是真风风速对应的向量与船行风速对应的向量之和，其中船行风速对应的向量与船速对应的向量大小相等、方向相反。图给出了部分风力等级、名称与风速大小的对应关系。已知某帆船运动员在某时刻测得的视风风速对应的向量与船速对应的向量如图所示（线段长度代表速度大小，单位 $\\mathrm{m/s}$），则该时刻的真风为（ ）\n等级 风速大小(m/s) 名称\n2 1.1~3.3 轻风\n3 3.4~5.4 微风\n4 5.5~7.9 和风\n5 8.0~10.1 劲风",
+    "options": [
+      "A. 轻风",
+      "B. 微风",
+      "C. 和风",
+      "D. 劲风"
+    ],
+    "answer": "A",
+    "analysis": "真风向量 = 视风向量 − 船速向量；坐标运算得真风模长约 $1\\sim3.3$，属轻风。",
+    "knowledge_point": "平面向量",
+    "difficulty": 3,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": false,
+    "kp_chapter": "平面向量及其应用",
+    "kp_primary": {
+      "id": "MA-B2-C1-S3-K01",
+      "name": "平面向量基本定理",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量基本定理及坐标表示"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B2-C1-S3-K02",
+        "name": "平面向量的正交分解",
+        "chapter": "平面向量及其应用",
+        "section": "平面向量基本定理及坐标表示"
+      },
+      {
+        "id": "MA-B2-C1-S3-K03",
+        "name": "平面向量的坐标表示",
+        "chapter": "平面向量及其应用",
+        "section": "平面向量基本定理及坐标表示"
+      },
+      {
+        "id": "MA-B2-C1-S3-K04",
+        "name": "向量加/减/数乘的坐标运算",
+        "chapter": "平面向量及其应用",
+        "section": "平面向量基本定理及坐标表示"
+      }
+    ],
+    "kp_confidence": "mid",
+    "kp_chapter_top3": {
+      "平面向量及其应用": "coarse"
+    }
+  },
+  {
+    "no": 7,
+    "type": "single",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "已知圆 $x^2+(y+2)^2=r^2\\ (r>0)$ 上到直线 $y=\\sqrt3x+2$ 的距离为 $1$ 的点有且仅有两个，则 $r$ 的取值范围是（ ）",
+    "options": [
+      "A. $(0,1)$",
+      "B. $(1,3)$",
+      "C. $(3,+\\infty)$",
+      "D. $(0,+\\infty)$"
+    ],
+    "answer": "B",
+    "analysis": "圆心 $(0,-2)$ 到直线距离 $d=2$；圆上到直线距离为 $1$ 的点恰 $2$ 个 $\\iff |r-d|<1 \\iff 1<r<3$。",
+    "knowledge_point": "直线与圆",
+    "difficulty": 3,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": false,
+    "kp_chapter": "直线和圆的方程",
+    "kp_primary": {
+      "id": "MA-B3-C2-S5-K01",
+      "name": "直线与圆的位置判定",
+      "chapter": "直线和圆的方程",
+      "section": "直线与圆、圆与圆的位置关系"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B3-C2-S5-K06",
+        "name": "直线与圆综合",
+        "chapter": "直线和圆的方程",
+        "section": "直线与圆、圆与圆的位置关系"
+      },
+      {
+        "id": "MA-B3-C2-S4-K01",
+        "name": "圆的标准方程",
+        "chapter": "直线和圆的方程",
+        "section": "圆的方程"
+      },
+      {
+        "id": "MA-B3-C2-S5-K03",
+        "name": "切线问题",
+        "chapter": "直线和圆的方程",
+        "section": "直线与圆、圆与圆的位置关系"
+      }
+    ],
+    "kp_confidence": "mid",
+    "kp_chapter_top3": {
+      "直线和圆的方程": "coarse"
+    }
+  },
+  {
+    "no": 8,
+    "type": "single",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "已知 $2+\\log_2x=3+\\log_3y=5+\\log_5z$，则 $x,y,z$ 的大小关系不可能为（ ）",
+    "options": [
+      "A. $x>y>z$",
+      "B. $x>z>y$",
+      "C. $y>x>z$",
+      "D. $y>z>x$"
+    ],
+    "answer": "B",
+    "analysis": "令各式为同一值可得 $x=2^k,y=3^k,z=5^k$ 型关系；逐一检验排序知不可能为 $x>z>y$。",
+    "knowledge_point": "指数对数",
+    "difficulty": 3,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": true,
+    "kp_chapter": "指数函数与对数函数",
+    "kp_primary": {
+      "id": "MA-B1-C4-S3-K03",
+      "name": "对数的运算性质",
+      "chapter": "指数函数与对数函数",
+      "section": "对数"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B1-C4-S4-K02",
+        "name": "对数函数的图像与性质",
+        "chapter": "指数函数与对数函数",
+        "section": "对数函数"
+      },
+      {
+        "id": "MA-B1-C4-S3-K05",
+        "name": "对数式的化简与求值",
+        "chapter": "指数函数与对数函数",
+        "section": "对数"
+      },
+      {
+        "id": "MA-B1-C4-S1-K01",
+        "name": "根式的概念",
+        "chapter": "指数函数与对数函数",
+        "section": "指数"
+      }
+    ],
+    "kp_confidence": "high",
+    "kp_chapter_top3": {
+      "指数函数与对数函数": "coarse"
+    }
+  },
+  {
+    "no": 9,
+    "type": "multi",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "在正三棱柱 $ABC-A_1B_1C_1$ 中，$D$ 为 $BC$ 的中点，则（ ）",
+    "options": [
+      "A. $AD\\perp A_1C$",
+      "B. $B_1C_1\\parallel$ 平面 $AA_1D$",
+      "C. $AD\\parallel A_1B_1$",
+      "D. $CC_1\\perp$ 平面 $AA_1D$"
+    ],
+    "answer": "BC",
+    "analysis": "由正三棱柱性质：$AD\\parallel A_1B_1$（底面对应平行）且 $AD\\subset$ 平面 $AA_1D$ 故 $B_1C_1\\parallel$ 平面 $AA_1D$；$A_1C$ 与 $AD$ 不垂直，$CC_1$ 不垂直平面 $AA_1D$。",
+    "knowledge_point": "立体几何-线面",
+    "difficulty": 3,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": true,
+    "kp_chapter": "立体几何初步",
+    "kp_primary": {
+      "id": "MA-B2-C3-S5-K01",
+      "name": "直线与平面平行的判定",
+      "chapter": "立体几何初步",
+      "section": "直线、平面平行的判定与性质"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B2-C3-S6-K01",
+        "name": "直线与平面垂直的判定",
+        "chapter": "立体几何初步",
+        "section": "直线、平面垂直的判定与性质"
+      },
+      {
+        "id": "MA-B2-C3-S6-K03",
+        "name": "平面与平面垂直的判定",
+        "chapter": "立体几何初步",
+        "section": "直线、平面垂直的判定与性质"
+      },
+      {
+        "id": "MA-B2-C3-S5-K02",
+        "name": "直线与平面平行的性质",
+        "chapter": "立体几何初步",
+        "section": "直线、平面平行的判定与性质"
+      }
+    ],
+    "kp_confidence": "high",
+    "kp_chapter_top3": {
+      "立体几何初步": "coarse"
+    }
+  },
+  {
+    "no": 10,
+    "type": "multi",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "已知抛物线 $C:y^2=6x$ 的焦点为 $F$，过 $F$ 的一条直线交 $C$ 于 $A,B$ 两点，过 $A$ 作直线 $l:x=\\dfrac32$ 的垂线，垂足为 $D$，过 $F$ 且与直线 $AB$ 垂直的直线交 $l$ 于点 $E$，则（ ）",
+    "options": [
+      "A. $|AD|=|AF|$",
+      "B. $|AE|=|AB|$",
+      "C. $|AB|\\ge 6$",
+      "D. $|AE|\\cdot|BE|\\ge 18$"
+    ],
+    "answer": "ACD",
+    "analysis": "抛物线定义得 $|AD|=|AF|$；弦长 $|AB|\\ge 2p=6$；由相似关系可证 $|AE|\\cdot|BE|\\ge 18$。",
+    "knowledge_point": "圆锥曲线-抛物线",
+    "difficulty": 4,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": false,
+    "kp_chapter": "圆锥曲线的方程",
+    "kp_primary": {
+      "id": "MA-B3-C3-S3-K06",
+      "name": "抛物线的焦点弦性质",
+      "chapter": "圆锥曲线的方程",
+      "section": "抛物线"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B3-C3-S3-K04",
+        "name": "焦点弦",
+        "chapter": "圆锥曲线的方程",
+        "section": "抛物线"
+      },
+      {
+        "id": "MA-B3-C3-S4-K01",
+        "name": "圆锥曲线的第二定义",
+        "chapter": "圆锥曲线的方程",
+        "section": "圆锥曲线的统一性质与综合"
+      },
+      {
+        "id": "MA-B3-C3-S4-K06",
+        "name": "圆锥曲线综合(联立韦达)",
+        "chapter": "圆锥曲线的方程",
+        "section": "圆锥曲线的统一性质与综合"
+      }
+    ],
+    "kp_confidence": "mid",
+    "kp_chapter_top3": {
+      "圆锥曲线的方程": "coarse"
+    }
+  },
+  {
+    "no": 11,
+    "type": "multi",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "已知 $\\triangle ABC$ 的面积为 $\\dfrac14$，$\\cos2A+\\cos2B+2\\sin C=2$，$\\cos A\\cos B\\sin C=\\dfrac14$，则（ ）",
+    "options": [
+      "A. $\\sin C=\\sin^2A+\\sin^2B$",
+      "B. $AB=\\sqrt2$",
+      "C. $\\sin A+\\sin B=\\dfrac{\\sqrt6}{2}$",
+      "D. $AC^2+BC^2=3$"
+    ],
+    "answer": "ABC",
+    "analysis": "由条件推得 $\\sin C=\\sin^2A+\\sin^2B$，结合内角和与正弦定理及面积求得 $AB=\\sqrt2$、$\\sin A+\\sin B=\\sqrt6/2$；$AC^2+BC^2\\neq3$。",
+    "knowledge_point": "解三角形",
+    "difficulty": 4,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": true,
+    "kp_chapter": "平面向量及其应用",
+    "kp_primary": {
+      "id": "MA-B2-C1-S4-K04",
+      "name": "正弦定理",
+      "chapter": "平面向量及其应用",
+      "section": "平面向量的应用"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B2-C1-S4-K06",
+        "name": "解三角形的实际应用(距离/高度/角度)",
+        "chapter": "平面向量及其应用",
+        "section": "平面向量的应用"
+      },
+      {
+        "id": "MA-B2-C1-S4-K05",
+        "name": "三角形面积公式",
+        "chapter": "平面向量及其应用",
+        "section": "平面向量的应用"
+      },
+      {
+        "id": "MA-B2-C1-S4-K03",
+        "name": "余弦定理",
+        "chapter": "平面向量及其应用",
+        "section": "平面向量的应用"
+      }
+    ],
+    "kp_confidence": "mid",
+    "kp_chapter_top3": {
+      "平面向量及其应用": "coarse"
+    }
+  },
+  {
+    "no": 12,
+    "type": "fill",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "若直线 $y=2x+5$ 是曲线 $y=e^x+x+a$ 的一条切线，则 $a=$＿＿＿＿＿＿。",
+    "options": "",
+    "answer": "4",
+    "analysis": "切点 $(t,e^t+t+a)$，导数 $e^t+1=2\\Rightarrow t=0$；切点 $(0,1+a)$ 在 $y=2x+5$ 上 $\\Rightarrow 1+a=5\\Rightarrow a=4$。",
+    "knowledge_point": "导数-切线",
+    "difficulty": 3,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": true,
+    "kp_chapter": "一元函数导数及其应用",
+    "kp_primary": {
+      "id": "MA-B4-C2-S1-K04",
+      "name": "导数的几何意义",
+      "chapter": "一元函数导数及其应用",
+      "section": "导数的概念及其意义"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B4-C2-S3-K04",
+        "name": "导数与函数图像",
+        "chapter": "一元函数导数及其应用",
+        "section": "导数在研究函数中的应用"
+      },
+      {
+        "id": "MA-B4-C2-S2-K03",
+        "name": "常见函数导数公式",
+        "chapter": "一元函数导数及其应用",
+        "section": "导数的运算"
+      },
+      {
+        "id": "MA-B4-C2-S1-K03",
+        "name": "导数的概念",
+        "chapter": "一元函数导数及其应用",
+        "section": "导数的概念及其意义"
+      }
+    ],
+    "kp_confidence": "high",
+    "kp_chapter_top3": {
+      "一元函数导数及其应用": "coarse"
+    }
+  },
+  {
+    "no": 13,
+    "type": "fill",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "若一个等比数列的各项均为正数，且前 $4$ 项的和等于 $4$，前 $8$ 项的和等于 $68$，则这个数列的公比等于＿＿＿＿＿＿。",
+    "options": "",
+    "answer": "2",
+    "analysis": "设公比 $q>0$，$S_4=a_1(1-q^4)/(1-q)=4$，$S_8=68$；$S_8/S_4=17=1+q^4\\Rightarrow q^4=16\\Rightarrow q=2$。",
+    "knowledge_point": "数列-等比",
+    "difficulty": 3,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": false,
+    "kp_chapter": "数列",
+    "kp_primary": {
+      "id": "MA-B4-C1-S3-K01",
+      "name": "等比数列的定义",
+      "chapter": "数列",
+      "section": "等比数列"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B4-C1-S3-K02",
+        "name": "等比数列的通项公式",
+        "chapter": "数列",
+        "section": "等比数列"
+      },
+      {
+        "id": "MA-B4-C1-S3-K03",
+        "name": "等比数列的前 n 项和公式",
+        "chapter": "数列",
+        "section": "等比数列"
+      },
+      {
+        "id": "MA-B4-C1-S3-K04",
+        "name": "等比数列的性质",
+        "chapter": "数列",
+        "section": "等比数列"
+      }
+    ],
+    "kp_confidence": "high",
+    "kp_chapter_top3": {
+      "数列": "coarse"
+    }
+  },
+  {
+    "no": 14,
+    "type": "fill",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "有 $5$ 个相同的球，分别标有数字 $1,2,3,4,5$，从中有放回地随机取 $3$ 次，每次取 $1$ 个球。记 $X$ 为这 $5$ 个球中至少被取出 $1$ 次的球的个数，则 $X$ 的数学期望 $E(X)=$＿＿＿＿＿＿。",
+    "options": "",
+    "answer": "$\\dfrac{61}{25}$",
+    "analysis": "$X\\in\\{1,2,3\\}$，分布：$P(X=1)=1/25$，$P(X=2)=12/25$，$P(X=3)=12/25$；$E(X)=1\\cdot\\tfrac1{25}+2\\cdot\\tfrac{12}{25}+3\\cdot\\tfrac{12}{25}=61/25$。",
+    "knowledge_point": "概率-期望",
+    "difficulty": 4,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": false,
+    "kp_chapter": "随机变量及其分布",
+    "kp_primary": {
+      "id": "MA-B5-C2-S3-K01",
+      "name": "数学期望",
+      "chapter": "随机变量及其分布",
+      "section": "离散型随机变量的数字特征"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B5-C2-S2-K02",
+        "name": "分布列",
+        "chapter": "随机变量及其分布",
+        "section": "离散型随机变量及其分布列"
+      },
+      {
+        "id": "MA-B5-C2-S3-K04",
+        "name": "期望与方差的性质",
+        "chapter": "随机变量及其分布",
+        "section": "离散型随机变量的数字特征"
+      },
+      {
+        "id": "MA-B5-C2-S3-K05",
+        "name": "二项分布的期望与方差",
+        "chapter": "随机变量及其分布",
+        "section": "离散型随机变量的数字特征"
+      }
+    ],
+    "kp_confidence": "high",
+    "kp_chapter_top3": {
+      "随机变量及其分布": "coarse"
+    }
+  },
+  {
+    "no": 15,
+    "type": "solve",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "为研究某疾病与超声波检查结果的关系，从做过超声波检查的人群中随机调查了 $1000$ 人，得到如下列联表：\n组别｜超声波检查结果 正常 不正常 合计\n患该疾病｜20 180 200\n未患该疾病｜780 20 800\n合计｜800 200 1000\n（1）记超声波检查结果不正常者患该疾病的概率为 $p$，求 $p$ 的估计值；\n（2）根据小概率值 $\\alpha=0.001$ 的独立性检验，分析超声波检查结果是否与患该疾病有关。\n附：$\\chi^2=\\dfrac{n(ad-bc)^2}{(a+b)(c+d)(a+c)(b+d)}$，$P(\\chi^2\\ge k)$：$0.050\\to3.841$，$0.010\\to6.635$，$0.001\\to10.828$。",
+    "options": "",
+    "answer": "(1) $p=\\dfrac{9}{10}$；(2) $\\chi^2\\approx535.77>10.828$，拒绝零假设，认为有关",
+    "analysis": "(1) $p=180/200=9/10$；(2) $\\chi^2=1000(20\\cdot20-180\\cdot780)^2/(200\\cdot800\\cdot800\\cdot200)\\approx535.77>10.828$，有充分证据认为有关。",
+    "knowledge_point": "统计-独立性检验",
+    "difficulty": 3,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": false,
+    "kp_chapter": "成对数据的统计分析",
+    "kp_primary": {
+      "id": "MA-B5-C3-S3-K04",
+      "name": "独立性检验的步骤",
+      "chapter": "成对数据的统计分析",
+      "section": "列联表与独立性检验"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B5-C3-S3-K02",
+        "name": "2×2 列联表",
+        "chapter": "成对数据的统计分析",
+        "section": "列联表与独立性检验"
+      },
+      {
+        "id": "MA-B5-C3-S3-K05",
+        "name": "独立性检验的应用与解释",
+        "chapter": "成对数据的统计分析",
+        "section": "列联表与独立性检验"
+      },
+      {
+        "id": "MA-B5-C3-S3-K01",
+        "name": "分类变量与列联表",
+        "chapter": "成对数据的统计分析",
+        "section": "列联表与独立性检验"
+      }
+    ],
+    "kp_confidence": "high",
+    "kp_chapter_top3": {
+      "成对数据的统计分析": "coarse"
+    },
+    "sub_questions": [
+      {
+        "sub_no": "1",
+        "text": "（1）记超声波检查结果不正常者患该疾病的概率为 $p$，求 $p$ 的估计值；",
+        "kp_primary": {
+          "id": "MA-B5-C3-S3-K04",
+          "name": "独立性检验的步骤",
+          "chapter": "成对数据的统计分析",
+          "section": "列联表与独立性检验"
+        },
+        "confidence": "mid"
+      },
+      {
+        "sub_no": "2",
+        "text": "（2）根据小概率值 $\\alpha=0.001$ 的独立性检验，分析超声波检查结果是否与患该疾病有关。\n附：$\\chi^2=\\dfrac{n(ad-bc)^2}{(a+b)(c+d)(a+c)(b+d)}$，$P(\\chi^2\\ge k)$：$0.050\\to3.841$，$0.010\\to6.635$，$0.001\\to10.828$。",
+        "kp_primary": {
+          "id": "MA-B5-C3-S3-K04",
+          "name": "独立性检验的步骤",
+          "chapter": "成对数据的统计分析",
+          "section": "列联表与独立性检验"
+        },
+        "confidence": "mid"
+      }
+    ]
+  },
+  {
+    "no": 16,
+    "type": "solve",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "已知数列 $\\{a_n\\}$ 中，$a_1=3$，$\\dfrac{a_{n+1}}{n+1}=\\dfrac{a_n}{n}+\\dfrac{1}{n(n+1)}$。\n（1）证明：数列 $\\left\\{\\dfrac{a_n}{n}\\right\\}$ 是等差数列；\n（2）给定正整数 $m$，设函数 $f(x)=a_1x+a_2x^2+\\cdots+a_mx^m$，求 $f'(2)$。",
+    "options": "",
+    "answer": "(1) 证明见解析；(2) $f'(2)=(4m^2-9m+13)2^m-13$",
+    "analysis": "(1) 令 $b_n=a_n/n$，则 $b_{n+1}-b_n=1/(n(n+1))$，故 $\\{b_n\\}$ 等差；(2) 得 $a_n=4n-1$，$f'(2)=\\sum_{k=1}^m(4k-1)k2^{k-1}=(4m^2-9m+13)2^m-13$。",
+    "knowledge_point": "数列-递推",
+    "difficulty": 4,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": false,
+    "kp_chapter": "数列",
+    "kp_primary": {
+      "id": "MA-B4-C1-S4-K07",
+      "name": "数列递推求通项",
+      "chapter": "数列",
+      "section": "数列求和与综合"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B4-C1-S2-K01",
+        "name": "等差数列的定义",
+        "chapter": "数列",
+        "section": "等差数列"
+      },
+      {
+        "id": "MA-B4-C1-S2-K02",
+        "name": "等差数列的通项公式",
+        "chapter": "数列",
+        "section": "等差数列"
+      },
+      {
+        "id": "MA-B4-C1-S2-K03",
+        "name": "等差数列的前 n 项和公式",
+        "chapter": "数列",
+        "section": "等差数列"
+      }
+    ],
+    "kp_confidence": "high",
+    "kp_chapter_top3": {
+      "数列": "coarse"
+    },
+    "sub_questions": [
+      {
+        "sub_no": "1",
+        "text": "（1）证明：数列 $\\left\\{\\dfrac{a_n}{n}\\right\\}$ 是等差数列；",
+        "kp_primary": {
+          "id": "MA-B4-C1-S2-K01",
+          "name": "等差数列的定义",
+          "chapter": "数列",
+          "section": "等差数列"
+        },
+        "confidence": "high"
+      },
+      {
+        "sub_no": "2",
+        "text": "（2）给定正整数 $m$，设函数 $f(x)=a_1x+a_2x^2+\\cdots+a_mx^m$，求 $f'",
+        "kp_primary": {
+          "id": "MA-B4-C1-S1-K03",
+          "name": "数列的递推公式",
+          "chapter": "数列",
+          "section": "数列的概念"
+        },
+        "confidence": "mid"
+      },
+      {
+        "sub_no": "2",
+        "text": "(2)$。",
+        "kp_primary": {
+          "id": "MA-B4-C1-S1-K03",
+          "name": "数列的递推公式",
+          "chapter": "数列",
+          "section": "数列的概念"
+        },
+        "confidence": "mid"
+      }
+    ]
+  },
+  {
+    "no": 17,
+    "type": "solve",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "如图，在四棱锥 $P-ABCD$ 中，$PA\\perp$ 底面 $ABCD$，$AB\\perp AD$，$BC\\parallel AD$。\n（1）证明：平面 $PAB\\perp$ 平面 $PAD$；\n（2）设 $PA=AB=\\sqrt2$，$BC=2$，$AD=1+\\sqrt3$，且点 $P,B,C,D$ 均在球 $O$ 的球面上。\n（i）证明：点 $O$ 在平面 $ABCD$ 内；\n（ii）求直线 $AC$ 与 $PO$ 所成角的余弦值。",
+    "options": "",
+    "answer": "(1) 证明见解析；(2)(i) 证明见解析；(ii) $\\dfrac{\\sqrt2}{3}$",
+    "analysis": "(2) 建系：$A(0,0,0),B(0,\\sqrt2,0),D(1+\\sqrt3,0,0),C(2,\\sqrt2,0),P(0,0,\\sqrt2)$，由四点到球心等距得 $O(1,0,0)$ 在 $ABCD$ 内；$\\vec{AC}=(2,\\sqrt2,0),\\vec{PO}=(1,0,-\\sqrt2)$，$\\cos=\\dfrac{2}{\\sqrt6\\cdot\\sqrt3}=\\sqrt2/3$。",
+    "knowledge_point": "立体几何-向量",
+    "difficulty": 4,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": true,
+    "kp_chapter": "空间向量与立体几何",
+    "kp_primary": {
+      "id": "MA-B3-C1-S2-K09",
+      "name": "坐标法解立体几何综合题",
+      "chapter": "空间向量与立体几何",
+      "section": "空间向量在立体几何中的应用"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B3-C1-S2-K02",
+        "name": "平面的法向量",
+        "chapter": "空间向量与立体几何",
+        "section": "空间向量在立体几何中的应用"
+      },
+      {
+        "id": "MA-B3-C1-S2-K07",
+        "name": "用向量求二面角",
+        "chapter": "空间向量与立体几何",
+        "section": "空间向量在立体几何中的应用"
+      },
+      {
+        "id": "MA-B3-C1-S1-K01",
+        "name": "空间向量的概念",
+        "chapter": "空间向量与立体几何",
+        "section": "空间向量及其运算"
+      }
+    ],
+    "kp_confidence": "mid",
+    "kp_chapter_top3": {
+      "空间向量与立体几何": "coarse"
+    },
+    "sub_questions": [
+      {
+        "sub_no": "1",
+        "text": "（1）证明：平面 $PAB\\perp$ 平面 $PAD$；",
+        "kp_primary": {
+          "id": "MA-B3-C1-S2-K09",
+          "name": "坐标法解立体几何综合题",
+          "chapter": "空间向量与立体几何",
+          "section": "空间向量在立体几何中的应用"
+        },
+        "confidence": "mid"
+      },
+      {
+        "sub_no": "2",
+        "text": "（2）设 $PA=AB=\\sqrt2$，$BC=2$，$AD=1+\\sqrt3$，且点 $P,B,C,D$ 均在球 $O$ 的球面上。\n（i）证明：点 $O$ 在平面 $ABCD$ 内；\n（ii）求直线 $AC$ 与 $PO$ 所成角的余弦值。",
+        "kp_primary": {
+          "id": "MA-B3-C1-S2-K02",
+          "name": "平面的法向量",
+          "chapter": "空间向量与立体几何",
+          "section": "空间向量在立体几何中的应用"
+        },
+        "confidence": "mid"
+      }
+    ]
+  },
+  {
+    "no": 18,
+    "type": "solve",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "已知椭圆 $C:\\dfrac{x^2}{a^2}+\\dfrac{y^2}{b^2}=1\\ (a>b>0)$ 的离心率为 $\\dfrac{\\sqrt3}{3}$，下顶点为 $A$，右顶点为 $B$，$|AB|=\\sqrt{10}$。\n（1）求 $C$ 的方程；\n（2）已知动点 $P$ 不在 $y$ 轴上，点 $R$ 在射线 $AP$ 上，且满足 $|AP|\\cdot|AR|=3$。\n（i）设 $P(m,n)$，求 $R$ 的坐标（用 $m,n$ 表示）；\n（ii）设 $O$ 为坐标原点，$Q$ 是 $C$ 上的动点，直线 $OR$ 的斜率为直线 $OP$ 的斜率的 $3$ 倍，求 $|PQ|$ 的最大值。",
+    "options": "",
+    "answer": "(1) $\\dfrac{x^2}{6}+\\dfrac{y^2}{4}=1$；(2)(i) $R\\big(\\frac{3m}{m^2+(n+2)^2},\\,-2+\\frac{3(n+2)}{m^2+(n+2)^2}\\big)$；(ii) $3\\sqrt3+3\\sqrt2$",
+    "analysis": "(1) $a^2+b^2=10$，$e^2=c^2/a^2=1/3\\Rightarrow a^2=6,b^2=4$；(2)(i) $R=A+\\frac{3}{|AP|^2}(P-A)$，其中 $A=(0,-2)$；(ii) 由斜率关系得 $P$ 轨迹圆，点到圆最值 $|PQ|_{\\max}=3\\sqrt3+3\\sqrt2$。",
+    "knowledge_point": "圆锥曲线-椭圆",
+    "difficulty": 5,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": false,
+    "kp_chapter": "圆锥曲线的方程",
+    "kp_primary": {
+      "id": "MA-B3-C3-S1-K04",
+      "name": "椭圆的离心率",
+      "chapter": "圆锥曲线的方程",
+      "section": "椭圆"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B3-C3-S2-K04",
+        "name": "双曲线的离心率",
+        "chapter": "圆锥曲线的方程",
+        "section": "双曲线"
+      },
+      {
+        "id": "MA-B3-C3-S4-K01",
+        "name": "圆锥曲线的第二定义",
+        "chapter": "圆锥曲线的方程",
+        "section": "圆锥曲线的统一性质与综合"
+      },
+      {
+        "id": "MA-B3-C3-S4-K06",
+        "name": "圆锥曲线综合(联立韦达)",
+        "chapter": "圆锥曲线的方程",
+        "section": "圆锥曲线的统一性质与综合"
+      }
+    ],
+    "kp_confidence": "mid",
+    "kp_chapter_top3": {
+      "圆锥曲线的方程": "coarse"
+    },
+    "sub_questions": [
+      {
+        "sub_no": "1",
+        "text": "（1）求 $C$ 的方程；",
+        "kp_primary": {
+          "id": "MA-B3-C3-S4-K01",
+          "name": "圆锥曲线的第二定义",
+          "chapter": "圆锥曲线的方程",
+          "section": "圆锥曲线的统一性质与综合"
+        },
+        "confidence": "mid"
+      },
+      {
+        "sub_no": "2",
+        "text": "（2）已知动点 $P$ 不在 $y$ 轴上，点 $R$ 在射线 $AP$ 上，且满足 $|AP|\\cdot|AR|=3$。\n（i）设 $P(m,n)$，求 $R$ 的坐标（用 $m,n$ 表示）；\n（ii）设 $O$ 为坐标原点，$Q$ 是 $C$ 上的动点，直线 $OR$ 的斜率为直线 $OP$ 的斜率的 $3$ 倍，求 $|PQ|$ 的最大值。",
+        "kp_primary": {
+          "id": "MA-B3-C3-S4-K01",
+          "name": "圆锥曲线的第二定义",
+          "chapter": "圆锥曲线的方程",
+          "section": "圆锥曲线的统一性质与综合"
+        },
+        "confidence": "mid"
+      }
+    ]
+  },
+  {
+    "no": 19,
+    "type": "solve",
+    "subject": "数学",
+    "paper": "新高考I卷",
+    "year": 2025,
+    "province": "河南",
+    "stem": "（1）求函数 $f(x)=5\\cos x\\cos 5x$ 在区间 $\\left[0,\\dfrac{\\pi}{4}\\right]$ 的最大值；\n（2）给定 $\\theta\\in(0,\\pi)$ 和 $a\\in\\mathbb R$，证明：存在 $y\\in[a-\\theta,a+\\theta]$ 使得 $\\cos y\\le\\cos\\theta$；\n（3）设 $b\\in\\mathbb R$，若存在 $\\varphi\\in\\mathbb R$ 使得 $5\\cos x\\cos(5x+\\varphi)\\le b$ 对任意 $x\\in\\mathbb R$ 恒成立，求 $b$ 的最小值。",
+    "options": "",
+    "answer": "(1) $5$；(2) 证明见解析；(3) $3\\sqrt3$",
+    "analysis": "(1) $5\\cos x\\cos5x\\le5$ 且 $f(0)=5$，最大值为 $5$；(3) 取特值可得 $b\\ge3\\sqrt3$，且 $b=3\\sqrt3$ 时取 $\\varphi=0$ 可满足，故 $b_{\\min}=3\\sqrt3$。",
+    "knowledge_point": "三角函数-最值",
+    "difficulty": 5,
+    "source_file": "本地官方PDF + 21cnjy + 多源官方PDF核验",
+    "need_review": false,
+    "kp_chapter": "三角函数",
+    "kp_primary": {
+      "id": "MA-B1-C5-S4-K08",
+      "name": "三角函数的最值",
+      "chapter": "三角函数",
+      "section": "三角函数的图像与性质"
+    },
+    "kp_secondary": [
+      {
+        "id": "MA-B1-C5-S2-K02",
+        "name": "三角函数值在各象限的符号",
+        "chapter": "三角函数",
+        "section": "三角函数的概念"
+      },
+      {
+        "id": "MA-B1-C5-S4-K06",
+        "name": "三角函数的周期性",
+        "chapter": "三角函数",
+        "section": "三角函数的图像与性质"
+      },
+      {
+        "id": "MA-B1-C5-S4-K07",
+        "name": "三角函数的单调区间",
+        "chapter": "三角函数",
+        "section": "三角函数的图像与性质"
+      }
+    ],
+    "kp_confidence": "high",
+    "kp_chapter_top3": {
+      "三角函数": "coarse"
+    },
+    "sub_questions": [
+      {
+        "sub_no": "1",
+        "text": "（1）求函数 $f(x)=5\\cos x\\cos 5x$ 在区间 $\\left[0,\\dfrac{\\pi}{4}\\right]$ 的最大值；",
+        "kp_primary": {
+          "id": "MA-B1-C5-S4-K08",
+          "name": "三角函数的最值",
+          "chapter": "三角函数",
+          "section": "三角函数的图像与性质"
+        },
+        "confidence": "high"
+      },
+      {
+        "sub_no": "2",
+        "text": "（2）给定 $\\theta\\in(0,\\pi)$ 和 $a\\in\\mathbb R$，证明：存在 $y\\in[a-\\theta,a+\\theta]$ 使得 $\\cos y\\le\\cos\\theta$；",
+        "kp_primary": {
+          "id": "MA-B1-C5-S4-K08",
+          "name": "三角函数的最值",
+          "chapter": "三角函数",
+          "section": "三角函数的图像与性质"
+        },
+        "confidence": "high"
+      },
+      {
+        "sub_no": "3",
+        "text": "（3）设 $b\\in\\mathbb R$，若存在 $\\varphi\\in\\mathbb R$ 使得 $5\\cos x\\cos(5x+\\varphi)\\le b$ 对任意 $x\\in\\mathbb R$ 恒成立，求 $b$ 的最小值。",
+        "kp_primary": {
+          "id": "MA-B1-C5-S4-K08",
+          "name": "三角函数的最值",
+          "chapter": "三角函数",
+          "section": "三角函数的图像与性质"
+        },
+        "confidence": "high"
+      }
+    ]
+  }
+]
