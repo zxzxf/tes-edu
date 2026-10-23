@@ -81,11 +81,22 @@ def _split_kp(v) -> list[str]:
 
 
 def _norm_type(v) -> str:
+    """题型归一化。
+
+    注意：单选/多选必须分开——组卷要控制题型配比，自适应也要区分难度模型，
+    两者混成"选择"会让这两件事都做不了。course_kb.type 为 varchar(16)，无 CHECK 约束。
+    """
     s = str(v or "").strip()
     if not s:
         return "解答"
-    if "选择" in s or "单选" in s or "多选" in s:
-        return "选择"
+    if "多选" in s:
+        return "多选"
+    if "单选" in s:
+        return "单选"
+    if "选择" in s:
+        return "选择"      # 来源未区分单选/多选时的兜底
+    if "实验" in s:
+        return "实验"
     if "填空" in s:
         return "填空"
     if "压轴" in s:
@@ -291,7 +302,9 @@ async def _run(args) -> None:
                     """,
                     r["subject"],
                     r["knowledge_points"][0] if r["knowledge_points"] else "",
-                    r["difficulty"], r["stem"], r["answer"], r["content"], emb_lit,
+                    # course_kb.difficulty 是 integer，但 course_kb_embeddings.difficulty 是 text；
+                    # _norm_difficulty 返回 int，直接传会让第二张表报 expected str, got int
+                    str(r["difficulty"]), r["stem"], r["answer"], r["content"], emb_lit,
                     r["content_hash"],
                 )
                 inserted += 1

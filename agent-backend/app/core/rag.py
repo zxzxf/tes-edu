@@ -103,6 +103,9 @@ async def _search_pg(q_vec: list[float], subject: str | None) -> list[dict]:
                1 - (embedding <=> $1::vector) AS score
         FROM course_kb_embeddings
         WHERE ($2::text IS NULL OR subject = $2)
+          -- 硬隔离 seed demo 假题：id 1-46 的编造例题不参与线上检索，
+          -- 只保留供压测/回滚；物理删除前一律靠此谓词挡掉。
+          AND (is_demo IS NOT TRUE)
         ORDER BY embedding <=> $1::vector
         LIMIT $3
     """

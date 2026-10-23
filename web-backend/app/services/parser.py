@@ -23,10 +23,15 @@ _ALIASES = {
     "knowledge_points": ["knowledge_points", "知识点", "kp", "knowledge", "tags"],
 }
 
+# 单选/多选必须分开：组卷要控制题型配比，自适应要区分难度模型；
+# 混成"选择"会让这两件事都做不了。与 agent-backend/scripts/import_bank.py 保持一致。
 _TYPE_NORM = {
-    "选择": "选择", "单选": "选择", "多选": "选择", "choice": "选择",
+    "单选": "单选", "single": "单选", "single_choice": "单选",
+    "多选": "多选", "multi": "多选", "multiple": "多选", "multiple_choice": "多选",
+    "选择": "选择", "choice": "选择",        # 来源未区分时的兜底
+    "实验": "实验", "experiment": "实验",
     "填空": "填空", "completion": "填空", "fill": "填空",
-    "解答": "解答", "计算": "解答", "解答题": "解答",
+    "解答": "解答", "计算": "解答", "解答题": "解答", "solve": "解答", "essay": "解答",
     "压轴": "压轴", "压轴题": "压轴",
 }
 
