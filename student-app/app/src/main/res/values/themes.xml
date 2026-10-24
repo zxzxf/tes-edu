@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      宿主 Activity 主题。本项目为纯 Jetpack Compose 应用（不依赖 Material
+      Components 库），按 Compose 模板惯例直接用框架主题；界面配色由
+      Compose 侧 MaterialTheme 管理，无需 values/colors.xml。
+    -->
+    <style name="Theme.TesEdu" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

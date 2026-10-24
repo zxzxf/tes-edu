@@ -9,7 +9,7 @@
         android:allowBackup="true"
         android:label="Tes Edu"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Material3.DayNight.NoActionBar">
+        android:theme="@style/Theme.TesEdu">
 
         <activity
             android:name=".MainActivity"

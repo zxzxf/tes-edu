@@ -46,3 +46,9 @@ bank_*_教材_*.json
 # （eval/2026-脚手架自测/ 为 mock 示例，已用 git add -f 强制入库）
 agent-backend/eval/*/
 !agent-backend/eval/2026-脚手架自测/
+
+# ---- Android / Gradle（student-app）----
+student-app/local.properties
+student-app/.gradle/
+student-app/build/
+student-app/app/build/
