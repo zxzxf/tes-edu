@@ -44,6 +44,10 @@ async def solve(req: SolveRequest, request: Request):
             "error_type": judgement.get("error_type"),
             "attribution_source": judgement.get("attribution_source"),
             "evidence": judgement.get("evidence"),
+            # S4 过程缺失标记（need_process 时 correct 为 None，消费端双保险防误记错题）
+            "need_process": judgement.get("need_process"),
+            # 学生原始作答：错题本 wrong_answer 优先用它（比 evidence 片段更完整）
+            "student_answer": req.student_answer,
         }
     )
     return result

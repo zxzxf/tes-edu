@@ -30,6 +30,8 @@ async def handle_events(events) -> None:
                 await learning.record_event(db, e)
                 # judge v2 归因落 student_step_errors（S5 周报/错因分布燃料）
                 await learning.record_step_error(db, e)
+                # 错题本自动写入（T2）：判分错且非过程缺失 → wrong_questions（幂等）
+                await learning.record_wrong_question(db, e)
                 # 掌握度更新（T-B2）：沿 kb_kp_prerequisites 把整题/步骤对错映射到知识点
                 # 未判分（correct=None）时内部自动跳过，只留事件流水。
                 await mastery_svc.update_mastery_from_event(db, e)
@@ -37,7 +39,7 @@ async def handle_events(events) -> None:
                 "student_event recorded: student=%s type=%s kps=%d error_type=%s src=%s",
                 e.get("student_id"),
                 e.get("event_type"),
-                len(kps),
+                len(e.get("knowledge_points") or []),
                 e.get("error_type"),
                 e.get("attribution_source"),
             )
