@@ -36,7 +36,9 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  // 与 vite base 对齐（T-E1，2026-10-24）：管理后台经 edu-lb 挂在 /admin/
+  // 子路径下，浏览器地址栏与路由链接均以 /admin/ 为基准。
+  history: createWebHistory('/admin/'),
   routes
 })
 

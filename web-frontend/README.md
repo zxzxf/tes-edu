@@ -33,13 +33,22 @@ npm run dev        # http://localhost:5173
 
 ## 容器化（生产/演示）
 
-`web-frontend/` 已提供多阶段 `Dockerfile` + `nginx.conf`，仓库根 `docker-compose.yml` 中包含 `web-frontend` 服务（端口 `:8081`）：
+`web-frontend/` 已提供多阶段 `Dockerfile` + `nginx.conf`。
+
+**生产（137，T-E1 2026-10-24 上线）**：管理后台挂在 **`/admin/` 子路径**（经 edu-lb 剥前缀反代到 `edu-web-front` 容器）：
+
+- `vite.config.js` `base: '/admin/'` + `router` `createWebHistory('/admin/')`——地址栏、资源引用、路由链接均带 `/admin/` 前缀；
+- 页面 API 走 `/api/admin/*`（lb → 网关 → web-backend），**不经**前端容器；
+- 访问入口：`http(s)://<域名或IP>/admin/`（`/admin` 自动 301 补尾斜杠）。
 
 ```bash
-docker compose up --build      # 启动后访问 http://localhost:8081
+# 137 上重建（源码已同步到 /opt/tes-edu-web-front/）：
+docker build -t edu-web-front:real /opt/tes-edu-web-front
+# 换容器 + 刷新 lb 上游（容器重建后 IP 变化，必须 HUP，详见 deploy/README 关键约束 7）
+cd /opt/tes-edu-gateway && docker compose up -d web-front && docker kill -s HUP edu-lb
 ```
 
-Nginx 托管构建产物，并把页面内的 `/api` 请求反代到网关 `gateway:8080`（容器内服务名互访），SPA 子路由刷新自动回退到 `index.html`。
+本地开发仍可用 `npm run dev`（base 对 dev 同样生效，访问 `http://localhost:5173/admin/`）；`/api` 由 Vite 代理到本地网关。
 
 ## 接口约定
 

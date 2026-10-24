@@ -9,9 +9,9 @@
 
 | 文件 | 对应线上路径 | 说明 |
 |---|---|---|
-| `137-gateway-stack.yml` | `/opt/tes-edu-gateway/docker-compose.yml` | 网关栈：lb(nginx) + gateway×N + redis + agent-backend + web-backend |
+| `137-gateway-stack.yml` | `/opt/tes-edu-gateway/docker-compose.yml` | 网关栈：lb(nginx) + gateway×N + redis + agent-backend + web-backend + web-front |
 | `137-infra-kafka.yml` | `/opt/docker-compose.yml` | 基础设施：kafka(ZK 模式) + zookeeper + kafka-init 预建 topic |
-| `nginx.conf` | `/opt/tes-edu-gateway/nginx.conf` | lb 配置（静态 upstream + keepalive 长连接） |
+| `nginx.conf` | `/opt/tes-edu-gateway/nginx.conf` | lb 配置（静态 upstream + keepalive 长连接 + `/admin/` 前端路由） |
 | `gateway-config.yaml` | `/opt/tes-edu-gateway/gateway/config.yaml` | 网关路由/限流/熔断/白名单配置 |
 | `env.example` | — | 所需环境变量清单（**无值**，仅示意键名与非敏感默认） |
 | `publish_backend.sh` | — | 后端发版脚本（本机 → 137）：构建 :real 镜像 + 交还 compose 换容器 |
@@ -52,7 +52,23 @@ SSH_KEY=<本机私钥> SSH_HOST=137 bash deploy/publish_backend.sh all
 # 网关（路由/config.yaml 变更时）：同步源码 → 本地构建 → 滚动替换双副本
 rsync/tar 同步 gateway/ → 137:/opt/tes-edu-gateway/gateway/
 ssh 137 'cd /opt/tes-edu-gateway && ./start.sh build'   # 自动 HUP nginx
+
+# 前端 web-front（web-frontend/ 变更时）：同步源码 → 构建 → compose 换容器
+# 注意：前端挂在 /admin 子路径（vite base + router base 均为 /admin/），
+# lb 的 location /admin/ 剥前缀反代到 edu-web-front 容器。
+tar 同步 web-frontend/ → 137:/opt/tes-edu-web-front/
+ssh 137 'docker build -t edu-web-front:real /opt/tes-edu-web-front \
+  && cd /opt/tes-edu-gateway \
+  && JWT_PUBLIC_KEY="$(cat secrets/jwt_public.pem)" \
+     JWT_PRIVATE_KEY="$(cat secrets/jwt_private.pem)" \
+     REDIS_PASSWORD="$(sed -n "s/^REDIS_PASSWORD=//p" .env)" \
+     docker compose up -d web-front \
+  && docker kill -s HUP edu-lb'   # 容器重建后 IP 变化，必须 HUP 刷新 lb 上游
 ```
+
+> ⚠️ **lb 的 `/admin/` 上游是启动时一次性解析**（与 gateway_pool 同样的局限）：
+> `edu-web-front` 容器**重建/换 IP 后必须 `docker kill -s HUP edu-lb`**，
+> 否则请求会打到回收后分配给别的容器的旧 IP 上（表现为 FastAPI 404）。
 
 > 密钥均由 137 本地文件读入（`secrets/jwt_*.pem`、`.env`、`*.env`），不在本机落地。
 > Secrets 就绪后切回 ACR：改 `137-gateway-stack.yml` 三个 `image:` 为
@@ -82,6 +98,8 @@ chmod 600 /opt/tes-edu-gateway/.env *.env
 4. **106 的 pgvector 只允许 137 连接**：`pg_hba.conf` 白名单仅放行 `124.221.253.137`；DSN 中的密码含 `@`/`#` 必须百分号编码（`%40`/`%23`）。
 5. **Redis 主从**：137 为主、106 为从，见 `gateway/redis/` 下的计划与监控脚本。
 6. **容器归 compose 管理**：勿再用 `docker run` 直接起 `edu-*-backend`（会与 compose 争抢容器名，`up` 报 Conflict）；换装一律交还 compose。
+7. **web-front 必须显式挂 edu-net**：compose 服务不写 `networks: - edu-net` 会落到项目默认网络 `tes-edu-gateway_default`，与 gateway/lb 不同网——其 nginx 的 `gateway` 上游启动解析即 `[emerg] host not found in upstream` 崩溃循环（2026-10-24 T-E1 踩坑）。容器内 `/api` 反代已同时改为 `resolver 127.0.0.11 + 变量 proxy_pass`，对网关重建免疫。
+8. **B 端登录 token 必须带 tenant_id**：网关 `/api/admin/*` 路由 `require_tenant: true`，JWT 无 `tenant_id` claim 一律 403（管理后台能打开但全部数据接口被挡）。`create_token(user_id, role, tenant_id=...)` 已支持；C 端 student 不带（`/learning/*` 为 jwt_c 路由，不要求租户）。
 
 ## 回滚
 

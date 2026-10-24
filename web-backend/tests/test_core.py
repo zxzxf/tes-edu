@@ -90,6 +90,26 @@ def test_create_token_roundtrip(rsa_keys):
     assert claims["uid"] == "u200"
     assert claims["role"] == "researcher"
     assert "iat" in claims and "exp" in claims
+    assert "tenant_id" not in claims  # 不传则不带租户 claim（C 端 jwt_c 路由）
+
+
+def test_create_token_with_tenant(rsa_keys):
+    from jose import jwt as jose_jwt
+
+    priv, pub = rsa_keys
+    from app.core import jwt_utils
+
+    os.environ["JWT_PRIVATE_KEY"] = priv
+    jwt_utils.JWT_PRIVATE_KEY = priv
+
+    # T-E1：B 端用户签发带 tenant_id，否则网关 /api/admin/*（require_tenant）403
+    token = jwt_utils.create_token("admin@tes.edu", "admin", tenant_id="demo")
+    claims = jose_jwt.decode(token, pub, algorithms=["RS256"])
+    assert claims["tenant_id"] == "demo"
+
+    # 空串 tenant 等价不传（网关对空 tenant_id 同样 403，不如干脆不带）
+    token2 = jwt_utils.create_token("u", "teacher", tenant_id="")
+    assert "tenant_id" not in jose_jwt.decode(token2, pub, algorithms=["RS256"])
 
 
 def test_create_token_requires_key():

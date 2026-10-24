@@ -15,7 +15,7 @@ JWT_ALGORITHM = "RS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
 
 
-def create_token(user_id: str, role: str) -> str:
+def create_token(user_id: str, role: str, tenant_id: str | None = None) -> str:
     if not JWT_PRIVATE_KEY:
         raise RuntimeError(
             "JWT_PRIVATE_KEY 未配置：RS256 签发需要私钥（PEM），请通过环境变量注入"
@@ -27,4 +27,9 @@ def create_token(user_id: str, role: str) -> str:
         "iat": now,
         "exp": now + timedelta(minutes=JWT_EXPIRE_MINUTES),
     }
+    # T-E1（2026-10-24）：B 端路由（/api/admin/*）在网关侧 require_tenant，
+    # 无 tenant_id claim 一律 403——管理后台上线时发现占位 token 全被挡，
+    # 故 B 端用户签发时带上租户（C 端 student 路由 jwt_c 不要求，不传即可）。
+    if tenant_id:
+        payload["tenant_id"] = tenant_id
     return jwt.encode(payload, JWT_PRIVATE_KEY, algorithm=JWT_ALGORITHM)
