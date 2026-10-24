@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tes Edu 任务计划进度全景 · 2026-10-24</title>
+<style>
+  :root{
+    --bg:#ffffff; --surface:#f7f6f3; --border:rgba(0,0,0,.12); --border-strong:rgba(0,0,0,.25);
+    --text:#1f1f1f; --text-2:#5f5e5a; --text-3:#888780;
+    --green-bg:#EAF3DE; --green:#3B6D11; --green-bar:#639922;
+    --amber-bg:#FAEEDA; --amber:#854F0B; --amber-bar:#EF9F27;
+    --red-bg:#FCEBEB; --red:#A32D2D; --red-bar:#E24B4A;
+    --blue-bg:#E6F1FB; --blue:#185FA5;
+    --track:#F1EFE8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--surface);color:var(--text);font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;line-height:1.6;padding:24px 16px;}
+  .page{max-width:960px;margin:0 auto;background:var(--bg);border:0.5px solid var(--border);border-radius:16px;padding:32px 36px;}
+  h1{font-size:20px;font-weight:500;letter-spacing:.2px;}
+  h2{font-size:15px;font-weight:500;margin:28px 0 12px;padding-bottom:6px;border-bottom:0.5px solid var(--border);}
+  h3{font-size:13px;font-weight:500;margin:16px 0 8px;}
+  .meta{font-size:12px;color:var(--text-2);margin-top:4px;}
+  .mono{font-family:"Cascadia Code",Consolas,"Courier New",monospace;font-size:12px;}
+  .chip{display:inline-block;font-size:11px;line-height:1;padding:4px 9px;border-radius:9px;white-space:nowrap;}
+  .chip.done{background:var(--green-bg);color:var(--green);}
+  .chip.pend{background:var(--amber-bg);color:var(--amber);}
+  .chip.block{background:var(--red-bg);color:var(--red);}
+  .chip.info{background:var(--blue-bg);color:var(--blue);}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none;}
+  .dot.done{background:var(--green-bar);} .dot.pend{background:var(--amber-bar);} .dot.block{background:var(--red-bar);}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:18px 0 6px;}
+  .kpi{background:var(--surface);border-radius:10px;padding:14px 16px;}
+  .kpi .label{font-size:12px;color:var(--text-2);}
+  .kpi .value{font-size:24px;font-weight:500;margin-top:2px;}
+  .kpi .sub{font-size:12px;font-weight:400;color:var(--text-2);}
+
+  .concl{background:var(--surface);border-radius:10px;padding:14px 18px;margin-top:14px;}
+  .concl li{margin:6px 0 6px 18px;font-size:13px;}
+  .concl b{font-weight:500;}
+
+  .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:10px 2px;border-bottom:0.5px solid var(--border);}
+  .row:last-child{border-bottom:none;}
+  .row .name{width:120px;font-weight:500;flex:none;}
+  .row .chipcell{width:88px;flex:none;}
+  .row .desc{flex:1;min-width:240px;color:var(--text-2);font-size:12px;}
+  .row .prog{font-size:12px;color:var(--text-2);white-space:nowrap;}
+
+  .ms-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+  .ms{border:0.5px solid var(--border);border-radius:10px;padding:10px 12px;}
+  .ms .top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;}
+  .ms .top .t{font-weight:500;}
+  .ms .note{font-size:12px;color:var(--text-2);}
+
+  .legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--text-2);margin-bottom:10px;}
+  .legend span.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;}
+  .sbar-row{display:flex;align-items:center;gap:12px;padding:7px 2px;border-bottom:0.5px solid var(--border);}
+  .sbar-row:last-child{border-bottom:none;}
+  .sbar-row .name{width:150px;font-size:13px;flex:none;}
+  .sbar{flex:1;height:16px;border-radius:4px;background:var(--track);overflow:hidden;display:flex;}
+  .sbar .d{background:var(--green-bar);height:100%;}
+  .sbar .p{background:var(--amber-bar);height:100%;}
+  .sbar-row .cnt{width:64px;text-align:right;font-size:12px;color:var(--text-2);flex:none;}
+
+  .filters{display:flex;gap:8px;margin:0 0 12px;}
+  .filters button{font-size:12px;padding:5px 14px;border-radius:8px;border:0.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;}
+  .filters button.on{background:var(--surface);border-color:var(--border-strong);}
+  .series{margin-bottom:16px;}
+  .series .head{display:flex;align-items:baseline;gap:8px;margin-bottom:2px;}
+  .series .head .t{font-weight:500;font-size:13px;}
+  .series .head .c{font-size:12px;color:var(--text-2);}
+  .task{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:7px 2px;border-bottom:0.5px solid var(--border);}
+  .task:last-child{border-bottom:none;}
+  .task .id{width:40px;color:var(--text-3);flex:none;}
+  .task .t{flex:1;min-width:220px;}
+  .task .note{flex:1;min-width:180px;color:var(--text-2);font-size:12px;}
+  .task.hidden{display:none;}
+
+  .dbar-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:9px 2px;border-bottom:0.5px solid var(--border);}
+  .dbar-row:last-child{border-bottom:none;}
+  .dbar-row .name{width:140px;flex:none;}
+  .dbar{flex:1;min-width:160px;height:8px;border-radius:4px;background:var(--track);overflow:hidden;}
+  .dbar i{display:block;height:100%;border-radius:4px;}
+  .dbar-row .val{width:230px;text-align:right;font-size:12px;color:var(--text-2);}
+
+  .srv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;}
+  .srv{border:0.5px solid var(--border);border-radius:12px;padding:14px 18px;}
+  .srv .t{font-weight:500;margin-bottom:6px;}
+  .comp{display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:0.5px solid var(--border);}
+  .comp:last-child{border-bottom:none;}
+  .comp .n{flex:1;}
+  .comp .s{font-size:12px;color:var(--text-2);}
+  .callout{margin-top:16px;background:var(--red-bg);border:0.5px solid #F09595;border-radius:10px;padding:12px 16px;}
+  .callout .t{font-weight:500;color:var(--red);margin-bottom:4px;}
+  .callout .d{font-size:12px;color:var(--red);}
+
+  .steps{counter-reset:step;margin-top:6px;}
+  .steps li{list-style:none;counter-increment:step;position:relative;padding:8px 0 8px 38px;border-bottom:0.5px solid var(--border);}
+  .steps li:last-child{border-bottom:none;}
+  .steps li::before{content:counter(step);position:absolute;left:0;top:9px;width:22px;height:22px;border-radius:50%;background:var(--surface);border:0.5px solid var(--border-strong);text-align:center;font-size:12px;line-height:21px;color:var(--text-2);}
+  .steps b{font-weight:500;}
+  .steps .tag{font-size:11px;padding:2px 8px;border-radius:8px;margin-left:8px;}
+
+  footer{margin-top:28px;padding-top:12px;border-top:0.5px solid var(--border);font-size:12px;color:var(--text-3);}
+  .printbtn{float:right;font-size:12px;padding:5px 14px;border-radius:8px;border:0.5px solid var(--border-strong);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;}
+  @media print{
+    body{background:#fff;padding:0;} .page{border:none;border-radius:0;max-width:100%;padding:0;}
+    .printbtn{display:none;} .task.hidden{display:flex !important;} .filters{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <button class="printbtn" onclick="window.print()">打印 / 导出 PDF</button>
+  <h1>Tes Edu 任务计划进度全景</h1>
+  <div class="meta">报告日期 2026-10-24 · 仓库 <span class="mono">main @ 8abe399</span>（T2 已落地待提交）· 内容数据来自 106 库实查（13:25）· 部署状态来自 137/106 docker ps 实测</div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">总任务</div><div class="value">49</div></div>
+    <div class="kpi"><div class="label">已完成</div><div class="value" style="color:var(--green);">31<span class="sub"> / 63%</span></div></div>
+    <div class="kpi"><div class="label">待办</div><div class="value" style="color:var(--amber);">18<span class="sub"> · 外部阻塞 3</span></div></div>
+    <div class="kpi"><div class="label">测试</div><div class="value" style="color:var(--green);">140<span class="sub"> + e2e 24/24 全绿</span></div></div>
+  </div>
+
+  <div class="concl">
+    <ul>
+      <li><b>代码侧基本就绪，卡点在外部。</b>归因线 S1–S5 与 T-A1 / T-B1 / T-B2 / T2 已全部落地（T2 待提交）；真正阻塞价值兑现的是教材素材（T-A2）与试点排期（T5），不是工程量。</li>
+      <li><b>「代码 100% / 数据 0%」仍是最大结构性问题，但已收窄。</b>题库 213/3000、真实流水仅 4 条事件——S5 周报 / 错因分布 / /metricsz 全部具备但空转。T2 错题本写入链路已完成（自动落库 + 幂等 + 真实库 e2e 9/9），错题本从「无数据源」变为「待试点流水」；剩余真空缺是试点本身（T5）。</li>
+      <li><b>部署断层：线上镜像落后仓库 3 个提交。</b>137 已从 mock 桩升级为 real 后端（10-23 15:46 构建），早于今日的 T-A1 / T-B1 / T-B2——S5 归因线与掌握度算法大概率未上线，需重建镜像并滚动重启。</li>
+      <li><b>计划缺环两处。</b>P2 引导式对话（Hint 阶梯 / 100 题评测集 / 埋点指标）与 LLM 成本控制在任务清单中无登记项；#20「AGE 常驻」与 T-B4「AGE 决策」双轨指向同一决策，应合并关闭。</li>
+    </ul>
+  </div>
+
+  <h2>一、开发分期 P0–P5 健康度</h2>
+  <div>
+    <div class="row"><div class="name">P0 边界与图谱</div><div class="chipcell"><span class="chip done">实质满足</span></div><div class="desc">河南 · 高中 · 数学 · 人教A版 · 新高考I卷已锁定；435 知识点 DAG 已灌库并验收（T-B1）；AGE 仅剩形式项，待 T-B4 决策关闭</div><div class="prog">基建 19/20</div></div>
+    <div class="row"><div class="name">P1 内容地基</div><div class="chipcell"><span class="chip block">严重滞后</span></div><div class="desc">题库 213/3000（7%）；人教A版教材题素材未到位，T-A2 与 #23 同阻于此——P1 是全程最大缺口</div><div class="prog">T-A 1/4</div></div>
+    <div class="row"><div class="name">P2 引导式对话</div><div class="chipcell"><span class="chip pend">未立项</span></div><div class="desc">归因线 S1–S5（判分 / 讲解 / 周报）已通；但分期书定义的 Hint 阶梯、100 题评测集、六项埋点指标无登记任务</div><div class="prog">计划缺口</div></div>
+    <div class="row"><div class="name">P3 掌握度图谱</div><div class="chipcell"><span class="chip pend">算法启动</span></div><div class="desc">T-B1 DAG 验收 + T-B2 掌握度更新算法（接通 S3 事件流）已落地；缺 ZPD 推题（T-B3）与 App 可视化（T-B5）</div><div class="prog">T-B 2/5</div></div>
+    <div class="row"><div class="name">P4 家长端</div><div class="chipcell"><span class="chip pend">基础在</span></div><div class="desc">周报 / 学情基础已上线；内容护栏、家长↔学生绑定、ASR/TTS、志愿填报、数字人短视频 5 个增项未排期</div><div class="prog">1/6</div></div>
+    <div class="row"><div class="name">P5 商业化</div><div class="chipcell"><span class="chip pend">硬要求在</span></div><div class="desc">网关三项合同硬要求（白名单拒绝 / 心跳回连 / 匿名指标回传）+ 多租户隔离已先行落地；计费对账、校本化交付、机构看板未做</div><div class="prog">网关 3/3</div></div>
+  </div>
+
+  <h2>二、里程碑 M0–M5</h2>
+  <div class="ms-grid">
+    <div class="ms"><div class="top"><span class="t">M0 边界锁定</span><span class="chip done">已达成</span></div><div class="note">435 点本体定稿，DAG 验收通过</div></div>
+    <div class="ms"><div class="top"><span class="t">M1 内容可用</span><span class="chip block">7%</span></div><div class="note">213/3000 题，素材外部阻塞</div></div>
+    <div class="ms"><div class="top"><span class="t">M2 导师上线</span><span class="chip pend">部分</span></div><div class="note">归因线通，P2 指标未评</div></div>
+    <div class="ms"><div class="top"><span class="t">M3 差异化成立</span><span class="chip pend">算法启动</span></div><div class="note">T-B2 已落地，缺推题 / 可视化</div></div>
+    <div class="ms"><div class="top"><span class="t">M4 家庭闭环</span><span class="chip pend">部分</span></div><div class="note">家长端基础在，增项未排期</div></div>
+    <div class="ms"><div class="top"><span class="t">M5 商业闭环</span><span class="chip pend">部分</span></div><div class="note">网关硬要求在，计费 / 交付未做</div></div>
+  </div>
+
+  <h2>三、任务系列完成度</h2>
+  <div class="legend">
+    <span><span class="sw" style="background:var(--green-bar);"></span>已完成</span>
+    <span><span class="sw" style="background:var(--amber-bar);"></span>待办（含外部阻塞）</span>
+  </div>
+  <div>
+    <div class="sbar-row"><div class="name">基建与网关（#1–#20）</div><div class="sbar"><div class="d" style="width:95%"></div><div class="p" style="width:5%"></div></div><div class="cnt">19/20</div></div>
+    <div class="sbar-row"><div class="name">归因线 S1–S5（#29–#35）</div><div class="sbar"><div class="d" style="width:100%"></div></div><div class="cnt">7/7</div></div>
+    <div class="sbar-row"><div class="name">归因线收尾 T1–T5（#36–#40）</div><div class="sbar"><div class="d" style="width:20%"></div><div class="p" style="width:80%"></div></div><div class="cnt">1/5</div></div>
+    <div class="sbar-row"><div class="name">P1 内容扩量 T-A（#41–#44）</div><div class="sbar"><div class="d" style="width:25%"></div><div class="p" style="width:75%"></div></div><div class="cnt">1/4</div></div>
+    <div class="sbar-row"><div class="name">P3 图谱 T-B（#45–#49）</div><div class="sbar"><div class="d" style="width:40%"></div><div class="p" style="width:60%"></div></div><div class="cnt">2/5</div></div>
+    <div class="sbar-row"><div class="name">P4 家长端（#21 · #24–#28）</div><div class="sbar"><div class="d" style="width:16.7%"></div><div class="p" style="width:83.3%"></div></div><div class="cnt">1/6</div></div>
+    <div class="sbar-row"><div class="name">P5 商业化（#22）</div><div class="sbar"><div class="p" style="width:100%"></div></div><div class="cnt">0/1</div></div>
+    <div class="sbar-row"><div class="name">横向（#23）</div><div class="sbar"><div class="p" style="width:100%"></div></div><div class="cnt">0/1</div></div>
+  </div>
+
+  <h2>四、任务明细（49 项）</h2>
+  <div class="filters">
+    <button id="f-all" class="on" onclick="filterTasks('all')">全部 49</button>
+    <button id="f-done" onclick="filterTasks('done')">已完成 31</button>
+    <button id="f-open" onclick="filterTasks('open')">待办 18</button>
+  </div>
+  <div id="task-list"></div>
+
+  <h2>五、数据基线（106 库实查）</h2>
+  <div>
+    <div class="dbar-row"><div class="name">题库总量 course_kb</div><div class="dbar"><i style="width:7%;background:var(--red-bar);"></i></div><div class="val">213 / 3000 题（数学 123 · 物理 90）</div></div>
+    <div class="dbar-row"><div class="name">数学步骤讲解</div><div class="dbar"><i style="width:98.4%;background:var(--green-bar);"></i></div><div class="val">365 / 371（98.4%）</div></div>
+    <div class="dbar-row"><div class="name">物理步骤讲解</div><div class="dbar"><i style="width:0%;background:var(--red-bar);"></i></div><div class="val">0 / 303（归因映射 229 条已就绪）</div></div>
+    <div class="dbar-row"><div class="name">步骤覆盖</div><div class="dbar"><i style="width:100%;background:var(--green-bar);"></i></div><div class="val">674 步 / 213 题全覆盖</div></div>
+    <div class="dbar-row"><div class="name">Embedding 覆盖</div><div class="dbar"><i style="width:100%;background:var(--green-bar);"></i></div><div class="val">213 / 213（1024 维，与 ws 端点对齐）</div></div>
+    <div class="dbar-row"><div class="name">知识点 DAG</div><div class="dbar"><i style="width:100%;background:var(--green-bar);"></i></div><div class="val">435 节点 · 435 边 · 148 core，无环校验通过</div></div>
+    <div class="dbar-row"><div class="name">真实流水</div><div class="dbar"><i style="width:1%;background:var(--red-bar);"></i></div><div class="val">events 4 · step_errors 0 · wrong_questions 0</div></div>
+  </div>
+  <div class="meta" style="margin-top:10px;">步骤级 unknown 率 4.8%（S6 要求 ≤10%，达标）· 物理处于「判分可查表、学生看不到步骤讲解」状态（T1 待补）</div>
+
+  <h2>六、部署状态与风险台账</h2>
+  <div class="srv-grid">
+    <div class="srv">
+      <div class="t">137 · 接入 / 应用 / 消息层</div>
+      <div class="comp"><span class="dot done"></span><span class="n">edu-gateway ×2</span><span class="s">双副本 + 熔断 / 白名单 / 心跳</span></div>
+      <div class="comp"><span class="dot done"></span><span class="n">edu-lb (nginx)</span><span class="s">keepalive 压测优化</span></div>
+      <div class="comp"><span class="dot pend"></span><span class="n">edu-web-backend:real</span><span class="s">镜像 10-23 15:46</span></div>
+      <div class="comp"><span class="dot pend"></span><span class="n">edu-agent-backend:real</span><span class="s">镜像 10-23 15:46</span></div>
+      <div class="comp"><span class="dot done"></span><span class="n">edu-redis</span><span class="s">主库 healthy</span></div>
+      <div class="comp"><span class="dot pend"></span><span class="n">kafka + zookeeper</span><span class="s">仍 ZK 模式（G2，规模化事项）</span></div>
+      <div class="comp"><span class="dot done"></span><span class="n">cloudflared</span><span class="s">HTTPS 隧道</span></div>
+      <div class="comp"><span class="dot block"></span><span class="n">web-frontend</span><span class="s">未部署（G5 在）</span></div>
+    </div>
+    <div class="srv">
+      <div class="t">106 · 数据层</div>
+      <div class="comp"><span class="dot done"></span><span class="n">srv-postgres</span><span class="s">pg16 + pgvector（向量底座已在）</span></div>
+      <div class="comp"><span class="dot done"></span><span class="n">srv-redis</span><span class="s">137 从库 link up</span></div>
+      <div class="comp"><span class="dot block"></span><span class="n">apache-age</span><span class="s">未安装（T-B4 决策：默认不装）</span></div>
+    </div>
+  </div>
+  <div class="callout">
+    <div class="t">部署断层：线上镜像落后仓库 3 个提交</div>
+    <div class="d">edu-web-backend:real / edu-agent-backend:real 构建于 10-23 15:46，早于今日提交的 T-A1(4b3cc42) / T-B1(221ac3e) / T-B2(8abe399)——S5 归因线与掌握度算法大概率未上线。建议按网关已验证过的流程重建镜像并滚动重启。</div>
+  </div>
+  <h3>风险台账</h3>
+  <div>
+    <div class="row"><div class="chipcell"><span class="chip block">高</span></div><div class="name" style="width:200px;">R1 内容获取成本</div><div class="desc">P1 卡住则后续全停；T-A2 阻塞中。应对：先交 500 题最小可用集验证链路，再冲 3000。</div></div>
+    <div class="row"><div class="chipcell"><span class="chip block">高</span></div><div class="name" style="width:200px;">数据真空</div><div class="desc">真实流水仅 4 条事件；T2 写入链路已通（错题本待试点流水），试点未开跑，S5/S6 空转（T5）。应对：T5 催校方排期。</div></div>
+    <div class="row"><div class="chipcell"><span class="chip block">高</span></div><div class="name" style="width:200px;">部署断层</div><div class="desc">线上镜像落后仓库 3 提交。应对：重建 real 后端镜像 + 滚动重启，重启后探 /metricsz 与新路由。</div></div>
+    <div class="row"><div class="chipcell"><span class="chip pend">中</span></div><div class="name" style="width:200px;">计划缺环</div><div class="desc">P2 引导式对话与 LLM 成本控制无登记任务。应对：各出一份 T 系列计划书并登记，主线才完整。</div></div>
+    <div class="row"><div class="chipcell"><span class="chip pend">中</span></div><div class="name" style="width:200px;">Android 无 SDK</div><div class="desc">S4 过程采集缺真机编译验证。应对：后端协议已完成，风险可控，需他处编译。</div></div>
+  </div>
+
+  <h2>七、结论与下一步建议</h2>
+  <ol class="steps">
+    <li><b>T2 错题本自动写入链路</b>（已完成 · e2e 9/9）<span class="tag chip done">已交付</span><br>判分出错自动落 wrong_questions（content_hash + wrong_step_no + error_type），按 (学生, 题, 步) 幂等；need_process 不入库；真实库两轮消费 21/21 不涨数，correction 关联一致。<b>下一项：T-B4 AGE 决策 → T-A3 → T-B3。</b></li>
+    <li><b>T-B4 AGE 部署决策</b><span class="tag chip done">立即 · 0.5 天</span><br>落地方案 A（关系表 + 递归 CTE 承载，不引 AGE），同步关闭 #20，消除双轨。</li>
+    <li><b>T-A3 RAG 读取侧固化</b><span class="tag chip done">0.5 天</span><br>确认 rag.py 从 106 course_kb_embeddings 做召回，50 题抽测知识点召回 ≥85%。</li>
+    <li><b>T-B3 ZPD + 自适应推题</b><span class="tag chip done">2 天 · 解锁 M3</span><br>复用 T-B2 的 walk_up / plan_mastery_updates，推题 100% 落在 ZPD 内；与 T-A4 组卷接口共用。</li>
+    <li><b>T-A4 组卷 / 变式接口 + T4 S6 评测脚手架</b><span class="tag chip pend">各 0.5–1 天</span><br>T4 不依赖真实数据，现在做完试点一到即可出数。</li>
+    <li><b>跑批类挂后台</b><span class="tag chip pend">T1 / T3</span><br>T1 物理 303 步讲解补跑（先 --q-limit 5 冒烟）、T3 数学 2 道解答题单题单跑；启动后核对进程数防重复跑批。</li>
+    <li><b>外部催办</b><span class="tag chip block">T-A2 / #23 / T5</span><br>教材题素材（人教A版例题/习题）与试点排期（4 周 ≥30 生）是代码之外的卡点；教师金标准标注工时需提前 2 周约定。</li>
+    <li><b>部署收口</b><span class="tag chip block">镜像重建</span><br>real 后端重建 + 滚动重启，让仓库与线上对齐；web-frontend 部署（G5）可随之排期。</li>
+  </ol>
+
+  <footer>
+    数据口径：任务状态来自项目任务清单 #1–#49（2026-10-24）；内容数据来自 106 库 tes_edu 实查（2026-10-24 13:25，course_kb / course_kb_steps / kb_knowledge_points / kb_kp_prerequisites / student_events / wrong_questions）；部署状态来自 137 与 106 的 docker ps 实测（2026-10-24 14:1x）；代码版本 main @ 8abe399。配套文档：《应用拆分与开发分期.md》《归因线收尾与验收任务计划.md》《P1内容扩量与图谱启动计划书.md》。
+  </footer>
+</div>
+
+<script>
+var SERIES = [
+  {name:'基建与网关（#1–#20）', tasks:[
+    ['#1','授权/更新回连心跳','P5 硬要求 2/3','done'],
+    ['#2','匿名运行指标回传','P5 硬要求 3/3','done'],
+    ['#3','多租户强制隔离','require_tenant 路由级','done'],
+    ['#4','内容安全与 PII 脱敏','敏感词命中 403 + 审计','done'],
+    ['#5','联调 main + config + 全量测试','—','done'],
+    ['#6','更新计划书 + 推送 + 部署 137','—','done'],
+    ['#7','configsync 包','Redis 化 + Pub/Sub 热更新','done'],
+    ['#8','allowlist/compliance 动态词表','getter 注入','done'],
+    ['#9','config.go / config.yaml 动态配置段','—','done'],
+    ['#10','main.go 接线 configsync','—','done'],
+    ['#11','configsync 单测 + 全量 build/vet/test','—','done'],
+    ['#12','提交推送 + 部署 137 + 文档','—','done'],
+    ['#13','nginx 拒绝 /metricsz、/licensez','入口层 403','done'],
+    ['#14','audit 记录 X-Real-IP 真实来源','—','done'],
+    ['#15','clientIP 单测 + 全量验证','—','done'],
+    ['#16','提交推送','—','done'],
+    ['#17','137 部署 + 线上验证','—','done'],
+    ['#18','计划书 + 运维日志更新','—','done'],
+    ['#19','测试/CI','pytest + GitHub Actions','done'],
+    ['#20','AGE 图库常驻','P0 DoD 残留，待 T-B4 决策关闭','pend']
+  ]},
+  {name:'归因线 S1–S5（#29–#35）', tasks:[
+    ['#29','attribution.py 聚合纯函数层','错因七类 + Top 断点','done'],
+    ['#30','周报「步骤级薄弱点」节','—','done'],
+    ['#31','老师端错因分布视图与导出','三种口径 + CSV','done'],
+    ['#32','/metricsz 归因来源指标','deterministic_ratio','done'],
+    ['#33','错题本 correction 与知识点卡','content_hash 关联','done'],
+    ['#34','前端三页','错因分布 / 周报 / 错题本','done'],
+    ['#35','测试与端到端对账','真实库 e2e 15/15','done']
+  ]},
+  {name:'归因线收尾 T1–T5（#36–#40）', tasks:[
+    ['#36','T1 物理 Pass B 讲解补跑','303 步 0→≥288，跑批 0.5 天','pend'],
+    ['#37','T2 错题本自动写入链路','自动落库 + 幂等 · e2e 9/9','done'],
+    ['#38','T3 数学 2 道解答题补跑','c524576e / ff72e92a','pend'],
+    ['#39','T4 S6 评测脚手架','金标准 CSV + eval 脚本','pend'],
+    ['#40','T5 试点开跑与数据接入','外部排期 · 4 周 ≥30 生','block']
+  ]},
+  {name:'P1 内容扩量 T-A（#41–#44）', tasks:[
+    ['#41','T-A1 素材加工管线固化','--from-textbook 已落地','done'],
+    ['#42','T-A2 扩量跑批 500→3000','教材素材未到位','block'],
+    ['#43','T-A3 RAG 读取侧连接固化','确认连 106 · 0.5 天','pend'],
+    ['#44','T-A4 组卷/变式接口','T-B3 前置 · 0.5 天','pend']
+  ]},
+  {name:'P3 图谱 T-B（#45–#49）', tasks:[
+    ['#45','T-B1 DAG 验收固化','435 节点/边 + 13 单测','done'],
+    ['#46','T-B2 掌握度更新算法','12 单测 + 接通 S3','done'],
+    ['#47','T-B3 ZPD + 自适应推题','复用 walk_up · 2 天','pend'],
+    ['#48','T-B4 AGE 部署决策','方案 A：不装，关 #20','pend'],
+    ['#49','T-B5 App 图谱可视化页','依赖 T-B3 + Android','pend']
+  ]},
+  {name:'P4 家长端（#21 · #24–#28）', tasks:[
+    ['#21','P4 家长端基础','周报/学情已上线','done'],
+    ['#24','内容安全护栏','敏感拦截 + 家长告警','pend'],
+    ['#25','家长↔学生绑定 + 租户隔离','—','pend'],
+    ['#26','ASR/TTS 语音交互','—','pend'],
+    ['#27','新高考志愿填报','河南 3+1+2 规则','pend'],
+    ['#28','数字人讲题短视频','管线重 · 排期最后','pend']
+  ]},
+  {name:'P5 商业化（#22）', tasks:[
+    ['#22','P5 商业化','网关三硬要求+多租户已先行落地；计费/交付/看板未做','pend']
+  ]},
+  {name:'横向（#23）', tasks:[
+    ['#23','真实题库灌 3000 题','暂停 · 等素材（与 T-A2 同源）','block']
+  ]}
+];
+var LABEL = {done:'完成', pend:'待办', block:'外部阻塞'};
+function renderTasks(){
+  var host = document.getElementById('task-list'), html = '';
+  for (var s=0;s<SERIES.length;s++){
+    var ser = SERIES[s], rows = '', dn = 0;
+    for (var t=0;t<ser.tasks.length;t++){
+      var tk = ser.tasks[t];
+      if (tk[3]==='done') dn++;
+      rows += '<div class="task" data-st="'+tk[3]+'">'
+        + '<span class="id mono">'+tk[0]+'</span>'
+        + '<span class="t">'+tk[1]+'</span>'
+        + '<span class="note">'+tk[2]+'</span>'
+        + '<span class="chip '+tk[3]+'">'+LABEL[tk[3]]+'</span></div>';
+    }
+    html += '<div class="series"><div class="head"><span class="t">'+ser.name+'</span><span class="c">'+dn+'/'+ser.tasks.length+'</span></div>'+rows+'</div>';
+  }
+  host.innerHTML = html;
+}
+function filterTasks(f){
+  var rows = document.querySelectorAll('.task');
+  for (var i=0;i<rows.length;i++){
+    var st = rows[i].getAttribute('data-st');
+    rows[i].classList.toggle('hidden', f==='done' ? st!=='done' : (f==='open' ? st==='done' : false));
+  }
+  var groups = document.querySelectorAll('.series');
+  for (var g=0;g<groups.length;g++){
+    var vis = groups[g].querySelectorAll('.task:not(.hidden)').length;
+    groups[g].style.display = vis ? '' : 'none';
+  }
+  document.getElementById('f-all').classList.toggle('on', f==='all');
+  document.getElementById('f-done').classList.toggle('on', f==='done');
+  document.getElementById('f-open').classList.toggle('on', f==='open');
+}
+renderTasks();
+</script>
+</body>
+</html>
