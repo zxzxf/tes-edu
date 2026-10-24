@@ -65,18 +65,3 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }
 
-// T-C3 验证：在本机非 ASCII 工作区路径下，Gradle 的 Test 任务会用 @argfile 把
-// classpath 传给 worker，而 Windows 中文环境下 JDK 启动器按 GBK（sun.jnu.encoding）
-// 读 @argfile，把路径里的中文（如 “服务器”）读花，导致 ClassNotFoundException。
-// JEP 400 只把 file.encoding 改成 UTF-8，sun.jnu.encoding 仍是 GBK，故无法根治。
-// 此 task 改用 JavaExec 直接以命令行传 classpath（<32KB，UTF-16 解码正确），
-// 可靠跑通 SolveViewModelTest。长期根治：把工作区迁到纯 ASCII 路径后改回标准 test。
-tasks.register("runUnitTests", JavaExec::class) {
-    group = "verification"
-    description = "Run SolveViewModelTest via JUnitCore (bypasses worker @argfile on non-ASCII paths)"
-    val testTask = tasks.named<org.gradle.api.tasks.testing.Test>("testDebugUnitTest")
-    classpath = testTask.get().classpath
-    mainClass.set("org.junit.runner.JUnitCore")
-    args("com.tes.edu.viewmodel.SolveViewModelTest")
-    dependsOn("compileDebugUnitTestKotlin")
-}
