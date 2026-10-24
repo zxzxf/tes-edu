@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services import compose
 from app.services import mastery
 
 # 阈值沿用 T-B2（与 reports.py 周报口径对齐）
@@ -35,25 +36,7 @@ BAND_DIFFICULTY: Dict[str, Tuple[int, int]] = {
     "hard": (4, 5),
 }
 
-# 单题候选查询（按知识点 code 命中）。knowledge_points 为 JSON 列：
-# 用 jsonb_array_elements_text 展开做标量等值匹配——避开 SQLAlchemy text()
-# 中「绑定参数后接 ::」的解析坑（实测 :s::text 会破坏参数解析）与数组参数类型推断。
-# subject 可选，故按需拼两种变体（bind 参数不带 :: 后缀）。
-_QUESTION_SQL_TPL = """
-    SELECT id, subject, type, stem, options, answer, analysis,
-           difficulty, knowledge_points, content_hash
-    FROM course_kb
-    WHERE {subject_filter}
-      AND difficulty BETWEEN :lo AND :hi
-      AND EXISTS (
-          SELECT 1 FROM jsonb_array_elements_text(knowledge_points::jsonb) AS e
-          WHERE e = :kp
-      )
-    ORDER BY id
-    LIMIT :lim
-"""
-_QUESTION_SQL = _QUESTION_SQL_TPL.format(subject_filter="subject = :s")
-_QUESTION_SQL_NO_SUBJECT = _QUESTION_SQL_TPL.format(subject_filter="TRUE")
+# 选课查询已统一委托 app.services.compose.fetch_questions（T-A4 与 T-B3 共用口径）
 
 
 # --------------------------------------------------------------------------- #
@@ -311,13 +294,13 @@ async def recommend(
             break
         band = difficulty_band(mmap.get(kp))
         lo, hi = band_to_difficulty(band)
-        if subject:
-            stmt = text(_QUESTION_SQL).bindparams(s=subject, lo=lo, hi=hi, kp=kp, lim=8)
-        else:
-            stmt = text(_QUESTION_SQL_NO_SUBJECT).bindparams(lo=lo, hi=hi, kp=kp, lim=8)
-        res = await db.execute(stmt)
-        for r in res.mappings():
-            h = r["content_hash"]
+        # 选课查询与 T-A4 组卷/变式共用同一套 course_kb 读取口径（compose.fetch_questions）
+        pool = await compose.fetch_questions(
+            db, [kp], difficulty_lo=lo, difficulty_hi=hi,
+            subject=subject, limit=8,
+        )
+        for r in pool:
+            h = r.get("content_hash")
             if not h or h in seen:
                 continue
             seen.add(h)
