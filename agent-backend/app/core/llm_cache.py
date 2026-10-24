@@ -406,12 +406,16 @@ async def cached_solve(
 
     # 未命中 → 调 LLM
     result = await remote_fn(question, context, mode)
-    if result is not None:  # 失败结果（如 Hint None）不缓存
-        try:
-            await store.set(
-                key, result, embedding=emb,
-                question=question, mode=mode, subject=subject, hint_level=hint_level,
-            )
-        except Exception as e:  # noqa: BLE001 存储抖动不得拖垮主链路
-            log.warning("cache set failed: %s", e)
+    # 失败结果（如 Hint None）不缓存；**降级结果同样不缓存**（T-D3）：
+    # 配额耗尽时的模板答案若被固化 7 天，配额恢复后仍会一直吐模板——
+    # 缓存只该装"好答案"，降级内容下次重新尝试即可。
+    if result is None or (isinstance(result, dict) and result.get("degraded")):
+        return result
+    try:
+        await store.set(
+            key, result, embedding=emb,
+            question=question, mode=mode, subject=subject, hint_level=hint_level,
+        )
+    except Exception as e:  # noqa: BLE001 存储抖动不得拖垮主链路
+        log.warning("cache set failed: %s", e)
     return result

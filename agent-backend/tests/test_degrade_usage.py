@@ -113,6 +113,26 @@ def test_solve_success_not_degraded_and_records_tokens(llm_on, usage_on, monkeyp
     assert row["latency_ms"] >= 0
 
 
+def test_degraded_result_is_not_cached(llm_on, usage_on, monkeypatch):
+    """降级结果不得进缓存：否则配额恢复后仍会连吐 7 天模板。"""
+    from app.core import llm_cache
+
+    monkeypatch.setattr(config, "CACHE_ENABLED", True)
+    _fake_openai(monkeypatch, "quota")
+    store = llm_cache.MemoryStore()
+    key = llm_cache.cache_key(
+        subject=None, mode="explain", hint_level=None, question="题A"
+    )
+
+    async def _main():
+        out = await llm.solve("题A", {"chunks": []}, mode="explain", store=store)
+        return out, await store.get(key)
+
+    out, cached = asyncio.run(_main())
+    assert out["degraded"] is True
+    assert cached is None
+
+
 def test_dev_mode_has_no_degraded_flag(monkeypatch, usage_on):
     """未配 LLM（dev 模板模式）不算降级，响应不带 degraded。"""
     monkeypatch.setattr(config, "LLM_BASE_URL", "")
