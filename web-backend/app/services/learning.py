@@ -74,6 +74,8 @@ async def record_event(db: AsyncSession, event: dict) -> StudentEvent:
         hint_direct_reveal=_as_bool(event.get("hint_direct_reveal")),
         question_tier=event.get("question_tier") or None,
         question_tier_name=event.get("question_tier_name") or None,
+        # ---- T-D3 降级标记（LLM 不可用/输出违约时由模板回落，degraded=true）----
+        degraded=_as_bool(event.get("degraded")),
     )
     db.add(obj)
     await db.commit()

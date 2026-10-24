@@ -73,10 +73,30 @@ LLM_MODEL_HARD = _get("LLM_MODEL_HARD") or LLM_MODEL
 # 关掉后 cached_solve 直接回源 LLM，行为与接入缓存前完全一致。
 CACHE_ENABLED = _get("CACHE_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
 
+# ---- T-D3 用量记录与预算告警 ----
+# 用量总开关：关掉后不写 llm_usage、不查当日累计（行为等同接入前）。
+USAGE_ENABLED = _get("USAGE_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
+# 单价（元 / 1k tokens）：未登记模型用这组默认值。
+LLM_COST_PER_1K_TOKENS_IN = float(_get("LLM_COST_PER_1K_TOKENS_IN", "0.002"))
+LLM_COST_PER_1K_TOKENS_OUT = float(_get("LLM_COST_PER_1K_TOKENS_OUT", "0.006"))
+# 按模型覆盖单价，JSON：{"qwen3.8-flash": {"in": 0.002, "out": 0.006}}
+LLM_MODEL_PRICES_JSON = _get("LLM_MODEL_PRICES")
+# 日预算（元）。<=0 表示不设预算（state 恒 ok）。
+LLM_DAILY_BUDGET = float(_get("LLM_DAILY_BUDGET", "50"))
+# 预算告警线（占预算比例）：越过即 alert（记审计日志）
+LLM_BUDGET_WARN_RATIO = float(_get("LLM_BUDGET_WARN_RATIO", "0.8"))
+# 预算超线后的动作：alert=仅告警；force_simple=强制降级为小模型并发审计日志；none=不处理
+LLM_BUDGET_ACTION = _get("LLM_BUDGET_ACTION", "alert").strip().lower()
+
 
 def cache_enabled() -> bool:
     """是否启用请求级缓存（T-D1）。单测/降级场景可整体关闭。"""
     return bool(CACHE_ENABLED)
+
+
+def usage_enabled() -> bool:
+    """是否启用用量记录（T-D3）。单测默认关闭，避免连 106 生产库。"""
+    return bool(USAGE_ENABLED)
 
 
 def routing_enabled() -> bool:

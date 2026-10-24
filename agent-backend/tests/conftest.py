@@ -12,6 +12,12 @@ from app.core import config as _config
 
 @pytest.fixture(autouse=True)
 def _no_external_deps(monkeypatch):
-    """全局关闭缓存总开关，确保任何用例都不会去连 Redis/PG。"""
+    """全局关闭缓存与用量总开关，确保任何用例都不会去连 Redis/PG。
+
+    T-D3 的 ``record_usage`` 会写 106 的 ``llm_usage``、``budget_state`` 会查
+    Redis——单测环境 DB_DSN 同样指向 106，故一并关掉（需要验证用量语义的用例
+    显式打开开关并注入 ``recorder``）。
+    """
     monkeypatch.setattr(_config, "CACHE_ENABLED", False)
+    monkeypatch.setattr(_config, "USAGE_ENABLED", False)
     yield

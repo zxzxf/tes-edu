@@ -106,11 +106,14 @@ async def handle_question(
         tier=_route_tier.get("tier"),
         steps=len(ctx.get("steps") or []),
     )
-    # 6) 触类旁通
-    similar = await llm.suggest_similar(question, context=ctx)
+    # 6) 触类旁通（T-D3：变式降级单独标记，不污染主解 degraded 语义）
+    sim = await llm.suggest_similar_detailed(question, context=ctx)
     out = {
         **result,
-        "similar": similar,
+        "similar": sim["similar"],
+        "similar_degraded": sim["degraded"],
+        # T-D3：主解是否降级（模板通法）。埋点与 App 提示都读这个字段
+        "degraded": bool(result.get("degraded")),
         "knowledge_points": ctx.get("points", []),
         # 命中的标注题（步骤级归因的归属对象），事件上报与前端核对都用它
         "content_hash": judge_v2._pick_content_hash(ctx) or "",
@@ -199,9 +202,13 @@ async def _handle_hint_round(
         streak=streak,
         step=step_idx if step else None,
     )
+    sim = await llm.suggest_similar_detailed(question, context=ctx)
     out = {
         **hint,
-        "similar": await llm.suggest_similar(question, context=ctx),
+        "similar": sim["similar"],
+        "similar_degraded": sim["degraded"],
+        # T-D3：本轮 Hint 是否由模板回落（LLM 挂了或输出违约）
+        "degraded": bool(hint.get("degraded")),
         "knowledge_points": ctx.get("points", []),
         "content_hash": content_hash,
         # 阶梯轮次固定引导档；intent_source=hint_ladder 与三档路由的来源区分

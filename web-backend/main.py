@@ -23,6 +23,7 @@ from app.api import (
     ingest,
     knowledge,
     learning,
+    llm_usage,
     metrics,
     questions,
     reports,
@@ -148,6 +149,7 @@ app.include_router(exam.router, prefix="/api/admin")
 app.include_router(grading.router, prefix="/api/admin")
 app.include_router(reports.router, prefix="/api/admin")
 app.include_router(metrics.router, prefix="/api/admin")  # T-C4 P2 埋点指标
+app.include_router(llm_usage.router, prefix="/api/admin")  # T-D3 LLM 用量与预算告警
 app.include_router(compliance.router, prefix="/api/admin")
 app.include_router(questions.router, prefix="/api/admin")
 app.include_router(ingest.router, prefix="/api/admin")

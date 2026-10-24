@@ -345,6 +345,7 @@ async def cached_solve(
     content_hash: Optional[str] = None,
     variant: Optional[str] = None,
     store=None,
+    on_hit: Callable[..., None] | None = None,
 ) -> dict:
     """带缓存的远程 LLM 调用包装。命中（精确或近似）则跳过 remote_fn，不烧 LLM。
 
@@ -353,6 +354,9 @@ async def cached_solve(
 
     ``variant``：上下文变体签名（如 Hint 的 history/step）。**非空时只做精确命中**
     ——上下文不同的近似题复用会导致答非所问。
+
+    ``on_hit``：命中回调（T-D3 用量统计用）——缓存命中不烧 LLM，但需要计数
+    才能算出"缓存省了多少"。回调异常被吞掉，绝不影响主链路。
     """
     if store is None:
         # 总开关关闭（CACHE_ENABLED=false / 单测默认）→ 不接存储，直接回源，
@@ -366,9 +370,18 @@ async def cached_solve(
         question=question, content_hash=content_hash, variant=variant,
     )
 
+    def _notify_hit() -> None:
+        if on_hit is None:
+            return
+        try:
+            on_hit()
+        except Exception as e:  # noqa: BLE001 用量回调不得影响主链路
+            log.debug("cache on_hit callback failed: %s", e)
+
     hit = await store.get(key)
     if hit is not None:
         log.debug("cache HIT %s", key)
+        _notify_hit()
         return hit
 
     # 近似命中：对查询问题做 embedding，复用同命名空间下的近似同题结果
@@ -386,6 +399,7 @@ async def cached_solve(
                     key, approx, embedding=emb,
                     question=question, mode=mode, subject=subject, hint_level=hint_level,
                 )
+                _notify_hit()
                 return approx
         except Exception as e:  # noqa: BLE001 embedding 失败不得影响主链路
             log.warning("approx lookup failed: %s", e)

@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     Integer,
+    Numeric,
     SmallInteger,
     String,
     Text,
@@ -168,6 +169,11 @@ class StudentEvent(Base):
     question_tier = Column(String(16), index=True)      # 题型路由档: memory/medium/finale
     question_tier_name = Column(String(16))
 
+    # ---- T-D3 降级标记 ----
+    # 主解/Hint 由模板回落（LLM 配额耗尽/超时/输出违约）时为 True；
+    # 埋点侧聚合"降级率"，明细用量见 llm_usage 表。
+    degraded = Column(Boolean)
+
 
 class StudentStepError(Base):
     """步骤级错因流水（S5 聚合燃料）。
@@ -211,3 +217,27 @@ class StudentMastery(Base):
     __table_args__ = (
         UniqueConstraint("student_id", "knowledge_point", name="uq_mastery_student_kp"),
     )
+
+
+class LlmUsage(Base):
+    """T-D3 LLM 用量流水（agent-backend 写入，B 端只读聚合）。
+
+    表由 ``agent-backend/scripts/create_llm_usage.sql`` 建在 106 库，这里补 ORM
+    模型供 B 端查询；启动时 create_all 对已存在的表无副作用。
+    """
+
+    __tablename__ = "llm_usage"
+
+    id = Column(Integer, primary_key=True)
+    model = Column(String(64), nullable=False, default="")
+    grade = Column(String(32), nullable=False, default="")
+    mode = Column(String(32), nullable=False, default="")
+    subject = Column(String(64))
+    prompt_tokens = Column(Integer, default=0)
+    completion_tokens = Column(Integer, default=0)
+    latency_ms = Column(Integer, default=0)
+    degraded = Column(Boolean, default=False)
+    cache_hit = Column(Boolean, default=False)
+    error_kind = Column(String(16))
+    cost = Column(Numeric(14, 6), default=0)
+    created_at = Column(DateTime(timezone=True), index=True)

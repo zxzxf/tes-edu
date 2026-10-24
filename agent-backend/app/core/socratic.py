@@ -31,7 +31,9 @@ T-C3 起：题型路由（qtype.route_question_tier）决定各题的轮次上�
 """
 from __future__ import annotations
 
-from app.core import config, llm_cache, model_router, qtype
+import time
+
+from app.core import config, llm_cache, model_router, qtype, usage
 
 # ---------------------------------------------------------------- 阶梯定义
 
@@ -547,7 +549,16 @@ async def _remote_hint(
         return None
 
     async def _call(q, ctx, m):
-        return _remote_hint_raw(q, ctx, level, history, step, tier=tier)
+        return await _remote_hint_raw(
+            q, ctx, level, history, step, tier=tier, subject=subject
+        )
+
+    def _on_cache_hit() -> None:
+        # T-D3：Hint 是消耗大头，命中也要计数（缓存省了多少）
+        usage.record_usage_bg(
+            mode="guide", subject=subject, cache_hit=True, grade="cache",
+            model=config.LLM_MODEL,
+        )
 
     # 上下文变体：对话历史与当前步骤会实质改变 Hint 输出，必须入键（否则串味）；
     # 非空时只做精确命中，不走近似复用。
@@ -571,6 +582,7 @@ async def _remote_hint(
         content_hash=content_hash,
         variant=variant or None,
         store=store,
+        on_hit=_on_cache_hit,
     )
 
 
@@ -582,8 +594,10 @@ async def _remote_hint_raw(
     step: dict | None = None,
     *,
     tier: str | None = None,
+    subject: str | None = None,
 ) -> dict | None:
-    """原始 LLM Hint 生成（无缓存包装）。失败返回 None。"""
+    """原始 LLM Hint 生成（无缓存包装）。失败返回 None（T-D3：并记一行降级用量）。"""
+    t0 = time.monotonic()
     try:
         from openai import AsyncOpenAI  # 延迟导入，与 llm.py 同款
 
@@ -609,9 +623,29 @@ async def _remote_hint_raw(
         steps = data.get("steps") or []
         if isinstance(steps, str):
             steps = [steps]
+        usage.record_usage_bg(
+            model=route["model"], grade=route["grade"], mode="guide", subject=subject,
+            latency_ms=int((time.monotonic() - t0) * 1000),
+            prompt_tokens=_tk(resp, "prompt_tokens"),
+            completion_tokens=_tk(resp, "completion_tokens"),
+        )
         return {"answer": str(answer), "steps": [str(s) for s in steps]}
-    except Exception:  # noqa: BLE001 生成失败不阻塞引导链路，回落模板
+    except Exception as e:  # noqa: BLE001 生成失败不阻塞引导链路，回落模板
+        usage.record_usage_bg(
+            mode="guide", subject=subject, degraded=True,
+            error_kind=usage.classify_error(e),
+            latency_ms=int((time.monotonic() - t0) * 1000),
+        )
         return None
+
+
+def _tk(resp, key: str) -> int:
+    """取响应的 token 计数（端点可能不返回 usage）。"""
+    try:
+        u = getattr(resp, "usage", None)
+        return int(getattr(u, key, 0) or 0) if u is not None else 0
+    except Exception:  # noqa: BLE001
+        return 0
 
 
 async def generate_hint(
@@ -644,6 +678,13 @@ async def generate_hint(
         )
     except Exception:  # noqa: BLE001 双保险：生成层任何意外都回落模板
         hint = None
-    if hint is None or hint_contract_violations(hint.get("answer"), level):
+    violated = hint is not None and bool(hint_contract_violations(hint.get("answer"), level))
+    if hint is None or violated:
+        reason = "contract_violation" if violated else "llm_unavailable"
         hint = template_hint(question, context, level, step)
+        # T-D3：降级必须显式标记——否则"LLM 挂了"在埋点里是隐形的。
+        # dev（未配 LLM）本就是模板模式，不算降级。
+        if config.llm_ready():
+            hint["degraded"] = True
+            hint["degraded_reason"] = reason
     return hint

@@ -42,6 +42,8 @@ async def solve(req: SolveRequest, request: Request):
                     "event_type": "hint_shown",
                     **_identity(request),
                     "subject": req.subject or "",
+                    # T-D3：本轮 Hint 是否由模板降级（LLM 不可用/输出违约）
+                    "degraded": result.get("degraded"),
                     "mode": result.get("mode") or "",
                     "intent": result.get("intent") or "",
                     "intent_source": result.get("intent_source") or "",
@@ -72,6 +74,7 @@ async def solve(req: SolveRequest, request: Request):
                     "event_type": "direct_reveal",
                     **_identity(request),
                     "subject": req.subject or "",
+                    "degraded": result.get("degraded"),
                     "mode": result.get("mode") or "",
                     "intent": result.get("intent") or "",
                     "question": req.question,
@@ -108,6 +111,8 @@ async def solve(req: SolveRequest, request: Request):
             "knowledge_points": result.get("knowledge_points") or [],
             # 命中的标注题：把归因挂到具体题目（缺了它 student_step_errors 无法归属）
             "content_hash": result.get("content_hash") or "",
+            # T-D3：主解是否降级为模板通法（用量表另有 llm_usage 明细，此处供埋点聚合）
+            "degraded": result.get("degraded"),
             # 判分结果：未提交作答时为 None（消费端只累计练习量）
             "correct": judgement.get("correct"),
             "partial": judgement.get("partial"),

@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 
-from app.core import config, llm_cache, model_router
+from app.core import config, llm_cache, model_router, usage
 
 log = logging.getLogger("llm")
 
@@ -73,6 +74,13 @@ async def solve(
         async def _call(q, c, m):
             return await _remote_solve(q, c, m, tier=tier, steps=steps)
 
+        def _on_cache_hit() -> None:
+            # T-D3：缓存命中不烧 LLM，但仍要计数（否则算不出缓存省了多少）
+            usage.record_usage_bg(
+                mode=mode, subject=subject, cache_hit=True, grade="cache",
+                model=config.LLM_MODEL,
+            )
+
         return await llm_cache.cached_solve(
             _call,
             question,
@@ -82,6 +90,7 @@ async def solve(
             hint_level=hint_level,
             content_hash=content_hash,
             store=store,
+            on_hit=_on_cache_hit,
         )
     return _dev_solve(question, context, mode)
 
@@ -98,6 +107,19 @@ async def _remote_solve(
 
     # T-D2：按题型 + 难度(tier) + mode 选模型（未配分级时回落单一 LLM_MODEL）
     route = model_router.route_model(mode=mode, context=context, tier=tier, steps=steps)
+    # T-D3：预算超线且动作为 force_simple → 本轮强制降级为小模型（配额节流）
+    try:
+        bstate = await usage.budget_state()
+        usage.audit_budget(bstate)
+        if bstate.get("force_simple") and route.get("grade") == model_router.GRADE_HARD:
+            route = dict(
+                route,
+                model=config.LLM_MODEL_SIMPLE,
+                grade="hard_forced_simple",
+                reason="日预算超线（T-D3），强制降级为小模型",
+            )
+    except Exception:  # noqa: BLE001 预算查询失败不得影响路由
+        pass
     log.info(
         "model route: mode=%s tier=%s steps=%s -> %s (%s) | %s",
         mode,
@@ -109,6 +131,7 @@ async def _remote_solve(
     )
 
     client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+    t0 = time.monotonic()
     try:
         resp = await client.chat.completions.create(
             model=route["model"],
@@ -122,16 +145,55 @@ async def _remote_solve(
         # 不同模型返回形态不一：answer 可能是数字，steps 可能是单个字符串
         if isinstance(steps, str):
             steps = [steps]
+        usage.record_usage_bg(
+            model=route["model"], grade=route["grade"], mode=mode,
+            latency_ms=int((time.monotonic() - t0) * 1000),
+            **_tokens(resp),
+        )
         return {"answer": str(answer), "steps": [str(s) for s in steps]}
-    except Exception:  # noqa: BLE001 端点配额耗尽(403)/超时等：降级为基于检索的
+    except Exception as e:  # noqa: BLE001 端点配额耗尽(403)/超时等：降级为基于检索的
         # 通法拼装，不让主链路 500——引导对话宁可给通法，也不能整体失败
+        usage.record_usage_bg(
+            model=route["model"], grade=route["grade"], mode=mode, degraded=True,
+            error_kind=usage.classify_error(e),
+            latency_ms=int((time.monotonic() - t0) * 1000),
+        )
         return _dev_solve(question, context, mode, degraded=True)
+
+
+def _tokens(resp) -> dict:
+    """从 OpenAI 兼容响应里取 token 计数（不同端点可能缺失 usage）。"""
+    try:
+        u = getattr(resp, "usage", None)
+        if u is None:
+            return {"prompt_tokens": 0, "completion_tokens": 0}
+        return {
+            "prompt_tokens": int(getattr(u, "prompt_tokens", 0) or 0),
+            "completion_tokens": int(getattr(u, "completion_tokens", 0) or 0),
+        }
+    except Exception:  # noqa: BLE001 token 统计不是主链路，缺失按 0
+        return {"prompt_tokens": 0, "completion_tokens": 0}
 
 
 def _dev_solve(
     question: str, context: dict | None, mode: str, degraded: bool = False
 ) -> dict:
-    """dev 回退：用检索到的真实上下文拼装讲解（非占位字符串）。
+    """dev / 降级回退入口：拼装模板答案并打 ``degraded`` 标记（T-D3）。
+
+    ``degraded=True`` 时响应带 ``degraded: true`` 与 ``degraded_reason``，
+    供 App 提示"当前为降级通法"、埋点与用量表统计降级率。
+    """
+    out = _dev_answer(question, context, mode, degraded=degraded)
+    if degraded:
+        out["degraded"] = True
+        out["degraded_reason"] = "llm_unavailable"
+    return out
+
+
+def _dev_answer(
+    question: str, context: dict | None, mode: str, degraded: bool = False
+) -> dict:
+    """模板拼装本体：用检索到的真实上下文拼装讲解（非占位字符串）。
 
     ``degraded=True`` 表示生产环境 LLM 不可用（配额耗尽/超时）后的降级，
     文案与无密钥 dev 模式区分，避免误导排查。
@@ -233,6 +295,7 @@ async def _remote_judge(question: str, student_answer: str, context: dict | None
             "content": f"【题目】\n{question}\n\n【参考答案与解析】\n{ref}\n\n【学生的作答】\n{student_answer}",
         },
     ]
+    t0 = time.monotonic()
     try:
         client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
         resp = await client.chat.completions.create(
@@ -240,13 +303,21 @@ async def _remote_judge(question: str, student_answer: str, context: dict | None
         )
         data = _parse_json(resp.choices[0].message.content or "")
         if isinstance(data.get("correct"), bool):
+            usage.record_usage_bg(
+                model=config.LLM_MODEL, grade="single", mode="judge",
+                latency_ms=int((time.monotonic() - t0) * 1000), **_tokens(resp),
+            )
             return {
                 "correct": data["correct"],
                 "partial": bool(data.get("partial", False)),
                 "comment": str(data.get("comment") or ""),
             }
-    except Exception:  # noqa: BLE001 判分失败降级为兜底比对，不影响主链路
-        pass
+    except Exception as e:  # noqa: BLE001 判分失败降级为兜底比对，不影响主链路
+        usage.record_usage_bg(
+            model=config.LLM_MODEL, grade="single", mode="judge", degraded=True,
+            error_kind=usage.classify_error(e),
+            latency_ms=int((time.monotonic() - t0) * 1000),
+        )
     return _dev_judge(student_answer, context)
 
 
@@ -262,14 +333,20 @@ def _dev_judge(student_answer: str, context: dict | None) -> dict:
     return {"correct": False, "partial": False, "comment": "与参考答案不一致（兜底比对）"}
 
 
-async def suggest_similar(question: str, context: dict | None = None) -> list[str]:
+async def suggest_similar_detailed(question: str, context: dict | None = None) -> dict:
+    """变式题生成（带降级标记）：``{"similar": [...], "degraded": bool}``。
+
+    T-D3：变式是旁路能力，LLM 配额打满时曾把整轮 Hint 对话打成 500（T-C2 实测），
+    故这里失败静默回落检索结果，但**必须把 degraded 标记回传**，
+    让埋点与用量表能统计"变式降级率"——否则降级是隐形的。
+    """
     if config.llm_ready():
+        t0 = time.monotonic()
+        route = model_router.route_model(mode="similar", context=context)
         try:
             from openai import AsyncOpenAI  # 延迟导入
 
             client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
-            # T-D2：变式题属轻量档，走小模型（未配分级时回落 LLM_MODEL）
-            route = model_router.route_model(mode="similar", context=context)
             resp = await client.chat.completions.create(
                 model=route["model"],
                 messages=_build_messages(question, context, "similar"),
@@ -281,14 +358,31 @@ async def suggest_similar(question: str, context: dict | None = None) -> list[st
             if isinstance(sims, str):
                 sims = [sims]
             if sims:
-                return [str(s) for s in sims][:3]
+                usage.record_usage_bg(
+                    model=route["model"], grade=route["grade"], mode="similar",
+                    latency_ms=int((time.monotonic() - t0) * 1000), **_tokens(resp),
+                )
+                return {"similar": [str(s) for s in sims][:3], "degraded": False}
             # 模型未按要求返回 similar 字段时，不要回吐原始 JSON，交由下方检索结果兜底
-        except Exception:  # noqa: BLE001 变式是旁路能力：LLM 配额耗尽/超时不得
+        except Exception as e:  # noqa: BLE001 变式是旁路能力：LLM 配额耗尽/超时不得
             # 影响主链路（T-C2 实测：similar 的 403 曾把整轮 Hint 对话打成 500）
-            pass
+            usage.record_usage_bg(
+                model=route["model"], grade=route["grade"], mode="similar", degraded=True,
+                error_kind=usage.classify_error(e),
+                latency_ms=int((time.monotonic() - t0) * 1000),
+            )
 
     chunks = (context or {}).get("chunks", [])
-    return [
-        f"变式：{c['text'][:40]}…（同类题，知识点：{c.get('knowledge_point', '')}）"
-        for c in chunks[:3]
-    ] or ["[dev] 暂无检索结果，无法生成变式题"]
+    return {
+        "similar": [
+            f"变式：{c['text'][:40]}…（同类题，知识点：{c.get('knowledge_point', '')}）"
+            for c in chunks[:3]
+        ] or ["[dev] 暂无检索结果，无法生成变式题"],
+        # 只有"配了 LLM 却没生成出来"才算降级；dev（无密钥）本就是模板模式，不计
+        "degraded": bool(config.llm_ready()),
+    }
+
+
+async def suggest_similar(question: str, context: dict | None = None) -> list[str]:
+    """兼容旧签名：只返回变式题列表（T-D3 起内部走 detailed 版本）。"""
+    return (await suggest_similar_detailed(question, context))["similar"]
