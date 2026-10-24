@@ -121,14 +121,14 @@
 
   <div class="kpis">
     <div class="kpi"><div class="label">总任务</div><div class="value">49</div></div>
-    <div class="kpi"><div class="label">已完成</div><div class="value" style="color:var(--green);">38<span class="sub"> / 78%</span></div></div>
-    <div class="kpi"><div class="label">待办</div><div class="value" style="color:var(--amber);">11<span class="sub"> · 外部阻塞 3</span></div></div>
-    <div class="kpi"><div class="label">测试</div><div class="value" style="color:var(--green);">199<span class="sub"> + e2e 24/24 全绿</span></div></div>
+    <div class="kpi"><div class="label">已完成</div><div class="value" style="color:var(--green);">39<span class="sub"> / 80%</span></div></div>
+    <div class="kpi"><div class="label">待办</div><div class="value" style="color:var(--amber);">10<span class="sub"> · 外部阻塞 3</span></div></div>
+    <div class="kpi"><div class="label">测试</div><div class="value" style="color:var(--green);">211<span class="sub"> + e2e 24/24 + 图谱冒烟 21/21</span></div></div>
   </div>
 
   <div class="concl">
     <ul>
-      <li><b>代码侧基本就绪，卡点在外部。</b>归因线 S1–S5、收尾 T1 / T2 / T4 与 T-A 系列 4/4 已全部落地（T1 物理讲解补跑收官，T3 数学补跑三次失败已打标记，见下）；真正阻塞价值兑现的是教材素材（T-A2）与试点排期（T5），不是工程量。</li>
+      <li><b>代码侧基本就绪，卡点在外部。</b>归因线 S1–S5、收尾 T1 / T2 / T4、T-A 系列 4/4 与 T-B 系列 5/5 已全部落地（T-B5 图谱可视化页今日收官；T3 数学补跑三次失败已打标记，见下）；真正阻塞价值兑现的是教材素材（T-A2）与试点排期（T5），不是工程量。</li>
       <li><b>「代码 100% / 数据 0%」仍是最大结构性问题，但已收窄。</b>题库 211/3000、真实流水仅 4 条事件——S5 周报 / 错因分布 / /metricsz 全部具备但空转。T2 错题本写入链路已完成（自动落库 + 幂等 + 真实库 e2e 9/9），错题本从「无数据源」变为「待试点流水」；剩余真空缺是试点本身（T5）。</li>
       <li><b>部署断层：线上镜像落后仓库 27 个提交。</b>137 已从 mock 桩升级为 real 后端（10-23 15:46 构建），早于其后的 T-A1 / T-B1 / T-B2 / T2 / T-A3 / T-B4 / T-B3 / T-A4 / T4 等全部提交——S5 归因线、掌握度算法、错题本链路、RAG 探活、ZPD 推题、组卷接口、评测脚手架均未上线，需重建镜像并滚动重启。</li>
       <li><b>计划缺环两处。</b>P2 引导式对话（Hint 阶梯 / 100 题评测集 / 埋点指标）与 LLM 成本控制在任务清单中无登记项；#20 与 T-B4 的 AGE 双轨已消除（T-B4 决策方案 A，两任务关闭，见《AGE部署决策记录.md》）。</li>
@@ -150,7 +150,7 @@
     <div class="ms"><div class="top"><span class="t">M0 边界锁定</span><span class="chip done">已达成</span></div><div class="note">435 点本体定稿，DAG 验收通过</div></div>
     <div class="ms"><div class="top"><span class="t">M1 内容可用</span><span class="chip block">7%</span></div><div class="note">211/3000 题，素材外部阻塞</div></div>
     <div class="ms"><div class="top"><span class="t">M2 导师上线</span><span class="chip pend">部分</span></div><div class="note">归因线通，P2 指标未评</div></div>
-    <div class="ms"><div class="top"><span class="t">M3 差异化成立</span><span class="chip pend">部分</span></div><div class="note">T-B2 + T-B3 已落地，缺 App 可视化（T-B5）</div></div>
+    <div class="ms"><div class="top"><span class="t">M3 差异化成立</span><span class="chip pend">算法+可视化就绪</span></div><div class="note">T-B2 + T-B3 + T-B5 已落地，待试点流水验证</div></div>
     <div class="ms"><div class="top"><span class="t">M4 家庭闭环</span><span class="chip pend">部分</span></div><div class="note">家长端基础在，增项未排期</div></div>
     <div class="ms"><div class="top"><span class="t">M5 商业闭环</span><span class="chip pend">部分</span></div><div class="note">网关硬要求在，计费 / 交付未做</div></div>
   </div>
@@ -165,7 +165,7 @@
     <div class="sbar-row"><div class="name">归因线 S1–S5（#29–#35）</div><div class="sbar"><div class="d" style="width:100%"></div></div><div class="cnt">7/7</div></div>
     <div class="sbar-row"><div class="name">归因线收尾 T1–T5（#36–#40）</div><div class="sbar"><div class="d" style="width:60%"></div><div class="p" style="width:40%"></div></div><div class="cnt">3/5</div></div>
     <div class="sbar-row"><div class="name">P1 内容扩量 T-A（#41–#44）</div><div class="sbar"><div class="d" style="width:100%"></div><div class="p" style="width:0%"></div></div><div class="cnt">4/4</div></div>
-    <div class="sbar-row"><div class="name">P3 图谱 T-B（#45–#49）</div><div class="sbar"><div class="d" style="width:80%"></div><div class="p" style="width:20%"></div></div><div class="cnt">4/5</div></div>
+    <div class="sbar-row"><div class="name">P3 图谱 T-B（#45–#49）</div><div class="sbar"><div class="d" style="width:100%"></div><div class="p" style="width:0%"></div></div><div class="cnt">5/5</div></div>
     <div class="sbar-row"><div class="name">P4 家长端（#21 · #24–#28）</div><div class="sbar"><div class="d" style="width:16.7%"></div><div class="p" style="width:83.3%"></div></div><div class="cnt">1/6</div></div>
     <div class="sbar-row"><div class="name">P5 商业化（#22）</div><div class="sbar"><div class="p" style="width:100%"></div></div><div class="cnt">0/1</div></div>
     <div class="sbar-row"><div class="name">横向（#23）</div><div class="sbar"><div class="p" style="width:100%"></div></div><div class="cnt">0/1</div></div>
@@ -174,8 +174,8 @@
   <h2>四、任务明细（49 项）</h2>
   <div class="filters">
     <button id="f-all" class="on" onclick="filterTasks('all')">全部 49</button>
-    <button id="f-done" onclick="filterTasks('done')">已完成 38</button>
-    <button id="f-open" onclick="filterTasks('open')">待办 11</button>
+    <button id="f-done" onclick="filterTasks('done')">已完成 39</button>
+    <button id="f-open" onclick="filterTasks('open')">待办 10</button>
   </div>
   <div id="task-list"></div>
 
@@ -231,13 +231,14 @@
     <li><b>T-A3 RAG 读取侧固化</b><span class="tag chip done">已完成 · 0.5 天</span><br>真实库评测数学 123 / 物理 90 题 TOP1 自命中率均 100%（验收线 85%）；/healthz 加 db_ping 探活 + 7 例读取契约单测。</li>
     <li><b>T-B3 ZPD + 自适应推题</b><span class="tag chip done">已完成 · 解锁 M3</span><br>已落地：compute_zpd（前置就绪+自身未掌握，缺省按就绪同 T-B2 约定）+ depth_map 学习路径排序 + 难度带随答对升/答错降 + 间隔重复计划；18 单测 + 真实库冒烟（数学 5 题落地）。物理因 DAG 仅数学节点暂空（归 T-A2）。</li>
     <li><b>T-A4 组卷 / 变式接口 + T4 S6 评测脚手架</b><span class="tag chip done">均已完成</span><br>T-A4：给定 KP 返回该点及下游相关题（真实库 5/5 验收），T-B3 选课已委托共用。T4：金标准模板 + eval_attribution.py + 归档目录齐备，mock 自测三张表 100%，试点一到即可出数。</li>
+    <li><b>T-B5 App 知识图谱可视化页</b><span class="tag chip done">已完成 · 0.5 天</span><br>全链路落地：web-backend 新增 <span class="mono">GET /learning/knowledge-graph</span>（DAG 快照 + 掌握度叠层 + ZPD 高亮 + 题目数，复用 T-B2/T-B3 纯函数）；网关放行 <span class="mono">/learning/</span> 与 <span class="mono">/login</span> 两条路由（jwt_c）；App 侧 Canvas 章节带布局渲染（435 节点 / 435 边，拖动平移 + 双指缩放 + 点选详情卡）。真实库冒烟 21/21，布局算法经镜像验证（画布 3136×4232dp，18 章带）。<b>顺带修复</b>：student_mastery 历史按 KP 名称落库、与 DAG 的 code 键对不上——读侧新增名称→code 翻译（T-B2/T-B3/T-B5 共享）；数据显示 12 条记录仅 1 条名称可映射（旧扁平 KP 与新 DAG 未对齐，数据治理缺口，建议随 T-A2 一并处理）。</li>
     <li><b>T1 物理讲解补跑收官 · T3 数学补跑失败（已标记）</b><span class="tag chip done">T1 已完成</span><span class="tag chip fail">T3 失败·未关闭</span><br>T1：qwen3.8-flash 全量补跑 88 题，86 题成功落库，物理讲解 0 → 297/297（100%）；2 道解答题（0c1ed8c9 / 08dfe03e）3 次 180s 超时后按决策删除（全量备份于 137 /root/backups/bak_deleted_phys_20261024.json，含向量可恢复）。T3：数学 2 道解答题（c524576e / ff72e92a）三次尝试均失败——① 原批 flash 180s×3 超时；② deepseek-v4-pro 长 prompt 挂起 8 分钟无返回；③ 端点恢复后 flash 300s 补跑 9 分半仍无响应，主动终止。根因为复杂解答题长 prompt 模型不返回（非额度，ws 滚动配额已恢复）；库无半写（仅非空才落库），数学维持 365/371。<b>后续</b>：retry_failed_steps.py 已就位（--all-missing，模型可切），端点更稳或换模型后一条命令补齐；或按物理题先例删除这 2 题（数学即 365/365=100%），决策待定。</li>
     <li><b>外部催办</b><span class="tag chip block">T-A2 / #23 / T5</span><br>教材题素材（人教A版例题/习题）与试点排期（4 周 ≥30 生）是代码之外的卡点；教师金标准标注工时需提前 2 周约定。</li>
     <li><b>部署收口</b><span class="tag chip block">镜像重建</span><br>real 后端重建 + 滚动重启，让仓库与线上对齐；web-frontend 部署（G5）可随之排期。</li>
   </ol>
 
   <footer>
-    数据口径：任务状态来自项目任务清单 #1–#49（2026-10-24）；内容数据来自 106 库 tes_edu 实查（2026-10-24 17:37，course_kb / course_kb_steps / course_kb_embeddings / kb_knowledge_points / kb_kp_prerequisites / student_events / wrong_questions）；部署状态来自 137 与 106 的 docker ps 实测（2026-10-24 14:1x）；代码版本 main @ a9adb97。配套文档：《应用拆分与开发分期.md》《归因线收尾与验收任务计划.md》《P1内容扩量与图谱启动计划书.md》《AGE部署决策记录.md》。
+    数据口径：任务状态来自项目任务清单 #1–#49（2026-10-24）；内容数据来自 106 库 tes_edu 实查（2026-10-24 17:50，course_kb / course_kb_steps / course_kb_embeddings / kb_knowledge_points / kb_kp_prerequisites / student_mastery / student_events / wrong_questions）；部署状态来自 137 与 106 的 docker ps 实测（2026-10-24 14:1x）；代码版本 main @ b587067。配套文档：《应用拆分与开发分期.md》《归因线收尾与验收任务计划.md》《P1内容扩量与图谱启动计划书.md》《AGE部署决策记录.md》。
   </footer>
 </div>
 
@@ -292,7 +293,7 @@ var SERIES = [
     ['#46','T-B2 掌握度更新算法','12 单测 + 接通 S3','done'],
     ['#47','T-B3 ZPD + 自适应推题','18 单测 + 真实库冒烟','done'],
     ['#48','T-B4 AGE 部署决策','方案 A：不装，关 #20','done'],
-    ['#49','T-B5 App 图谱可视化页','依赖 T-B3 + Android','pend']
+    ['#49','T-B5 App 图谱可视化页','章节带 DAG + 掌握度叠层 + ZPD 高亮','done']
   ]},
   {name:'P4 家长端（#21 · #24–#28）', tasks:[
     ['#21','P4 家长端基础','周报/学情已上线','done'],
