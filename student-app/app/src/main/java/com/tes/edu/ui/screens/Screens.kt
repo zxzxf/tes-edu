@@ -154,7 +154,7 @@ private fun JudgementCard(j: Judgement) {
 @Composable fun CameraScreen() = Placeholder("拍照识题（走 /solve_image OCR 链路）")
 @Composable fun ExplainScreen() = Placeholder("讲解展示（公式渲染）")
 @Composable fun SimilarScreen() = Placeholder("触类旁通")
-@Composable fun GraphScreen() = Placeholder("知识图谱可视化")
+// GraphScreen：T-B5 知识图谱可视化已落地，见 GraphScreen.kt（Canvas 分层 DAG + 掌握度叠层 + ZPD）
 @Composable fun ReviewScreen() = Placeholder("背诵卡 / 错题本（离线）")
 
 @Composable

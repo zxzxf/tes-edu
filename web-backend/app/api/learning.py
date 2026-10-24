@@ -14,6 +14,7 @@ from app.services import learning
 from app.services import mastery as mastery_svc
 from app.services import adaptive
 from app.services import compose
+from app.services import graph as graph_svc
 
 router = APIRouter(prefix="/learning", tags=["learning"])
 
@@ -102,6 +103,21 @@ async def get_compose(
         difficulty_lo=difficulty_lo, difficulty_hi=difficulty_hi,
         types=type_list or None,
     )
+
+
+@router.get("/knowledge-graph", summary="知识图谱可视化数据（DAG + 掌握度 + ZPD）")
+async def get_knowledge_graph(
+    student_id: str = Query(...),
+    subject: Optional[str] = None,
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.PARENT, Role.STUDENT)),
+    db: AsyncSession = Depends(get_db),
+):
+    """T-B5：App「图谱」页一次拉取的 DAG 快照。
+
+    节点带布局深度 + 掌握度配色带 + ZPD 高亮 + 题目数；边为学习流向
+    （from=前置）。学生查自己、老师/家长/管理员查其学生。
+    """
+    return await graph_svc.knowledge_graph_db(db, student_id, subject)
 
 
 @router.get("/events", summary="学生近期学情事件")

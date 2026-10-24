@@ -243,6 +243,20 @@ async def load_step_kps(db: AsyncSession, content_hash: str) -> List[dict]:
     return [{"step_no": r[0], "kp_code": r[1]} for r in res.all()]
 
 
+async def load_kp_title_map(db: AsyncSession) -> Dict[str, str]:
+    """KP 名称 -> code 映射（kb_knowledge_points.title 唯一，无空值行）。
+
+    存在原因：student_mastery / student_events 的 knowledge_point 历史上按
+    **名称**落库（事件流的 KP 抽取产出名称），而 DAG / ZPD / 图谱全部按
+    **code** 键组织。读侧统一把名称翻译成 code，两种键的数据都能对上。
+    """
+    res = await db.execute(text(
+        "SELECT title, code FROM kb_knowledge_points "
+        "WHERE title IS NOT NULL AND btrim(title) <> ''"
+    ))
+    return {r[0]: r[1] for r in res.all() if r[0] and r[1]}
+
+
 async def load_mastery_map(
     db: AsyncSession,
     student_id: str,
@@ -252,24 +266,37 @@ async def load_mastery_map(
     """读取学生在若干知识点上的当前（衰减后）掌握度，仅含已判分的点。
 
     未判分的 KPs 不返回（plan 中按默认 1.0=已掌握处理，避免误扣）。
+
+    键兼容：mastery 行按 code 落库的原样用；按名称落库的（历史数据）
+    经 load_kp_title_map 翻译成 code 后再匹配，翻译不到的名称忽略
+    （属于旧扁平 KP 体系，DAG 中无对应节点）。
     """
     now = now or datetime.now(timezone.utc)
     kp_codes = [k for k in (kp_codes or []) if k]
     if not kp_codes:
         return {}
-    stmt = (
-        select(StudentMastery)
-        .where(StudentMastery.student_id == student_id)
-        .where(StudentMastery.knowledge_point.in_(list(kp_codes)))
+    res = await db.execute(
+        select(StudentMastery).where(StudentMastery.student_id == student_id)
     )
-    res = await db.execute(stmt)
+    rows = res.scalars().all()
+    if not rows:
+        return {}
+    wanted = set(kp_codes)
+    keys = {r.knowledge_point for r in rows if r.knowledge_point}
+    unresolved = keys - wanted
+    title_map = await load_kp_title_map(db) if unresolved else {}
     out: Dict[str, float] = {}
-    for r in res.scalars().all():
+    for r in rows:
+        kp = r.knowledge_point
+        if kp not in wanted:
+            kp = title_map.get(kp, kp)
+        if kp not in wanted:
+            continue
         score = compute_mastery_score(
             r.correct_count, r.wrong_count, r.last_practiced_at, now
         )
         if score is not None:
-            out[r.knowledge_point] = score
+            out[kp] = score
     return out
 
 

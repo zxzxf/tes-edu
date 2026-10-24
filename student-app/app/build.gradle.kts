@@ -38,6 +38,8 @@ dependencies {
     // 网络：Retrofit（经网关访问 Agent 后端）
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    // T-B5：认证拦截器直接用 OkHttpClient（Retrofit 传递依赖，显式声明锁定版本）
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // 本地库：Room（背诵卡 / 错题本离线缓存）
     implementation("androidx.room:room-runtime:2.6.1")

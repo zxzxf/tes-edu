@@ -38,6 +38,20 @@ routes:
     mode: jwt_c
     rate: 20
     burst: 40
+  # T-B5：App「图谱」页读 web-backend 的 /learning/*（DAG + 掌握度 + ZPD）。
+  # jwt_c 只验令牌不验角色（C 端用户态），角色白名单由 web-backend 的
+  # require_role 按 X-User-Role 执行（学生可查自己，老师/家长/管理员查其学生）。
+  - match: "/learning/"
+    upstream: web_backend
+    mode: jwt_c
+    rate: 30
+    burst: 60
+  # 占位登录（web-backend POST /login 换 JWT）：本身不鉴权
+  - match: "/login"
+    upstream: web_backend
+    mode: ""
+    rate: 10
+    burst: 20
   - match: "/api/admin/"
     upstream: web_backend
     mode: rbac

@@ -129,3 +129,77 @@ def test_update_mastery_plan_only():
     sr = [m._to_step_result({"step_no": 1, "is_correct": True, "kp": "C"})]
     assert sr[0] == m.StepResult(step_no=1, is_correct=True, kp="C")
     assert m._to_step_result("garbage") is None
+
+
+# ---------------- DB 薄层：名称键兼容（假 session，不连库） ---------------- #
+import asyncio  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+
+
+class _FakeResult:
+    def __init__(self, rows):
+        self._rows = list(rows)
+
+    def all(self):
+        return self._rows
+
+    def scalars(self):
+        return self
+
+
+class _FakeSession:
+    """两条路由：title 映射查询 / ORM select(student_mastery)。"""
+
+    def __init__(self, mastery_rows, title_rows):
+        self._routes = [
+            ("SELECT title, code", title_rows),
+            ("FROM student_mastery", mastery_rows),
+        ]
+
+    async def execute(self, stmt):
+        sql = str(stmt)
+        for marker, rows in self._routes:
+            if marker in sql:
+                return _FakeResult(rows)
+        raise AssertionError(f"unexpected SQL: {sql[:80]}")
+
+
+def _run(coro):
+    return asyncio.new_event_loop().run_until_complete(coro)
+
+
+def test_load_mastery_map_code_keys_no_title_query():
+    """code 键行原样匹配，且不触发 title 映射查询（无名称键时零额外开销）。"""
+    sess = _FakeSession(
+        [SimpleNamespace(knowledge_point="A", correct_count=9,
+                         wrong_count=1, last_practiced_at=None)],
+        title_rows=[("不该被查", "X")],
+    )
+    out = _run(m.load_mastery_map(sess, "stu", ["A", "B"]))
+    assert out == {"A": 0.9}
+
+
+def test_load_mastery_map_resolves_name_keys():
+    """历史名称键行经 title 映射翻译成 code；翻译不到的名称忽略。"""
+    sess = _FakeSession(
+        [
+            SimpleNamespace(knowledge_point="名称甲", correct_count=1,
+                            wrong_count=1, last_practiced_at=None),      # -> K01, 0.5
+            SimpleNamespace(knowledge_point="旧体系无对应", correct_count=5,
+                            wrong_count=0, last_practiced_at=None),      # 忽略
+        ],
+        title_rows=[("名称甲", "K01")],
+    )
+    out = _run(m.load_mastery_map(sess, "stu", ["K01", "K02"]))
+    assert out == {"K01": 0.5}
+
+
+def test_load_mastery_map_skips_unjudged():
+    """judged=0 不计掌握度（T-B2 约定：只练过没判分不构成掌握度）。"""
+    sess = _FakeSession(
+        [SimpleNamespace(knowledge_point="K01", correct_count=0,
+                         wrong_count=0, last_practiced_at=None)],
+        title_rows=[],
+    )
+    out = _run(m.load_mastery_map(sess, "stu", ["K01"]))
+    assert out == {}

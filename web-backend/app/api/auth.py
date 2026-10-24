@@ -17,6 +17,8 @@ _FAKE_USERS = {
     "teacher@tes.edu": {"password": "demo1234", "role": "teacher", "name": "教师B"},
     "parent@tes.edu": {"password": "demo1234", "role": "parent", "name": "家长C"},
     "admin@tes.edu": {"password": "demo1234", "role": "admin", "name": "管理员D"},
+    # T-B5：C 端学生占位账号（App 图谱页联调用；role=student 仅可查自己学情）
+    "student@tes.edu": {"password": "demo1234", "role": "student", "name": "学生E"},
 }
 
 

@@ -15,9 +15,16 @@ Android 学生端（C 端核心产品），技术栈 **Kotlin + Jetpack Compose*
 ```
 app/src/main/java/com/tes/edu/
 ├── MainActivity.kt                  # 入口 + Compose 底部导航脚手架
-├── ui/screens/Screens.kt            # 六大能力页（占位）
+├── ui/screens/Screens.kt            # 六大能力页（图谱已落地，其余占位）
+├── ui/screens/GraphScreen.kt        # T-B5 知识图谱可视化（Canvas 渲染）
+├── ui/graph/GraphLayout.kt          # 章节带布局算法（纯 Kotlin，可单测）
 ├── viewmodel/SolveViewModel.kt      # 意图分发（文本题/图片题/查点/图谱）
+├── viewmodel/GraphViewModel.kt      # 图谱页状态（登录 + 拉图 + 选中态）
 ├── data/remote/ApiService.kt        # Retrofit 接口（契约对齐 /api/app/*）
+├── data/remote/GraphModels.kt       # T-B5 图谱 DTO（nodes/edges/summary）
+├── data/remote/AuthModels.kt        # 登录 DTO（占位 /login）
+├── data/remote/SessionStore.kt      # 令牌持久化（SharedPreferences）
+├── data/remote/AppContextProvider.kt# Application Context 提供者
 └── data/local/
     ├── entities/DrillCard.kt        # 背诵卡实体
     ├── entities/WrongQuestion.kt    # 错题本实体
@@ -30,7 +37,10 @@ app/src/main/java/com/tes/edu/
 2. **拍照识题**：上传图片解题
 3. **讲解展示**：步骤与公式渲染
 4. **触类旁通**：相似题推荐列表
-5. **知识图谱**：知识点关系可视化
+5. **知识图谱**（T-B5 已落地）：章节带布局的 DAG 渲染，节点颜色=掌握度
+   （绿=已掌握 / 黄=巩固中 / 红=薄弱 / 灰=未学），蓝环=ZPD 待学；
+   支持拖动平移、双指缩放、点节点看掌握度/练习统计/前置链详情。
+   数据来自 `GET /learning/knowledge-graph`（web-backend，经网关 jwt_c 路由）。
 6. **背诵卡 / 错题本**：本地记忆与复习
 
 ## 网络
@@ -40,6 +50,8 @@ app/src/main/java/com/tes/edu/
   - `POST /api/app/solve` — 文本/语音解题与讲解
   - `POST /api/app/solve_image` — 拍照识题（multipart 图片）
   - `POST /api/app/similar` — 触类旁通推荐
+  - `POST /login` — 占位登录换 JWT（web-backend；联调用 student@tes.edu / demo1234）
+  - `GET /learning/knowledge-graph?student_id=…` — T-B5 图谱快照（需 Bearer）
 
 ## 本地存储
 

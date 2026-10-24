@@ -14,11 +14,13 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.tes.edu.data.remote.AppContextProvider
 import com.tes.edu.ui.screens.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppContextProvider.init(applicationContext)
         setContent {
             MaterialTheme {
                 AppRoot()
