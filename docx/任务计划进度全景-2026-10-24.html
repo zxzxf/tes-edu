@@ -115,27 +115,27 @@
 
   <button class="printbtn" onclick="window.print()">打印 / 导出 PDF</button>
   <h1>Tes Edu 任务计划进度全景</h1>
-  <div class="meta">报告日期 2026-10-24 · 仓库 <span class="mono">main @ 0561f80</span>（已推送 GitHub）· 内容数据来自 106 库实查（13:25）· 部署状态来自 137/106 docker ps 实测</div>
+  <div class="meta">报告日期 2026-10-24 · 仓库 <span class="mono">main @ 0e751ca</span>（已推送 GitHub）· 内容数据来自 106 库实查（13:25）· 部署状态来自 137/106 docker ps 实测</div>
 
   <div class="kpis">
     <div class="kpi"><div class="label">总任务</div><div class="value">49</div></div>
-    <div class="kpi"><div class="label">已完成</div><div class="value" style="color:var(--green);">31<span class="sub"> / 63%</span></div></div>
-    <div class="kpi"><div class="label">待办</div><div class="value" style="color:var(--amber);">18<span class="sub"> · 外部阻塞 3</span></div></div>
-    <div class="kpi"><div class="label">测试</div><div class="value" style="color:var(--green);">140<span class="sub"> + e2e 24/24 全绿</span></div></div>
+    <div class="kpi"><div class="label">已完成</div><div class="value" style="color:var(--green);">34<span class="sub"> / 69%</span></div></div>
+    <div class="kpi"><div class="label">待办</div><div class="value" style="color:var(--amber);">15<span class="sub"> · 外部阻塞 3</span></div></div>
+    <div class="kpi"><div class="label">测试</div><div class="value" style="color:var(--green);">147<span class="sub"> + e2e 24/24 全绿</span></div></div>
   </div>
 
   <div class="concl">
     <ul>
       <li><b>代码侧基本就绪，卡点在外部。</b>归因线 S1–S5 与 T-A1 / T-B1 / T-B2 / T2 已全部落地（T2 待提交）；真正阻塞价值兑现的是教材素材（T-A2）与试点排期（T5），不是工程量。</li>
       <li><b>「代码 100% / 数据 0%」仍是最大结构性问题，但已收窄。</b>题库 213/3000、真实流水仅 4 条事件——S5 周报 / 错因分布 / /metricsz 全部具备但空转。T2 错题本写入链路已完成（自动落库 + 幂等 + 真实库 e2e 9/9），错题本从「无数据源」变为「待试点流水」；剩余真空缺是试点本身（T5）。</li>
-      <li><b>部署断层：线上镜像落后仓库 3 个提交。</b>137 已从 mock 桩升级为 real 后端（10-23 15:46 构建），早于今日的 T-A1 / T-B1 / T-B2——S5 归因线与掌握度算法大概率未上线，需重建镜像并滚动重启。</li>
-      <li><b>计划缺环两处。</b>P2 引导式对话（Hint 阶梯 / 100 题评测集 / 埋点指标）与 LLM 成本控制在任务清单中无登记项；#20「AGE 常驻」与 T-B4「AGE 决策」双轨指向同一决策，应合并关闭。</li>
+      <li><b>部署断层：线上镜像落后仓库 6 个提交。</b>137 已从 mock 桩升级为 real 后端（10-23 15:46 构建），早于今日的 T-A1 / T-B1 / T-B2 / T2 / T-A3 / T-B4——S5 归因线、掌握度算法、错题本链路、RAG 探活均未上线，需重建镜像并滚动重启。</li>
+      <li><b>计划缺环两处。</b>P2 引导式对话（Hint 阶梯 / 100 题评测集 / 埋点指标）与 LLM 成本控制在任务清单中无登记项；#20 与 T-B4 的 AGE 双轨已消除（T-B4 决策方案 A，两任务关闭，见《AGE部署决策记录.md》）。</li>
     </ul>
   </div>
 
   <h2>一、开发分期 P0–P5 健康度</h2>
   <div>
-    <div class="row"><div class="name">P0 边界与图谱</div><div class="chipcell"><span class="chip done">实质满足</span></div><div class="desc">河南 · 高中 · 数学 · 人教A版 · 新高考I卷已锁定；435 知识点 DAG 已灌库并验收（T-B1）；AGE 仅剩形式项，待 T-B4 决策关闭</div><div class="prog">基建 19/20</div></div>
+    <div class="row"><div class="name">P0 边界与图谱</div><div class="chipcell"><span class="chip done">实质满足</span></div><div class="desc">河南 · 高中 · 数学 · 人教A版 · 新高考I卷已锁定；435 知识点 DAG 已灌库并验收（T-B1）；AGE 已决策不装（T-B4 方案 A）</div><div class="prog">基建 20/20</div></div>
     <div class="row"><div class="name">P1 内容地基</div><div class="chipcell"><span class="chip block">严重滞后</span></div><div class="desc">题库 213/3000（7%）；人教A版教材题素材未到位，T-A2 与 #23 同阻于此——P1 是全程最大缺口</div><div class="prog">T-A 1/4</div></div>
     <div class="row"><div class="name">P2 引导式对话</div><div class="chipcell"><span class="chip pend">未立项</span></div><div class="desc">归因线 S1–S5（判分 / 讲解 / 周报）已通；但分期书定义的 Hint 阶梯、100 题评测集、六项埋点指标无登记任务</div><div class="prog">计划缺口</div></div>
     <div class="row"><div class="name">P3 掌握度图谱</div><div class="chipcell"><span class="chip pend">算法启动</span></div><div class="desc">T-B1 DAG 验收 + T-B2 掌握度更新算法（接通 S3 事件流）已落地；缺 ZPD 推题（T-B3）与 App 可视化（T-B5）</div><div class="prog">T-B 2/5</div></div>
@@ -159,11 +159,11 @@
     <span><span class="sw" style="background:var(--amber-bar);"></span>待办（含外部阻塞）</span>
   </div>
   <div>
-    <div class="sbar-row"><div class="name">基建与网关（#1–#20）</div><div class="sbar"><div class="d" style="width:95%"></div><div class="p" style="width:5%"></div></div><div class="cnt">19/20</div></div>
+    <div class="sbar-row"><div class="name">基建与网关（#1–#20）</div><div class="sbar"><div class="d" style="width:100%"></div></div><div class="cnt">20/20</div></div>
     <div class="sbar-row"><div class="name">归因线 S1–S5（#29–#35）</div><div class="sbar"><div class="d" style="width:100%"></div></div><div class="cnt">7/7</div></div>
     <div class="sbar-row"><div class="name">归因线收尾 T1–T5（#36–#40）</div><div class="sbar"><div class="d" style="width:20%"></div><div class="p" style="width:80%"></div></div><div class="cnt">1/5</div></div>
-    <div class="sbar-row"><div class="name">P1 内容扩量 T-A（#41–#44）</div><div class="sbar"><div class="d" style="width:25%"></div><div class="p" style="width:75%"></div></div><div class="cnt">1/4</div></div>
-    <div class="sbar-row"><div class="name">P3 图谱 T-B（#45–#49）</div><div class="sbar"><div class="d" style="width:40%"></div><div class="p" style="width:60%"></div></div><div class="cnt">2/5</div></div>
+    <div class="sbar-row"><div class="name">P1 内容扩量 T-A（#41–#44）</div><div class="sbar"><div class="d" style="width:50%"></div><div class="p" style="width:50%"></div></div><div class="cnt">2/4</div></div>
+    <div class="sbar-row"><div class="name">P3 图谱 T-B（#45–#49）</div><div class="sbar"><div class="d" style="width:60%"></div><div class="p" style="width:40%"></div></div><div class="cnt">3/5</div></div>
     <div class="sbar-row"><div class="name">P4 家长端（#21 · #24–#28）</div><div class="sbar"><div class="d" style="width:16.7%"></div><div class="p" style="width:83.3%"></div></div><div class="cnt">1/6</div></div>
     <div class="sbar-row"><div class="name">P5 商业化（#22）</div><div class="sbar"><div class="p" style="width:100%"></div></div><div class="cnt">0/1</div></div>
     <div class="sbar-row"><div class="name">横向（#23）</div><div class="sbar"><div class="p" style="width:100%"></div></div><div class="cnt">0/1</div></div>
@@ -172,8 +172,8 @@
   <h2>四、任务明细（49 项）</h2>
   <div class="filters">
     <button id="f-all" class="on" onclick="filterTasks('all')">全部 49</button>
-    <button id="f-done" onclick="filterTasks('done')">已完成 31</button>
-    <button id="f-open" onclick="filterTasks('open')">待办 18</button>
+    <button id="f-done" onclick="filterTasks('done')">已完成 34</button>
+    <button id="f-open" onclick="filterTasks('open')">待办 15</button>
   </div>
   <div id="task-list"></div>
 
@@ -211,7 +211,7 @@
   </div>
   <div class="callout">
     <div class="t">部署断层：线上镜像落后仓库 3 个提交</div>
-    <div class="d">edu-web-backend:real / edu-agent-backend:real 构建于 10-23 15:46，早于今日提交的 T-A1(4b3cc42) / T-B1(221ac3e) / T-B2(8abe399)——S5 归因线与掌握度算法大概率未上线。建议按网关已验证过的流程重建镜像并滚动重启。</div>
+    <div class="d">edu-web-backend:real / edu-agent-backend:real 构建于 10-23 15:46，早于今日提交的 T-A1(4b3cc42) / T-B1(221ac3e) / T-B2(8abe399) / T2(a1df49b) / T-A3(074a3c4) / T-B4(0e751ca)——S5 归因线、掌握度算法、错题本链路、RAG 探活均未上线。建议按网关已验证过的流程重建镜像并滚动重启。</div>
   </div>
   <h3>风险台账</h3>
   <div>
@@ -224,9 +224,9 @@
 
   <h2>七、结论与下一步建议</h2>
   <ol class="steps">
-    <li><b>T2 错题本自动写入链路</b>（已完成 · e2e 9/9）<span class="tag chip done">已交付</span><br>判分出错自动落 wrong_questions（content_hash + wrong_step_no + error_type），按 (学生, 题, 步) 幂等；need_process 不入库；真实库两轮消费 21/21 不涨数，correction 关联一致。<b>下一项：T-B4 AGE 决策 → T-A3 → T-B3。</b></li>
-    <li><b>T-B4 AGE 部署决策</b><span class="tag chip done">立即 · 0.5 天</span><br>落地方案 A（关系表 + 递归 CTE 承载，不引 AGE），同步关闭 #20，消除双轨。</li>
-    <li><b>T-A3 RAG 读取侧固化</b><span class="tag chip done">0.5 天</span><br>确认 rag.py 从 106 course_kb_embeddings 做召回，50 题抽测知识点召回 ≥85%。</li>
+    <li><b>T2 错题本自动写入链路</b>（已完成 · e2e 9/9）<span class="tag chip done">已交付</span><br>判分出错自动落 wrong_questions（content_hash + wrong_step_no + error_type），按 (学生, 题, 步) 幂等；need_process 不入库；真实库两轮消费 21/21 不涨数，correction 关联一致。<b>下一项：T-B3 → T-A4 → T4。</b></li>
+    <li><b>T-B4 AGE 部署决策</b><span class="tag chip done">已完成 · 0.5 天</span><br>已决策方案 A（关系表 + 递归 CTE 承载，不引 AGE），#20 / #48 双轨关闭，P0 DoD 以 T-B1 无环校验等效验收；方案 B 预留启动条件（万级节点 / p95&gt;100ms），见《AGE部署决策记录.md》。</li>
+    <li><b>T-A3 RAG 读取侧固化</b><span class="tag chip done">已完成 · 0.5 天</span><br>真实库评测数学 123 / 物理 90 题 TOP1 自命中率均 100%（验收线 85%）；/healthz 加 db_ping 探活 + 7 例读取契约单测。</li>
     <li><b>T-B3 ZPD + 自适应推题</b><span class="tag chip done">2 天 · 解锁 M3</span><br>复用 T-B2 的 walk_up / plan_mastery_updates，推题 100% 落在 ZPD 内；与 T-A4 组卷接口共用。</li>
     <li><b>T-A4 组卷 / 变式接口 + T4 S6 评测脚手架</b><span class="tag chip pend">各 0.5–1 天</span><br>T4 不依赖真实数据，现在做完试点一到即可出数。</li>
     <li><b>跑批类挂后台</b><span class="tag chip pend">T1 / T3</span><br>T1 物理 303 步讲解补跑（先 --q-limit 5 冒烟）、T3 数学 2 道解答题单题单跑；启动后核对进程数防重复跑批。</li>
@@ -235,7 +235,7 @@
   </ol>
 
   <footer>
-    数据口径：任务状态来自项目任务清单 #1–#49（2026-10-24）；内容数据来自 106 库 tes_edu 实查（2026-10-24 13:25，course_kb / course_kb_steps / kb_knowledge_points / kb_kp_prerequisites / student_events / wrong_questions）；部署状态来自 137 与 106 的 docker ps 实测（2026-10-24 14:1x）；代码版本 main @ 8abe399。配套文档：《应用拆分与开发分期.md》《归因线收尾与验收任务计划.md》《P1内容扩量与图谱启动计划书.md》。
+    数据口径：任务状态来自项目任务清单 #1–#49（2026-10-24）；内容数据来自 106 库 tes_edu 实查（2026-10-24 13:25，course_kb / course_kb_steps / kb_knowledge_points / kb_kp_prerequisites / student_events / wrong_questions）；部署状态来自 137 与 106 的 docker ps 实测（2026-10-24 14:1x）；代码版本 main @ 0e751ca。配套文档：《应用拆分与开发分期.md》《归因线收尾与验收任务计划.md》《P1内容扩量与图谱启动计划书.md》《AGE部署决策记录.md》。
   </footer>
 </div>
 
@@ -261,7 +261,7 @@ var SERIES = [
     ['#17','137 部署 + 线上验证','—','done'],
     ['#18','计划书 + 运维日志更新','—','done'],
     ['#19','测试/CI','pytest + GitHub Actions','done'],
-    ['#20','AGE 图库常驻','P0 DoD 残留，待 T-B4 决策关闭','pend']
+    ['#20','AGE 图库常驻','T-B4 决策：方案 A，已关闭','done']
   ]},
   {name:'归因线 S1–S5（#29–#35）', tasks:[
     ['#29','attribution.py 聚合纯函数层','错因七类 + Top 断点','done'],
@@ -282,14 +282,14 @@ var SERIES = [
   {name:'P1 内容扩量 T-A（#41–#44）', tasks:[
     ['#41','T-A1 素材加工管线固化','--from-textbook 已落地','done'],
     ['#42','T-A2 扩量跑批 500→3000','教材素材未到位','block'],
-    ['#43','T-A3 RAG 读取侧连接固化','确认连 106 · 0.5 天','pend'],
+    ['#43','T-A3 RAG 读取侧连接固化','真实库召回 100% · 已固化','done'],
     ['#44','T-A4 组卷/变式接口','T-B3 前置 · 0.5 天','pend']
   ]},
   {name:'P3 图谱 T-B（#45–#49）', tasks:[
     ['#45','T-B1 DAG 验收固化','435 节点/边 + 13 单测','done'],
     ['#46','T-B2 掌握度更新算法','12 单测 + 接通 S3','done'],
     ['#47','T-B3 ZPD + 自适应推题','复用 walk_up · 2 天','pend'],
-    ['#48','T-B4 AGE 部署决策','方案 A：不装，关 #20','pend'],
+    ['#48','T-B4 AGE 部署决策','方案 A：不装，关 #20','done'],
     ['#49','T-B5 App 图谱可视化页','依赖 T-B3 + Android','pend']
   ]},
   {name:'P4 家长端（#21 · #24–#28）', tasks:[
