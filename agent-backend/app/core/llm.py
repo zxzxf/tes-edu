@@ -13,9 +13,11 @@ _SYSTEM = (
     "你是一名高中数学导师，采用苏格拉底式引导讲解。\n"
     "规则：\n"
     "1) 必须依据【检索到的知识点与例题】作答，不得编造；检索内容不足时先说明并给出通法。\n"
-    "2) 默认讲解优先：先点明考点，再分步骤推导，关键分叉点给提示而不是直接给最终答案。\n"
-    "3) mode=quick 给简版直给；mode=similar 生成 3 道变式题。\n"
-    "4) 输出严格 JSON 且不要包裹 markdown：mode=similar 时为 {\"similar\": [\"...\",\"...\",\"...\"]}；\n"
+    "2) mode=explain 讲解优先：先点明考点，再分步骤推导，给完整讲解。\n"
+    "3) mode=guide 引导档（默认档）：只点考点 + 给方向 + 给第一步可操作提示，"
+    "**不给最终答案、不给完整步骤**；每一步等学生回应后再推进。\n"
+    "4) mode=quick 给简版直给（学生显式赶时间时才会进该档）；mode=similar 生成 3 道变式题。\n"
+    "5) 输出严格 JSON 且不要包裹 markdown：mode=similar 时为 {\"similar\": [\"...\",\"...\",\"...\"]}；\n"
     "   其余模式为 {\"answer\": \"...\", \"steps\": [\"...\"]}。"
 )
 
@@ -82,6 +84,23 @@ def _dev_solve(question: str, context: dict | None, mode: str) -> dict:
         return {
             "answer": f"【简版直给】考点：{point_text}。通法要点：{first}",
             "steps": ["直接给出关键步骤", "套用通法求解"],
+        }
+
+    if mode == "guide":
+        # 引导档（T-C1）：点考点 + 方向 + 第一步提示；**不给最终答案**。
+        # 首轮 Hint 对应 T-C2 阶梯的 L0-L1，等级状态由 socratic.py 后续维护。
+        first = chunks[0]["text"][:60] if chunks else question
+        return {
+            "answer": (
+                f"【引导档】这道题考的是：{point_text}。\n"
+                f"先别急着算——我们只看第一步：{first}\n"
+                "你先说说这一步打算怎么下手？说个思路就行，不用算完。"
+            ),
+            "steps": [
+                f"第一步：从「{point_text}」入手，明确已知条件和所求量",
+                "说出你的第一步思路（不用完整计算）",
+                "根据你的回应，我再决定下一步给多少提示",
+            ],
         }
 
     evidence = "\n".join(

@@ -18,10 +18,10 @@ def _identity(request: Request) -> dict:
 
 @router.post("/solve", response_model=SolveResponse)
 async def solve(req: SolveRequest, request: Request):
-    """文本题：解题 + 分步讲解 + 触类旁通"""
+    """文本题：解题 + 分步讲解 + 触类旁通（T-C1 起按意图三档路由）"""
     result = await orchestrator.handle_question(
         req.question,
-        mode=req.mode or "explain",
+        mode=req.mode,  # None -> 意图三档路由；显式值 -> 尊重调用方
         subject=req.subject,
         student_answer=req.student_answer,
     )
@@ -31,7 +31,11 @@ async def solve(req: SolveRequest, request: Request):
             "event_type": "solve",
             **_identity(request),
             "subject": req.subject or "",
-            "mode": req.mode or "explain",
+            # T-C1：记录实际生效的档位与意图来源（rules/llm/default/explicit），
+            # 供 T-C4 六项指标（首轮直给率等）聚合；旧消费者忽略新字段
+            "mode": result.get("mode") or "",
+            "intent": result.get("intent") or "",
+            "intent_source": result.get("intent_source") or "",
             "question": req.question,
             "knowledge_points": result.get("knowledge_points") or [],
             # 命中的标注题：把归因挂到具体题目（缺了它 student_step_errors 无法归属）
