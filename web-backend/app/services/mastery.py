@@ -12,11 +12,14 @@
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
-from sqlalchemy import select, text
+log = logging.getLogger("mastery")
+
+from sqlalchemy import bindparam, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -257,6 +260,45 @@ async def load_kp_title_map(db: AsyncSession) -> Dict[str, str]:
     return {r[0]: r[1] for r in res.all() if r[0] and r[1]}
 
 
+async def resolve_kp_codes(
+    db: AsyncSession,
+    kps: Sequence[str],
+) -> Dict[str, Optional[str]]:
+    """把待写入的知识点键**统一成 DAG code**（T-F1 写侧收口）。
+
+    历史口径混乱：``student_mastery.knowledge_point`` 既有 code 也有中文名
+    （事件流 KP 抽取产出名称），导致图谱/ZPD 按 code 查时历史数据恒空。
+    回填脚本 ``scripts/fix_mastery_keys.py`` 负责存量，**这里负责增量**：
+
+      - 已是 code（存在于 ``kb_knowledge_points.code``）-> 原样返回
+      - 是 title -> 翻译为 code
+      - 都不命中 -> ``None``，调用方**跳过写入并告警**（宁可不写，也不再造脏键）
+
+    只查一次库：先批量判 code，剩余的再走 title 映射。
+    """
+    keys = [k for k in (kps or []) if k]
+    out: Dict[str, Optional[str]] = {k: None for k in keys}
+    if not keys:
+        return out
+
+    res = await db.execute(
+        text("SELECT code FROM kb_knowledge_points WHERE code IN :ks").bindparams(
+            bindparam("ks", value=keys, expanding=True)
+        )
+    )
+    for (code,) in res.all():
+        if code in out:  # 只回填本次请求的键（防御：上游若忽略绑定参数返回全表）
+            out[code] = code
+
+    unresolved = [k for k, v in out.items() if v is None]
+    if unresolved:
+        title_map = await load_kp_title_map(db)
+        for k in unresolved:
+            if k in title_map:
+                out[k] = title_map[k]
+    return out
+
+
 async def load_mastery_map(
     db: AsyncSession,
     student_id: str,
@@ -311,15 +353,29 @@ async def apply_mastery_updates(
     tenant_id: Optional[str] = None,
     subject: Optional[str] = None,
 ) -> None:
-    """把 plan.updates 原子 upsert 到 student_mastery（按 学生×知识点）。"""
+    """把 plan.updates 原子 upsert 到 student_mastery（按 学生×知识点）。
+
+    T-F1：写入前先用 :func:`resolve_kp_codes` 统一成 DAG code——名称键会被翻译，
+    翻译不到的**跳过并告警**（不再写脏键进表，存量由 fix_mastery_keys.py 回填）。
+    """
     if not updates:
         return
     now = datetime.now(timezone.utc)
+    resolved = await resolve_kp_codes(db, list(updates.keys()))
     for kp, delta in updates.items():
         c = delta.get("correct", 0)
         w = delta.get("wrong", 0)
         if not c and not w:
             continue
+        code = resolved.get(kp)
+        if not code:
+            # 不静默丢：告警里带上原键，事后可用 fix_mastery_keys.py 对齐补写
+            log.warning(
+                "mastery skip: knowledge_point %r 既非 DAG code 也无对应 title，"
+                "跳过掌握度写入（学生=%s）", kp, student_id,
+            )
+            continue
+        kp = code
         stmt = pg_insert(StudentMastery).values(
             student_id=student_id,
             tenant_id=tenant_id,

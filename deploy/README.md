@@ -101,6 +101,63 @@ chmod 600 /opt/tes-edu-gateway/.env *.env
 7. **web-front 必须显式挂 edu-net**：compose 服务不写 `networks: - edu-net` 会落到项目默认网络 `tes-edu-gateway_default`，与 gateway/lb 不同网——其 nginx 的 `gateway` 上游启动解析即 `[emerg] host not found in upstream` 崩溃循环（2026-10-24 T-E1 踩坑）。容器内 `/api` 反代已同时改为 `resolver 127.0.0.11 + 变量 proxy_pass`，对网关重建免疫。
 8. **B 端登录 token 必须带 tenant_id**：网关 `/api/admin/*` 路由 `require_tenant: true`，JWT 无 `tenant_id` claim 一律 403（管理后台能打开但全部数据接口被挡）。`create_token(user_id, role, tenant_id=...)` 已支持；C 端 student 不带（`/learning/*` 为 jwt_c 路由，不要求租户）。
 
+## Kafka 模式决策：ZK → KRaft（T-E2 评估结论，2026-10-25）
+
+**结论：试点开跑前维持 ZK 模式；KRaft 升级列为「试点后第一项工程任务」。**
+评估与实施资产均已就位，切换只需一条命令（见下）。
+
+### 现状基线（2026-10-25 实测）
+
+| 项 | 值 |
+|---|---|
+| 镜像 | `mis_ser/kafka:3.8.0`（jar 确为 3.8.0）+ `zookeeper:3.9` |
+| 业务 topic | `course_kb_ingest` / `question_parsed` / `kg_build` / `student_event` / `drill_sync`（各 1 分区，RF=1） |
+| 消费者组 | `student-event-consumer`（student_event，21 条，**lag 0**）、`course-kb-ingest`（course_kb_ingest，0 条，lag 0） |
+| 事件量 | 全集群累计 21 条，无堆积 |
+
+### 已完成的评估与旁路实测（不动生产）
+
+在 137 上用**生产同款镜像**起独立 KRaft 集群（`kraft-probe`，测完即删，ZK 集群未受影响），逐项验证：
+
+1. 镜像支持 KRaft：`kafka-storage.sh format` 可格式化、broker+controller 混合角色正常启动、探活通过。
+2. topic 预建：5 个业务 topic 全部 `Created`。
+3. 生产/消费往返：3 条消息 3 条收到，零丢失。
+4. 消费者组协调器：`--describe` 正常，offset 可重建（迁移后无需搬运历史 offset）。
+5. 应用侧零改造：`edu-agent-backend` 容器内 **aiokafka 直连 KRaft** 收发成功（produce/consume 均 OK）。
+
+### 为什么现在不切
+
+- 试点（T5）尚未开跑，事件量 21 条、lag 恒 0，**ZK 模式的规模化隐患在当下完全没有兑现**；
+- 迁移收益是"规模化后的运维简化"，而代价是"把试点期的链路稳定性押在一次非必要变更上"；
+- 因此按计划书备选路径：书面化维持决策 + 交付已验证的实施资产，试点后第一周执行。
+
+### 试点后怎么切（一条命令）
+
+```bash
+# 1) 体检 + 打印计划（默认 dry-run，会校验所有消费者组 lag 必须为 0）
+SSH_KEY=~/.ssh/id_ed25519 SSH_HOST=137 bash deploy/kafka_kraft_migrate.sh
+
+# 2) 执行迁移（停后端 → 停 ZK 集群 → 起 KRaft → 预建 topic → 起后端 → 对账 → healthz）
+SSH_KEY=~/.ssh/id_ed25519 SSH_HOST=137 bash deploy/kafka_kraft_migrate.sh --execute
+
+# 3) 出问题就回滚到 ZK 模式（旧数据卷保留）
+SSH_KEY=~/.ssh/id_ed25519 SSH_HOST=137 bash deploy/kafka_kraft_migrate.sh --execute --rollback
+```
+
+迁移要点：**不搬运历史消息**（要求切流前 lag=0，脚本强制校验），KRaft 用独立数据卷
+`/var/lib/kafka-kraft`，因此不存在"重复消费旧事件"的风险；观察一周无异常后
+`docker rm -f zookeeper` 下线 ZK。编排文件：`deploy/137-infra-kafka-kraft.yml`
+（已同步到 137 `/opt/tes-edu-gateway/`，`docker compose config` 零告警）。
+
+### 已记录的坑（下次执行前先读）
+
+1. **镜像 bin 脚本与 jar 版本不一致**：`kafka-storage.sh` 是 3.5- 签名，**不接受 `--standalone`**，
+   直接调用会 `unrecognized arguments` 而启动失败。脚本已做双签名兼容（先无参、再 `--standalone`）。
+2. **compose 会插值脚本里的 `$VAR`**：KRaft 编排的 `command` 里所有 shell 变量必须双写美元符
+   （同 ZK 版 `$$cf`），否则启动时被替换成空串。
+3. **新集群 coordinator 冷启动**：首次消费可能短暂 `GroupCoordinatorNotAvailableError`
+   （`__consumer_offsets` 建 topic 中），aiokafka 会自动重试成功——迁移后消费者启动有几秒抖动属正常。
+
 ## 回滚
 
 服务器上每次修改 compose 前会留备份 `docker-compose.yml.bak.<时间戳>`。

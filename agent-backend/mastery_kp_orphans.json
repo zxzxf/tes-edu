@@ -1,0 +1,23 @@
+[
+  {
+    "id": 5,
+    "student_id": "student_002",
+    "name": "抛物线的焦点与准线",
+    "core_tokens": [
+      "抛物线焦点"
+    ],
+    "uncovered_concepts": [
+      "与准线"
+    ],
+    "reason": "名称含 DAG 未收录概念 ['与准线']，需教研补节点或指定归属",
+    "top_score": 0.0,
+    "top_margin": 0.0,
+    "suggestions": [
+      {
+        "code": "MA-B3-C3-S3-K06",
+        "title": "抛物线的焦点弦性质",
+        "score": 0.5714
+      }
+    ]
+  }
+]

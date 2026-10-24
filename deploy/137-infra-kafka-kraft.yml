@@ -1,0 +1,88 @@
+# Kafka **KRaft 模式**编排（T-E2 迁移预案，2026-10-25 旁路实测通过，尚未切流）
+#
+# 与 ZK 版 `137-infra-kafka.yml` 的差异：
+#   - 去掉 zookeeper 服务与 KAFKA_ZOOKEEPER_CONNECT
+#   - 单节点同时承担 broker + controller（process.roles=broker,controller）
+#   - 数据目录独立（/var/lib/kafka-kraft）：**不复用 ZK 模式的消息数据**
+#     —— 迁移前要求旧集群 lag=0（全部已消费），故无消息可丢；脚本会强制校验
+#   - 对外端口与 ZK 版一致（宿主 9092），advertised 同时给出容器内名与公网地址
+#
+# 用法（试点后执行，见 deploy/kafka_kraft_migrate.sh）：
+#   docker compose -f 137-infra-kafka-kraft.yml up -d
+services:
+
+  kafka:
+    image: registry.cn-shanghai.aliyuncs.com/mis_ser/kafka:3.8.0
+    container_name: kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-kraft-data:/var/lib/kafka-kraft
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        # 注意：compose 会对整段脚本做变量插值，shell 变量必须双写美元符转义
+        # （与 ZK 版写法一致，否则启动时变量会被替换成空串）
+        K=/opt/kafka
+        P=/tmp/kraft.properties
+        cp $$K/config/kraft/server.properties $$P
+        cat >> $$P <<CFG
+        node.id=1
+        process.roles=broker,controller
+        controller.quorum.voters=1@kafka:9093
+        listeners=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+        advertised.listeners=PLAINTEXT://kafka:9092,PLAINTEXT://124.221.253.137:9092
+        controller.listener.names=CONTROLLER
+        listener.security.protocol.map=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+        log.dirs=/var/lib/kafka-kraft
+        offsets.topic.replication.factor=1
+        transaction.state.log.replication.factor=1
+        transaction.state.log.min.isr=1
+        CFG
+        # 首次启动才格式化（已格式化则跳过）——重复格式化会让集群 ID 变化而启动失败
+        if [ ! -f /var/lib/kafka-kraft/meta.properties ]; then
+          CID=$$($$K/bin/kafka-storage.sh random-uuid)
+          # 该镜像的 kafka-storage.sh 是 3.5- 签名（不接受 --standalone），两种都试
+          $$K/bin/kafka-storage.sh format -t "$$CID" -c $$P \
+            || $$K/bin/kafka-storage.sh format -t "$$CID" -c $$P --standalone
+          echo "KRaft formatted: $$CID"
+        else
+          echo "KRaft already formatted, skip"
+        fi
+        exec $$K/bin/kafka-server-start.sh $$P
+    networks:
+      - default
+      - tes-edu-gateway_edu-net
+
+  kafka-init:
+    image: registry.cn-shanghai.aliyuncs.com/mis_ser/kafka:3.8.0
+    container_name: kafka-init
+    depends_on:
+      - kafka
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "waiting for kafka(KRaft)..."
+        for i in $(seq 1 40); do
+          /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092 >/dev/null 2>&1 && break
+          sleep 3
+        done
+        for t in course_kb_ingest question_parsed kg_build student_event drill_sync; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --topic $$t --partitions 1 --replication-factor 1 2>&1 | grep -v "already exists" || true
+        done
+        echo "TOPICS_READY"
+    networks:
+      - default
+
+volumes:
+  kafka-kraft-data:
+
+networks:
+  # 与网关/后端编排(tes-edu-gateway)共用网络：
+  # 使 edu-agent-backend / edu-web-backend / gateway / redis 能按名访问 kafka
+  tes-edu-gateway_edu-net:
+    external: true
