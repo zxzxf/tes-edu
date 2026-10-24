@@ -132,7 +132,7 @@
       <li><b>「代码 100% / 数据 0%」仍是最大结构性问题，但已收窄。</b>题库 211/3000、真实流水仅 4 条事件——S5 周报 / 错因分布 / /metricsz 全部具备但空转。T2 错题本写入链路已完成（自动落库 + 幂等 + 真实库 e2e 9/9），错题本从「无数据源」变为「待试点流水」；剩余真空缺是试点本身（T5）。</li>
       <li><b>部署断层已清零（28 提交全部上线）。</b>10-24 19:5x 完成重建：网关双副本换新镜像（含 <span class="mono">/learning/</span> 与 <span class="mono">/login</span> 新路由）、web / agent 后端以 <span class="mono">main @ 107d585</span> 源码重建并换容器，线上实测登录换 JWT → 图谱快照 200（435 节点 / 435 边）/ 双后端 healthz 全绿 / 网关指标计数正常。顺带修复两处部署层缺陷：web-backend 路由单挂 <span class="mono">/api/admin</span> 导致网关侧 404（已改根路径双挂载并加契约测试）；compose 缺 <span class="mono">JWT_PRIVATE_KEY</span> 接线会导致 <span class="mono">/login</span> 500（已补）。回滚标签 <span class="mono">rollback-20261024</span> 已固化。</li>
       <li><b>新风险：CI 镜像通道阻塞。</b>仓库 Secrets 缺 <span class="mono">ACR_USERNAME</span> / <span class="mono">ACR_PASSWORD</span>，<span class="mono">build-images.yml</span> 自 10-23 加入以来每次推送均在 ACR 登录步骤失败（"Username and password required"，30+ 次运行全败）——这正是部署断层的根因。线上暂走本地构建通道（<span class="mono">publish_backend.sh</span> + <span class="mono">start.sh build</span>）。修复需用户侧在仓库 Settings → Secrets 补两个值（与 137 现有 ACR 登录凭证一致），之后 compose 切回 ACR + <span class="mono">IMAGE_TAG</span>。</li>
-      <li><b>计划缺环两处。</b>P2 引导式对话（Hint 阶梯 / 100 题评测集 / 埋点指标）与 LLM 成本控制在任务清单中无登记项；#20 与 T-B4 的 AGE 双轨已消除（T-B4 决策方案 A，两任务关闭，见《AGE部署决策记录.md》）。</li>
+      <li><b>计划缺环已补计划书。</b>P2 引导式对话（Hint 阶梯 / 100 题评测集 / 埋点指标）与 LLM 成本控制原无登记任务，已立《P2引导式对话与横向收尾任务计划书.md》（T-C1~C5 对话线 / T-D1~D3 成本线 / T-E1~E3 横向工程 / T-F1~F2 数据治理，约 10.5 人天，家长端与 P5 明确排除在外单独立项）；#20 与 T-B4 的 AGE 双轨已消除（T-B4 决策方案 A，两任务关闭，见《AGE部署决策记录.md》）。</li>
     </ul>
   </div>
 
@@ -222,14 +222,14 @@
     <div class="row"><div class="chipcell"><span class="chip block">高</span></div><div class="name" style="width:200px;">数据真空</div><div class="desc">真实流水仅 4 条事件；T2 写入链路已通（错题本待试点流水），试点未开跑，S5/S6 空转（T5）。应对：T5 催校方排期。</div></div>
     <div class="row"><div class="chipcell"><span class="chip done">已清零</span></div><div class="name" style="width:200px;">部署断层</div><div class="desc">10-24 19:5x 重建上线：网关双副本 + web/agent 后端全部换新镜像（main @ 107d585），线上 e2e 验证通过（登录换 JWT → 图谱 200 435 节点；healthz 全绿；回滚标签 rollback-20261024）。</div></div>
     <div class="row"><div class="chipcell"><span class="chip block">高</span></div><div class="name" style="width:200px;">CI 镜像通道</div><div class="desc">仓库 Secrets 缺 ACR_USERNAME / ACR_PASSWORD，build-images.yml 每次推送均在登录步骤失败（30+ 次全败）。应对：用户侧补 Secrets 后切回 ACR + IMAGE_TAG；当前暂走本地构建通道。</div></div>
-    <div class="row"><div class="chipcell"><span class="chip pend">中</span></div><div class="name" style="width:200px;">计划缺环</div><div class="desc">P2 引导式对话与 LLM 成本控制无登记任务。应对：各出一份 T 系列计划书并登记，主线才完整。</div></div>
+    <div class="row"><div class="chipcell"><span class="chip pend">中</span></div><div class="name" style="width:200px;">计划缺环</div><div class="desc">P2 引导式对话与 LLM 成本控制原无登记任务，已立《P2引导式对话与横向收尾任务计划书.md》（T-C/T-D/T-E/T-F 四线，家长端与 P5 排除）。应对：按计划书排期，试点数据到后验收 M2 红线。</div></div>
     <div class="row"><div class="chipcell"><span class="chip pend">中</span></div><div class="name" style="width:200px;">Android 无 SDK</div><div class="desc">S4 过程采集缺真机编译验证。应对：后端协议已完成，风险可控，需他处编译。</div></div>
   </div>
 
   <h2>七、结论与下一步建议</h2>
   <ol class="steps">
     <li><b>T2 错题本自动写入链路</b>（已完成 · e2e 9/9）<span class="tag chip done">已交付</span><br>判分出错自动落 wrong_questions（content_hash + wrong_step_no + error_type），按 (学生, 题, 步) 幂等；need_process 不入库；真实库两轮消费 21/21 不涨数，correction 关联一致。<b>下一项：T-A4 → T4。</b></li>
-    <li><b>T-B4 AGE 部署决策</b><span class="tag chip done">已完成 · 0.5 天</span><br>已决策方案 A（关系表 + 递归 CTE 承载，不引 AGE），#20 / #48 双轨关闭，P0 DoD 以 T-B1 无环校验等效验收；方案 B 预留启动条件（万级节点 / p95&gt;100ms），见《AGE部署决策记录.md》。</li>
+    <li><b>T-B4 AGE 部署决策</b><span class="tag chip done">已完成 · 0.5 天</span><br>已决策方案 A（关系表 + 递归 CTE 承载，不引 AGE），#20 / #48 双轨关闭，P0 DoD 以 T-B1 无环校验等效验收；方案 B 预留启动条件（万级节点 / p95&gt;100ms），见《AGE部署决策记录.md》《P2引导式对话与横向收尾任务计划书.md》。</li>
     <li><b>T-A3 RAG 读取侧固化</b><span class="tag chip done">已完成 · 0.5 天</span><br>真实库评测数学 123 / 物理 90 题 TOP1 自命中率均 100%（验收线 85%）；/healthz 加 db_ping 探活 + 7 例读取契约单测。</li>
     <li><b>T-B3 ZPD + 自适应推题</b><span class="tag chip done">已完成 · 解锁 M3</span><br>已落地：compute_zpd（前置就绪+自身未掌握，缺省按就绪同 T-B2 约定）+ depth_map 学习路径排序 + 难度带随答对升/答错降 + 间隔重复计划；18 单测 + 真实库冒烟（数学 5 题落地）。物理因 DAG 仅数学节点暂空（归 T-A2）。</li>
     <li><b>T-A4 组卷 / 变式接口 + T4 S6 评测脚手架</b><span class="tag chip done">均已完成</span><br>T-A4：给定 KP 返回该点及下游相关题（真实库 5/5 验收），T-B3 选课已委托共用。T4：金标准模板 + eval_attribution.py + 归档目录齐备，mock 自测三张表 100%，试点一到即可出数。</li>
@@ -240,7 +240,7 @@
   </ol>
 
   <footer>
-    数据口径：任务状态来自项目任务清单 #1–#49（2026-10-24）；内容数据来自 106 库 tes_edu 实查（2026-10-24 17:50，course_kb / course_kb_steps / course_kb_embeddings / kb_knowledge_points / kb_kp_prerequisites / student_mastery / student_events / wrong_questions）；部署状态来自 137 与 106 的 docker ps 实测（2026-10-24 19:5x，重建后：网关×2 + web/agent 后端均为 10-24 新镜像，compose 统一托管）；代码版本 main @ 107d585 + 部署修复（路由双挂载 / JWT 接线 / 发版脚本改版）。配套文档：《应用拆分与开发分期.md》《归因线收尾与验收任务计划.md》《P1内容扩量与图谱启动计划书.md》《AGE部署决策记录.md》。
+    数据口径：任务状态来自项目任务清单 #1–#49（2026-10-24）；内容数据来自 106 库 tes_edu 实查（2026-10-24 17:50，course_kb / course_kb_steps / course_kb_embeddings / kb_knowledge_points / kb_kp_prerequisites / student_mastery / student_events / wrong_questions）；部署状态来自 137 与 106 的 docker ps 实测（2026-10-24 19:5x，重建后：网关×2 + web/agent 后端均为 10-24 新镜像，compose 统一托管）；代码版本 main @ 107d585 + 部署修复（路由双挂载 / JWT 接线 / 发版脚本改版）。配套文档：《应用拆分与开发分期.md》《归因线收尾与验收任务计划.md》《P1内容扩量与图谱启动计划书.md》《AGE部署决策记录.md》《P2引导式对话与横向收尾任务计划书.md》。
   </footer>
 </div>
 
