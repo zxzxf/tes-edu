@@ -3,7 +3,7 @@
 P0 阶段只打通链路：RAG 检索 -> LLM 解题 -> 触类旁通。
 具体 LLM / 向量库 / OCR 实现见同目录各模块，P0 用占位返回，便于前后端先联调。
 """
-from app.core import llm, rag, ocr
+from app.core import llm, rag, ocr, judge_v2
 
 
 async def handle_question(
@@ -22,11 +22,34 @@ async def handle_question(
         **result,
         "similar": similar,
         "knowledge_points": ctx.get("points", []),
+        # 命中的标注题（步骤级归因的归属对象），事件上报与前端核对都用它
+        "content_hash": judge_v2._pick_content_hash(ctx) or "",
     }
-    # 4) 学生提交了自己的作答 -> 顺带判分（产出 correct 信号，供掌握度计算）
-    if student_answer:
-        out["judgement"] = await llm.judge(question, student_answer, context=ctx)
+    # 4) 学生提交了自己的作答 -> judge v2 步骤级归因判分
+    #    客观题/填空走查表（零 token），解答题走 LLM；都不行才 unknown。
+    #    判据用 `is not None`：字段出现即表示"提交了作答"，
+    #    空串是"交了白卷"，必须回 need_process 引导，而不是静默不判分。
+    if student_answer is not None:
+        out["judgement"] = await _judge_v2_with_fallback(question, student_answer, ctx)
     return out
+
+
+async def _judge_v2_with_fallback(
+    question: str, student_answer: str, ctx: dict
+) -> dict:
+    """judge v2 主判；低置信（unknown）时退回 v1 的对错布尔，保住原有信号。"""
+    j = await judge_v2.judge(question, student_answer, context=ctx)
+    # S4：被要求补过程时不要退回 v1 —— 那会白花一次 LLM 且可能把"没写过程"判成"做错"
+    if j.get("need_process"):
+        return j
+    if j.get("attribution_source") == judge_v2.UNKNOWN:
+        v1 = await llm.judge(question, student_answer, context=ctx)
+        if isinstance(v1.get("correct"), bool):
+            j["correct"] = v1["correct"]
+            j["partial"] = bool(v1.get("partial", False))
+            if not j.get("comment"):
+                j["comment"] = str(v1.get("comment") or "")
+    return j
 
 
 async def handle_image(image_bytes: bytes) -> dict:

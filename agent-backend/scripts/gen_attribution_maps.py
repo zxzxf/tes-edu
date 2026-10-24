@@ -66,6 +66,11 @@ def _parse_json(text: str) -> dict:
 
 
 async def _call_json(system: str, user: str, temp: float = 0.4) -> dict:
+    """推理型模型适配：
+      - 不可设小 max_tokens（思考预算被吃光会返回空内容）；
+      - 单条思考耗时可达 30-60s，并发时更久，故超时 180s；
+      - 空 JSON 视为失败并重试，避免静默写入空映射。
+    """
     last_err = None
     for attempt in range(4):
         try:
@@ -77,15 +82,17 @@ async def _call_json(system: str, user: str, temp: float = 0.4) -> dict:
                         {"role": "user", "content": user},
                     ],
                     temperature=temp,
-                    timeout=120,
+                    timeout=180,
                 )
-            return _parse_json(resp.choices[0].message.content or "")
+            data = _parse_json(resp.choices[0].message.content or "")
+            if data:
+                return data
+            last_err = RuntimeError("empty response（可能被思考预算截断）")
         except Exception as e:  # 限流 / 网络抖动 / 超时：指数退避重试
             last_err = e
-            if attempt < 3:
-                await asyncio.sleep(5 * (2 ** attempt))
-            else:
-                print(f"[warn] LLM 调用重试耗尽: {type(e).__name__}: {e}")
+        if attempt < 3:
+            await asyncio.sleep(5 * (2 ** attempt))
+    print(f"[warn] LLM 调用重试耗尽: {type(last_err).__name__}: {last_err}")
     return {}
 
 
@@ -109,6 +116,39 @@ TYPICAL_SYSTEM = (
     "给出错误类型、认知根源、正确写法（可直接展示给学生）、以及判分线索"
     "（学生作答出现什么特征说明踩了这个错）。"
 )
+
+
+# taxonomy 七类（英文，落库标准值）。中文模型常输出"概念混淆""运算错误"等中文标签，
+# 直接入库会让 judge v2 查表全部失配，故必须归一化。
+ET_ALIASES = [
+    ("case", ("case", "分类讨论", "漏讨论", "讨论遗漏", "漏解", "漏情形", "讨论不全",
+              "过程分析不完整", "过程分析不全", "漏掉一种")),
+    ("read", ("read", "审题", "条件遗漏", "隐含条件", "看错", "忽略", "未注意", "疏漏",
+              "图像误读", "图形误读", "图像读取", "图像识读", "读图")),
+    ("concept", ("concept", "概念", "定义", "定理", "性质", "理解错", "知识性错误",
+                 "知识错误", "空间想象", "记忆错位", "记忆偏差", "原理")),
+    ("formula", ("formula", "公式", "关系式", "用错条件", "规律误用", "规律应用", "规律记忆")),
+    ("calc", ("calc", "计算", "运算", "算错", "化简", "抄错", "符号", "有效数字",
+              "单位", "数据处理", "读数", "代数", "数值")),
+    ("logic", ("logic", "逻辑", "推理", "循环论证", "充要", "充分必要", "跳步", "取交集",
+               "不严")),
+    ("strategy", ("strategy", "方法", "策略", "思路", "选错工具", "方向", "模型建构",
+                  "建模", "思维定势", "经验主义")),
+]
+
+
+def _norm_error_type(v) -> str:
+    """把模型输出的 error_type 归一化到 taxonomy 英文七类；无法归类返回 unknown。"""
+    s = str(v or "").strip().lower()
+    if not s:
+        return "unknown"
+    for canon, keys in ET_ALIASES:
+        if s == canon:
+            return canon
+    for canon, keys in ET_ALIASES:          # 中文/英文关键词包含匹配
+        if any(k in s for k in keys):
+            return canon
+    return "unknown"
 
 
 def _fmt_options(options) -> str:
@@ -235,7 +275,7 @@ async def process_question(ch: str, args, pool) -> None:
             if d and not args.dry_run:
                 dm = {
                     "wrong_step": d.get("wrong_step") or s["step_no"],
-                    "error_type": d.get("error_type"),
+                    "error_type": _norm_error_type(d.get("error_type")),
                     "reason": d.get("reason"),
                     "correction": d.get("correction"),
                 }
@@ -257,7 +297,7 @@ async def process_question(ch: str, args, pool) -> None:
                     {
                         "value": w.get("value"),
                         "wrong_step": w.get("wrong_step") or s["step_no"],
-                        "error_type": w.get("error_type"),
+                        "error_type": _norm_error_type(w.get("error_type")),
                         "reason": w.get("reason"),
                         "correction": w.get("correction"),
                     }
@@ -279,7 +319,7 @@ async def process_question(ch: str, args, pool) -> None:
             if t and not args.dry_run:
                 tes = [
                     {
-                        "error_type": e.get("error_type"),
+                        "error_type": _norm_error_type(e.get("error_type")),
                         "reason": e.get("reason"),
                         "correction": e.get("correction"),
                         "evidence_hint": e.get("evidence_hint"),

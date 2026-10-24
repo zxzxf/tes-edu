@@ -26,6 +26,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import sys
 import time
 
@@ -54,6 +55,97 @@ _KP_SPLIT = "；;、/|，,"
 
 def _norm_key(s: str) -> str:
     return (s or "").strip().lower().replace(" ", "")
+
+
+# 选项标签：形如 "A."、"B、"、"C："（支持全角点/顿号/冒号），前面须为行首或分隔符
+_OPT_LABEL = re.compile(r"(?:^|[\s;；,，、|])([A-D])\s*[.．、:：]\s*")
+# 选择题合法答案：仅 A-D 字母组合（单选 1 个、多选多个）
+_ANSWER_OK = re.compile(r"^[A-Da-d]+$")
+
+
+def _parse_options(v):
+    """把选项文本解析成 {A: "...", B: "..."} 结构。
+
+    CSV/Excel 里选项常写成一整串，如 "A.2,−4 B.2,5 C.−2,4 D.−2,5"，
+    **选项值本身可能含逗号**，因此绝不能按逗号切分，只能按 "A." 这类标签切。
+    此前直接要求 isinstance(list) 会导致 CSV 导入的选择题选项全部丢失成 None。
+    """
+    if v is None:
+        return None
+    if isinstance(v, dict):
+        out = {str(k).strip()[:8]: str(val)[:500] for k, val in v.items() if str(k).strip()}
+        return out or None
+    if isinstance(v, list):
+        out: dict[str, str] = {}
+        for i, item in enumerate(v):
+            if isinstance(item, dict):
+                lab = str(item.get("label") or item.get("key") or "").strip()[:8]
+                val = str(item.get("text") or item.get("value") or "")
+                if lab:
+                    out[lab] = val[:500]
+            else:
+                out[chr(ord("A") + i)] = str(item)[:500]
+        return out or None
+    s = str(v).strip()
+    if not s:
+        return None
+    marks = list(_OPT_LABEL.finditer(s))
+    if len(marks) < 2:  # 不足两个标签，无法可靠切分，宁可留空也不猜
+        return None
+    out = {}
+    for i, m in enumerate(marks):
+        start = m.end()
+        end = marks[i + 1].start() if i + 1 < len(marks) else len(s)
+        out[m.group(1)] = s[start:end].strip()[:500]
+    return out or None
+
+
+def _validate_row(row: dict) -> str | None:
+    """行级业务校验（S1 列数闸门之外的第二道闸）。返回拒收原因，None 表示通过。
+
+    主要拦"假元数据"：选择题答案不是 A-D（如 demo 里的 "图示题演示略"、
+    "B演示待核"）——这类占位值一旦入库，判分/组卷/RAG 全会被污染。
+    """
+    qtype = str(row.get("type") or "")
+    ans = str(row.get("answer") or "").strip()
+    if qtype in ("单选", "多选", "选择"):
+        if not ans:
+            return "选择题缺答案"
+        if not _ANSWER_OK.match(ans):
+            return f"选择题答案非法(应为 A-D)：{ans[:20]!r}"
+        if qtype == "单选" and len(ans) != 1:
+            return f"单选题答案应为单个字母：{ans[:20]!r}"
+    if not str(row.get("stem") or "").strip():
+        return "缺题干"
+    return None
+
+
+def _gate_rows(header: list[str], rows: list, start_line: int = 2) -> tuple[list[dict], list[dict]]:
+    """列数校验闸门：列数≠表头即拒收该行并报告（S1 验收项）。
+
+    旧实现用 csv.DictReader，列多了会被塞进 restkey、列少了静默补 None，
+    **错位数据照样入库**（题干串到答案列是灾难且难以事后发现）。
+    """
+    ncols = len(header)
+    good: list[dict] = []
+    rejects: list[dict] = []
+    for i, r in enumerate(rows, start=start_line):
+        cells = [("" if c is None else str(c)) for c in (r or [])]
+        if not any(c.strip() for c in cells):
+            continue  # 空行静默跳过，不算拒收
+        if len(cells) != ncols:
+            rejects.append({
+                "line": i,
+                "reason": "列数不符",
+                "detail": f"该行 {len(cells)} 列 / 表头 {ncols} 列",
+                "preview": " | ".join(c[:16] for c in cells[:6]),
+            })
+            continue
+        rec = dict(zip(header, cells))
+        # 保留原始行号：被拒收的行不进入 records，若按数组下标推算行号会整体前移
+        rec["__line__"] = i
+        good.append(rec)
+    return good, rejects
 
 
 def _build_header_map(headers: list[str]) -> dict[str, str]:
@@ -155,16 +247,25 @@ def _norm_difficulty(v) -> int:
     return max(1, min(5, round(n / 20)))
 
 
-def _parse_file(content: bytes, filename: str) -> list[dict]:
+def _parse_file(content: bytes, filename: str) -> tuple[list[dict], list[dict]]:
+    """解析题库文件。
+
+    返回 (records, rejects)；rejects 是被"列数闸门"拒收的行（含行号与原因），
+    JSON/JSONL 无列的概念，故恒为空。
+    """
     name = (filename or "").lower()
     if name.endswith(".json"):
         data = json.loads(content.decode("utf-8-sig"))
-        return data.get("questions", [data]) if isinstance(data, dict) else data
+        recs = data.get("questions", [data]) if isinstance(data, dict) else data
+        return recs, []
     if name.endswith(".jsonl"):
-        return [json.loads(line) for line in content.decode("utf-8-sig").splitlines() if line.strip()]
+        return ([json.loads(line) for line in content.decode("utf-8-sig").splitlines() if line.strip()], [])
     if name.endswith(".csv"):
-        reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
-        return [dict(r) for r in reader]
+        rows = list(csv.reader(io.StringIO(content.decode("utf-8-sig"))))
+        if not rows:
+            return [], []
+        header = [str(h).strip() for h in rows[0]]
+        return _gate_rows(header, rows[1:])
     if name.endswith((".xlsx", ".xls")):
         try:
             import openpyxl
@@ -174,9 +275,9 @@ def _parse_file(content: bytes, filename: str) -> list[dict]:
         ws = wb.active
         rows = list(ws.values)
         if not rows:
-            return []
-        header = [str(h).strip() for h in rows[0]]
-        return [dict(zip(header, r)) for r in rows[1:]]
+            return [], []
+        header = [str(h).strip() if h is not None else "" for h in rows[0]]
+        return _gate_rows(header, rows[1:])
     raise ValueError(f"不支持的文件类型：{filename}（支持 csv/json/jsonl/xlsx）")
 
 
@@ -274,7 +375,7 @@ async def _upsert_steps(conn, row) -> int:
 
 async def _run(args) -> None:
     raw = open(args.file, "rb").read()
-    records = _parse_file(raw, args.file)
+    records, rejects = _parse_file(raw, args.file)
     if not records:
         raise SystemExit("文件解析后无数据。")
 
@@ -283,7 +384,9 @@ async def _run(args) -> None:
 
     # 归一化
     norm: list[dict] = []
-    for r in records:
+    for idx, r in enumerate(records):
+        # CSV/XLSX 走闸门时带 __line__（真实行号）；JSON/JSONL 无行概念，退回序号
+        lineno = int(r.get("__line__") or (idx + 2))
         row = {field: (r.get(src) if src is not None else None) for field, src in header_map.items()}
         # 缺失 subject/paper/source 用命令行默认值补齐
         row["subject"] = (row.get("subject") or args.subject or "数学")
@@ -297,19 +400,37 @@ async def _run(args) -> None:
         row["knowledge_points"] = kp
         # 全题型步骤（步骤级归因）；缺失则兜底 single 步
         row["steps"] = _norm_steps(row.get("steps"), row)
-        opts = row.get("options")
-        row["options"] = opts if isinstance(opts, list) else None
+        # 选项：CSV/Excel 里是整串文本（值内含逗号），必须结构化，否则选项全丢
+        row["options"] = _parse_options(row.get("options"))
         row["stem"] = (row.get("stem") or "").strip()
         row["answer"] = (row.get("answer") or "").strip()
         row["analysis"] = (row.get("analysis") or "").strip()
+        # 第二道闸：假元数据（如选择题答案是"图示题演示略"）
+        reason = _validate_row(row)
+        if reason:
+            rejects.append({
+                "line": lineno, "reason": reason, "detail": "",
+                "preview": row["stem"][:24],
+            })
+            continue
         row["content_hash"] = _hash(row)
         row["content"] = _content_for_embed(row)
-        if not row["stem"]:
-            continue  # 无题干跳过
         norm.append(row)
 
     total = len(norm)
     print(f"归一化后有效题目：{total}")
+
+    # 闸门报告：错位行 / 假元数据一律可见，不静默吞掉
+    if rejects:
+        rejects.sort(key=lambda x: x.get("line") or 0)
+        print(f"[闸门] 拒收 {len(rejects)} 行（列数不符或元数据不合规）：")
+        for rj in rejects[:10]:
+            print(f"  - 第 {rj['line']} 行：{rj['reason']} {rj.get('detail', '')}"
+                  f"{(' | ' + rj['preview']) if rj.get('preview') else ''}")
+        if len(rejects) > 10:
+            print(f"  ... 另有 {len(rejects) - 10} 行，详见上文规则")
+        if args.strict:
+            raise SystemExit(f"--strict 模式：存在 {len(rejects)} 行不合规，已中止导入（未写库）。")
 
     if args.dry_run:
         for demo in norm[:3]:
@@ -421,6 +542,8 @@ def main() -> None:
     ap.add_argument("--source", default=None, help="来源省份，如 河南/河北")
     ap.add_argument("--grade", default=None, help="如 高一/高二/高三")
     ap.add_argument("--dry-run", action="store_true", help="只解析校验，不写库")
+    ap.add_argument("--strict", action="store_true",
+                    help="只要闸门拒收了任何一行就整体中止（默认仅拒收并报告）")
     args = ap.parse_args()
     asyncio.run(_run(args))
 

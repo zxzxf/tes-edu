@@ -1,4 +1,4 @@
-"""家长端学情周报计算（真实数据，来源 student_mastery + student_events）。
+"""家长端学情周报计算（真实数据，来源 student_mastery + student_events + student_step_errors）。
 
 设计：
 - compute_weekly_report：异步、连库，负责查询后调用 _build_report。
@@ -6,18 +6,23 @@
   抽成纯函数以便无 DB 依赖的单元测试覆盖（与 web-backend 现有测试哲学一致）。
 - _render_html：把报告渲染成自包含 HTML 页（内联 CSS，无外部依赖），供家长在网关后直接打开。
 
+S5（2026-10-24）：新增「步骤级薄弱点」节 —— 本周错因分布 + Top 断点步骤，
+数据来自 student_step_errors（judge v2 判分流水），步骤文本由 course_kb_steps 补齐。
+聚合逻辑全部在 app.services.attribution（纯函数）里，本文件只负责取数与渲染。
+
 说明：
 - 学生维度用 student_id 检索；tenant_id 为可选查询参数（安全层当前不回传 tenant，
   多租户强制隔离留待「家长↔学生绑定表」落地后补，见 P4 安全项）。
 - 事件暂无 duration 字段，学习时长以「活跃天数 + 练习次数 + 估算分钟」体现（EST_MIN_PER_ACTION）。
 """
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional, Sequence, Tuple
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.ops import StudentEvent, StudentMastery
+from app.models.ops import CourseKbStep, StudentEvent, StudentMastery, StudentStepError
+from app.services import attribution
 
 # 掌握度阈值：低于该值视为薄弱
 WEAK_THRESHOLD = 0.6
@@ -41,6 +46,8 @@ def _build_report(
     events: list,
     period_days: int,
     now: Optional[datetime] = None,
+    step_errors: Optional[list] = None,
+    step_texts: Optional[Dict[Tuple[str, int], dict]] = None,
 ) -> dict:
     now = now or datetime.now(timezone.utc)
 
@@ -105,11 +112,25 @@ def _build_report(
     if not suggestions:
         suggestions.append("继续保持，定期复习薄弱点。")
 
+    # ---- 步骤级薄弱点（S5）：本周错因分布 + Top 断点步骤 ----
+    step_errors = list(step_errors or [])
+    weakness = attribution.build_step_weakness(step_errors, step_texts, top_n=5)
+    if weakness["headline"]:
+        suggestions.insert(0, weakness["headline"])
+    if weakness["advice"]:
+        suggestions.append(weakness["advice"][0])  # 只补最主要错因的建议，避免建议刷屏
+
     summary_parts = [f"共覆盖 {len(items)} 个知识点"]
     if avg_mastery is not None:
         summary_parts.append(f"平均掌握度 {avg_mastery:.0%}")
     summary_parts.append(f"已掌握 {mastered_count} 个、薄弱 {len(weak_points)} 个")
     summary_parts.append(f"本周活跃 {active_days} 天、练习 {action_count} 次（约 {est_minutes} 分钟）")
+    if weakness["total_errors"]:
+        top_type = weakness["error_types"][0] if weakness["error_types"] else None
+        if top_type:
+            summary_parts.append(
+                f"错因 {weakness['total_errors']} 次，以{top_type['label']}为主"
+            )
     summary = "；".join(summary_parts) + "。"
 
     recent_events = [
@@ -134,6 +155,7 @@ def _build_report(
         "weak_count": len(weak_points),
         "weak_points": weak_points,
         "items": items,
+        "step_weakness": weakness,
         "study": {
             "active_days": active_days,
             "action_count": action_count,
@@ -145,13 +167,39 @@ def _build_report(
     }
 
 
+async def fetch_step_texts(
+    db: AsyncSession,
+    pairs: Sequence[Tuple[str, int]],
+) -> Dict[Tuple[str, int], dict]:
+    """把 (content_hash, step_no) 批量翻译成人能读的步骤信息。
+
+    返回 {(hash, step_no): {"text","label","kp_name"}}；查不到就不出现在结果里
+    （调用方有退化文案，不会报错）。
+    """
+    pairs = [p for p in (pairs or []) if p and p[0]]
+    if not pairs:
+        return {}
+    stmt = select(
+        CourseKbStep.content_hash,
+        CourseKbStep.step_no,
+        CourseKbStep.text,
+        CourseKbStep.label,
+        CourseKbStep.kp_name,
+    ).where(tuple_(CourseKbStep.content_hash, CourseKbStep.step_no).in_(pairs))
+    res = await db.execute(stmt)
+    return {
+        (h, n): {"text": t or "", "label": lb or "", "kp_name": kp or ""}
+        for h, n, t, lb, kp in res.all()
+    }
+
+
 async def compute_weekly_report(
     db: AsyncSession,
     student_id: str,
     period_days: int = 7,
     tenant_id: Optional[str] = None,
 ) -> dict:
-    """查询掌握度与（本周）学情事件，调用 _build_report 生成报告。"""
+    """查询掌握度 + 本周学情事件 + 本周步骤级错因，调用 _build_report 生成报告。"""
     now = datetime.now(timezone.utc)
     since = now - timedelta(days=period_days)
 
@@ -171,7 +219,30 @@ async def compute_weekly_report(
     e_res = await db.execute(e_stmt)
     events = list(e_res.scalars().all())
 
-    return _build_report(student_id, masteries, events, period_days, now)
+    # ---- S5：本周步骤级错因流水 ----
+    s_stmt = (
+        select(StudentStepError)
+        .where(StudentStepError.student_id == student_id)
+        .where(StudentStepError.occurred_at >= since)
+    )
+    if tenant_id:
+        s_stmt = s_stmt.where(StudentStepError.tenant_id == tenant_id)
+    s_res = await db.execute(s_stmt)
+    step_errors = list(s_res.scalars().all())
+
+    step_texts: Dict[Tuple[str, int], dict] = {}
+    if step_errors:
+        try:
+            step_texts = await fetch_step_texts(
+                db, {(e.content_hash, e.step_no or 0) for e in step_errors if e.content_hash}
+            )
+        except Exception:  # noqa: BLE001 步骤文本只是展示增强，取不到也要出报告
+            step_texts = {}
+
+    return _build_report(
+        student_id, masteries, events, period_days, now,
+        step_errors=step_errors, step_texts=step_texts,
+    )
 
 
 # ----------------------------------------------------------------------------
@@ -245,6 +316,36 @@ def _render_html(report: dict) -> str:
         else '<p class="hint">本周暂无薄弱点，继续保持 🎉</p>'.replace("🎉", "")
     )
 
+    # 步骤级薄弱点（S5）：错因分布 + Top 断点步骤
+    sw = report.get("step_weakness") or {}
+    sw_rows = ""
+    for d in sw.get("error_types", []):
+        pct = int(round(d["ratio"] * 100))
+        sw_rows += f"""
+          <div class="row">
+            <div class="name">{_esc(d['label'])}</div>
+            <div class="track"><div class="fill" style="width:{pct}%;background:#dc2626"></div></div>
+            <div class="val">{d['count']} 次 · {pct}%</div>
+          </div>"""
+    sw_block = (
+        sw_rows
+        if sw_rows
+        else '<p class="hint">本周没有可归因的错题记录（判分未开启或全部做对）。</p>'
+    )
+
+    sw_steps = ""
+    for s in sw.get("top_steps", []):
+        kp = f" · {_esc(s.get('kp_name') or '')}" if s.get("kp_name") else ""
+        sw_steps += f"""
+          <div class="ev">
+            <span class="tag" style="background:#fee2e2;color:#b91c1c">{s['count']} 次</span>
+            <span class="q">{_esc(s.get('step_label',''))}{kp}</span>
+            <span class="kp">{_esc(s.get('main_error_label',''))}</span>
+          </div>"""
+    sw_step_block = (
+        sw_steps if sw_steps else '<p class="hint">本周无重复出错的步骤。</p>'
+    )
+
     # 全部知识点（紧凑列表，最多 40 条）
     kp_rows = ""
     for it in report.get("items", [])[:40]:
@@ -311,6 +412,12 @@ def _render_html(report: dict) -> str:
   <section><h2>一句话总结</h2><p style="margin:0;font-size:14px;line-height:1.7">{_esc(report.get('summary',''))}</p></section>
   <section><h2>学习投入</h2>{study_html}</section>
   <section><h2>薄弱点（优先攻克）</h2>{weak_block}</section>
+  <section><h2>步骤级薄弱点</h2>
+    <p class="hint" style="margin-bottom:8px">{_esc(sw.get('headline','') or '本周暂无步骤级错因记录。')}</p>
+    {sw_block}
+    <h3 style="font-size:13px;margin:14px 0 6px;color:#374151">反复出错的步骤（Top {len(sw.get('top_steps', []))}）</h3>
+    {sw_step_block}
+  </section>
   <section><h2>知识点掌握度总览</h2>{kp_block}</section>
   <section><h2>给家长的建议</h2><ul>{suggestions}</ul></section>
   <section><h2>近期练习</h2>{ev_block}</section>

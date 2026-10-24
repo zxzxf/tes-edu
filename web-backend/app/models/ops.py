@@ -7,10 +7,12 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     Column,
     DateTime,
     Float,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -24,7 +26,11 @@ def _utcnow() -> datetime:
 
 
 class KnowledgePoint(Base):
-    """知识点（教研内容管理）。"""
+    """知识点（教研内容管理）。
+
+    2026-10-24 补 understanding/memory/analogy 三列（S1 迁移已建，这里补 ORM 映射），
+    供 S5 错题本展示"知识点卡"（理解/记忆抓手）。
+    """
 
     __tablename__ = "kb_knowledge_points"
 
@@ -34,11 +40,43 @@ class KnowledgePoint(Base):
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=False)
     tags = Column(JSON, default=list)
+    understanding = Column(Text)   # 理解（为什么）
+    memory = Column(Text)          # 记忆抓手
+    analogy = Column(Text)         # 类比
     created_at = Column(DateTime(timezone=True), default=_utcnow)
 
 
+class CourseKbStep(Base):
+    """题目步骤（只读映射，表由 S1 迁移建在 106 库）。
+
+    web-backend 侧只用于 S5 聚合：把 student_step_errors 的 (content_hash, step_no)
+    翻译成人能读的"第N步 · 步骤文本 / 知识点"，并取 correction 供错题本展示。
+    """
+
+    __tablename__ = "course_kb_steps"
+
+    content_hash = Column(String(64), primary_key=True)
+    step_no = Column(Integer, primary_key=True)
+    step_kind = Column(String(16))
+    label = Column(Text)
+    text = Column(Text)
+    is_correct = Column(Boolean)
+    kp_code = Column(Text)
+    kp_name = Column(Text)
+    kp_source = Column(Text)
+    confidence = Column(Text)
+    explanation = Column(Text)
+    error_reason = Column(Text)
+    distractor_map = Column(JSON)
+    wrong_value_map = Column(JSON)
+    typical_errors = Column(JSON)
+
+
 class WrongQuestion(Base):
-    """错题本。"""
+    """错题本。
+
+    2026-10-24 补 S1 迁移新增的归因落点列 + content_hash（S5 ④ 关联步骤取 correction）。
+    """
 
     __tablename__ = "wrong_questions"
 
@@ -49,6 +87,13 @@ class WrongQuestion(Base):
     correct_answer = Column(Text)
     knowledge_point = Column(String(128), index=True)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+    # ---- 步骤级归因落点（S1 迁移）----
+    content_hash = Column(String(64), index=True)   # → course_kb.content_hash
+    wrong_step_no = Column(SmallInteger)
+    error_type = Column(String(16))
+    evidence = Column(Text)
+    attribution_source = Column(String(8))
 
 
 class Submission(Base):
@@ -77,7 +122,12 @@ class ComplianceItem(Base):
 
 
 class StudentEvent(Base):
-    """学情事件流水（来自 agent-backend 上报的 student_event）。"""
+    """学情事件流水（来自 agent-backend 上报的 student_event）。
+
+    2026-10-24 扩展 judge v2 步骤级归因载荷（S3 ⑤）：
+    correct/partial + first_wrong_step/error_type/attribution_source/evidence，
+    并补 content_hash 以便把归因挂到具体题目（供 S5 聚合）。
+    """
 
     __tablename__ = "student_events"
 
@@ -91,6 +141,35 @@ class StudentEvent(Base):
     knowledge_points = Column(JSON, default=list)
     occurred_at = Column(DateTime(timezone=True))  # 事件原时间
     created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+    # ---- judge v2 判分结果 ----
+    content_hash = Column(String(64), index=True)   # 命中的题目（归因归属）
+    correct = Column(Boolean)                       # 未提交作答时为 NULL
+    partial = Column(Boolean)
+    first_wrong_step = Column(Integer)              # 首个出错步骤 step_no
+    error_type = Column(String(16), index=True)     # taxonomy 七类 + unknown
+    attribution_source = Column(String(8))          # map / llm / unknown
+    evidence = Column(Text)                         # 支撑归因的学生作答片段
+
+
+class StudentStepError(Base):
+    """步骤级错因流水（S5 聚合燃料）。
+
+    表由 S1 迁移脚本 p0_attribution_maps.sql 建在 106 库，这里补 ORM 模型供消费端写入。
+    只记录 error_type 非空的判分结果；unknown 也记（作为人工复核队列的计数口径）。
+    """
+
+    __tablename__ = "student_step_errors"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64), index=True)
+    student_id = Column(String(64), nullable=False, index=True)
+    content_hash = Column(String(64))
+    step_no = Column(SmallInteger)
+    error_type = Column(String(16), index=True)
+    attribution_source = Column(String(8))
+    evidence = Column(Text)
+    occurred_at = Column(DateTime(timezone=True))
 
 
 class StudentMastery(Base):

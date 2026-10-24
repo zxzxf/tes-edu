@@ -34,9 +34,16 @@ async def solve(req: SolveRequest, request: Request):
             "mode": req.mode or "explain",
             "question": req.question,
             "knowledge_points": result.get("knowledge_points") or [],
+            # 命中的标注题：把归因挂到具体题目（缺了它 student_step_errors 无法归属）
+            "content_hash": result.get("content_hash") or "",
             # 判分结果：未提交作答时为 None（消费端只累计练习量）
             "correct": judgement.get("correct"),
             "partial": judgement.get("partial"),
+            # S3 步骤级归因载荷：向后兼容，旧消费者忽略新字段
+            "first_wrong_step": judgement.get("first_wrong_step"),
+            "error_type": judgement.get("error_type"),
+            "attribution_source": judgement.get("attribution_source"),
+            "evidence": judgement.get("evidence"),
         }
     )
     return result

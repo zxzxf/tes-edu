@@ -58,21 +58,33 @@ def _parse(text: str) -> str:
     return v if v in TAXONOMY else "unknown"
 
 
-async def classify_one(reason: str, sem: asyncio.Semaphore) -> str:
-    async with sem:
+async def classify_one(reason: str, sem: asyncio.Semaphore):
+    """返回七类标签；失败/空返回时返回 None（调用方跳过不写，避免污染成 unknown）。
+
+    注意：端点上的模型多为推理型（reasoning），思考过程耗时可达 30-60s，
+    故超时放宽到 180s；且不可设置较小的 max_tokens，否则思考预算被吃光导致空返回。
+    """
+    for attempt in range(3):
         try:
-            resp = await client.chat.completions.create(
-                model=config.LLM_MODEL,
-                messages=[
-                    {"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": f"错误原因描述：{reason[:1500]}"},
-                ],
-                temperature=0,
-            )
-            return _parse(resp.choices[0].message.content or "")
+            async with sem:
+                resp = await client.chat.completions.create(
+                    model=config.LLM_MODEL,
+                    messages=[
+                        {"role": "system", "content": SYSTEM},
+                        {"role": "user", "content": f"错误原因描述：{reason[:1500]}"},
+                    ],
+                    temperature=0,
+                    timeout=180,
+                )
+            txt = (resp.choices[0].message.content or "").strip()
+            if not txt:
+                raise RuntimeError("empty response")
+            return _parse(txt)
         except Exception as e:  # noqa: BLE001
-            print(f"  [warn] classify failed: {e}")
-            return "unknown"
+            if attempt == 2:
+                print(f"  [warn] classify failed, skip: {type(e).__name__}: {str(e)[:100]}")
+                return None
+            await asyncio.sleep(3 * (attempt + 1))
 
 
 async def run(args):
@@ -98,12 +110,15 @@ async def run(args):
     results = await asyncio.gather(*(classify_one(r["error_reason"], sem) for r in rows))
     from collections import Counter
 
-    dist = Counter(results)
-    print(f"[dist] {dict(dist)}")
+    ok = [et for et in results if et is not None]
+    dist = Counter(ok)
+    print(f"[dist] {dict(dist)}  (失败跳过 {len(results) - len(ok)} 条)")
 
     n = 0
     async with pool.acquire() as conn:
         for r, et in zip(rows, results):
+            if et is None:  # 调用失败，留空待下次重跑，不写 unknown 污染数据
+                continue
             await conn.execute(
                 "UPDATE course_kb_steps SET error_type=$1 WHERE content_hash=$2 AND step_no=$3",
                 et, r["content_hash"], r["step_no"],

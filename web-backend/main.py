@@ -8,9 +8,11 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import (
     analytics,
@@ -26,6 +28,7 @@ from app.api import (
     wrong_questions,
 )
 from app.core.config import settings
+from app.core.db import get_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("web-backend")
@@ -110,6 +113,28 @@ async def healthz():
             "compliance_items",
         ],
     }
+
+
+@app.get("/metricsz")
+async def metricsz(
+    days: int = Query(30, ge=1, le=180),
+    db: AsyncSession = Depends(get_db),
+):
+    """匿名归因质量指标（S5 ⑤）：无任何 student_id / 题干等个人信息。
+
+    deterministic_ratio 是"确定性归因占比"——查表命中的比例，
+    即不依赖模型、结果可复现的判分占比，是可对外讲的质量数字。
+    """
+    payload = {"window_days": days, "generated_at": datetime.now(timezone.utc).isoformat()}
+    try:
+        from app.services import attribution, learning
+
+        rows = await learning.fetch_attribution_metrics(db, days=days)
+        payload.update(attribution.metrics_payload(rows))
+        payload["status"] = "ok"
+    except Exception as e:  # noqa: BLE001 指标接口不应因 DB 未就绪而 500
+        payload.update({"status": "degraded", "error": str(e)})
+    return payload
 
 
 # 统一前缀 /api/admin（网关已剥离此前缀再转发，这里重新挂上以便本地直连也一致）

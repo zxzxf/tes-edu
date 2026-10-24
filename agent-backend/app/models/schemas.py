@@ -23,5 +23,9 @@ class SolveResponse(BaseModel):
     steps: list[str] = []
     similar: list[str] = []
     knowledge_points: list[str] = []
-    # 仅当提交了 student_answer 才有：{"correct": bool, "partial": bool, "comment": str}
+    # 命中的标注题 hash：步骤级归因的归属对象（前端可据此回查该题）
+    content_hash: Optional[str] = None
+    # 仅当提交了 student_answer 才有（judge v2 步骤级归因）：
+    # {"correct","partial","comment","first_wrong_step","error_type","evidence",
+    #  "correction","attribution_source"}
     judgement: Optional[dict] = None

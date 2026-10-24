@@ -1,10 +1,21 @@
-"""B 端运营实体的真实数据访问层（替换原 API 层的内存 _STORE 占位）。"""
-from typing import List, Optional
+"""B 端运营实体的真实数据访问层（替换原 API 层的内存 _STORE 占位）。
 
-from sqlalchemy import select
+S5 追加：错题本 enrich —— 按 (content_hash, wrong_step_no) 取步骤的 correction，
+并取知识点卡的 understanding/memory，让错题本从"记一道错题"升级为"知道错在第几步、怎么改"。
+"""
+from typing import Dict, List, Optional, Sequence, Tuple
+
+from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.ops import ComplianceItem, KnowledgePoint, Submission, WrongQuestion
+from app.models.ops import (
+    ComplianceItem,
+    CourseKbStep,
+    KnowledgePoint,
+    Submission,
+    WrongQuestion,
+)
+from app.services import attribution
 
 
 # ---------------- 知识点 ----------------
@@ -46,6 +57,78 @@ async def create_wrong(db: AsyncSession, payload: dict) -> WrongQuestion:
     await db.commit()
     await db.refresh(obj)
     return obj
+
+
+# ---------------- 错题本 enrich（S5 ④）----------------
+async def fetch_steps(
+    db: AsyncSession, pairs: Sequence[Tuple[str, int]]
+) -> Dict[Tuple[str, int], CourseKbStep]:
+    """按 (content_hash, step_no) 批量取步骤（含归因映射，供 correction 抽取）。"""
+    pairs = [p for p in (pairs or []) if p and p[0]]
+    if not pairs:
+        return {}
+    stmt = select(CourseKbStep).where(
+        tuple_(CourseKbStep.content_hash, CourseKbStep.step_no).in_(pairs)
+    )
+    res = await db.execute(stmt)
+    return {(s.content_hash, s.step_no): s for s in res.scalars().all()}
+
+
+async def fetch_kp_cards(db: AsyncSession, names: Sequence[str]) -> Dict[str, KnowledgePoint]:
+    """按知识点名取知识点卡（understanding/memory）。"""
+    names = [n for n in (names or []) if n]
+    if not names:
+        return {}
+    res = await db.execute(
+        select(KnowledgePoint).where(KnowledgePoint.title.in_(names))
+    )
+    return {k.title: k for k in res.scalars().all() if k.title}
+
+
+async def enrich_wrong(db: AsyncSession, rows: Sequence[WrongQuestion]) -> List[dict]:
+    """错题本列表增强：原字段 + 错因中文名 + 该步正确做法 + 知识点卡。
+
+    取不到步骤（历史数据无 content_hash）时原字段照常返回，增强字段为 None，
+    不因为"查不到"就让整个列表报错。
+    """
+    rows = list(rows or [])
+    steps: Dict[Tuple[str, int], CourseKbStep] = {}
+    cards: Dict[str, KnowledgePoint] = {}
+    if rows:
+        pairs = {(w.content_hash, w.wrong_step_no or 0) for w in rows if w.content_hash}
+        try:
+            steps = await fetch_steps(db, pairs)
+        except Exception:  # noqa: BLE001 步骤只是增强信息
+            steps = {}
+        if steps:
+            try:
+                cards = await fetch_kp_cards(
+                    db, [s.kp_name for s in steps.values() if s.kp_name]
+                )
+            except Exception:  # noqa: BLE001
+                cards = {}
+
+    out: List[dict] = []
+    for w in rows:
+        item = {
+            "id": w.id,
+            "student_id": w.student_id,
+            "question": w.question,
+            "wrong_answer": w.wrong_answer,
+            "correct_answer": w.correct_answer,
+            "knowledge_point": w.knowledge_point,
+            "created_at": w.created_at.isoformat() if w.created_at else None,
+            "content_hash": w.content_hash,
+            "wrong_step_no": w.wrong_step_no,
+            "error_type": w.error_type,
+            "evidence": w.evidence,
+            "attribution_source": w.attribution_source,
+        }
+        step = steps.get((w.content_hash, w.wrong_step_no or 0))
+        card = cards.get(step.kp_name) if (step is not None and step.kp_name) else None
+        item.update(attribution.build_wrong_question_enrich(step, w.error_type, card))
+        out.append(item)
+    return out
 
 
 # ---------------- 批改 ----------------

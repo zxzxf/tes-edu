@@ -35,7 +35,7 @@ from openai import AsyncOpenAI  # noqa: E402
 from app.core import config  # noqa: E402
 
 client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
-CONCUR = 3
+CONCUR = 8
 sem = asyncio.Semaphore(CONCUR)
 
 
@@ -50,16 +50,37 @@ def _parse_json(text: str) -> dict:
 
 
 async def _call_json(system: str, user: str, temp: float = 0.4) -> dict:
-    async with sem:
-        resp = await client.chat.completions.create(
-            model=config.LLM_MODEL,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=temp,
-        )
-    return _parse_json(resp.choices[0].message.content or "")
+    """调用 LLM 并解析 JSON。
+
+    注意：当前端点上的模型多为推理型（reasoning），其 thinking 过程会消耗大量
+    completion token：
+      - 不可设置较小的 max_tokens，否则思考预算被吃光、返回空内容；
+      - 单条耗时可达 30-60s，并发时更久，故超时放宽到 180s；
+      - 返回空内容（未解析出 JSON）同样视为失败并重试。
+    """
+    last = None
+    for attempt in range(3):
+        try:
+            async with sem:
+                resp = await client.chat.completions.create(
+                    model=config.LLM_MODEL,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    temperature=temp,
+                    timeout=180,
+                )
+            data = _parse_json(resp.choices[0].message.content or "")
+            if data:
+                return data
+            last = RuntimeError("empty response (可能被 max_tokens/思考预算截断)")
+        except Exception as e:  # noqa: BLE001 重试网络/限流错误，单条失败不中断整批
+            last = e
+        if attempt < 2:
+            await asyncio.sleep(3 * (attempt + 1))
+    print(f"[warn] LLM 调用失败，跳过该条: {last!r}")
+    return {}
 
 
 # ----------------------------------------------------------------------------
@@ -177,7 +198,7 @@ async def run(args):
     dsn = os.environ.get("DB_DSN")
     if not dsn:
         raise SystemExit("未配置 DB_DSN，无法连库。")
-    pool = await asyncpg.create_pool(dsn=dsn, min_size=1, max_size=4)
+    pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=16)
 
     kp_rows, q_rows = [], []
     async with pool.acquire() as conn:
@@ -224,13 +245,15 @@ async def run(args):
                 q_rows = [dict(r) for r in await conn.fetch(
                     "SELECT content_hash, subject, type, stem, options, answer, analysis, knowledge_points "
                     "FROM course_kb WHERE source_tag='gaokao_real' AND subject=$1 "
-                    "AND content_hash IN (SELECT content_hash FROM course_kb_steps) ORDER BY id LIMIT $2",
+                    "AND content_hash IN (SELECT content_hash FROM course_kb_steps) "
+                    "AND content_hash IN (SELECT content_hash FROM course_kb_steps "
+                    "   WHERE explanation IS NULL OR explanation='' GROUP BY content_hash) "
+                    "ORDER BY id LIMIT $2",
                     subj, lim)]
 
     print(f"[plan] 知识点 {len(kp_rows)} 个，题目 {len(q_rows)} 道")
 
-    # Pass A
-    for row in kp_rows:
+    async def process_kp(row):
         u, m, a = await gen_kp(row, args.dry_run)
         if not args.dry_run and (u or m or a):
             async with pool.acquire() as conn:
@@ -238,10 +261,10 @@ async def run(args):
                     "UPDATE kb_knowledge_points SET understanding=$1, memory=$2, analogy=$3 WHERE id=$4",
                     u, m, a, row["id"],
                 )
-            print(f"  [kp✓] {row['code']} {row['title'][:14]}")
+            print(f"  [kp✓] {row['code']} {row['title'][:14]}", flush=True)
+        return True
 
-    # Pass B
-    for q in q_rows:
+    async def process_question(q):
         steps = []
         async with pool.acquire() as conn:
             recs = await conn.fetch(
@@ -250,7 +273,7 @@ async def run(args):
             steps = [dict(r) for r in recs]
         out = await gen_question(q, steps, args.dry_run)
         if args.dry_run:
-            continue
+            return True
         for i, s in enumerate(steps):
             o = _match_step(out, s["label"], i)
             exp = (o.get("explanation") or "").strip()
@@ -261,7 +284,15 @@ async def run(args):
                         "UPDATE course_kb_steps SET explanation=$1, error_reason=$2 "
                         "WHERE content_hash=$3 AND step_no=$4",
                         exp, err, q["content_hash"], s["step_no"])
-        print(f"  [q✓] {q['content_hash'][:8]} {q['type']} 步数={len(steps)}")
+        print(f"  [q✓] {q['content_hash'][:8]} {q['type']} 步数={len(steps)}", flush=True)
+        return True
+
+    # Pass A（并发）
+    if kp_rows:
+        await asyncio.gather(*[process_kp(r) for r in kp_rows])
+    # Pass B（并发）
+    if q_rows:
+        await asyncio.gather(*[process_question(q) for q in q_rows])
 
     await pool.close()
     print("[done]")

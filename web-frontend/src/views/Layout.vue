@@ -6,11 +6,13 @@
         <router-link to="/dashboard">概览</router-link>
         <router-link to="/knowledge">教研内容管理</router-link>
         <router-link to="/analytics">学情看板</router-link>
+        <router-link to="/error-distribution">班级错因分布</router-link>
         <router-link to="/wrong-questions">错题本</router-link>
         <router-link to="/exam">自动组卷</router-link>
         <router-link to="/grading">教师批改</router-link>
         <router-link to="/reports">家长周报</router-link>
         <router-link to="/compliance">合规审核</router-link>
+        <router-link to="/practice">在线练习（过程采集）</router-link>
       </nav>
     </aside>
     <div class="main">

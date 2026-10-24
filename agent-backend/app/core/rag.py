@@ -66,6 +66,8 @@ def _fmt(score: float, doc: dict) -> dict:
         "knowledge_point": doc.get("knowledge_point", ""),
         "difficulty": doc.get("difficulty", ""),
         "answer": doc.get("answer", ""),
+        # judge v2 靠它定位 course_kb_steps（步骤级归因燃料）
+        "content_hash": doc.get("content_hash", ""),
     }
 
 
@@ -99,7 +101,7 @@ async def _search_pg(q_vec: list[float], subject: str | None) -> list[dict]:
     pool = await get_pool()
     vec_literal = "[" + ",".join(f"{v:.6f}" for v in q_vec) + "]"
     sql = """
-        SELECT content, knowledge_point, difficulty, answer,
+        SELECT content, knowledge_point, difficulty, answer, content_hash,
                1 - (embedding <=> $1::vector) AS score
         FROM course_kb_embeddings
         WHERE ($2::text IS NULL OR subject = $2)
@@ -118,6 +120,7 @@ async def _search_pg(q_vec: list[float], subject: str | None) -> list[dict]:
             "knowledge_point": r["knowledge_point"],
             "difficulty": r["difficulty"],
             "answer": r["answer"],
+            "content_hash": r["content_hash"] or "",
         }
         for r in rows
     ]

@@ -21,6 +21,27 @@ export function getAnalytics(studentId) {
   return client.get('/analytics/summary', { params: { student_id: studentId } })
 }
 
+// S5 老师端班级错因分布（group_by: error_type | question | step）
+export function getErrorDistribution(params) {
+  return client.get('/analytics/error-distribution', { params })
+}
+
+// 导出 CSV：带 Authorization 头走 axios（window.open 带不了头）
+export async function downloadErrorDistributionCsv(params, filename) {
+  const blob = await client.get('/analytics/error-distribution', {
+    params: { ...params, format: 'csv' },
+    responseType: 'blob'
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename || '错因分布.csv'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 // 模块3 错题本
 export function listWrongQuestions(studentId) {
   return client.get('/wrong-questions', { params: { student_id: studentId } })
@@ -36,9 +57,9 @@ export function submitGrading(data) {
   return client.post('/grading/submit', data)
 }
 
-// 模块6 家长周报
-export function getWeeklyReport(studentId, week) {
-  return client.get('/reports/weekly', { params: { student_id: studentId, week } })
+// 模块6 家长周报（period_days 为统计周期；week 参数后端未使用，保留兼容）
+export function getWeeklyReport(studentId, week, periodDays = 7) {
+  return client.get('/reports/weekly', { params: { student_id: studentId, week, period_days: periodDays } })
 }
 
 // 模块9 合规审核
