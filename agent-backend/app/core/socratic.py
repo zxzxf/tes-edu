@@ -31,7 +31,7 @@ T-C3 起：题型路由（qtype.route_question_tier）决定各题的轮次上�
 """
 from __future__ import annotations
 
-from app.core import config, llm_cache, qtype
+from app.core import config, llm_cache, model_router, qtype
 
 # ---------------------------------------------------------------- 阶梯定义
 
@@ -535,6 +535,7 @@ async def _remote_hint(
     *,
     subject: str | None = None,
     content_hash: str | None = None,
+    tier: str | None = None,
     store=None,
 ) -> dict | None:
     """LLM 生成 Hint（T-D1 缓存：同题同 Hint 级命中则跳过 LLM）。
@@ -546,7 +547,7 @@ async def _remote_hint(
         return None
 
     async def _call(q, ctx, m):
-        return _remote_hint_raw(q, ctx, level, history, step)
+        return _remote_hint_raw(q, ctx, level, history, step, tier=tier)
 
     # 上下文变体：对话历史与当前步骤会实质改变 Hint 输出，必须入键（否则串味）；
     # 非空时只做精确命中，不走近似复用。
@@ -579,14 +580,18 @@ async def _remote_hint_raw(
     level: int,
     history: list[str] | None = None,
     step: dict | None = None,
+    *,
+    tier: str | None = None,
 ) -> dict | None:
     """原始 LLM Hint 生成（无缓存包装）。失败返回 None。"""
     try:
         from openai import AsyncOpenAI  # 延迟导入，与 llm.py 同款
 
+        # T-D2：Hint 属引导档，默认小模型；压轴（tier=finale）上大模型
+        route = model_router.route_model(mode="guide", context=context, tier=tier)
         client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
         resp = await client.chat.completions.create(
-            model=config.LLM_MODEL,
+            model=route["model"],
             messages=_build_hint_messages(question, context, level, history, step),
             temperature=0.3,
         )
@@ -618,6 +623,7 @@ async def generate_hint(
     *,
     subject: str | None = None,
     content_hash: str | None = None,
+    tier: str | None = None,
     store=None,
 ) -> dict:
     """生成本轮 Hint：LLM 优先，失败/违约回落 template_hint。
@@ -634,7 +640,7 @@ async def generate_hint(
     try:
         hint = await _remote_hint(
             question, context, level, history, step,
-            subject=subject, content_hash=content_hash, store=store,
+            subject=subject, content_hash=content_hash, tier=tier, store=store,
         )
     except Exception:  # noqa: BLE001 双保险：生成层任何意外都回落模板
         hint = None

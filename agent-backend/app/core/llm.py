@@ -6,8 +6,11 @@ dev 模式（无 LLM_BASE_URL/KEY）返回"基于真实检索上下文拼装"的
 from __future__ import annotations
 
 import json
+import logging
 
-from app.core import config, llm_cache
+from app.core import config, llm_cache, model_router
+
+log = logging.getLogger("llm")
 
 _SYSTEM = (
     "你是一名高中数学导师，采用苏格拉底式引导讲解。\n"
@@ -56,12 +59,22 @@ async def solve(
     subject: str | None = None,
     hint_level: int | None = None,
     content_hash: str | None = None,
+    tier: str | None = None,
+    steps: int | None = None,
     store=None,
 ) -> dict:
-    """解题入口。真实模式经 T-D1 请求级缓存（同题/近似题命中则跳过 LLM）。"""
+    """解题入口。真实模式经 T-D1 请求级缓存（同题/近似题命中则跳过 LLM）。
+
+    **T-D2 与 T-D1 的衔接**：模型路由发生在 ``_remote_solve`` 内，而它只在缓存
+    未命中时才被调用——即"缓存未命中才进路由"。
+    """
     if config.llm_ready():
+
+        async def _call(q, c, m):
+            return await _remote_solve(q, c, m, tier=tier, steps=steps)
+
         return await llm_cache.cached_solve(
-            _remote_solve,
+            _call,
             question,
             context,
             mode,
@@ -73,13 +86,32 @@ async def solve(
     return _dev_solve(question, context, mode)
 
 
-async def _remote_solve(question: str, context: dict | None, mode: str) -> dict:
+async def _remote_solve(
+    question: str,
+    context: dict | None,
+    mode: str,
+    *,
+    tier: str | None = None,
+    steps: int | None = None,
+) -> dict:
     from openai import AsyncOpenAI  # 延迟导入
+
+    # T-D2：按题型 + 难度(tier) + mode 选模型（未配分级时回落单一 LLM_MODEL）
+    route = model_router.route_model(mode=mode, context=context, tier=tier, steps=steps)
+    log.info(
+        "model route: mode=%s tier=%s steps=%s -> %s (%s) | %s",
+        mode,
+        route["tier"],
+        route["steps"],
+        route["model"],
+        route["grade"],
+        route["reason"],
+    )
 
     client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
     try:
         resp = await client.chat.completions.create(
-            model=config.LLM_MODEL,
+            model=route["model"],
             messages=_build_messages(question, context, mode),
             temperature=0.3,
         )
@@ -236,8 +268,10 @@ async def suggest_similar(question: str, context: dict | None = None) -> list[st
             from openai import AsyncOpenAI  # 延迟导入
 
             client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+            # T-D2：变式题属轻量档，走小模型（未配分级时回落 LLM_MODEL）
+            route = model_router.route_model(mode="similar", context=context)
             resp = await client.chat.completions.create(
-                model=config.LLM_MODEL,
+                model=route["model"],
                 messages=_build_messages(question, context, "similar"),
                 temperature=0.7,
             )

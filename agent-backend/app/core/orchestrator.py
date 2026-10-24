@@ -94,6 +94,8 @@ async def handle_question(
             question, ctx
         )
     # 5) LLM 解题 + 分步讲解（按档位生成）；T-D1 请求级缓存（键含学科/mode/hint_level）
+    #    T-D2：题型档位与步骤数透传给模型路由（缓存未命中才真正进路由）
+    _route_tier = qtype.route_question_tier(ctx)
     result = await llm.solve(
         question,
         context=ctx,
@@ -101,6 +103,8 @@ async def handle_question(
         subject=subject,
         hint_level=None,
         content_hash=judge_v2._pick_content_hash(ctx),
+        tier=_route_tier.get("tier"),
+        steps=len(ctx.get("steps") or []),
     )
     # 6) 触类旁通
     similar = await llm.suggest_similar(question, context=ctx)
@@ -185,7 +189,7 @@ async def _handle_hint_round(
     history = [student_reply] if student_reply else None
     hint = await socratic.generate_hint(
         question, ctx, level, history, step,
-        subject=subject, content_hash=content_hash,
+        subject=subject, content_hash=content_hash, tier=route.get("tier"),
     )
 
     socratic.ladder.record_round(

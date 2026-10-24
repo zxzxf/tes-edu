@@ -63,6 +63,12 @@ REDIS_URL = _get("REDIS_URL") or (
     f"{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
 )
 
+# ---- T-D2 模型路由分级 ----
+# 简单题/直给走小模型，难题走大模型。未配（或与 LLM_MODEL 相同）时回落单一
+# LLM_MODEL，行为与接入路由前一致——缺配绝不启动失败。
+LLM_MODEL_SIMPLE = _get("LLM_MODEL_SIMPLE") or LLM_MODEL
+LLM_MODEL_HARD = _get("LLM_MODEL_HARD") or LLM_MODEL
+
 # 缓存总开关（T-D1）。出线上事故（如缓存串味、Redis 抖动）时可一键关掉，
 # 关掉后 cached_solve 直接回源 LLM，行为与接入缓存前完全一致。
 CACHE_ENABLED = _get("CACHE_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
@@ -71,6 +77,15 @@ CACHE_ENABLED = _get("CACHE_ENABLED", "true").strip().lower() not in ("0", "fals
 def cache_enabled() -> bool:
     """是否启用请求级缓存（T-D1）。单测/降级场景可整体关闭。"""
     return bool(CACHE_ENABLED)
+
+
+def routing_enabled() -> bool:
+    """是否启用模型分级（T-D2）。
+
+    仅当 ``LLM_MODEL_SIMPLE`` 与 ``LLM_MODEL_HARD`` 配成**不同**模型时才生效；
+    任一未配时二者都回落 ``LLM_MODEL``，路由自然退化为"始终单一模型"。
+    """
+    return bool(LLM_MODEL_SIMPLE and LLM_MODEL_HARD and LLM_MODEL_SIMPLE != LLM_MODEL_HARD)
 
 
 def llm_ready() -> bool:
