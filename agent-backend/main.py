@@ -42,12 +42,25 @@ app.include_router(solve_router)
 
 @app.get("/healthz")
 async def healthz():
+    # db=配置就绪；db_ping=真实连通性（T-A3 固化：读取侧探活，pgvector 挂了能立刻看见）
+    db_ping: bool | None = None
+    if config.db_ready():
+        try:
+            from app.db import pg
+
+            pool = await pg.get_pool()
+            async with pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+            db_ping = True
+        except Exception:
+            db_ping = False
     return {
         "status": "ok",
         "mode": config.mode(),
         "llm": config.llm_ready(),
         "embed": config.embed_ready(),
         "db": config.db_ready(),
+        "db_ping": db_ping,
         "vlm": config.vlm_ready(),
         "kafka": config.kafka_ready(),
     }
