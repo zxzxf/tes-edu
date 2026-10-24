@@ -117,20 +117,21 @@
 
   <button class="printbtn" onclick="window.print()">打印 / 导出 PDF</button>
   <h1>Tes Edu 任务计划进度全景</h1>
-  <div class="meta">报告日期 2026-10-24 · 仓库 <span class="mono">main @ 87ccdb0</span>（已推送 GitHub）· 内容数据来自 106 库实查 · 部署状态来自 137/106 docker ps 实测</div>
+  <div class="meta">报告日期 2026-10-24 · 仓库 <span class="mono">main @ 107d585 + 部署修复</span>（已推送 GitHub）· 内容数据来自 106 库实查 · 部署状态来自 137/106 docker ps 实测</div>
 
   <div class="kpis">
     <div class="kpi"><div class="label">总任务</div><div class="value">49</div></div>
     <div class="kpi"><div class="label">已完成</div><div class="value" style="color:var(--green);">39<span class="sub"> / 80%</span></div></div>
     <div class="kpi"><div class="label">待办</div><div class="value" style="color:var(--amber);">10<span class="sub"> · 外部阻塞 3</span></div></div>
-    <div class="kpi"><div class="label">测试</div><div class="value" style="color:var(--green);">211<span class="sub"> + e2e 24/24 + 图谱冒烟 21/21</span></div></div>
+    <div class="kpi"><div class="label">测试</div><div class="value" style="color:var(--green);">215<span class="sub"> + e2e 24/24 + 图谱冒烟 21/21 + 线上链路验证</span></div></div>
   </div>
 
   <div class="concl">
     <ul>
       <li><b>代码侧基本就绪，卡点在外部。</b>归因线 S1–S5、收尾 T1 / T2 / T4、T-A 系列 4/4 与 T-B 系列 5/5 已全部落地（T-B5 图谱可视化页今日收官；T3 数学补跑三次失败已打标记，见下）；真正阻塞价值兑现的是教材素材（T-A2）与试点排期（T5），不是工程量。</li>
       <li><b>「代码 100% / 数据 0%」仍是最大结构性问题，但已收窄。</b>题库 211/3000、真实流水仅 4 条事件——S5 周报 / 错因分布 / /metricsz 全部具备但空转。T2 错题本写入链路已完成（自动落库 + 幂等 + 真实库 e2e 9/9），错题本从「无数据源」变为「待试点流水」；剩余真空缺是试点本身（T5）。</li>
-      <li><b>部署断层：线上镜像落后仓库 27 个提交。</b>137 已从 mock 桩升级为 real 后端（10-23 15:46 构建），早于其后的 T-A1 / T-B1 / T-B2 / T2 / T-A3 / T-B4 / T-B3 / T-A4 / T4 等全部提交——S5 归因线、掌握度算法、错题本链路、RAG 探活、ZPD 推题、组卷接口、评测脚手架均未上线，需重建镜像并滚动重启。</li>
+      <li><b>部署断层已清零（28 提交全部上线）。</b>10-24 19:5x 完成重建：网关双副本换新镜像（含 <span class="mono">/learning/</span> 与 <span class="mono">/login</span> 新路由）、web / agent 后端以 <span class="mono">main @ 107d585</span> 源码重建并换容器，线上实测登录换 JWT → 图谱快照 200（435 节点 / 435 边）/ 双后端 healthz 全绿 / 网关指标计数正常。顺带修复两处部署层缺陷：web-backend 路由单挂 <span class="mono">/api/admin</span> 导致网关侧 404（已改根路径双挂载并加契约测试）；compose 缺 <span class="mono">JWT_PRIVATE_KEY</span> 接线会导致 <span class="mono">/login</span> 500（已补）。回滚标签 <span class="mono">rollback-20261024</span> 已固化。</li>
+      <li><b>新风险：CI 镜像通道阻塞。</b>仓库 Secrets 缺 <span class="mono">ACR_USERNAME</span> / <span class="mono">ACR_PASSWORD</span>，<span class="mono">build-images.yml</span> 自 10-23 加入以来每次推送均在 ACR 登录步骤失败（"Username and password required"，30+ 次运行全败）——这正是部署断层的根因。线上暂走本地构建通道（<span class="mono">publish_backend.sh</span> + <span class="mono">start.sh build</span>）。修复需用户侧在仓库 Settings → Secrets 补两个值（与 137 现有 ACR 登录凭证一致），之后 compose 切回 ACR + <span class="mono">IMAGE_TAG</span>。</li>
       <li><b>计划缺环两处。</b>P2 引导式对话（Hint 阶梯 / 100 题评测集 / 埋点指标）与 LLM 成本控制在任务清单中无登记项；#20 与 T-B4 的 AGE 双轨已消除（T-B4 决策方案 A，两任务关闭，见《AGE部署决策记录.md》）。</li>
     </ul>
   </div>
@@ -197,8 +198,8 @@
       <div class="t">137 · 接入 / 应用 / 消息层</div>
       <div class="comp"><span class="dot done"></span><span class="n">edu-gateway ×2</span><span class="s">双副本 + 熔断 / 白名单 / 心跳</span></div>
       <div class="comp"><span class="dot done"></span><span class="n">edu-lb (nginx)</span><span class="s">keepalive 压测优化</span></div>
-      <div class="comp"><span class="dot pend"></span><span class="n">edu-web-backend:real</span><span class="s">镜像 10-23 15:46</span></div>
-      <div class="comp"><span class="dot pend"></span><span class="n">edu-agent-backend:real</span><span class="s">镜像 10-23 15:46</span></div>
+      <div class="comp"><span class="dot done"></span><span class="n">edu-web-backend:real</span><span class="s">镜像 10-24 19:5x（main @ 107d585 + 路由修复）</span></div>
+      <div class="comp"><span class="dot done"></span><span class="n">edu-agent-backend:real</span><span class="s">镜像 10-24 19:5x（main @ 107d585）</span></div>
       <div class="comp"><span class="dot done"></span><span class="n">edu-redis</span><span class="s">主库 healthy</span></div>
       <div class="comp"><span class="dot pend"></span><span class="n">kafka + zookeeper</span><span class="s">仍 ZK 模式（G2，规模化事项）</span></div>
       <div class="comp"><span class="dot done"></span><span class="n">cloudflared</span><span class="s">HTTPS 隧道</span></div>
@@ -212,14 +213,15 @@
     </div>
   </div>
   <div class="callout">
-    <div class="t">部署断层：线上镜像落后仓库 27 个提交</div>
-    <div class="d">edu-web-backend:real / edu-agent-backend:real 构建于 10-23 15:46，早于其后全部 27 个提交——T-B1 / T-A1 / T-B2 / T2 / T-A3 / T-B4 / T-B3 / T-A4 / T4 与历次文档同步，S5 归因线、掌握度算法、错题本链路、RAG 探活、ZPD 推题、组卷接口、评测脚手架均未上线。建议按网关已验证过的流程重建镜像并滚动重启。</div>
+    <div class="t">CI 镜像通道阻塞：仓库 Secrets 缺失，每次推送构建失败</div>
+    <div class="d">build-images.yml 在「Log in to ACR」步骤报 Username and password required——仓库 Settings → Secrets 缺少 ACR_USERNAME / ACR_PASSWORD，自 10-23 引入工作流以来 30+ 次运行全部失败（另两个 job 被连带取消），这是部署断层长期存在的根因。当前线上走本地构建通道发版（publish_backend.sh + start.sh build，已重建至 main @ 107d585）。修复：在仓库 Secrets 补两个值（与 137 /root/.docker/config.json 现有 ACR 凭证一致），下次推送即恢复自动构建；随后把 137-gateway-stack.yml 的三个 image: 切回 ACR + IMAGE_TAG=sha-&lt;commit&gt;。</div>
   </div>
   <h3>风险台账</h3>
   <div>
     <div class="row"><div class="chipcell"><span class="chip block">高</span></div><div class="name" style="width:200px;">R1 内容获取成本</div><div class="desc">P1 卡住则后续全停；T-A2 阻塞中。应对：先交 500 题最小可用集验证链路，再冲 3000。</div></div>
     <div class="row"><div class="chipcell"><span class="chip block">高</span></div><div class="name" style="width:200px;">数据真空</div><div class="desc">真实流水仅 4 条事件；T2 写入链路已通（错题本待试点流水），试点未开跑，S5/S6 空转（T5）。应对：T5 催校方排期。</div></div>
-    <div class="row"><div class="chipcell"><span class="chip block">高</span></div><div class="name" style="width:200px;">部署断层</div><div class="desc">线上镜像落后仓库 27 提交。应对：重建 real 后端镜像 + 滚动重启，重启后探 /metricsz 与新路由。</div></div>
+    <div class="row"><div class="chipcell"><span class="chip done">已清零</span></div><div class="name" style="width:200px;">部署断层</div><div class="desc">10-24 19:5x 重建上线：网关双副本 + web/agent 后端全部换新镜像（main @ 107d585），线上 e2e 验证通过（登录换 JWT → 图谱 200 435 节点；healthz 全绿；回滚标签 rollback-20261024）。</div></div>
+    <div class="row"><div class="chipcell"><span class="chip block">高</span></div><div class="name" style="width:200px;">CI 镜像通道</div><div class="desc">仓库 Secrets 缺 ACR_USERNAME / ACR_PASSWORD，build-images.yml 每次推送均在登录步骤失败（30+ 次全败）。应对：用户侧补 Secrets 后切回 ACR + IMAGE_TAG；当前暂走本地构建通道。</div></div>
     <div class="row"><div class="chipcell"><span class="chip pend">中</span></div><div class="name" style="width:200px;">计划缺环</div><div class="desc">P2 引导式对话与 LLM 成本控制无登记任务。应对：各出一份 T 系列计划书并登记，主线才完整。</div></div>
     <div class="row"><div class="chipcell"><span class="chip pend">中</span></div><div class="name" style="width:200px;">Android 无 SDK</div><div class="desc">S4 过程采集缺真机编译验证。应对：后端协议已完成，风险可控，需他处编译。</div></div>
   </div>
@@ -234,11 +236,11 @@
     <li><b>T-B5 App 知识图谱可视化页</b><span class="tag chip done">已完成 · 0.5 天</span><br>全链路落地：web-backend 新增 <span class="mono">GET /learning/knowledge-graph</span>（DAG 快照 + 掌握度叠层 + ZPD 高亮 + 题目数，复用 T-B2/T-B3 纯函数）；网关放行 <span class="mono">/learning/</span> 与 <span class="mono">/login</span> 两条路由（jwt_c）；App 侧 Canvas 章节带布局渲染（435 节点 / 435 边，拖动平移 + 双指缩放 + 点选详情卡）。真实库冒烟 21/21，布局算法经镜像验证（画布 3136×4232dp，18 章带）。<b>顺带修复</b>：student_mastery 历史按 KP 名称落库、与 DAG 的 code 键对不上——读侧新增名称→code 翻译（T-B2/T-B3/T-B5 共享）；数据显示 12 条记录仅 1 条名称可映射（旧扁平 KP 与新 DAG 未对齐，数据治理缺口，建议随 T-A2 一并处理）。</li>
     <li><b>T1 物理讲解补跑收官 · T3 数学补跑失败（已标记）</b><span class="tag chip done">T1 已完成</span><span class="tag chip fail">T3 失败·未关闭</span><br>T1：qwen3.8-flash 全量补跑 88 题，86 题成功落库，物理讲解 0 → 297/297（100%）；2 道解答题（0c1ed8c9 / 08dfe03e）3 次 180s 超时后按决策删除（全量备份于 137 /root/backups/bak_deleted_phys_20261024.json，含向量可恢复）。T3：数学 2 道解答题（c524576e / ff72e92a）三次尝试均失败——① 原批 flash 180s×3 超时；② deepseek-v4-pro 长 prompt 挂起 8 分钟无返回；③ 端点恢复后 flash 300s 补跑 9 分半仍无响应，主动终止。根因为复杂解答题长 prompt 模型不返回（非额度，ws 滚动配额已恢复）；库无半写（仅非空才落库），数学维持 365/371。<b>后续</b>：retry_failed_steps.py 已就位（--all-missing，模型可切），端点更稳或换模型后一条命令补齐；或按物理题先例删除这 2 题（数学即 365/365=100%），决策待定。</li>
     <li><b>外部催办</b><span class="tag chip block">T-A2 / #23 / T5</span><br>教材题素材（人教A版例题/习题）与试点排期（4 周 ≥30 生）是代码之外的卡点；教师金标准标注工时需提前 2 周约定。</li>
-    <li><b>部署收口</b><span class="tag chip block">镜像重建</span><br>real 后端重建 + 滚动重启，让仓库与线上对齐；web-frontend 部署（G5）可随之排期。</li>
+    <li><b>部署收口 · 镜像重建已完成</b><span class="tag chip done">已交付 · 10-24 19:5x</span><br>28 提交全部上线：网关双副本新镜像（/learning/ + /login 路由生效）、web/agent 后端重建自 main @ 107d585，compose 统一托管（回滚标签 rollback-20261024）。线上验证：student@tes.edu 登录换 JWT → GET /learning/knowledge-graph 200（435 节点 / 435 边 / max_depth 182）→ 双后端 healthz 全绿（llm/embed/db/kafka 均通）→ 网关 /metricsz 计数正常（tenant_reject 隔离生效）。遗留：CI Secrets 就绪前发版走本地构建通道（publish_backend.sh + start.sh build）；web-frontend 部署（G5）可随之排期。</li>
   </ol>
 
   <footer>
-    数据口径：任务状态来自项目任务清单 #1–#49（2026-10-24）；内容数据来自 106 库 tes_edu 实查（2026-10-24 17:50，course_kb / course_kb_steps / course_kb_embeddings / kb_knowledge_points / kb_kp_prerequisites / student_mastery / student_events / wrong_questions）；部署状态来自 137 与 106 的 docker ps 实测（2026-10-24 14:1x）；代码版本 main @ b587067。配套文档：《应用拆分与开发分期.md》《归因线收尾与验收任务计划.md》《P1内容扩量与图谱启动计划书.md》《AGE部署决策记录.md》。
+    数据口径：任务状态来自项目任务清单 #1–#49（2026-10-24）；内容数据来自 106 库 tes_edu 实查（2026-10-24 17:50，course_kb / course_kb_steps / course_kb_embeddings / kb_knowledge_points / kb_kp_prerequisites / student_mastery / student_events / wrong_questions）；部署状态来自 137 与 106 的 docker ps 实测（2026-10-24 19:5x，重建后：网关×2 + web/agent 后端均为 10-24 新镜像，compose 统一托管）；代码版本 main @ 107d585 + 部署修复（路由双挂载 / JWT 接线 / 发版脚本改版）。配套文档：《应用拆分与开发分期.md》《归因线收尾与验收任务计划.md》《P1内容扩量与图谱启动计划书.md》《AGE部署决策记录.md》。
   </footer>
 </div>
 

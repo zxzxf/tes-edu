@@ -137,7 +137,7 @@ async def metricsz(
     return payload
 
 
-# 统一前缀 /api/admin（网关已剥离此前缀再转发，这里重新挂上以便本地直连也一致）
+# 统一前缀 /api/admin（B 端管理面；网关 /api/admin/ 路由原样转发，前缀端到端保留）
 app.include_router(auth.router, prefix="/api/admin")
 app.include_router(knowledge.router, prefix="/api/admin")
 app.include_router(learning.router, prefix="/api/admin")
@@ -149,6 +149,15 @@ app.include_router(reports.router, prefix="/api/admin")
 app.include_router(compliance.router, prefix="/api/admin")
 app.include_router(questions.router, prefix="/api/admin")
 app.include_router(ingest.router, prefix="/api/admin")
+
+# T-B5：C 端直连挂载（网关 /login 与 /learning/ 路由按原路径转发、不做前缀改写，
+# 2026-10-24 部署时发现单挂 /api/admin 会导致网关侧 404，故补根路径双挂载）。
+#   POST   /login                      —— 占位登录换 JWT（网关该路由 mode 为空不鉴权）
+#   GET    /learning/knowledge-graph   —— 图谱快照（网关 jwt_c 验签后透传身份头）
+# 注意：learning.router 自带 prefix="/learning"，根挂载不可再传前缀（勿叠成 /learning/learning）。
+# /api/admin 双挂载保留：B 端管理面与本地直连行为不变。
+app.include_router(auth.router)
+app.include_router(learning.router)
 
 
 if __name__ == "__main__":

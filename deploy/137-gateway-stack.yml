@@ -1,26 +1,32 @@
 # 课程教育 Agent 系统 —— 网关生产编排（多副本 + Redis 全局限流）
 #
 # 部署目录（137）：/opt/tes-edu-gateway/
-# 镜像统一来源：阿里云 ACR（registry.cn-shanghai.aliyuncs.com/mis_ser/）。
-#   三个业务镜像均由 CI（.github/workflows/build-images.yml）构建并推送到 ACR，
-#   本 compose 仅以 image: 引用，不再本地 build —— 消除 G6「本地 build / 线上 ACR」双描述。
-#   镜像标签由环境变量 IMAGE_TAG 控制，默认 latest（CI 同时打 latest 与 sha-<commit> 两标签）。
-#
 # 用法：
-#   mkdir -p /opt/tes-edu-gateway/gateway /opt/tes-edu-gateway/redis
+#   mkdir -p /opt/tes-edu-gateway/gateway
+#   # 把本仓库 gateway/ 源码同步到 /opt/tes-edu-gateway/gateway/
 #   # 把本文件放到 /opt/tes-edu-gateway/docker-compose.yml
-#   # 把 nginx.conf / gateway-config.yaml 放到对应位置（见 deploy/README.md）
-#   JWT_PUBLIC_KEY=<RSA公钥(PEM)> REDIS_PASSWORD=<强密码> \
-#     docker compose up -d --scale gateway=2
+#   # 把 nginx.conf 放到 /opt/tes-edu-gateway/nginx.conf
+#   JWT_PUBLIC_KEY=<RSA公钥(PEM)> JWT_PRIVATE_KEY=<RSA私钥(PEM)> REDIS_PASSWORD=<强密码> \
+#     docker compose up -d --build --scale gateway=2
 #
 # 说明：
 #   - lb (nginx)   : 持有宿主机 :80（cloudflared 隧道入口），按请求轮询到各 gateway 副本
 #   - gateway (×N) : 自建 Go 轻网关，唯一业务入口；REDIS_ENABLED=true 指向同一 edu-redis，
 #                    多副本共享同一令牌桶 → 全局限流一致
 #   - redis        : 限流用的 Redis（多副本全局令牌桶），仅绑定内网 10.0.0.5:6379，公网不可达
-#   - agent-backend : 真实 Agent 后端（RAG + LLM + 判分），镜像来自 ACR
-#   - web-backend   : 真实 Web 后端（知识点/错题/批改/合规/学情落库），镜像来自 ACR
+#   - agent-backend : 真实 Agent 后端（RAG + LLM + 判分），镜像 edu-agent-backend:real
+#   - web-backend   : 真实 Web 后端（知识点/错题/批改/合规/学情落库），镜像 edu-web-backend:real
 #     （2026-10-23 起两个后端均已由 mock 桩替换为真实实现）
+#
+# 镜像来源（2026-10-24 实况）：
+#   CI（.github/workflows/build-images.yml → ACR）通道因仓库 Secrets
+#   ACR_USERNAME / ACR_PASSWORD 缺失，每次推送均在登录步骤失败
+#   （"Username and password required"），故线上暂走**本地构建**：
+#     gateway      —— 同步 gateway/ 源码后 ./start.sh build（build: 段本地构建，tag 为 ACR 名）
+#     agent/web    —— deploy/publish_backend.sh（构建 :real 后交还本 compose 换容器）
+#   Secrets 就绪后切回 ACR：三个 image: 改为
+#   registry.cn-shanghai.aliyuncs.com/mis_ser/edu-<svc>:${IMAGE_TAG:-latest}，
+#   并删去 gateway 的 build: 段（CI 同时打 latest 与 sha-<commit> 两标签）。
 #
 # 扩容：--scale gateway=N（需先 docker compose up 一次生成网络/卷）
 
@@ -39,8 +45,10 @@ services:
       - edu-net
 
   gateway:
-    image: registry.cn-shanghai.aliyuncs.com/mis_ser/edu-gateway:${IMAGE_TAG:-latest}
-    # 镜像由 CI 构建并推送到 ACR（.github/workflows/build-images.yml），此处仅引用
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    image: registry.cn-shanghai.aliyuncs.com/mis_ser/edu-gateway:latest
     # 多副本：docker compose up -d --scale gateway=2
     environment:
       CONFIG_PATH: /app/config.yaml
@@ -86,7 +94,7 @@ services:
   agent-backend:
     # 真实 Agent 后端（FastAPI）：RAG(106 pgvector) + LLM(千问) + 变式题
     # 2026-10-23 替换原 edu-mock-backend 桩；回滚见 docker-compose.yml.bak.20261023-013139
-    image: registry.cn-shanghai.aliyuncs.com/mis_ser/edu-agent-backend:${IMAGE_TAG:-latest}
+    image: edu-agent-backend:real
     container_name: edu-agent-backend
     # 仅内网可达，不映射宿主机端口
     expose:
@@ -100,7 +108,7 @@ services:
   web-backend:
     # 真实 Web 后端（FastAPI）：知识点/错题/批改/合规已落库（106 PostgreSQL）
     # 2026-10-23 替换原 edu-mock-backend 桩；回滚见 docker-compose.yml.bak.*
-    image: registry.cn-shanghai.aliyuncs.com/mis_ser/edu-web-backend:${IMAGE_TAG:-latest}
+    image: edu-web-backend:real
     container_name: edu-web-backend
     # 仅内网可达；端口必须与网关上游 http://web-backend:8000 一致
     expose:
@@ -108,6 +116,10 @@ services:
     restart: unless-stopped
     env_file:
       - ./web-backend.env
+    environment:
+      # T-B5 /login 签发 RS256 令牌用；私钥对应网关 JWT_PUBLIC_KEY（secrets/jwt_private.pem）。
+      # 多行 PEM 不能进 env_file，经 compose 变量 substitution 注入（2026-10-24 接线）。
+      JWT_PRIVATE_KEY: "${JWT_PRIVATE_KEY:?请通过环境变量注入 web-backend 的 RS256 私钥 PEM}"
     networks:
       - edu-net
 
