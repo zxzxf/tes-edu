@@ -41,3 +41,8 @@ Thumbs.db
 
 # ---- 教材题加工 demo 产物（非权威数据，跑批后生成）----
 bank_*_教材_*.json
+
+# ---- S6 评测归档：真实批次金标准含学生作答，默认不入库 ----
+# （eval/2026-脚手架自测/ 为 mock 示例，已用 git add -f 强制入库）
+agent-backend/eval/*/
+!agent-backend/eval/2026-脚手架自测/

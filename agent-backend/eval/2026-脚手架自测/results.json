@@ -1,0 +1,123 @@
+{
+  "batch": "2026-脚手架自测",
+  "gold": "eval/gold_standard_template.csv",
+  "mock": true,
+  "noise": 0.0,
+  "generated_at": "2026-10-24T08:08:51.071034+00:00",
+  "metrics": {
+    "objective": {
+      "total": 2,
+      "map_hit": 2,
+      "rate": 1.0
+    },
+    "first_wrong_step": {
+      "total": 3,
+      "hit": 3,
+      "accuracy": 1.0,
+      "skipped_need_process": 0,
+      "misses": []
+    },
+    "error_type": {
+      "judged": 5,
+      "labeled": 4,
+      "hit": 4,
+      "accuracy": 1.0,
+      "unknown": 0,
+      "unknown_rate": 0.0,
+      "confusion": {}
+    },
+    "rater_kappa": {
+      "n": 4,
+      "agree": 3,
+      "po": 0.75,
+      "kappa": 0.6923
+    }
+  },
+  "rows": [
+    {
+      "content_hash": "00000000000000000000000000000001",
+      "题型": "解答",
+      "gold_step": 1,
+      "gold_error_type": "calc",
+      "judge": {
+        "correct": false,
+        "partial": false,
+        "comment": "mock 判定（脚手架自测）",
+        "first_wrong_step": 1,
+        "error_type": "calc",
+        "evidence": "",
+        "correction": "",
+        "attribution_source": "llm",
+        "need_process": false
+      }
+    },
+    {
+      "content_hash": "00000000000000000000000000000002",
+      "题型": "单选",
+      "gold_step": 3,
+      "gold_error_type": "concept",
+      "judge": {
+        "correct": false,
+        "partial": false,
+        "comment": "mock 判定（脚手架自测）",
+        "first_wrong_step": 3,
+        "error_type": "concept",
+        "evidence": "",
+        "correction": "",
+        "attribution_source": "map",
+        "need_process": false
+      }
+    },
+    {
+      "content_hash": "00000000000000000000000000000003",
+      "题型": "填空",
+      "gold_step": 1,
+      "gold_error_type": "read",
+      "judge": {
+        "correct": false,
+        "partial": false,
+        "comment": "mock 判定（脚手架自测）",
+        "first_wrong_step": 1,
+        "error_type": "read",
+        "evidence": "",
+        "correction": "",
+        "attribution_source": "map",
+        "need_process": false
+      }
+    },
+    {
+      "content_hash": "00000000000000000000000000000004",
+      "题型": "解答",
+      "gold_step": null,
+      "gold_error_type": "",
+      "judge": {
+        "correct": true,
+        "partial": false,
+        "comment": "mock 判定（脚手架自测）",
+        "first_wrong_step": null,
+        "error_type": null,
+        "evidence": "",
+        "correction": "",
+        "attribution_source": "llm",
+        "need_process": false
+      }
+    },
+    {
+      "content_hash": "00000000000000000000000000000005",
+      "题型": "解答",
+      "gold_step": 2,
+      "gold_error_type": "case",
+      "judge": {
+        "correct": false,
+        "partial": false,
+        "comment": "mock 判定（脚手架自测）",
+        "first_wrong_step": 2,
+        "error_type": "case",
+        "evidence": "",
+        "correction": "",
+        "attribution_source": "llm",
+        "need_process": false
+      }
+    }
+  ]
+}
