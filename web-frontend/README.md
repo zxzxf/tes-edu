@@ -53,7 +53,7 @@ cd /opt/tes-edu-gateway && docker compose up -d web-front && docker kill -s HUP 
 ## 接口约定
 
 - 所有请求 `baseURL = /api/admin`，与后端 `main.py` 的路由前缀一致。
-- 登录：`POST /api/admin/login`，返回 `access_token`；后续请求在 `Authorization` 头携带。
+- **例外——登录必须走根路径 `POST /login`**（见 `src/api/admin.js`）：网关 `/api/admin/` 前缀路由是 RBAC + `require_tenant`，未携带 token 时会在网关层直接 401，根本到不了 web-backend 的签发逻辑；而网关 `/login` 路由 `mode` 为空不鉴权，直通后端签发 RS256 JWT（2026-10-24 线上修复）。
 - 角色控制：路由 `meta.role` 仅做前端展示约束；真实权限由网关 + 后端 RBAC 校验。
 
 ## 演示账号

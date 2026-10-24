@@ -1,8 +1,14 @@
+import axios from 'axios'
 import client from './client'
 
-// 登录 / 当前用户
+// 登录必须走根路径 /login：网关该路由 mode 空不鉴权，直通 web-backend 签发 RS256 JWT。
+// 不能用 client 的 /api/admin 前缀——那会命中网关 rbac + require_tenant 路由，
+// 未携带 token 时被 401 挡在网关层，根本到不了 web-backend 的签发逻辑
+// （2026-10-24 线上修复：管理后台登录 401）。
+// 注意手动解包一层：client 的响应拦截器（res => res.data）对普通 axios 实例不生效，
+// 而 auth store 消费的是 res.access_token / res.role。
 export function login(username, password) {
-  return client.post('/login', { username, password })
+  return axios.post('/login', { username, password }).then((res) => res.data)
 }
 export function getMe() {
   return client.get('/me')
