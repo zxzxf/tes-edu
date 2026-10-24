@@ -183,7 +183,7 @@ def test_generate_hint_falls_back_to_template_without_llm(monkeypatch):
 
 
 def test_generate_hint_uses_llm_output_when_contract_ok(monkeypatch):
-    async def _fake_remote(question, context, level, history=None, step=None):
+    async def _fake_remote(question, context, level, history=None, step=None, **kwargs):
         return {"answer": "通法方向是先移项，下一步你把代入后的式子写出来。", "steps": ["a"]}
 
     monkeypatch.setattr(socratic, "_remote_hint", _fake_remote)
@@ -194,7 +194,7 @@ def test_generate_hint_uses_llm_output_when_contract_ok(monkeypatch):
 def test_generate_hint_rejects_contract_violating_llm_output(monkeypatch):
     """LLM 输出空反问 -> 契约拒绝 -> 回落模板（防 LLM 偷懒只提问）。"""
 
-    async def _bad_remote(question, context, level, history=None, step=None):
+    async def _bad_remote(question, context, level, history=None, step=None, **kwargs):
         return {"answer": "你觉得这一步该怎么做？", "steps": []}
 
     monkeypatch.setattr(socratic, "_remote_hint", _bad_remote)
@@ -204,7 +204,7 @@ def test_generate_hint_rejects_contract_violating_llm_output(monkeypatch):
 
 
 def test_generate_hint_falls_back_when_llm_raises(monkeypatch):
-    async def _boom(question, context, level, history=None, step=None):
+    async def _boom(question, context, level, history=None, step=None, **kwargs):
         raise RuntimeError("llm down")
 
     monkeypatch.setattr(socratic, "_remote_hint", _boom)
@@ -268,7 +268,8 @@ def client(monkeypatch):
     async def _fake_similar(_q, context=None):
         return []
 
-    async def _fake_solve(_q, context=None, mode="explain"):
+    async def _fake_solve(_q, context=None, mode="explain", **kwargs):
+        # T-D1: 主链路会给 llm.solve 透传 subject/hint_level/content_hash（缓存键用）
         return {"answer": "x=-3", "steps": ["移项", "求解"]}
 
     monkeypatch.setattr(rag, "warm", _noop_warm)

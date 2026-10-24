@@ -50,6 +50,28 @@ SEED_PATH = _get("SEED_PATH", "data/seed_questions.json")
 KAFKA_BOOTSTRAP = _get("KAFKA_BOOTSTRAP")
 KAFKA_TOPIC_EVENT = _get("KAFKA_TOPIC_EVENT", "student_event")
 
+# ---- 缓存（T-D1）：137 edu-redis，agent 容器同网 ----
+# 优先读 REDIS_URL；未设则按 host/port/db/password 拼；agent 与 redis 同处 edu-net，
+# 主机名即 compose 服务名 `redis`，密码与网关共用 REDIS_PASSWORD。
+REDIS_HOST = _get("REDIS_HOST", "redis")
+REDIS_PORT = int(_get("REDIS_PORT", "6379"))
+REDIS_DB = int(_get("REDIS_DB", "0"))
+REDIS_PASSWORD = _get("REDIS_PASSWORD")
+REDIS_URL = _get("REDIS_URL") or (
+    f"redis://{(':') if REDIS_PASSWORD else ''}"
+    f"{REDIS_PASSWORD + '@' if REDIS_PASSWORD else ''}"
+    f"{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+)
+
+# 缓存总开关（T-D1）。出线上事故（如缓存串味、Redis 抖动）时可一键关掉，
+# 关掉后 cached_solve 直接回源 LLM，行为与接入缓存前完全一致。
+CACHE_ENABLED = _get("CACHE_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
+
+
+def cache_enabled() -> bool:
+    """是否启用请求级缓存（T-D1）。单测/降级场景可整体关闭。"""
+    return bool(CACHE_ENABLED)
+
 
 def llm_ready() -> bool:
     """是否具备真实大模型调用条件。"""

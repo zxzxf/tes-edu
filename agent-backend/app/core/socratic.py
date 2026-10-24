@@ -31,7 +31,7 @@ T-C3 起：题型路由（qtype.route_question_tier）决定各题的轮次上�
 """
 from __future__ import annotations
 
-from app.core import config, qtype
+from app.core import config, llm_cache, qtype
 
 # ---------------------------------------------------------------- 阶梯定义
 
@@ -532,15 +532,55 @@ async def _remote_hint(
     level: int,
     history: list[str] | None = None,
     step: dict | None = None,
+    *,
+    subject: str | None = None,
+    content_hash: str | None = None,
+    store=None,
 ) -> dict | None:
-    """LLM 生成 Hint。返回 None 表示失败（无密钥/超时/解析失败）。
+    """LLM 生成 Hint（T-D1 缓存：同题同 Hint 级命中则跳过 LLM）。
 
-    注意：**契约校验不在这里做**——统一收口到 ``generate_hint``，
-    保证无论 Hint 来自 LLM 还是别的来源，都过同一道契约闸门。
-    本函数不抛异常：生成失败引导链路靠模板兜底，绝不中断。
+    返回 None 表示失败（无密钥/超时/解析失败）——此类结果不缓存。
+    契约校验不在这里做，统一收口到 ``generate_hint``。
     """
     if not config.llm_ready():
         return None
+
+    async def _call(q, ctx, m):
+        return _remote_hint_raw(q, ctx, level, history, step)
+
+    # 上下文变体：对话历史与当前步骤会实质改变 Hint 输出，必须入键（否则串味）；
+    # 非空时只做精确命中，不走近似复用。
+    variant = ""
+    if history or step:
+        import json as _json
+
+        variant = _json.dumps(
+            {"history": history or [], "step": step or {}},
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+
+    return await llm_cache.cached_solve(
+        _call,
+        question,
+        context,
+        "guide",
+        subject=subject,
+        hint_level=level,
+        content_hash=content_hash,
+        variant=variant or None,
+        store=store,
+    )
+
+
+async def _remote_hint_raw(
+    question: str,
+    context: dict | None,
+    level: int,
+    history: list[str] | None = None,
+    step: dict | None = None,
+) -> dict | None:
+    """原始 LLM Hint 生成（无缓存包装）。失败返回 None。"""
     try:
         from openai import AsyncOpenAI  # 延迟导入，与 llm.py 同款
 
@@ -575,6 +615,10 @@ async def generate_hint(
     level: int,
     history: list[str] | None = None,
     step: dict | None = None,
+    *,
+    subject: str | None = None,
+    content_hash: str | None = None,
+    store=None,
 ) -> dict:
     """生成本轮 Hint：LLM 优先，失败/违约回落 template_hint。
 
@@ -588,7 +632,10 @@ async def generate_hint(
     返回值形如 ``{"answer": ..., "steps": [...]}``。
     """
     try:
-        hint = await _remote_hint(question, context, level, history, step)
+        hint = await _remote_hint(
+            question, context, level, history, step,
+            subject=subject, content_hash=content_hash, store=store,
+        )
     except Exception:  # noqa: BLE001 双保险：生成层任何意外都回落模板
         hint = None
     if hint is None or hint_contract_violations(hint.get("answer"), level):

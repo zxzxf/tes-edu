@@ -18,7 +18,8 @@ def client(monkeypatch):
     async def _fake_retrieve(_q, subject=None):
         return {"chunks": [], "points": []}
 
-    async def _fake_solve(_q, context=None, mode="explain"):
+    async def _fake_solve(_q, context=None, mode="explain", **kwargs):
+        # T-D1: 主链路会给 llm.solve 透传 subject/hint_level/content_hash（缓存键用）
         return {"answer": "x=2", "steps": ["移项", "求解"]}
 
     async def _fake_similar(_q, context=None):

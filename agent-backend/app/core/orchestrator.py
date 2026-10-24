@@ -93,8 +93,15 @@ async def handle_question(
         intent_tier, resolved_mode, intent_source = await intent.resolve_response_mode(
             question, ctx
         )
-    # 5) LLM 解题 + 分步讲解（按档位生成）
-    result = await llm.solve(question, context=ctx, mode=resolved_mode)
+    # 5) LLM 解题 + 分步讲解（按档位生成）；T-D1 请求级缓存（键含学科/mode/hint_level）
+    result = await llm.solve(
+        question,
+        context=ctx,
+        mode=resolved_mode,
+        subject=subject,
+        hint_level=None,
+        content_hash=judge_v2._pick_content_hash(ctx),
+    )
     # 6) 触类旁通
     similar = await llm.suggest_similar(question, context=ctx)
     out = {
@@ -176,7 +183,10 @@ async def _handle_hint_round(
 
     # 对话历史：进程内只保留最近一轮学生回应（完整历史由 App 侧维护）
     history = [student_reply] if student_reply else None
-    hint = await socratic.generate_hint(question, ctx, level, history, step)
+    hint = await socratic.generate_hint(
+        question, ctx, level, history, step,
+        subject=subject, content_hash=content_hash,
+    )
 
     socratic.ladder.record_round(
         student_id,

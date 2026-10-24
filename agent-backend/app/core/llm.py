@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 
-from app.core import config
+from app.core import config, llm_cache
 
 _SYSTEM = (
     "你是一名高中数学导师，采用苏格拉底式引导讲解。\n"
@@ -48,9 +48,28 @@ def _parse_json(text: str) -> dict:
         return {}
 
 
-async def solve(question: str, context: dict | None = None, mode: str = "explain") -> dict:
+async def solve(
+    question: str,
+    context: dict | None = None,
+    mode: str = "explain",
+    *,
+    subject: str | None = None,
+    hint_level: int | None = None,
+    content_hash: str | None = None,
+    store=None,
+) -> dict:
+    """解题入口。真实模式经 T-D1 请求级缓存（同题/近似题命中则跳过 LLM）。"""
     if config.llm_ready():
-        return await _remote_solve(question, context, mode)
+        return await llm_cache.cached_solve(
+            _remote_solve,
+            question,
+            context,
+            mode,
+            subject=subject,
+            hint_level=hint_level,
+            content_hash=content_hash,
+            store=store,
+        )
     return _dev_solve(question, context, mode)
 
 
