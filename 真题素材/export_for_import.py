@@ -55,6 +55,22 @@ TYPE_CN = {
     '解答': '解答', '单选': '单选', '多选': '多选', '填空': '填空',
 }
 
+# 教材册次 -> 年级（用于 16 字段「年级」列；默认高三兜底）
+BOOK_GRADE = {
+    '必修第一册': '高一', '必修第二册': '高一',
+    '必修第三册': '高二',
+    '选择性必修第一册': '高二', '选择性必修第二册': '高二', '选择性必修第三册': '高三',
+}
+
+# ---- 人教A版教材题源格式（T-A1：--from-textbook 输入契约）----
+# 教材源是 list[chapter]，chapter 结构见 build_textbook() 文档字符串。
+TEXTBOOK_TYPE_CN = {
+    'single': '单选', 'multi': '多选', 'choice': '单选',
+    'fill': '填空', 'blank': '填空',
+    'solve': '解答', 'essay': '解答', 'experiment': '解答',
+    '解答': '解答', '单选': '单选', '多选': '多选', '填空': '填空',
+}
+
 
 def load_dag_names():
     d = json.load(open(DAG, encoding='utf-8'))
@@ -113,10 +129,149 @@ def build(banks, subject):
     return out, dag
 
 
+# ---------------------------------------------------------------------------
+# T-A1：人教A版教材题加工（--from-textbook）
+# ---------------------------------------------------------------------------
+def normalize_textbook_problem(prob, meta, dag, subject):
+    """把教材源里的一条 problem 归一化为与真题同源的 16 字段中间格式。
+
+    必填校验（缺则 raise，调用方捕获后记为拒收并给出清晰原因，绝不静默 None）：
+      - stem    题干非空
+      - type    题型非空
+      - knowledge_points 至少 1 个
+    复用 build_steps 生成全题型步骤（与真题完全一致的步骤级归因基础）。
+    """
+    stem = str(prob.get('stem') or '').strip()
+    raw_type = str(prob.get('type') or '').strip()
+    kps = prob.get('knowledge_points') or []
+    kps = [str(k).strip() for k in kps if str(k).strip()]
+
+    missing = []
+    if not stem:
+        missing.append('题干')
+    if not raw_type:
+        missing.append('题型')
+    if not kps:
+        missing.append('知识点')
+    if missing:
+        raise ValueError(f"教材题缺必填字段 {missing}（{meta.get('section', '')}#{prob.get('no', '?')}）")
+
+    t_cn = TEXTBOOK_TYPE_CN.get(raw_type, raw_type)
+    book = meta.get('book', '')
+    grade = BOOK_GRADE.get(book, '高三')
+
+    # build_steps 按英文题型码（single/multi/fill/solve）分支，教材源是中文，
+    # 必须翻译成英文码再喂，否则全部走 single 兜底，步骤结构全错。
+    en_type = {'单选': 'single', '多选': 'multi', '填空': 'fill',
+               '解答': 'solve', '实验': 'experiment'}.get(raw_type, 'solve')
+
+    # build_steps 读 rec['kp_primary'] 当题级主知识点；这里把 textbook 的首位 kp 适配进去
+    kp0 = kps[0]
+    rec_for_steps = {
+        'type': en_type,
+        'options': prob.get('options'),
+        'answer': str(prob.get('answer') or '').strip(),
+        'analysis': str(prob.get('analysis') or '').strip(),
+        'kp_primary': {'id': kp0, 'name': dag.get(kp0, {}).get('name', '')} if subject == '数学' else {},
+        'knowledge_point': kp0 if subject != '数学' else '',
+    }
+    steps = build_steps(rec_for_steps, dag if subject == '数学' else None, subject)
+
+    return {
+        '学科': subject,
+        '年级': grade,
+        '章节': f"{meta.get('chapter', '')} / {meta.get('section', '')}".strip(' /'),
+        '题型': t_cn,
+        '题干': stem,
+        '选项': prob.get('options') if isinstance(prob.get('options'), list) else None,
+        '答案': str(prob.get('answer') or '').strip(),
+        '解析': str(prob.get('analysis') or '').strip(),
+        '难度': str(prob.get('difficulty') or 3),
+        '卷别': '教材',
+        '来源省份': '人教A版',
+        '知识点': kps,
+        '步骤': steps,
+        # 追溯字段（import_bank 不映射，仅存档）
+        '年份': None,
+        '题号': f"{book}/{meta.get('section', '')}#{prob.get('no', '')}",
+        '置信': prob.get('confidence', 0.9),
+    }
+
+
+def build_textbook(path, subject):
+    """读人教A版教材题源 JSON，产出 16 字段中间格式 list。
+
+    教材源格式契约（list[chapter]）：
+        [{
+          "book":     "必修第一册",                 # 册次（决定年级）
+          "chapter":  "第一章 集合与常用逻辑用语",
+          "section":  "1.1 集合的概念",
+          "exercise": "练习",                       # 练习/习题1.1/复习参考题
+          "problems": [{
+            "no": 1,
+            "type": "单选",                         # 单选/多选/填空/解答（中英文皆可）
+            "stem": "...",
+            "options": ["A. ...", "B. ..."],        # 仅选择/多选
+            "answer": "B",
+            "analysis": "...",
+            "knowledge_points": ["MA-B1-C1-S1-K01"],# DAG id（数学）或中文名（物理）
+            "difficulty": 2
+          }, ...]
+        }, ...]
+
+    返回 (rows, rejects)；rejects 为缺字段/结构异常的题目（带章节+题号+原因），
+    清晰报错而不是静默 None 入库。
+    """
+    dag = load_dag_names() if subject == '数学' else {}
+    raw = json.load(open(path, encoding='utf-8'))
+    if isinstance(raw, dict):
+        raw = raw.get('chapters', [raw])
+    rows, rejects = [], []
+    for ch in raw:
+        meta = {
+            'book': ch.get('book', ''),
+            'chapter': ch.get('chapter', ''),
+            'section': ch.get('section', ''),
+        }
+        for prob in (ch.get('problems') or []):
+            try:
+                rows.append(normalize_textbook_problem(prob, meta, dag, subject))
+            except Exception as e:  # noqa: BLE001
+                rejects.append({
+                    'section': meta.get('section', ''),
+                    'no': prob.get('no', '?'),
+                    'reason': str(e),
+                })
+    return rows, rejects
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--subject', default='数学', choices=['数学', '物理'])
+    ap.add_argument('--from-textbook', default=None,
+                    help='人教A版教材题源 JSON 路径（list[chapter] 格式，见 build_textbook 契约）')
     args = ap.parse_args()
+
+    # ---- T-A1：教材题加工分支 ----
+    if args.from_textbook:
+        rows, rejects = build_textbook(args.from_textbook, args.subject)
+        out_json = os.path.join(BASE, f'bank_{args.subject}_教材_人教A.json')
+        json.dump(rows, open(out_json, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        print(f'导出教材题 {len(rows)} 题 -> {out_json}')
+        if rejects:
+            print(f'[拒收] {len(rejects)} 题（缺字段/结构异常，未入库）：')
+            for rj in rejects[:10]:
+                print(f"  - {rj['section']}#{rj['no']}: {rj['reason']}")
+            if len(rejects) > 10:
+                print(f"  ... 另有 {len(rejects) - 10} 题")
+        # 步骤与题型自检（与真题分支对齐）
+        from collections import Counter
+        print('题型分布:', dict(Counter(r['题型'] for r in rows)))
+        all_steps = [s for r in rows for s in r['步骤']]
+        print('步骤总数:', len(all_steps), '| 按 kind:', steps_stat(all_steps))
+        print('无步骤题数(必须为0):', sum(1 for r in rows if not r['步骤']))
+        print('无知识点题数:', sum(1 for r in rows if not r['知识点']))
+        return
 
     banks = MATH_BANKS if args.subject == '数学' else PHYSICS_BANKS
     rows, dag = build(banks, args.subject)

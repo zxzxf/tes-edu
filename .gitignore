@@ -38,3 +38,6 @@ Thumbs.db
 
 # ---- Run logs ----
 *.log
+
+# ---- 教材题加工 demo 产物（非权威数据，跑批后生成）----
+bank_*_教材_*.json
