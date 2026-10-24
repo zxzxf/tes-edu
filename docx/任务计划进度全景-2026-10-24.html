@@ -27,6 +27,7 @@
   .chip.pend{background:var(--amber-bg);color:var(--amber);}
   .chip.block{background:var(--red-bg);color:var(--red);}
   .chip.info{background:var(--blue-bg);color:var(--blue);}
+.chip.run{background:var(--blue-bg);color:var(--blue);}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none;}
   .dot.done{background:var(--green-bar);} .dot.pend{background:var(--amber-bar);} .dot.block{background:var(--red-bar);}
 
@@ -115,20 +116,20 @@
 
   <button class="printbtn" onclick="window.print()">打印 / 导出 PDF</button>
   <h1>Tes Edu 任务计划进度全景</h1>
-  <div class="meta">报告日期 2026-10-24 · 仓库 <span class="mono">main @ 7b063a1</span>（已推送 GitHub）· 内容数据来自 106 库实查（13:25）· 部署状态来自 137/106 docker ps 实测</div>
+  <div class="meta">报告日期 2026-10-24 · 仓库 <span class="mono">main @ 0d2759a</span>（已推送 GitHub）· 内容数据来自 106 库实查 · 部署状态来自 137/106 docker ps 实测</div>
 
   <div class="kpis">
     <div class="kpi"><div class="label">总任务</div><div class="value">49</div></div>
-    <div class="kpi"><div class="label">已完成</div><div class="value" style="color:var(--green);">35<span class="sub"> / 71%</span></div></div>
-    <div class="kpi"><div class="label">待办</div><div class="value" style="color:var(--amber);">14<span class="sub"> · 外部阻塞 3</span></div></div>
-    <div class="kpi"><div class="label">测试</div><div class="value" style="color:var(--green);">165<span class="sub"> + e2e 24/24 全绿</span></div></div>
+    <div class="kpi"><div class="label">已完成</div><div class="value" style="color:var(--green);">37<span class="sub"> / 76%</span></div></div>
+    <div class="kpi"><div class="label">待办</div><div class="value" style="color:var(--amber);">12<span class="sub"> · 外部阻塞 3</span></div></div>
+    <div class="kpi"><div class="label">测试</div><div class="value" style="color:var(--green);">199<span class="sub"> + e2e 24/24 全绿</span></div></div>
   </div>
 
   <div class="concl">
     <ul>
-      <li><b>代码侧基本就绪，卡点在外部。</b>归因线 S1–S5 与 T-A1 / T-B1 / T-B2 / T2 / T-A3 / T-B4 / T-B3 已全部落地；真正阻塞价值兑现的是教材素材（T-A2）与试点排期（T5），不是工程量。</li>
+      <li><b>代码侧基本就绪，卡点在外部。</b>归因线 S1–S5 与 T-A1 / T-B1 / T-B2 / T2 / T-A3 / T-B4 / T-B3 / T-A4 / T4 已全部落地（T-A 系列 4/4 收官）；真正阻塞价值兑现的是教材素材（T-A2）与试点排期（T5），不是工程量。</li>
       <li><b>「代码 100% / 数据 0%」仍是最大结构性问题，但已收窄。</b>题库 213/3000、真实流水仅 4 条事件——S5 周报 / 错因分布 / /metricsz 全部具备但空转。T2 错题本写入链路已完成（自动落库 + 幂等 + 真实库 e2e 9/9），错题本从「无数据源」变为「待试点流水」；剩余真空缺是试点本身（T5）。</li>
-      <li><b>部署断层：线上镜像落后仓库 7 个提交。</b>137 已从 mock 桩升级为 real 后端（10-23 15:46 构建），早于今日的 T-A1 / T-B1 / T-B2 / T2 / T-A3 / T-B4 / T-B3——S5 归因线、掌握度算法、错题本链路、RAG 探活、ZPD 推题均未上线，需重建镜像并滚动重启。</li>
+      <li><b>部署断层：线上镜像落后仓库 14 个提交。</b>137 已从 mock 桩升级为 real 后端（10-23 15:46 构建），早于其后的 T-A1 / T-B1 / T-B2 / T2 / T-A3 / T-B4 / T-B3 / T-A4 / T4 等全部提交——S5 归因线、掌握度算法、错题本链路、RAG 探活、ZPD 推题、组卷接口、评测脚手架均未上线，需重建镜像并滚动重启。</li>
       <li><b>计划缺环两处。</b>P2 引导式对话（Hint 阶梯 / 100 题评测集 / 埋点指标）与 LLM 成本控制在任务清单中无登记项；#20 与 T-B4 的 AGE 双轨已消除（T-B4 决策方案 A，两任务关闭，见《AGE部署决策记录.md》）。</li>
     </ul>
   </div>
@@ -161,8 +162,8 @@
   <div>
     <div class="sbar-row"><div class="name">基建与网关（#1–#20）</div><div class="sbar"><div class="d" style="width:100%"></div></div><div class="cnt">20/20</div></div>
     <div class="sbar-row"><div class="name">归因线 S1–S5（#29–#35）</div><div class="sbar"><div class="d" style="width:100%"></div></div><div class="cnt">7/7</div></div>
-    <div class="sbar-row"><div class="name">归因线收尾 T1–T5（#36–#40）</div><div class="sbar"><div class="d" style="width:20%"></div><div class="p" style="width:80%"></div></div><div class="cnt">1/5</div></div>
-    <div class="sbar-row"><div class="name">P1 内容扩量 T-A（#41–#44）</div><div class="sbar"><div class="d" style="width:50%"></div><div class="p" style="width:50%"></div></div><div class="cnt">2/4</div></div>
+    <div class="sbar-row"><div class="name">归因线收尾 T1–T5（#36–#40）</div><div class="sbar"><div class="d" style="width:40%"></div><div class="p" style="width:60%"></div></div><div class="cnt">2/5</div></div>
+    <div class="sbar-row"><div class="name">P1 内容扩量 T-A（#41–#44）</div><div class="sbar"><div class="d" style="width:100%"></div><div class="p" style="width:0%"></div></div><div class="cnt">4/4</div></div>
     <div class="sbar-row"><div class="name">P3 图谱 T-B（#45–#49）</div><div class="sbar"><div class="d" style="width:80%"></div><div class="p" style="width:20%"></div></div><div class="cnt">4/5</div></div>
     <div class="sbar-row"><div class="name">P4 家长端（#21 · #24–#28）</div><div class="sbar"><div class="d" style="width:16.7%"></div><div class="p" style="width:83.3%"></div></div><div class="cnt">1/6</div></div>
     <div class="sbar-row"><div class="name">P5 商业化（#22）</div><div class="sbar"><div class="p" style="width:100%"></div></div><div class="cnt">0/1</div></div>
@@ -172,8 +173,8 @@
   <h2>四、任务明细（49 项）</h2>
   <div class="filters">
     <button id="f-all" class="on" onclick="filterTasks('all')">全部 49</button>
-    <button id="f-done" onclick="filterTasks('done')">已完成 35</button>
-    <button id="f-open" onclick="filterTasks('open')">待办 14</button>
+    <button id="f-done" onclick="filterTasks('done')">已完成 37</button>
+    <button id="f-open" onclick="filterTasks('open')">待办 12</button>
   </div>
   <div id="task-list"></div>
 
@@ -228,8 +229,8 @@
     <li><b>T-B4 AGE 部署决策</b><span class="tag chip done">已完成 · 0.5 天</span><br>已决策方案 A（关系表 + 递归 CTE 承载，不引 AGE），#20 / #48 双轨关闭，P0 DoD 以 T-B1 无环校验等效验收；方案 B 预留启动条件（万级节点 / p95&gt;100ms），见《AGE部署决策记录.md》。</li>
     <li><b>T-A3 RAG 读取侧固化</b><span class="tag chip done">已完成 · 0.5 天</span><br>真实库评测数学 123 / 物理 90 题 TOP1 自命中率均 100%（验收线 85%）；/healthz 加 db_ping 探活 + 7 例读取契约单测。</li>
     <li><b>T-B3 ZPD + 自适应推题</b><span class="tag chip done">已完成 · 解锁 M3</span><br>已落地：compute_zpd（前置就绪+自身未掌握，缺省按就绪同 T-B2 约定）+ depth_map 学习路径排序 + 难度带随答对升/答错降 + 间隔重复计划；18 单测 + 真实库冒烟（数学 5 题落地）。物理因 DAG 仅数学节点暂空（归 T-A2）。</li>
-    <li><b>T-A4 组卷 / 变式接口 + T4 S6 评测脚手架</b><span class="tag chip pend">各 0.5–1 天</span><br>T4 不依赖真实数据，现在做完试点一到即可出数。</li>
-    <li><b>跑批类挂后台</b><span class="tag chip pend">T1 / T3</span><br>T1 物理 303 步讲解补跑（先 --q-limit 5 冒烟）、T3 数学 2 道解答题单题单跑；启动后核对进程数防重复跑批。</li>
+    <li><b>T-A4 组卷 / 变式接口 + T4 S6 评测脚手架</b><span class="tag chip done">均已完成</span><br>T-A4：给定 KP 返回该点及下游相关题（真实库 5/5 验收），T-B3 选课已委托共用。T4：金标准模板 + eval_attribution.py + 归档目录齐备，mock 自测三张表 100%，试点一到即可出数。</li>
+    <li><b>跑批类后台进行中</b><span class="tag chip info">T1 / T3 跑批中</span><br>T1 物理 303 步讲解补跑 + T3 数学缺步补跑（qwen3.8-flash @ ws，max 模型额度已耗尽；跑批结果待核对覆盖数）。</li>
     <li><b>外部催办</b><span class="tag chip block">T-A2 / #23 / T5</span><br>教材题素材（人教A版例题/习题）与试点排期（4 周 ≥30 生）是代码之外的卡点；教师金标准标注工时需提前 2 周约定。</li>
     <li><b>部署收口</b><span class="tag chip block">镜像重建</span><br>real 后端重建 + 滚动重启，让仓库与线上对齐；web-frontend 部署（G5）可随之排期。</li>
   </ol>
@@ -273,17 +274,17 @@ var SERIES = [
     ['#35','测试与端到端对账','真实库 e2e 15/15','done']
   ]},
   {name:'归因线收尾 T1–T5（#36–#40）', tasks:[
-    ['#36','T1 物理 Pass B 讲解补跑','303 步 0→≥288，跑批 0.5 天','pend'],
+    ['#36','T1 物理 Pass B 讲解补跑','303 步 · 跑批进行中','run'],
     ['#37','T2 错题本自动写入链路','自动落库 + 幂等 · e2e 9/9','done'],
-    ['#38','T3 数学 2 道解答题补跑','c524576e / ff72e92a','pend'],
-    ['#39','T4 S6 评测脚手架','金标准 CSV + eval 脚本','pend'],
+    ['#38','T3 数学 2 道解答题补跑','c524576e / ff72e92a · 跑批中','run'],
+    ['#39','T4 S6 评测脚手架','模板 + 脚本 + 归档齐备','done'],
     ['#40','T5 试点开跑与数据接入','外部排期 · 4 周 ≥30 生','block']
   ]},
   {name:'P1 内容扩量 T-A（#41–#44）', tasks:[
     ['#41','T-A1 素材加工管线固化','--from-textbook 已落地','done'],
     ['#42','T-A2 扩量跑批 500→3000','教材素材未到位','block'],
     ['#43','T-A3 RAG 读取侧连接固化','真实库召回 100% · 已固化','done'],
-    ['#44','T-A4 组卷/变式接口','T-B3 已就绪 · 0.5 天','pend']
+    ['#44','T-A4 组卷/变式接口','KP 及下游拉题 · 5/5 验收','done'],
   ]},
   {name:'P3 图谱 T-B（#45–#49）', tasks:[
     ['#45','T-B1 DAG 验收固化','435 节点/边 + 13 单测','done'],
@@ -307,7 +308,7 @@ var SERIES = [
     ['#23','真实题库灌 3000 题','暂停 · 等素材（与 T-A2 同源）','block']
   ]}
 ];
-var LABEL = {done:'完成', pend:'待办', block:'外部阻塞'};
+var LABEL = {done:'完成', pend:'待办', block:'外部阻塞', run:'进行中'};
 function renderTasks(){
   var host = document.getElementById('task-list'), html = '';
   for (var s=0;s<SERIES.length;s++){
