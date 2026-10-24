@@ -151,6 +151,23 @@ class StudentEvent(Base):
     attribution_source = Column(String(8))          # map / llm / unknown
     evidence = Column(Text)                         # 支撑归因的学生作答片段
 
+    # ---- T-C1/T-C3/T-C4 引导式对话埋点载荷（Hint 阶梯 / 题型路由 / 直接看解析）----
+    # 旧消费者此前忽略未知字段；T-C4 起正式落地（见 scripts/extend_student_events_p2.sql）。
+    # 这些列仅对 hint_shown / direct_reveal / solve 事件有意义，其余事件为 NULL。
+    intent = Column(String(16), index=True)              # 意图路由结果: direct/guide/rule
+    intent_source = Column(String(16))                   # rules/llm/default/explicit
+    hint_level = Column(Integer)                         # Hint 阶梯当前等级 0-4
+    hint_level_name = Column(String(16))                 # L0..L4 名称
+    hint_rounds = Column(Integer)                        # 当前轮次
+    hint_max_rounds = Column(Integer)                   # 该题型轮次上限
+    hint_step = Column(Integer)                          # 分步拆解：当前步（压轴题）
+    hint_step_total = Column(Integer)                   # 总步数
+    hint_frustration_streak = Column(Integer)            # 连续挫败计数
+    hint_finale = Column(Boolean)                        # 是否压轴题
+    hint_direct_reveal = Column(Boolean)                # 是否直达 L4（主动/被动）
+    question_tier = Column(String(16), index=True)      # 题型路由档: memory/medium/finale
+    question_tier_name = Column(String(16))
+
 
 class StudentStepError(Base):
     """步骤级错因流水（S5 聚合燃料）。

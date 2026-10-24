@@ -60,6 +60,20 @@ async def record_event(db: AsyncSession, event: dict) -> StudentEvent:
         error_type=(event.get("error_type") or None),
         attribution_source=(event.get("attribution_source") or None),
         evidence=(event.get("evidence") or None),
+        # ---- T-C1/T-C3/T-C4 引导式对话埋点载荷（hint_shown/direct_reveal/solve）----
+        intent=event.get("intent") or None,
+        intent_source=event.get("intent_source") or None,
+        hint_level=_as_int(event.get("hint_level")),
+        hint_level_name=event.get("hint_level_name") or None,
+        hint_rounds=_as_int(event.get("hint_rounds")),
+        hint_max_rounds=_as_int(event.get("hint_max_rounds")),
+        hint_step=_as_int(event.get("hint_step")),
+        hint_step_total=_as_int(event.get("hint_step_total")),
+        hint_frustration_streak=_as_int(event.get("hint_frustration_streak")),
+        hint_finale=_as_bool(event.get("hint_finale")),
+        hint_direct_reveal=_as_bool(event.get("hint_direct_reveal")),
+        question_tier=event.get("question_tier") or None,
+        question_tier_name=event.get("question_tier_name") or None,
     )
     db.add(obj)
     await db.commit()

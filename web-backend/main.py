@@ -23,6 +23,7 @@ from app.api import (
     ingest,
     knowledge,
     learning,
+    metrics,
     questions,
     reports,
     wrong_questions,
@@ -146,6 +147,7 @@ app.include_router(wrong_questions.router, prefix="/api/admin")
 app.include_router(exam.router, prefix="/api/admin")
 app.include_router(grading.router, prefix="/api/admin")
 app.include_router(reports.router, prefix="/api/admin")
+app.include_router(metrics.router, prefix="/api/admin")  # T-C4 P2 埋点指标
 app.include_router(compliance.router, prefix="/api/admin")
 app.include_router(questions.router, prefix="/api/admin")
 app.include_router(ingest.router, prefix="/api/admin")
