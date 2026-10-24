@@ -12,6 +12,13 @@ class SolveRequest(BaseModel):
     mode: Optional[str] = None
     # 学生自己的作答；填了才会触发判分（产出 correct 信号，用于掌握度）
     student_answer: Optional[str] = None
+    # T-C2：Hint 阶梯对话开关。true 时按 (学生, 题) 维护 L0–L4 阶梯状态，
+    # 每轮返回当前等级 Hint（socratic.py）；阶梯只存在于引导档
+    hint: bool = False
+    # T-C2：对话轮中学生的回应（挫败信号"我不懂/直接说吧"检测 + LLM 对话历史用）
+    student_reply: Optional[str] = None
+    # T-C2：学生主动点"直接看解析" -> 直达 L4（T-C3 做成一等功能 + 埋点）
+    direct_reveal: bool = False
 
 
 class SimilarRequest(BaseModel):
@@ -33,6 +40,16 @@ class SolveResponse(BaseModel):
     intent: Optional[str] = None
     mode: Optional[str] = None
     intent_source: Optional[str] = None
+    # T-C2 Hint 阶梯回传（仅 hint=true 的轮次有值）：
+    # hint_level=当前等级 0–4；hint_level_name=等级名（点考点/给方向/给关键公式/
+    # 给该步推导/完整解析+复盘）；hint_frustration_streak=连续挫败次数；
+    # hint_finale=是否压轴题（封顶 L3）；hint_direct_reveal=本轮是否直达 L4。
+    # 供 App 展示等级进度与埋点（T-C4）聚合推进率/挫败率。
+    hint_level: Optional[int] = None
+    hint_level_name: Optional[str] = None
+    hint_frustration_streak: Optional[int] = None
+    hint_finale: Optional[bool] = None
+    hint_direct_reveal: Optional[bool] = None
     # 仅当提交了 student_answer 才有（judge v2 步骤级归因）：
     # {"correct","partial","comment","first_wrong_step","error_type","evidence",
     #  "correction","attribution_source"}

@@ -18,13 +18,43 @@ def _identity(request: Request) -> dict:
 
 @router.post("/solve", response_model=SolveResponse)
 async def solve(req: SolveRequest, request: Request):
-    """文本题：解题 + 分步讲解 + 触类旁通（T-C1 起按意图三档路由）"""
+    """文本题：解题 + 分步讲解 + 触类旁通（T-C1 起按意图三档路由，T-C2 起支持 Hint 阶梯）"""
     result = await orchestrator.handle_question(
         req.question,
         mode=req.mode,  # None -> 意图三档路由；显式值 -> 尊重调用方
         subject=req.subject,
         student_answer=req.student_answer,
+        hint=req.hint,
+        student_reply=req.student_reply,
+        direct_reveal=req.direct_reveal,
+        student_id=_identity(request).get("student_id") or "",
     )
+    if req.hint:
+        # T-C2：Hint 阶梯轮事件（T-C4 埋点聚合推进率/挫败率的数据源）。
+        # 旧消费者忽略未知 event_type；本事件不替代 solve 事件的练习量统计。
+        events.emit_student_event_bg(
+            {
+                "event_type": "hint_shown",
+                **_identity(request),
+                "subject": req.subject or "",
+                "mode": result.get("mode") or "",
+                "intent": result.get("intent") or "",
+                "intent_source": result.get("intent_source") or "",
+                "question": req.question,
+                "knowledge_points": result.get("knowledge_points") or [],
+                "content_hash": result.get("content_hash") or "",
+                # 阶梯状态：等级/连击/是否压轴/是否直达 L4
+                "hint_level": result.get("hint_level"),
+                "hint_level_name": result.get("hint_level_name") or "",
+                "hint_frustration_streak": result.get("hint_frustration_streak"),
+                "hint_finale": result.get("hint_finale"),
+                "hint_direct_reveal": result.get("hint_direct_reveal"),
+                "student_reply": req.student_reply,
+            }
+        )
+        # 阶梯轮中提交了作答：补发 solve 事件，保持练习量/判分统计不中断
+        if req.student_answer is None:
+            return result
     judgement = result.get("judgement") or {}
     events.emit_student_event_bg(
         {

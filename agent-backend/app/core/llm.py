@@ -58,23 +58,33 @@ async def _remote_solve(question: str, context: dict | None, mode: str) -> dict:
     from openai import AsyncOpenAI  # 延迟导入
 
     client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
-    resp = await client.chat.completions.create(
-        model=config.LLM_MODEL,
-        messages=_build_messages(question, context, mode),
-        temperature=0.3,
-    )
-    content = resp.choices[0].message.content or ""
-    data = _parse_json(content)
-    answer = data.get("answer") or content
-    steps = data.get("steps") or []
-    # 不同模型返回形态不一：answer 可能是数字，steps 可能是单个字符串
-    if isinstance(steps, str):
-        steps = [steps]
-    return {"answer": str(answer), "steps": [str(s) for s in steps]}
+    try:
+        resp = await client.chat.completions.create(
+            model=config.LLM_MODEL,
+            messages=_build_messages(question, context, mode),
+            temperature=0.3,
+        )
+        content = resp.choices[0].message.content or ""
+        data = _parse_json(content)
+        answer = data.get("answer") or content
+        steps = data.get("steps") or []
+        # 不同模型返回形态不一：answer 可能是数字，steps 可能是单个字符串
+        if isinstance(steps, str):
+            steps = [steps]
+        return {"answer": str(answer), "steps": [str(s) for s in steps]}
+    except Exception:  # noqa: BLE001 端点配额耗尽(403)/超时等：降级为基于检索的
+        # 通法拼装，不让主链路 500——引导对话宁可给通法，也不能整体失败
+        return _dev_solve(question, context, mode, degraded=True)
 
 
-def _dev_solve(question: str, context: dict | None, mode: str) -> dict:
-    """dev 回退：用检索到的真实上下文拼装讲解（非占位字符串）。"""
+def _dev_solve(
+    question: str, context: dict | None, mode: str, degraded: bool = False
+) -> dict:
+    """dev 回退：用检索到的真实上下文拼装讲解（非占位字符串）。
+
+    ``degraded=True`` 表示生产环境 LLM 不可用（配额耗尽/超时）后的降级，
+    文案与无密钥 dev 模式区分，避免误导排查。
+    """
     chunks = (context or {}).get("chunks", [])
     points = list(dict.fromkeys(c.get("knowledge_point") for c in chunks if c.get("knowledge_point")))
     point_text = "、".join(points) if points else "待标注（检索未命中，需补题）"
@@ -88,7 +98,8 @@ def _dev_solve(question: str, context: dict | None, mode: str) -> dict:
 
     if mode == "guide":
         # 引导档（T-C1）：点考点 + 方向 + 第一步提示；**不给最终答案**。
-        # 首轮 Hint 对应 T-C2 阶梯的 L0-L1，等级状态由 socratic.py 后续维护。
+        # 首轮 Hint 即 T-C2 阶梯的 L0-L1；多轮阶梯对话（等级状态/跳级/
+        # 直接看解析）由 socratic.py 维护，入口为 /solve 的 hint=true。
         first = chunks[0]["text"][:60] if chunks else question
         return {
             "answer": (
@@ -113,11 +124,19 @@ def _dev_solve(question: str, context: dict | None, mode: str) -> dict:
         "分步推导：结合检索到的同类例题通法逐步化简",
         "总结易错点与通法",
     ]
-    answer = (
-        f"[dev-无密钥回退] 已检索到 {len(chunks)} 条相关例题：\n{evidence}\n"
-        f"本题建议从「{point_text}」入手，先明确条件再套通法。"
-        f"配置 LLM_BASE_URL / LLM_API_KEY 后由大模型生成完整讲解。"
-    )
+    if degraded:
+        # 生产降级（LLM 配额耗尽/超时）：明示是降级内容，而非 dev 占位
+        answer = (
+            f"[降级回退] 模型暂不可用（配额/超时），以下基于检索到的 {len(chunks)} 条同类例题给出通法：\n"
+            f"{evidence}\n"
+            f"本题建议从「{point_text}」入手，先明确条件再套通法。"
+        )
+    else:
+        answer = (
+            f"[dev-无密钥回退] 已检索到 {len(chunks)} 条相关例题：\n{evidence}\n"
+            f"本题建议从「{point_text}」入手，先明确条件再套通法。"
+            f"配置 LLM_BASE_URL / LLM_API_KEY 后由大模型生成完整讲解。"
+        )
     return {"answer": answer, "steps": steps}
 
 
@@ -194,22 +213,26 @@ def _dev_judge(student_answer: str, context: dict | None) -> dict:
 
 async def suggest_similar(question: str, context: dict | None = None) -> list[str]:
     if config.llm_ready():
-        from openai import AsyncOpenAI  # 延迟导入
+        try:
+            from openai import AsyncOpenAI  # 延迟导入
 
-        client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
-        resp = await client.chat.completions.create(
-            model=config.LLM_MODEL,
-            messages=_build_messages(question, context, "similar"),
-            temperature=0.7,
-        )
-        content = resp.choices[0].message.content or ""
-        data = _parse_json(content)
-        sims = data.get("similar")
-        if isinstance(sims, str):
-            sims = [sims]
-        if sims:
-            return [str(s) for s in sims][:3]
-        # 模型未按要求返回 similar 字段时，不要回吐原始 JSON，交由下方检索结果兜底
+            client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+            resp = await client.chat.completions.create(
+                model=config.LLM_MODEL,
+                messages=_build_messages(question, context, "similar"),
+                temperature=0.7,
+            )
+            content = resp.choices[0].message.content or ""
+            data = _parse_json(content)
+            sims = data.get("similar")
+            if isinstance(sims, str):
+                sims = [sims]
+            if sims:
+                return [str(s) for s in sims][:3]
+            # 模型未按要求返回 similar 字段时，不要回吐原始 JSON，交由下方检索结果兜底
+        except Exception:  # noqa: BLE001 变式是旁路能力：LLM 配额耗尽/超时不得
+            # 影响主链路（T-C2 实测：similar 的 403 曾把整轮 Hint 对话打成 500）
+            pass
 
     chunks = (context or {}).get("chunks", [])
     return [
