@@ -18,9 +18,20 @@ import retrofit2.http.Query
 data class SolveRequest(
     val question: String,
     val subject: String? = null,
-    val mode: String = "explain", // explain | similar
+    // T-C1：不传（null）由后端按学生意图自动三档路由；显式传值尊重调用方
+    // （explain | guide | quick | similar）。
+    // T-C3：mode="direct" 是一等功能"直接看解析"的服务端入口——直达 L4
+    // 完整解析 + 复盘三问；点击行为入埋点且不作为违规（R6）。
+    val mode: String? = null,
     // S4 过程采集：学生作答（解答题须贴过程文本），非空才会触发判分
-    @SerializedName("student_answer") val studentAnswer: String? = null
+    @SerializedName("student_answer") val studentAnswer: String? = null,
+    // T-C2/C3：Hint 阶梯对话。hint=true 按 (学生, 题) 维护 L0–L4 阶梯，
+    // 每轮返回当前等级 Hint；studentReply 是本轮学生的回应
+    // （挫败信号检测 + LLM 对话历史；压轴题的有实质回应会推进到下一步）
+    val hint: Boolean = false,
+    @SerializedName("student_reply") val studentReply: String? = null,
+    // T-C2/C3：学生主动点"直接看解析" -> 直达 L4（与 mode="direct" 等价入口）
+    @SerializedName("direct_reveal") val directReveal: Boolean = false
 )
 
 // judge v2 步骤级归因结果（字段名与后端 snake_case 对齐）
@@ -43,7 +54,27 @@ data class SolveResponse(
     val similar: List<String> = emptyList(),
     @SerializedName("knowledge_points") val knowledgePoints: List<String> = emptyList(),
     @SerializedName("content_hash") val contentHash: String? = null,
-    val judgement: Judgement? = null
+    val judgement: Judgement? = null,
+    // T-C1 意图三档路由回传（埋点与"当前为引导档/直给档"展示）
+    val intent: String? = null,
+    val mode: String? = null,
+    @SerializedName("intent_source") val intentSource: String? = null,
+    // T-C3 题型路由：memory/medium/finale + 轮次上限（决定 UI 策略）
+    @SerializedName("question_tier") val questionTier: String? = null,
+    @SerializedName("question_tier_name") val questionTierName: String? = null,
+    @SerializedName("question_type") val questionType: String? = null,
+    @SerializedName("hint_max_rounds") val hintMaxRounds: Int? = null,
+    // T-C2/C3 Hint 阶梯回传（仅 hint 轮有值）
+    @SerializedName("hint_level") val hintLevel: Int? = null,
+    @SerializedName("hint_level_name") val hintLevelName: String? = null,
+    @SerializedName("hint_frustration_streak") val hintFrustrationStreak: Int? = null,
+    @SerializedName("hint_finale") val hintFinale: Boolean? = null,
+    @SerializedName("hint_direct_reveal") val hintDirectReveal: Boolean? = null,
+    @SerializedName("hint_rounds") val hintRounds: Int? = null,
+    // T-C3 分步拆解回传（仅压轴题 hint 轮有值）
+    @SerializedName("hint_step") val hintStep: Int? = null,
+    @SerializedName("hint_step_total") val hintStepTotal: Int? = null,
+    @SerializedName("hint_step_text") val hintStepText: String? = null
 )
 
 interface ApiService {

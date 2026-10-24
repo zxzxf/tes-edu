@@ -1,6 +1,10 @@
 """RAG 检索：真实模式查 106 的 pgvector；dev 模式用内存向量库（种子题库）。
 
-统一返回 {"chunks": [{"text","score","knowledge_point","difficulty","answer"}], "points": [知识点]}。
+统一返回 {"chunks": [{"text","score","knowledge_point","difficulty","answer",
+"content_hash","type"}], "points": [知识点]}。
+T-C3 起 chunks 带 ``type``（course_kb.type 题型，供题型路由）——线上列由
+``scripts/add_qtype_to_embeddings.sql`` 迁移补齐；列缺失时自动降级为不带
+type 的查询（自愈，不影响检索主链路）。
 真实模式依赖 asyncpg+pgvector（延迟导入）；dev 模式仅用标准库。
 """
 from __future__ import annotations
@@ -15,6 +19,8 @@ _DOCS: list[dict] = []
 _VEC: list[list[float]] = []
 _LOADED = False
 _VEC_READY = False
+#: course_kb_embeddings.type 列是否存在（T-C3 迁移前的老库为 False，查询自动降级）
+_TYPE_COLUMN_OK = True
 
 
 def _load_seed() -> None:
@@ -68,6 +74,8 @@ def _fmt(score: float, doc: dict) -> dict:
         "answer": doc.get("answer", ""),
         # judge v2 靠它定位 course_kb_steps（步骤级归因燃料）
         "content_hash": doc.get("content_hash", ""),
+        # T-C3 题型路由燃料（course_kb.type；dev 种子无该字段时为空串->保守中等）
+        "type": doc.get("type", "") or "",
     }
 
 
@@ -98,21 +106,39 @@ def _search_memory(q_vec: list[float], subject: str | None) -> list[dict]:
 async def _search_pg(q_vec: list[float], subject: str | None) -> list[dict]:
     from app.db.pg import get_pool  # 延迟导入
 
+    global _TYPE_COLUMN_OK
     pool = await get_pool()
     vec_literal = "[" + ",".join(f"{v:.6f}" for v in q_vec) + "]"
-    sql = """
-        SELECT content, knowledge_point, difficulty, answer, content_hash,
-               1 - (embedding <=> $1::vector) AS score
-        FROM course_kb_embeddings
-        WHERE ($2::text IS NULL OR subject = $2)
-          -- 硬隔离 seed demo 假题：id 1-46 的编造例题不参与线上检索，
-          -- 只保留供压测/回滚；物理删除前一律靠此谓词挡掉。
-          AND (is_demo IS NOT TRUE)
-        ORDER BY embedding <=> $1::vector
-        LIMIT $3
-    """
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(sql, vec_literal, subject, config.TOP_K)
+
+    def _build_sql(with_type: bool) -> str:
+        # T-C3：type 列随迁移补齐；老库缺列时降级为不带 type 的查询（自愈，不 500）
+        type_field = "type," if with_type else ""
+        return f"""
+            SELECT content, knowledge_point, difficulty, answer, content_hash,
+                   {type_field}
+                   1 - (embedding <=> $1::vector) AS score
+            FROM course_kb_embeddings
+            WHERE ($2::text IS NULL OR subject = $2)
+              -- 硬隔离 seed demo 假题：id 1-46 的编造例题不参与线上检索，
+              -- 只保留供压测/回滚；物理删除前一律靠此谓词挡掉。
+              AND (is_demo IS NOT TRUE)
+            ORDER BY embedding <=> $1::vector
+            LIMIT $3
+        """
+
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                _build_sql(_TYPE_COLUMN_OK), vec_literal, subject, config.TOP_K
+            )
+    except Exception as e:  # noqa: BLE001 缺 type 列（迁移未执行）-> 降级重试一次
+        if not _TYPE_COLUMN_OK or "type" not in str(e):
+            raise
+        _TYPE_COLUMN_OK = False
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                _build_sql(False), vec_literal, subject, config.TOP_K
+            )
     return [
         {
             "text": r["content"],
@@ -121,6 +147,7 @@ async def _search_pg(q_vec: list[float], subject: str | None) -> list[dict]:
             "difficulty": r["difficulty"],
             "answer": r["answer"],
             "content_hash": r["content_hash"] or "",
+            "type": (r["type"] if "type" in r else "") or "",
         }
         for r in rows
     ]

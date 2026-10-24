@@ -60,13 +60,21 @@ async def main() -> None:
         await conn.execute(
             "ALTER TABLE course_kb_embeddings ADD COLUMN IF NOT EXISTS content_hash text"
         )
+        # T-C3 题型路由：type 列（老库补齐 + 回填，与 add_qtype_to_embeddings.sql 同口径）
+        await conn.execute(
+            "ALTER TABLE course_kb_embeddings ADD COLUMN IF NOT EXISTS type text NOT NULL DEFAULT ''"
+        )
+        await conn.execute(
+            "UPDATE course_kb_embeddings e SET type = c.type FROM course_kb c "
+            "WHERE e.content_hash = c.content_hash AND (e.type IS NULL OR e.type = '')"
+        )
         await conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_kb_emb_hash "
             "ON course_kb_embeddings(content_hash)"
         )
 
         rows = await conn.fetch(
-            "select subject, chapter, stem, answer, analysis, difficulty, "
+            "select subject, chapter, stem, answer, analysis, difficulty, type, "
             "knowledge_points, content_hash, embedding from course_kb order by id"
         )
         ins = skip = 0
@@ -76,8 +84,8 @@ async def main() -> None:
             res = await conn.execute(
                 """
                 INSERT INTO course_kb_embeddings
-                    (subject, knowledge_point, difficulty, question, answer, content, embedding, content_hash)
-                VALUES ($1,$2,$3,$4,$5,$6,$7::vector,$8)
+                    (subject, knowledge_point, difficulty, question, answer, content, embedding, content_hash, type)
+                VALUES ($1,$2,$3,$4,$5,$6,$7::vector,$8,$9)
                 ON CONFLICT (content_hash) DO NOTHING
                 """,
                 r["subject"],
@@ -88,6 +96,7 @@ async def main() -> None:
                 content,
                 vec_literal(r["embedding"]),
                 r["content_hash"],
+                r["type"] or "",               # T-C3 题型路由燃料
             )
             # 注意：ON CONFLICT DO NOTHING 冲突时 asyncpg 返回 "INSERT 0 0"（不是空串），
             # 只判断 startswith("INSERT") 会把跳过的行误计为新增。必须看末尾的影响行数。

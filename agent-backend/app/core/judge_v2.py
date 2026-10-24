@@ -213,7 +213,7 @@ async def load_bundle(content_hash: str) -> dict | None:
     pool = await get_pool()
     async with pool.acquire() as conn:
         q = await conn.fetchrow(
-            "SELECT type, answer, options, stem, analysis FROM course_kb WHERE content_hash=$1",
+            "SELECT type, answer, options, stem, analysis, difficulty FROM course_kb WHERE content_hash=$1",
             content_hash,
         )
         if q is None:
@@ -245,6 +245,9 @@ async def load_bundle(content_hash: str) -> dict | None:
         "answer": q["answer"] or "",
         "stem": q["stem"] or "",
         "analysis": q["analysis"] or "",
+        # T-C3 题型路由：难度（course_kb.difficulty，线上整数 1-5；
+        # qtype.difficulty_is_hard 归一化）——压轴判定信号之一
+        "difficulty": q["difficulty"],
         "options": _j(q["options"]) or {},
         "steps": steps,
     }

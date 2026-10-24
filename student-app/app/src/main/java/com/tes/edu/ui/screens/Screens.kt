@@ -17,12 +17,15 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,12 +63,17 @@ private val ERROR_TYPE_LABEL = mapOf(
     "unknown" to "待人工复核"
 )
 
-/** S4 过程采集：题干 + 多行作答过程 -> 提交判分 -> 展示 judge v2 步骤级归因。 */
+/** S4 过程采集：题干 + 多行作答过程 -> 提交判分 -> 展示 judge v2 步骤级归因。
+ *  T-C2/C3：Hint 阶梯对话（开始引导/回应/等级与分步进度）+
+ *  "直接看解析"一等功能（常驻按钮 + 一次轻确认）。 */
 @Composable
 fun InputScreen(vm: SolveViewModel = viewModel()) {
     val ui by vm.ui.collectAsState()
     var question by remember { mutableStateOf("") }
     var process by remember { mutableStateOf("") }
+    var reply by remember { mutableStateOf("") }
+    // T-C3：直接看解析的一次轻确认弹层（常驻按钮点击后弹出，确认才直达 L4）
+    var showDirectConfirm by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -101,12 +109,28 @@ fun InputScreen(vm: SolveViewModel = viewModel()) {
                 onClick = { vm.solve(question, process) },
                 enabled = question.isNotBlank() && !ui.loading
             ) { Text(if (process.isBlank()) "只求讲解" else "提交作答并判分") }
+            // T-C2：进入 Hint 阶梯对话（首轮 L0 点考点；阶梯只存在于引导档）
+            if (!ui.hintActive) {
+                OutlinedButton(
+                    onClick = { vm.startHint(question) },
+                    enabled = question.isNotBlank() && !ui.loading
+                ) { Text("开始引导") }
+            }
         }
 
         if (ui.loading) {
             CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
         }
         ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+        // T-C3：题型路由标签（记忆型直接讲解 / 中等引导 1-2 轮 / 压轴 3-4 轮分步）
+        ui.questionTierName?.let { tier ->
+            Text(
+                "题型路由：$tier${ui.questionType?.let { "（$it）" } ?: ""}" +
+                    (ui.hintMaxRounds?.let { " · 引导上限 $it 轮" } ?: ""),
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
 
         if (ui.answer.isNotBlank()) {
             Card(Modifier.fillMaxWidth()) {
@@ -117,6 +141,87 @@ fun InputScreen(vm: SolveViewModel = viewModel()) {
             }
         }
         ui.judgement?.let { JudgementCard(it) }
+
+        // ---------------- T-C2/C3：Hint 阶梯对话区 ----------------
+        if (ui.hintActive) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("引导对话", fontWeight = FontWeight.Bold)
+                    ui.hintLevelName?.let {
+                        val stepSuffix = if (ui.hintStep != null && ui.hintStepTotal != null) {
+                            " · 第 ${ui.hintStep}/${ui.hintStepTotal} 步"
+                        } else ""
+                        Text(
+                            "当前 Hint：$it$stepSuffix" +
+                                (ui.hintRounds?.let { r -> " · 第 $r 轮" } ?: "") +
+                                (if (ui.hintFinale) " · 压轴题（完整解析需主动查看）" else ""),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                    ui.hintStepText?.let {
+                        Text(
+                            "本步：$it",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    // 阶梯对话中的学生回应（压轴题有实质回应会推进到下一步）
+                    OutlinedTextField(
+                        value = reply,
+                        onValueChange = { reply = it },
+                        label = { Text("我的回应") },
+                        placeholder = { Text("说说这一步的思路；也可以说「我不懂」要更多提示") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = {
+                                vm.replyHint(question, reply)
+                                reply = ""
+                            },
+                            enabled = reply.isNotBlank() && !ui.loading
+                        ) { Text("回应") }
+                        // T-C3："直接看解析"一等功能——常驻按钮，一次轻确认后直达 L4
+                        if (ui.showDirectReveal) {
+                            OutlinedButton(
+                                onClick = { showDirectConfirm = true },
+                                enabled = !ui.loading
+                            ) { Text("直接看解析") }
+                        }
+                    }
+                    if (ui.hintDirectReveal) {
+                        Text(
+                            "已展示完整解析与复盘三问（主动查看解析不计入直给率）",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // T-C3：一次轻确认（不是反复挽留——点一次确认一次，尊重学生选择）
+    if (showDirectConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDirectConfirm = false },
+            title = { Text("直接看解析？") },
+            text = {
+                Text(
+                    "将直接展示完整解析和复盘三问（这题考什么 / 卡在哪一步 / 同型题怎么识别），" +
+                        "本题的引导对话随之结束。"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDirectConfirm = false
+                    vm.revealDirect(question)
+                }) { Text("看解析") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDirectConfirm = false }) { Text("继续引导") }
+            }
+        )
     }
 }
 

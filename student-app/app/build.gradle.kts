@@ -45,4 +45,9 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
+
+    // JVM 单测：T-C3 "直接看解析"/Hint 阶梯的 App 侧 mock 走通
+    // （fake ApiService + ViewModel 状态机；./gradlew test 可跑）
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }

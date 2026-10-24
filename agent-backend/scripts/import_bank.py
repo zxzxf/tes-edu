@@ -316,9 +316,18 @@ async def _ensure_embeddings_table(pool) -> None:
         await conn.execute(
             "ALTER TABLE course_kb_embeddings ADD COLUMN IF NOT EXISTS content_hash text"
         )
+        # T-C3 题型路由：type 列（老库补齐；新值随插入带上）
+        await conn.execute(
+            "ALTER TABLE course_kb_embeddings ADD COLUMN IF NOT EXISTS type text NOT NULL DEFAULT ''"
+        )
         await conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_kb_emb_hash "
             "ON course_kb_embeddings(content_hash)"
+        )
+        # 老库历史行回填题型（幂等；与 scripts/add_qtype_to_embeddings.sql 同口径）
+        await conn.execute(
+            "UPDATE course_kb_embeddings e SET type = c.type FROM course_kb c "
+            "WHERE e.content_hash = c.content_hash AND (e.type IS NULL OR e.type = '')"
         )
 
 
@@ -514,8 +523,8 @@ async def _run(args) -> None:
                 await conn.execute(
                     """
                     INSERT INTO course_kb_embeddings
-                        (subject, knowledge_point, difficulty, question, answer, content, embedding, content_hash)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7::vector,$8)
+                        (subject, knowledge_point, difficulty, question, answer, content, embedding, content_hash, type)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7::vector,$8,$9)
                     ON CONFLICT (content_hash) DO NOTHING
                     """,
                     r["subject"],
@@ -524,6 +533,8 @@ async def _run(args) -> None:
                     # _norm_difficulty 返回 int，直接传会让第二张表报 expected str, got int
                     str(r["difficulty"]), r["stem"], r["answer"], r["content"], emb_lit,
                     r["content_hash"],
+                    # T-C3 题型路由：题型随检索 chunks 带回（qtype.route_question_tier）
+                    r["type"],
                 )
                 inserted += 1
             except Exception as e:  # noqa: BLE001

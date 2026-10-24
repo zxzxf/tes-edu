@@ -47,11 +47,24 @@ app/src/main/java/com/tes/edu/
 
 - 默认网关地址（模拟器访问宿主机）：`http://10.0.2.2:8080`
 - 接口契约（`ApiService`）：
-  - `POST /api/app/solve` — 文本/语音解题与讲解
+  - `POST /api/app/solve` — 文本/语音解题与讲解；支持：
+    - T-C1 意图三档路由（不传 `mode` 由后端分流 direct/explain/guide）；
+    - T-C2/C3 Hint 阶梯对话（`hint=true` + `student_reply`，响应回传
+      `hint_level`/`hint_level_name`/`hint_step`/`hint_step_total` 等）；
+    - T-C3 "直接看解析"一等功能（`mode=direct` 直达 L4 完整解析 + 复盘三问；
+      点击行为由后端入 `direct_reveal` 埋点，不作为违规）；
+    - T-C3 题型路由回传（`question_tier`=memory/medium/finale、
+      `hint_max_rounds`=该题引导轮次上限）。
   - `POST /api/app/solve_image` — 拍照识题（multipart 图片）
   - `POST /api/app/similar` — 触类旁通推荐
   - `POST /login` — 占位登录换 JWT（web-backend；联调用 student@tes.edu / demo1234）
   - `GET /learning/knowledge-graph?student_id=…` — T-B5 图谱快照（需 Bearer）
+
+## 单测
+
+- `app/src/test/java/com/tes/edu/viewmodel/SolveViewModelTest.kt`：JVM 单测
+  （fake ApiService），覆盖 T-C3 "直接看解析"链路与 Hint 阶梯状态机的 mock 走通。
+  Android Studio / CI 执行 `./gradlew test`。
 
 ## 本地存储
 

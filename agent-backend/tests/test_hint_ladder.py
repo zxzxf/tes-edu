@@ -130,12 +130,23 @@ def test_contract_empty_text():
 def test_ladder_default_state_and_progression():
     ld = socratic.HintLadder()
     st = ld.get("s1", "解方程 2x+6=0")
-    assert st == {"level": 0, "streak": 0, "rounds": 0}
+    assert st == {"level": 0, "streak": 0, "rounds": 0, "step": 0}
     ld.record_round("s1", "解方程 2x+6=0", level=1, streak=2)
     st = ld.get("s1", "解方程 2x+6=0")
     assert st["level"] == 1 and st["streak"] == 2 and st["rounds"] == 1
     ld.record_round("s1", "解方程 2x+6=0", level=1, streak=0)
     assert ld.get("s1", "解方程 2x+6=0")["rounds"] == 2
+
+
+def test_ladder_step_state_persisted_and_preserved():
+    """T-C3：step=None（非压轴轮）不覆盖已有分步进度；显式 step 才落库。"""
+    ld = socratic.HintLadder()
+    ld.record_round("s1", "压轴题", level=1, streak=0, step=2)
+    assert ld.get("s1", "压轴题")["step"] == 2
+    ld.record_round("s1", "压轴题", level=1, streak=0)  # 未传 step -> 保留 2
+    assert ld.get("s1", "压轴题")["step"] == 2
+    ld.record_round("s1", "压轴题", level=2, streak=0, step=3)
+    assert ld.get("s1", "压轴题")["step"] == 3
 
 
 def test_ladder_state_isolated_by_student_and_question():
@@ -172,7 +183,7 @@ def test_generate_hint_falls_back_to_template_without_llm(monkeypatch):
 
 
 def test_generate_hint_uses_llm_output_when_contract_ok(monkeypatch):
-    async def _fake_remote(question, context, level, history=None):
+    async def _fake_remote(question, context, level, history=None, step=None):
         return {"answer": "通法方向是先移项，下一步你把代入后的式子写出来。", "steps": ["a"]}
 
     monkeypatch.setattr(socratic, "_remote_hint", _fake_remote)
@@ -183,7 +194,7 @@ def test_generate_hint_uses_llm_output_when_contract_ok(monkeypatch):
 def test_generate_hint_rejects_contract_violating_llm_output(monkeypatch):
     """LLM 输出空反问 -> 契约拒绝 -> 回落模板（防 LLM 偷懒只提问）。"""
 
-    async def _bad_remote(question, context, level, history=None):
+    async def _bad_remote(question, context, level, history=None, step=None):
         return {"answer": "你觉得这一步该怎么做？", "steps": []}
 
     monkeypatch.setattr(socratic, "_remote_hint", _bad_remote)
@@ -193,7 +204,7 @@ def test_generate_hint_rejects_contract_violating_llm_output(monkeypatch):
 
 
 def test_generate_hint_falls_back_when_llm_raises(monkeypatch):
-    async def _boom(question, context, level, history=None):
+    async def _boom(question, context, level, history=None, step=None):
         raise RuntimeError("llm down")
 
     monkeypatch.setattr(socratic, "_remote_hint", _boom)

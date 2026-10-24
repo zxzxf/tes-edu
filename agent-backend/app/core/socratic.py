@@ -23,10 +23,15 @@
 
 阶梯状态按 (学生, 题) 维护于进程内字典 ``HintLadder``（单副本 agent-backend
 冒烟足够；PG 持久化按计划书"冒烟后固化"留待 T-C4 埋点需求明确时再做）。
+
+T-C3 起：题型路由（qtype.route_question_tier）决定各题的轮次上限与是否走
+``course_kb_steps`` 分步拆解；``template_hint`` / ``generate_hint`` 接受可选
+``step`` 参数（qtype.step_guidance 产物）把当前步骤素材织入各级 Hint；
+``HintLadder`` 状态增加 ``step`` 字段记录分步进度。
 """
 from __future__ import annotations
 
-from app.core import config
+from app.core import config, qtype
 
 # ---------------------------------------------------------------- 阶梯定义
 
@@ -127,13 +132,15 @@ def is_frustration_signal(reply: str | None) -> bool:
 
 
 def is_finale_question(context: dict | None) -> bool:
-    """压轴题判定：检索上下文任一命中题为 difficulty=hard。
+    """压轴题判定：检索上下文任一命中题难度为 hard。
 
-    数据来自 ``rag.retrieve`` 的 chunk 字段（course_kb.difficulty）；
+    数据来自 ``rag.retrieve`` 的 chunk 字段（course_kb.difficulty）。
+    难度口径走 ``qtype.difficulty_is_hard`` 全形态归一化——线上 difficulty 是
+    整数 1-5（4/5=hard），旧代码只认 ``'hard'`` 字符串会**永不命中**；
     无标注题（检索未命中）时保守返回 False——按普通题处理。
     """
     for c in (context or {}).get("chunks", []):
-        if str(c.get("difficulty") or "").lower() == "hard":
+        if qtype.difficulty_is_hard(c.get("difficulty")):
             return True
     return False
 
@@ -216,13 +223,113 @@ def _evidence(context: dict | None) -> str:
     return "（检索未命中，按该类题通用方法处理）"
 
 
-def template_hint(question: str, context: dict | None, level: int) -> dict:
+def _steps_digest(step: dict) -> str:
+    """分步素材的全步骤摘要（L4 完整解析用）：①②③… 顺排。"""
+    all_steps = step.get("all_steps") or []
+    if not all_steps:
+        return step.get("text", "")
+    marks = "①②③④⑤⑥⑦⑧⑨⑩"
+    return " ".join(
+        f"{marks[i] if i < len(marks) else f'({i + 1})'}{t[:40]}"
+        for i, t in enumerate(all_steps)
+    )
+
+
+def template_hint(
+    question: str, context: dict | None, level: int, step: dict | None = None
+) -> dict:
     """五级 Hint 模板（纯函数，全部通过 hint_contract_violations 契约）。
 
     LLM 不可用/输出违约时的回落——保证契约不依赖 LLM 也能成立。
+
+    T-C3：``step`` 为 ``qtype.step_guidance`` 产物（压轴题分步拆解的当前步），
+    传入时各级模板织入"第 N/M 步 + 步骤素材"，一步一 Hint；
+    不传（中等题/无步骤数据）走原有通用模板。
     """
     points = _points_text(context)
     evidence = _evidence(context)
+
+    if step:
+        # 压轴题分步模板：每级都锚定当前步骤（step_no/total/label/text）
+        sn, total = step["step_no"], step["total"]
+        label = f"（{step['label']}）" if step.get("label") else ""
+        stext = step["text"]
+        sexp = step.get("explanation") or stext
+
+        if level == LEVEL_L0:
+            return {
+                "answer": (
+                    f"这道题考的是：{points}。\n"
+                    f"我们分 {total} 步来走，先看第 {sn}/{total} 步{label}：{stext}\n"
+                    "下一步：你先说说，这一步打算从哪里下手？"
+                ),
+                "steps": [
+                    f"考点定位：{points}",
+                    f"第 {sn}/{total} 步{label}：{stext[:40]}",
+                    "说出这一步的下手思路（不用算完）",
+                ],
+            }
+
+        if level == LEVEL_L1:
+            return {
+                "answer": (
+                    f"这类题的通法方向：从「{points}」入手，"
+                    f"第 {sn}/{total} 步的方向是先把条件理清楚——{stext}\n"
+                    "下一步：你按这个方向把这一步的算式雏形列出来（不用解完）。"
+                ),
+                "steps": [
+                    f"方向：{points} 的通用解法",
+                    f"第 {sn}/{total} 步{label}：{stext[:40]}",
+                    "列出这一步的算式雏形（不求结果）",
+                ],
+            }
+
+        if level == LEVEL_L2:
+            return {
+                "answer": (
+                    f"关键依据（第 {sn}/{total} 步{label}）：{sexp}\n"
+                    "下一步：你把题目里的数值代进这个依据，先写出代入后的式子"
+                    "（这一步不用算出结果）。"
+                ),
+                "steps": [
+                    f"关键依据：{sexp[:40]}",
+                    f"第 {sn}/{total} 步代入题目数值",
+                    "写出代入后的式子（不求结果）",
+                ],
+            }
+
+        if level == LEVEL_L3:
+            return {
+                "answer": (
+                    f"这一步这样推（第 {sn}/{total} 步{label}）：{sexp}\n"
+                    "（到这一步为止，最终答案先不给你——那一步才是本题的 key。）\n"
+                    "下一步：你按这个推导把这一步写完，写完好发我看对错。"
+                ),
+                "steps": [
+                    f"该步推导：{sexp[:40]}",
+                    f"照推导写完第 {sn}/{total} 步",
+                    "提交这一步，进入下一步",
+                ],
+            }
+
+        # LEVEL_L4：完整解析（含全部步骤）+ 复盘三问
+        return {
+            "answer": (
+                f"完整解析如下。考点：{points}。同类题思路：{evidence}\n"
+                f"本题共 {total} 步，完整步骤：{_steps_digest(step)}\n"
+                "下一步（复盘三问）：\n"
+                "① 这题考什么：能否一句话说出考点与通法？\n"
+                "② 卡在哪一步：回看刚才哪一级 Hint 让你「卡住」，是条件没用上还是公式记错？\n"
+                "③ 同型题怎么识别：下次看到什么特征（条件结构/问法），就该直接想到这套通法？"
+            ),
+            "steps": [
+                f"完整解析：考点 {points}，思路参照 {evidence[:40]}",
+                f"分步还原：共 {total} 步，从第 1 步顺推到第 {total} 步",
+                "复盘①：一句话说出考点与通法",
+                "复盘②：定位刚才卡住的那一级",
+                "复盘③：总结同型题的识别特征",
+            ],
+        }
 
     if level == LEVEL_L0:
         # 点考点：只告诉学生考什么，邀请说出困惑点（不给任何解法）
@@ -308,7 +415,9 @@ def template_hint(question: str, context: dict | None, level: int) -> dict:
 class HintLadder:
     """(学生, 题) 维度的阶梯状态：进程内字典。
 
-    键 = ``student_id|normalized_question``；值 = ``{"level", "streak", "rounds"}``。
+    键 = ``student_id|normalized_question``；
+    值 = ``{"level", "streak", "rounds", "step"}``（T-C3 起 ``step`` 记录
+    压轴题分步拆解进度，0 起，非压轴题恒 0）。
     容量上限 ``max_entries``，超出淘汰最早插入的条目（学习会话天然有局部性，
     LRU 精确化留作 T-F 数据治理项）。
     """
@@ -326,7 +435,7 @@ class HintLadder:
         return dict(
             self._states.get(
                 self.key(student_id, question),
-                {"level": LEVEL_L0, "streak": 0, "rounds": 0},
+                {"level": LEVEL_L0, "streak": 0, "rounds": 0, "step": 0},
             )
         )
 
@@ -337,14 +446,19 @@ class HintLadder:
         *,
         level: int,
         streak: int,
+        step: int | None = None,
     ) -> None:
-        """落库本轮结束后的阶梯状态。"""
+        """落库本轮结束后的阶梯状态。
+
+        ``step`` 为 None（非压轴题/无分步数据）时保留原 step 值不覆盖。
+        """
         k = self.key(student_id, question)
-        prev = self._states.get(k, {"rounds": 0})
+        prev = self._states.get(k, {"rounds": 0, "step": 0})
         self._states[k] = {
             "level": level,
             "streak": streak,
             "rounds": int(prev.get("rounds", 0)) + 1,
+            "step": int(prev.get("step", 0)) if step is None else int(step),
         }
         if len(self._states) > self._max_entries:
             # dict 保序：淘汰最早插入的一条
@@ -375,7 +489,11 @@ _HINT_SYSTEM = (
 
 
 def _build_hint_messages(
-    question: str, context: dict | None, level: int, history: list[str] | None
+    question: str,
+    context: dict | None,
+    level: int,
+    history: list[str] | None,
+    step: dict | None = None,
 ) -> list[dict]:
     chunks = (context or {}).get("chunks", [])
     if chunks:
@@ -390,6 +508,15 @@ def _build_hint_messages(
         f"【学生问题】\n{question}\n\n"
         f"【本轮 Hint 等级】L{level}（{LEVEL_NAMES.get(level, '')}）"
     )
+    if step:
+        # T-C3 压轴题分步拆解：把当前步骤素材喂给 LLM，一步一 Hint
+        user += (
+            f"\n\n【分步拆解】本题共 {step['total']} 步，当前第 {step['step_no']} 步"
+            + (f"（{step['label']}）" if step.get("label") else "")
+            + f"：{step['text']}\n"
+            f"该步要点：{step.get('explanation') or step['text']}\n"
+            "本轮 Hint 必须锚定当前步骤展开，不得跳到其他步骤。"
+        )
     if history:
         turns = "\n".join(f"- {h}" for h in history[-6:])
         user += f"\n\n【对话历史（近轮）】\n{turns}"
@@ -404,6 +531,7 @@ async def _remote_hint(
     context: dict | None,
     level: int,
     history: list[str] | None = None,
+    step: dict | None = None,
 ) -> dict | None:
     """LLM 生成 Hint。返回 None 表示失败（无密钥/超时/解析失败）。
 
@@ -419,7 +547,7 @@ async def _remote_hint(
         client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
         resp = await client.chat.completions.create(
             model=config.LLM_MODEL,
-            messages=_build_hint_messages(question, context, level, history),
+            messages=_build_hint_messages(question, context, level, history, step),
             temperature=0.3,
         )
         content = resp.choices[0].message.content or ""
@@ -446,6 +574,7 @@ async def generate_hint(
     context: dict | None,
     level: int,
     history: list[str] | None = None,
+    step: dict | None = None,
 ) -> dict:
     """生成本轮 Hint：LLM 优先，失败/违约回落 template_hint。
 
@@ -453,12 +582,15 @@ async def generate_hint(
     违约（空反问/缺动作/L1 缺方向/L4 缺复盘）一律回落模板——
     **契约不依赖 LLM 的自觉性**。
 
+    T-C3：``step``（qtype.step_guidance 产物）传入时模板与 LLM prompt
+    都锚定压轴题当前步骤。
+
     返回值形如 ``{"answer": ..., "steps": [...]}``。
     """
     try:
-        hint = await _remote_hint(question, context, level, history)
+        hint = await _remote_hint(question, context, level, history, step)
     except Exception:  # noqa: BLE001 双保险：生成层任何意外都回落模板
         hint = None
     if hint is None or hint_contract_violations(hint.get("answer"), level):
-        hint = template_hint(question, context, level)
+        hint = template_hint(question, context, level, step)
     return hint
