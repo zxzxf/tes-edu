@@ -12,6 +12,7 @@ from app.core.rbac import Role
 from app.core.security import require_role
 from app.services import learning
 from app.services import mastery as mastery_svc
+from app.services import adaptive
 
 router = APIRouter(prefix="/learning", tags=["learning"])
 
@@ -46,6 +47,19 @@ async def get_mastery(
             }
         )
     return {"student_id": student_id, "items": items}
+
+
+@router.get("/recommendations", summary="自适应推题（ZPD + 难度自适应 + 间隔重复）")
+async def get_recommendations(
+    student_id: str = Query(...),
+    n: int = Query(5, ge=1, le=20),
+    subject: Optional[str] = None,
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.PARENT, Role.STUDENT)),
+    db: AsyncSession = Depends(get_db),
+):
+    """T-B3：只推 ZPD 内（前置就绪、自身未掌握）的题；难度随掌握度自适应；
+    附带间隔重复复习计划。学生查自己、老师/家长查其学生。"""
+    return await adaptive.recommend(db, student_id, n=n, subject=subject)
 
 
 @router.get("/events", summary="学生近期学情事件")
