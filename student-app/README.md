@@ -64,13 +64,39 @@ app/src/main/java/com/tes/edu/
 
 - `app/src/test/java/com/tes/edu/viewmodel/SolveViewModelTest.kt`：JVM 单测
   （fake ApiService），覆盖 T-C3 "直接看解析"链路与 Hint 阶梯状态机的 mock 走通。
-  Android Studio / CI 执行 `./gradlew test`。
+  **实测 4 tests / 0 failures / 0 errors / 0 skipped**（2026-10-27，JDK 17 下跑通）。
+- 执行（**必须显式指定 JDK 17**，见下节工具链）：
+
+  ```bash
+  cd student-app
+  JAVA_HOME=<repo>/../tools/jdk-17.0.20.1+1 ./gradlew :app:testDebugUnitTest --no-daemon --console=plain
+  ```
+
+- 报告：`app/build/test-results/testDebugUnitTest/TEST-com.tes.edu.viewmodel.SolveViewModelTest.xml`。
 
 ## 本地存储
 
 - Room 缓存**背诵卡**（`drill_cards`）与**错题本**（`wrong_questions`），无网可背可复习。
 
+## 本地工具链（离线自备，不依赖系统环境）
+
+构建需要 **JDK 17** 与 **Android SDK**；两者已放在仓库外的 `tools/` 下（不入库），
+`local.properties` 已指向 SDK：
+
+- **JDK 17**：`tools/jdk-17.0.20.1+1`（另有 `tools/jdk-21.0.12.1+1`、`tools/jdk17`）
+  —— ⚠️ 本机 `java -version` 默认是 **1.8.0_291**，Gradle 8.7 + AGP 会直接失败，
+  **命令行构建必须显式设 `JAVA_HOME`**（见下单测/构建命令示例）。
+- **Android SDK**：`tools/android-sdk`（`local.properties` 的 `sdk.dir` 已配置）。
+- Gradle Wrapper 已入库（`gradlew` / `gradlew.bat`），无需全局 Gradle。
+
 ## 构建运行
 
-用 **Android Studio** 打开 `student-app/`，Sync Project 后运行到模拟器或真机。
-网关地址如需修改，调整 `ApiService` 中的 `BASE_URL` 即可。
+用 **Android Studio** 打开 `student-app/`，Sync Project 后运行到模拟器或真机
+（Studio 里把 Gradle JDK 指到上述 JDK 17）。命令行打包 debug APK：
+
+```bash
+cd student-app
+JAVA_HOME=<repo>/../tools/jdk-17.0.20.1+1 ./gradlew :app:assembleDebug --no-daemon --console=plain
+```
+
+网关地址如需修改，调整 `ApiService` 中的 `BASE_URL` 即可（模拟器默认 `http://10.0.2.2:8080`）。
