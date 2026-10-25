@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  自适应图标背景层：品牌暖色渐变（烈焰橙 #FF7A45 → 热情玫红 #FF3D81，对角）。
+  与 Compose 侧 TesEduColors.Brand / BrandViolet 同源，保证桌面图标与主界面
+  渐变按钮观感一致。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="108"
+                android:endY="108"
+                android:startX="0"
+                android:startY="0"
+                android:type="linear">
+                <item android:offset="0" android:color="#FFFF7A45" />
+                <item android:offset="0.55" android:color="#FFFF5A50" />
+                <item android:offset="1" android:color="#FFFF3D81" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

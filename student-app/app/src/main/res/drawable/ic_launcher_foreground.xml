@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  自适应图标前景层：摊开的书本（白色）+ 两颗星（琥珀 #FFD34D，取 TesEduColors.Amber 系）。
+  书本两页中间留 4dp 缝隙，由背景渐变透出形成书脊，无需额外描边。
+
+  安全区约束：所有图形控制在 108dp 画布中心直径 66dp 的圆内（圆心 54,54 / 半径 33），
+  各厂商 launcher 的圆形、圆角方形、泪滴形遮罩都不会裁到主体。
+    · 书本：x 32~76，y 45.5~78（最远角距圆心 29.4 < 33）
+    · 主星：x 44~64，y 22~42（最远点距圆心 32   < 33）
+    · 副星：x 66.5~73.5，y 25.5~32.5（最远点距圆心 31.2 < 33）
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 书·左页 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M52,50 C45.5,46.5 38,45 32,45.5 L32,73.5 C38,73 45.5,74.5 52,78 Z" />
+
+    <!-- 书·右页 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M56,50 C62.5,46.5 70,45 76,45.5 L76,73.5 C70,73 62.5,74.5 56,78 Z" />
+
+    <!-- 星·主（书本正上方，取「顿悟」意象） -->
+    <path
+        android:fillColor="#FFFFD34D"
+        android:pathData="M54,22 C55.4,28.6 57.4,30.6 64,32 C57.4,33.4 55.4,35.4 54,42 C52.6,35.4 50.6,33.4 44,32 C50.6,30.6 52.6,28.6 54,22 Z" />
+
+    <!-- 星·副（右上点缀） -->
+    <path
+        android:fillColor="#FFFFD34D"
+        android:pathData="M70,25.5 C70.5,28 70.9,28.4 73.5,29 C70.9,29.6 70.5,30 70,32.5 C69.5,30 69.1,29.6 66.5,29 C69.1,28.4 69.5,28 70,25.5 Z" />
+</vector>

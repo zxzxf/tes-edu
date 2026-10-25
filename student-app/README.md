@@ -31,6 +31,12 @@ app/src/main/java/com/tes/edu/
     ├── entities/DrillCard.kt        # 背诵卡实体
     ├── entities/WrongQuestion.kt    # 错题本实体
     └── AppDatabase.kt               # Room 数据库
+
+app/src/main/res/
+├── drawable/ic_launcher_background.xml   # 暖色渐变底（矢量）
+├── drawable/ic_launcher_foreground.xml   # 书本＋双星前景（矢量）
+├── mipmap-anydpi-v26/                    # API 26+ 自适应图标
+└── mipmap-*/                             # API 24/25 各密度 PNG 回退
 ```
 
 ## 六大能力页
@@ -92,6 +98,29 @@ app/src/main/java/com/tes/edu/
 ## 本地存储
 
 - Room 缓存**背诵卡**（`drill_cards`）与**错题本**（`wrong_questions`），无网可背可复习。
+
+## 应用图标（暖色系）
+
+品牌暖色渐变底（`#FF7A45` → `#FF5A50` → `#FF3D81`，与 `TesEduColors.Brand` /
+`BrandViolet` 同源）＋ 白色摊开书本 ＋ 琥珀双星；Android 8.0+ 走自适应图标，
+7.x 走同一图形的 PNG 回退。
+
+| 资源 | 作用 |
+|---|---|
+| `res/drawable/ic_launcher_background.xml` | 渐变底（`aapt:attr` 线性渐变，108dp 视口） |
+| `res/drawable/ic_launcher_foreground.xml` | 前景书本＋双星，图形全部落在中心 66dp 安全圆内 |
+| `res/mipmap-anydpi-v26/ic_launcher{,_round}.xml` | API 26+ 自适应图标（含 `<monochrome>` 主题图标层） |
+| `res/mipmap-{m,h,xh,xxh,xxxh}dpi/ic_launcher{,_round}.png` | API 24/25 位图回退（48 / 72 / 96 / 144 / 192 px） |
+
+改图形要**两处同步**：改 `ic_launcher_foreground.xml` 的 path 后，
+`tools/gen_launcher_icon.py` 里的贝塞尔坐标也要跟着改，再重跑
+
+```bash
+python tools/gen_launcher_icon.py   # 重出 5 个密度的 ic_launcher{,_round}.png
+```
+
+（脚本用 4× 超采样 + LANCZOS 降采样代替矢量抗锯齿，坐标基于同一 108dp 视口，
+只改一边会出现「高版本圆角、低版本走形」的割裂。）
 
 ## 本地工具链（离线自备，不依赖系统环境）
 
