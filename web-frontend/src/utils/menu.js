@@ -23,7 +23,7 @@ export const ICON_MAP = {
  *
  * 后端 /ops/*、/system/* 是管理面路径，前端路由扁平化（/knowledge 等），
  * 两边历史上各自演进，故以本表桥接；值为 null 表示后端有菜单但前端
- * 尚无对应页面（如 /system/region 属 T-AM0 前端，未建）——不出现在导航，
+ * 尚无对应页面（如 /ops/tenant 学校管理页未建）——不出现在导航，
  * 避免死链。新增前端页面时在此补一行映射即可。
  */
 export const MENU_ROUTE_MAP = {
@@ -39,8 +39,8 @@ export const MENU_ROUTE_MAP = {
   '/ops/practice': '/practice',
   '/system/menu': '/system/menu', // 菜单管理页（T-AM3 前端，2026-10-26 建）
   '/system/role': '/system/role', // 角色管理页（T-AM4 前端，2026-10-26 建）
-  '/system/region': null, // 区域管理页未建
-  '/system/vendor': null, // MCP 厂商管理页（T-AM6）未建
+  '/system/region': '/system/region', // 区域管理页（T-AM5 前端，2026-10-27 建）
+  '/system/vendor': '/system/vendor', // MCP 厂商管理页（T-AM6 前端，2026-10-27 建）
 }
 
 /** 菜单 → 可导航的前端路由；非 MENU 类型 / 未映射 / 显式 null 均返回 null */

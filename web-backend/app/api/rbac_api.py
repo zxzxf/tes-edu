@@ -1,7 +1,8 @@
-"""后台权限基座 API（T-AM0/T-AM2/T-AM3/T-AM4，T-AM8 安全加固）。
+"""后台权限基座 API（T-AM0/T-AM2/T-AM3/T-AM4/T-AM5，T-AM8 安全加固）。
 
 挂在 /api/admin 前缀下（由 Go 网关剥离前缀转发）。
 - /tenant       租户/学校基础管理（T-AM0；T-AM8 起按 resolve_scope 做区域/租户过滤）
+- /region       区域管理 CRUD（T-AM5：七大区 + 租户/用户绑定计数 + 删除守卫）
 - /menu/my     按授权返回菜单树+按钮码（T-AM2）
 - /menu        菜单管理 CRUD + 按钮级权限码（T-AM3；写操作经 require_perm 强制）
 - /role        角色管理 + 菜单授权（T-AM4；GET 回显当前授权，PUT 全量替换经 require_perm 强制）
@@ -16,7 +17,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -77,6 +78,24 @@ class MenuOut(BaseModel):
 
 class RoleMenuIn(BaseModel):
     menu_ids: List[str]
+
+
+class RegionIn(BaseModel):
+    region_id: str
+    region_code: str
+    region_name: str
+    parent_id: Optional[str] = None
+    sort: int = 0
+
+
+class RegionOut(BaseModel):
+    region_id: str
+    region_code: str
+    region_name: str
+    parent_id: Optional[str] = None
+    sort: int
+    tenant_count: int = 0  # 绑定该区域的学校数（删除守卫依据）
+    user_count: int = 0  # region_id 落在该区域的用户数（删除守卫依据）
 
 
 # ---------------- T-AM0 租户/学校管理 ----------------
@@ -151,6 +170,159 @@ async def update_tenant(
     await db.commit()
     await db.refresh(t)
     return TenantOut.model_validate(t)
+
+
+# ---------------- T-AM5 区域管理 CRUD ----------------
+async def _region_with_counts(db: AsyncSession, region) -> "RegionOut":
+    """区域行 + 绑定计数（租户数 / 用户数）。计数同时是删除守卫的前置数据。"""
+    tenant_count = (await db.execute(
+        select(func.count(func.distinct(m.SysTenant.tenant_id)))
+        .where(m.SysTenant.region_id == region.region_id)
+    )).scalar() or 0
+    user_count = (await db.execute(
+        select(func.count(func.distinct(m.SysUser.user_id)))
+        .where(m.SysUser.region_id == region.region_id)
+    )).scalar() or 0
+    return RegionOut(
+        region_id=region.region_id,
+        region_code=region.region_code,
+        region_name=region.region_name,
+        parent_id=region.parent_id,
+        sort=region.sort,
+        tenant_count=tenant_count,
+        user_count=user_count,
+    )
+
+
+@router.get("/region", response_model=List[RegionOut])
+async def list_regions(
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role(Role.ADMIN, Role.REGION_ADMIN)),
+):
+    """区域列表（含绑定的租户/用户计数，T-AM5）。
+
+    - admin        全量（可按 parent_id 查询参数再过滤）
+    - region_admin 仅本辖区（region_id 回查 sys_user，见 scope.resolve_scope）
+    """
+    scope = await scope_svc.resolve_scope(user, db)
+    stmt = (
+        select(
+            m.SysRegion,
+            func.count(func.distinct(m.SysTenant.tenant_id)).label("tenant_count"),
+            func.count(func.distinct(m.SysUser.user_id)).label("user_count"),
+        )
+        .outerjoin(m.SysTenant, m.SysTenant.region_id == m.SysRegion.region_id)
+        .outerjoin(m.SysUser, m.SysUser.region_id == m.SysRegion.region_id)
+        .group_by(m.SysRegion.region_id)
+        .order_by(m.SysRegion.sort)
+    )
+    if user["role"] == Role.REGION_ADMIN.value and scope["region_id"]:
+        stmt = stmt.where(m.SysRegion.region_id == scope["region_id"])
+    rows = (await db.execute(stmt)).all()
+    return [
+        RegionOut(
+            region_id=region.region_id,
+            region_code=region.region_code,
+            region_name=region.region_name,
+            parent_id=region.parent_id,
+            sort=region.sort,
+            tenant_count=tenant_count or 0,
+            user_count=user_count or 0,
+        )
+        for region, tenant_count, user_count in rows
+    ]
+
+
+@router.post("/region", response_model=RegionOut, status_code=201)
+async def create_region(
+    body: RegionIn,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_perm("system:region:add")),
+):
+    if body.parent_id:
+        parent = (await db.execute(
+            select(m.SysRegion).where(m.SysRegion.region_id == body.parent_id)
+        )).scalar_one_or_none()
+        if not parent:
+            raise HTTPException(status_code=400, detail="parent region not found")
+    dup = (await db.execute(
+        select(m.SysRegion).where(
+            (m.SysRegion.region_id == body.region_id)
+            | (m.SysRegion.region_code == body.region_code)
+        )
+    )).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="region_id or region_code already exists")
+    region = m.SysRegion(**body.model_dump())
+    db.add(region)
+    await db.commit()
+    await db.refresh(region)
+    return await _region_with_counts(db, region)
+
+
+@router.put("/region/{region_id}", response_model=RegionOut)
+async def update_region(
+    region_id: str,
+    body: RegionIn,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_perm("system:region:edit")),
+):
+    region = (await db.execute(
+        select(m.SysRegion).where(m.SysRegion.region_id == region_id)
+    )).scalar_one_or_none()
+    if not region:
+        raise HTTPException(status_code=404, detail="region not found")
+    if body.parent_id == region_id:
+        raise HTTPException(status_code=400, detail="region cannot be its own parent")
+    if body.region_code != region.region_code:
+        dup = (await db.execute(
+            select(m.SysRegion).where(m.SysRegion.region_code == body.region_code)
+        )).scalar_one_or_none()
+        if dup:
+            raise HTTPException(status_code=409, detail="region_code already exists")
+    for k, v in body.model_dump().items():
+        setattr(region, k, v)
+    await db.commit()
+    await db.refresh(region)
+    return await _region_with_counts(db, region)
+
+
+@router.delete("/region/{region_id}", status_code=204)
+async def delete_region(
+    region_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_perm("system:region:delete")),
+):
+    region = (await db.execute(
+        select(m.SysRegion).where(m.SysRegion.region_id == region_id)
+    )).scalar_one_or_none()
+    if not region:
+        raise HTTPException(status_code=404, detail="region not found")
+    # 删除守卫：仍有租户/用户/子区域绑定时报 400（租户与用户的 region_id 是
+    # 数据作用域锚点，见 T-AM8 scope 过滤——静默删除会把孤儿数据散落）。
+    tenant_count = (await db.execute(
+        select(func.count(func.distinct(m.SysTenant.tenant_id)))
+        .where(m.SysTenant.region_id == region_id)
+    )).scalar() or 0
+    user_count = (await db.execute(
+        select(func.count(func.distinct(m.SysUser.user_id)))
+        .where(m.SysUser.region_id == region_id)
+    )).scalar() or 0
+    child_count = (await db.execute(
+        select(func.count(func.distinct(m.SysRegion.region_id)))
+        .where(m.SysRegion.parent_id == region_id)
+    )).scalar() or 0
+    if tenant_count or user_count or child_count:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"region in use: {tenant_count} tenants, "
+                f"{user_count} users, {child_count} sub-regions"
+            ),
+        )
+    await db.delete(region)
+    await db.commit()
+    return None
 
 
 # ---------------- T-AM2 菜单树（按授权） ----------------

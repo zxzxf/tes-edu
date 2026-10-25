@@ -3,6 +3,7 @@ import client from './client'
 import {
   listMenus, createMenu, updateMenu, deleteMenu,
   listRoles, getRoleMenus, updateRoleMenus,
+  listRegions, createRegion, updateRegion, deleteRegion,
 } from './rbac'
 
 // mock 掉 axios 实例：锁定「URL + 方法 + 载荷」契约，防止前后端漂移
@@ -71,5 +72,43 @@ describe('T-AM4 角色管理 API（/role）', () => {
       '/role/role_teacher/menus',
       { menu_ids: ['m_ops', 'm_ops_reports'] },
     )
+  })
+})
+
+describe('T-AM5 区域管理 API（/region）', () => {
+  it('listRegions → GET /region，返回带绑定计数的行', async () => {
+    client.get.mockResolvedValue([
+      { region_id: 'rgn_east', region_code: 'east', region_name: '华东', tenant_count: 3, user_count: 4 },
+    ])
+    const rows = await listRegions()
+    expect(client.get).toHaveBeenCalledWith('/region')
+    expect(rows[0].tenant_count).toBe(3)
+    expect(rows[0].user_count).toBe(4)
+  })
+
+  it('createRegion → POST /region 带载荷', async () => {
+    const body = { region_id: 'rgn_test', region_code: 'test', region_name: '测试区域', parent_id: null, sort: 0 }
+    client.post.mockResolvedValue({ ...body, tenant_count: 0, user_count: 0 })
+    await createRegion(body)
+    expect(client.post).toHaveBeenCalledWith('/region', body)
+  })
+
+  it('updateRegion → PUT /region/{id} 带载荷', async () => {
+    const body = { region_id: 'rgn_east', region_code: 'east', region_name: '华东改', parent_id: null, sort: 1 }
+    client.put.mockResolvedValue(body)
+    await updateRegion('rgn_east', body)
+    expect(client.put).toHaveBeenCalledWith('/region/rgn_east', body)
+  })
+
+  it('deleteRegion → DELETE /region/{id}', async () => {
+    client.delete.mockResolvedValue('')
+    await deleteRegion('rgn_test')
+    expect(client.delete).toHaveBeenCalledWith('/region/rgn_test')
+  })
+
+  it('region_id 含特殊字符时转义（防路径注入）', async () => {
+    client.put.mockResolvedValue({})
+    await updateRegion('a/b c', { region_id: 'a/b c' })
+    expect(client.put).toHaveBeenCalledWith('/region/a%2Fb%20c', { region_id: 'a/b c' })
   })
 })

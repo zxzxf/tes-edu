@@ -115,6 +115,10 @@ services:
       # T-B5 /login 签发 RS256 令牌用；私钥对应网关 JWT_PUBLIC_KEY（secrets/jwt_private.pem）。
       # 多行 PEM 不能进 env_file，经 compose 变量 substitution 注入（2026-10-24 接线）。
       JWT_PRIVATE_KEY: "${JWT_PRIVATE_KEY:?请通过环境变量注入 web-backend 的 RS256 私钥 PEM}"
+      # T-AM6：MCP 厂商/实例凭证加密密钥（32 字节 hex/base64）。实际取值放
+      # ./web-backend.env（env_file）；此处 substitution 仅作兜底默认空串，
+      # 留空时后端从 JWT_PRIVATE_KEY 派生并告警（仅限开发联调）。
+      VENDOR_CREDENTIAL_KEY: "${VENDOR_CREDENTIAL_KEY:-}"
     networks:
       - edu-net
 

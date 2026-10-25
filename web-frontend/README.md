@@ -19,23 +19,26 @@ Vue 3 + Vite 前端骨架，对应 `web-backend` 提供的后台 API。页面已
 - `src/directives/permission.js`：`v-has-permission="'exam:generate'"` 按钮级指令（数组为任一命中；admin 恒放行；授权未就绪不误伤）；
 - `src/stores/auth.js`：`menus/perms/menuTree` + `hasPerm()` + `hasRouteAccess()`，localStorage 缓存供刷新秒开；
 - `src/router/index.js`：守卫在刷新后（有 token 无菜单）先 `await loadMenus()` 再放行，并按菜单映射做路由门禁（UX 层，后端 `require_role/require_perm` 才是安全边界）；
-- 后端按钮码示例：`exam:generate`（组卷）、`grading:submit/review`（批改）、`system:menu:add/edit/delete`（菜单管理）、`system:role:auth`（角色授权），授权矩阵见 `web-backend/app/services/rbac_seed.py::ROLE_MENU_MAP`，与各 API 的 `require_perm` 对齐。
+- 后端按钮码示例：`exam:generate`（组卷）、`grading:submit/review`（批改）、`system:menu:add/edit/delete`（菜单管理）、`system:role:auth`（角色授权）、`system:region:add/edit/delete`（区域管理）、`system:vendor:manage`（MCP 厂商管理），授权矩阵见 `web-backend/app/services/rbac_seed.py::ROLE_MENU_MAP`，与各 API 的 `require_perm` 对齐。
 
-## 管理页（T-AM3 菜单管理 / T-AM4 角色管理）
+## 管理页（T-AM3 菜单管理 / T-AM4 角色管理 / T-AM5 区域管理 / T-AM6 MCP 厂商管理）
 
-「看」的业务页之外，「管」的两个系统页面（后端 API 就绪后于 2026-10-26 补建）：
+「看」的业务页之外，「管」的四个系统页面（后端 API 就绪后于 2026-10-26/27 补建）：
 
-- `src/api/rbac.js`：菜单 CRUD（`listMenus/createMenu/updateMenu/deleteMenu`）+ 角色（`listRoles`）+ 授权回显/保存（`getRoleMenus`/`updateRoleMenus`）；
+- `src/api/rbac.js`：菜单 CRUD（`listMenus/createMenu/updateMenu/deleteMenu`）+ 角色（`listRoles`）+ 授权回显/保存（`getRoleMenus`/`updateRoleMenus`）+ 区域（`listRegions/createRegion/updateRegion/deleteRegion`）；
+- `src/api/vendor.js`：厂商 CRUD（`listVendors/createVendor/updateVendor/deleteVendor`）+ 每厂商实例 CRUD（`listInstances/createInstance/updateInstance/deleteInstance`）+ 连通测试（`testVendor`）；
 - `src/utils/tree.js`：管理面树形纯函数——`buildTree`（保留 BUTTON，区别于导航向的 `menu.js`）、`flattenTree`（附 depth 供缩进）、`subtreeIds/findNode/checkState/toggleSubtree`（授权树三态复选框父子联动）、`withAncestors`（提交前补齐祖先链：`/menu/my` 按直接关联取数，父 DIR 不授权会被挂到导航根级）；
 - `src/utils/errmsg.js`：axios 错误 → 展示文案（透传后端 FastAPI `detail`）；
 - `src/views/SystemMenu.vue`：菜单树形表格（DIR/MENU/BUTTON 逐行）+ 新建/编辑对话框（编辑时锁 menu_id、父级下拉防环）+ 删除确认（有子节点后端 400 挡）；
 - `src/views/SystemRole.vue`：角色列表 + 全量菜单授权树（含 BUTTON 权限码，三态复选框）；**授权保存是全量替换语义**，故打开页面前先 `GET /role/{id}/menus` 回显当前授权，否则空手提交会清空角色菜单。
+- `src/views/SystemRegion.vue`：七大区表格（绑定学校/用户计数列即删除守卫依据，非零时后端 DELETE 400）+ 新建/编辑对话框（编辑时锁 region_id、父级下拉排除自身与子孙防环）+ 删除确认（有绑定时确认文案带守卫提示）。
+- `src/views/SystemVendor.vue`：厂商表格（凭证只回显「已加密保存/未保存」布尔，明文任何路径不可见）+ 注册/编辑对话框（凭证密码输入，编辑留空=不覆盖）+ 每厂商数据服务实例子对话框（instance_id 锁改、连接串同样只写不回显）+ 连通测试按钮（后端解密实调 base_url，结果横幅展示 ok/HTTP 码/耗时）+ 删除守卫提示（名下有实例时后端 400）。
 
 ## 单测
 
 ```bash
 npm install
-npm test           # vitest run（74 例：菜单/树形纯函数、错误文案、API 契约、指令、store、Layout 与两个管理页组件）
+npm test           # vitest run（103 例：菜单/树形纯函数、错误文案、API 契约、指令、store、Layout 与四个管理页组件）
 ```
 
 > 环境注意：WorkBuddy 沙箱的 brokered-FS 埋点会拦截 vitest 的临时缓存写入，
@@ -57,6 +60,8 @@ npm test           # vitest run（74 例：菜单/树形纯函数、错误文案
 | `/compliance` | 合规审核 | compliance |
 | `/system/menu` | 菜单管理（T-AM3） | rbac `/menu` |
 | `/system/role` | 角色管理（T-AM4） | rbac `/role` |
+| `/system/region` | 区域管理（T-AM5） | rbac `/region` |
+| `/system/vendor` | 系统服务 MCP 厂商（T-AM6） | vendor `/vendor` |
 
 ## 启动
 

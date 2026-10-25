@@ -36,7 +36,9 @@ MENUS = [
     ("m_sys_role", "m_sys", "角色管理", "MENU", "/system/role", "Role", "role", 2, None),
     ("m_sys_role_auth", "m_sys_role", "角色授权", "BUTTON", "", "", "", 1, "system:role:auth"),
     ("m_sys_region", "m_sys", "区域管理", "MENU", "/system/region", "Region", "region", 3, None),
-    ("m_sys_region_edit", "m_sys_region", "编辑区域", "BUTTON", "", "", "", 1, "system:region:edit"),
+    ("m_sys_region_add", "m_sys_region", "新建区域", "BUTTON", "", "", "", 1, "system:region:add"),
+    ("m_sys_region_edit", "m_sys_region", "编辑区域", "BUTTON", "", "", "", 2, "system:region:edit"),
+    ("m_sys_region_del", "m_sys_region", "删除区域", "BUTTON", "", "", "", 3, "system:region:delete"),
     ("m_sys_vendor", "m_sys", "系统服务(MCP厂商)", "MENU", "/system/vendor", "Vendor", "cloud", 4, None),
     ("m_sys_vendor_manage", "m_sys_vendor", "厂商管理", "BUTTON", "", "", "", 1, "system:vendor:manage"),
 

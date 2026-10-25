@@ -52,6 +52,8 @@ def test_seed_menus_have_button_codes():
     codes = {m["permission_code"] for m in buttons}
     assert "system:menu:add" in codes
     assert "system:role:auth" in codes
+    # T-AM5：区域三按钮码（add/edit/delete）齐全
+    assert {"system:region:add", "system:region:edit", "system:region:delete"} <= codes
     # 目录/菜单 permission_code 为空
     dirs = [m for m in menus if m["menu_type"] == "DIR"]
     assert all(m["permission_code"] is None for m in dirs)

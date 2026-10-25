@@ -1,10 +1,11 @@
-"""T-AM0/1/2/3/4 权限基座集成单测（sqlite 内存库，不连生产库）。
+"""T-AM0/1/2/3/4/5 权限基座集成单测（sqlite 内存库，不连生产库）。
 
 验证主干"菜单+角色+按钮级"：
 - 启动建表 + 种子（7区域/5角色/菜单树/管理员）
 - admin 登录后 /menu/my 返回全量菜单（含按钮码）
 - parent 登录后 /menu/my 仅返回 家长周报（m_ops_reports）
 - 菜单 CRUD：admin 可建/改/删；非 admin 403
+- 区域 CRUD：admin 全量 / region_admin 仅辖区；删除守卫挡绑定租户
 - 角色授权：admin 可重设角色菜单
 - 越权：parent 调 /menu（管理接口）应 403
 """
@@ -214,3 +215,117 @@ def test_platform_users_token_carries_tenant(client):
             f"{username} 令牌缺 tenant_id，将被网关 require_tenant 403 挡死"
         )
         assert claims["role"] in ("admin", "region_admin")
+
+
+def test_region_list_admin_full_region_admin_scoped(client):
+    """T-AM5：admin 见 7 区域全量；region_admin 仅见本辖区（回查 sys_user.region_id）。
+    计数口径：种子 4 个演示账号 region_id=rgn_east，故华东 user_count=4。"""
+    _login(client, "admin@tes.edu")
+    r = client.get("/api/admin/region", headers={"X-User-Id": "u_admin", "X-User-Role": "admin"})
+    assert r.status_code == 200, r.text
+    rows = r.json()
+    codes = {x["region_code"] for x in rows}
+    assert codes == {"east", "north", "central", "south", "southwest", "northwest", "northeast"}
+    by_code = {x["region_code"]: x for x in rows}
+    assert by_code["east"]["user_count"] == 4, by_code["east"]
+    assert by_code["north"]["user_count"] == 0
+    # 种子未建学校，全部 tenant_count 为 0
+    assert all(x["tenant_count"] == 0 for x in rows)
+
+    r2 = client.get(
+        "/api/admin/region",
+        headers={"X-User-Id": "u_region_admin", "X-User-Role": "region_admin"},
+    )
+    assert r2.status_code == 200, r2.text
+    assert [x["region_code"] for x in r2.json()] == ["east"]
+
+    # 无角色头 401；parent 403
+    assert client.get("/api/admin/region").status_code == 401
+    r4 = client.get("/api/admin/region", headers={"X-User-Id": "u_parent", "X-User-Role": "parent"})
+    assert r4.status_code == 403, r4.text
+
+
+def test_region_crud_admin_ok_others_forbidden(client):
+    """T-AM5：区域 CRUD + 按钮级权限（system:region:add/edit/delete）。"""
+    headers = {"X-User-Id": "u_admin", "X-User-Role": "admin"}
+    _login(client, "admin@tes.edu")
+
+    # 非 admin 写操作 403（按钮级）
+    r_forbidden = client.post(
+        "/api/admin/region",
+        json={"region_id": "rgn_test", "region_code": "test", "region_name": "测试区域"},
+        headers={"X-User-Id": "u_parent", "X-User-Role": "parent"},
+    )
+    assert r_forbidden.status_code == 403, r_forbidden.text
+
+    body = {
+        "region_id": "rgn_test", "region_code": "test",
+        "region_name": "测试区域", "sort": 99,
+    }
+    r = client.post("/api/admin/region", json=body, headers=headers)
+    assert r.status_code == 201, r.text
+    assert r.json()["region_code"] == "test"
+
+    # 重复 region_id / region_code 均 409
+    r_dup = client.post("/api/admin/region", json=body, headers=headers)
+    assert r_dup.status_code == 409, r_dup.text
+
+    # 更新（改名）
+    r2 = client.put(
+        "/api/admin/region/rgn_test",
+        json={**body, "region_name": "测试区域改"},
+        headers=headers,
+    )
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["region_name"] == "测试区域改"
+
+    # 自设父级 400
+    r3 = client.put(
+        "/api/admin/region/rgn_test",
+        json={**body, "parent_id": "rgn_test"},
+        headers=headers,
+    )
+    assert r3.status_code == 400, r3.text
+
+    # 删除 + 重复删除 404
+    r4 = client.delete("/api/admin/region/rgn_test", headers=headers)
+    assert r4.status_code == 204, r4.text
+    r5 = client.delete("/api/admin/region/rgn_test", headers=headers)
+    assert r5.status_code == 404, r5.text
+
+
+def test_region_delete_guard_bound_tenants(client):
+    """T-AM5：删除守卫——有绑定租户时 400（tenant_count 同步 +1），
+    解绑后才可删（租户 region_id 是 T-AM8 数据作用域锚点，不可留孤儿）。"""
+    headers = {"X-User-Id": "u_admin", "X-User-Role": "admin"}
+    _login(client, "admin@tes.edu")
+    body = {"region_id": "rgn_g", "region_code": "guard", "region_name": "守卫区"}
+    assert client.post("/api/admin/region", json=body, headers=headers).status_code == 201
+
+    # 绑定一个学校到该区域
+    r = client.post(
+        "/api/admin/tenant",
+        json={"tenant_id": "t_guard", "name": "守卫学校", "region_id": "rgn_g"},
+        headers=headers,
+    )
+    assert r.status_code == 201, r.text
+
+    # 计数随绑定 +1
+    rows = client.get("/api/admin/region", headers=headers).json()
+    row = [x for x in rows if x["region_id"] == "rgn_g"][0]
+    assert row["tenant_count"] == 1, row
+
+    # 有绑定租户 → 400
+    r2 = client.delete("/api/admin/region/rgn_g", headers=headers)
+    assert r2.status_code == 400, r2.text
+    assert "1 tenants" in r2.json()["detail"]
+
+    # 解绑（改学校区域）后删除成功
+    r3 = client.put(
+        "/api/admin/tenant/t_guard",
+        json={"tenant_id": "t_guard", "name": "守卫学校", "region_id": None},
+        headers=headers,
+    )
+    assert r3.status_code == 200, r3.text
+    r4 = client.delete("/api/admin/region/rgn_g", headers=headers)
+    assert r4.status_code == 204, r4.text

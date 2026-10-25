@@ -50,12 +50,14 @@ recreate_via_compose() {
   #   JWT_PUBLIC_KEY   secrets/jwt_public.pem   （网关验签）
   #   JWT_PRIVATE_KEY  secrets/jwt_private.pem  （web-backend 签发，对应上面公钥）
   #   REDIS_PASSWORD   .env 首行               （限流令牌桶）
+  #   VENDOR_CREDENTIAL_KEY  .env（T-AM6 厂商凭证加密；缺省空串→后端从 JWT 派生并告警）
   echo "==> compose 换容器 + 健康检查"
   ssh -i "${KEY}" -o StrictHostKeyChecking=no "${HOST}" \
       "set -e; cd /opt/tes-edu-gateway && \
        JWT_PUBLIC_KEY=\"\$(cat secrets/jwt_public.pem)\" \
        JWT_PRIVATE_KEY=\"\$(cat secrets/jwt_private.pem)\" \
        REDIS_PASSWORD=\"\$(sed -n 's/^REDIS_PASSWORD=//p' .env)\" \
+       VENDOR_CREDENTIAL_KEY=\"\$(sed -n 's/^VENDOR_CREDENTIAL_KEY=//p' .env)\" \
        docker compose up -d agent-backend web-backend; \
        sleep 5; \
        for c in edu-agent-backend edu-web-backend; do \

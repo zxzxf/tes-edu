@@ -8,6 +8,8 @@ const flat = [
   { menu_id: 'm_sys', parent_id: null, menu_name: '系统设置', menu_type: 'DIR', path: '/system', sort: 1 },
   { menu_id: 'm_sys_menu', parent_id: 'm_sys', menu_name: '菜单管理', menu_type: 'MENU', path: '/system/menu', sort: 1 },
   { menu_id: 'm_sys_menu_add', parent_id: 'm_sys_menu', menu_name: '新建菜单', menu_type: 'BUTTON', path: '', sort: 1, permission_code: 'system:menu:add' },
+  { menu_id: 'm_sys_region', parent_id: 'm_sys', menu_name: '区域管理', menu_type: 'MENU', path: '/system/region', sort: 3 },
+  { menu_id: 'm_sys_vendor', parent_id: 'm_sys', menu_name: '系统服务(MCP厂商)', menu_type: 'MENU', path: '/system/vendor', sort: 4 },
   { menu_id: 'm_ops', parent_id: null, menu_name: '区域运营', menu_type: 'DIR', path: '/ops', sort: 2 },
   { menu_id: 'm_ops_analytics', parent_id: 'm_ops', menu_name: '学情看板', menu_type: 'MENU', path: '/ops/analytics', sort: 3 },
   { menu_id: 'm_ops_exam', parent_id: 'm_ops', menu_name: '自动组卷', menu_type: 'MENU', path: '/ops/exam', sort: 5 },
@@ -84,15 +86,15 @@ describe('routePathOf（后端 path → 前端路由映射）', () => {
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/knowledge' })).toBe('/knowledge')
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/error-distribution' })).toBe('/error-distribution')
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/wrong' })).toBe('/wrong-questions')
-    // T-AM3/T-AM4 前端管理页（2026-10-26 建）后，/system/* 两个管理页可导航
+    // T-AM3/T-AM4/T-AM5/T-AM6 前端管理页（2026-10-26/27 建）后，/system/* 四个管理页可导航
     expect(routePathOf({ menu_type: 'MENU', path: '/system/menu' })).toBe('/system/menu')
     expect(routePathOf({ menu_type: 'MENU', path: '/system/role' })).toBe('/system/role')
+    expect(routePathOf({ menu_type: 'MENU', path: '/system/region' })).toBe('/system/region')
+    expect(routePathOf({ menu_type: 'MENU', path: '/system/vendor' })).toBe('/system/vendor')
   })
 
   it('前端无页面的菜单（null）不导航', () => {
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/tenant' })).toBe(null)
-    expect(routePathOf({ menu_type: 'MENU', path: '/system/region' })).toBe(null)
-    expect(routePathOf({ menu_type: 'MENU', path: '/system/vendor' })).toBe(null)
   })
 
   it('未知 path / 非 MENU / 空 path 一律 null（fail-closed）', () => {
@@ -113,9 +115,11 @@ describe('routePathOf（后端 path → 前端路由映射）', () => {
 describe('toNavGroups', () => {
   it('DIR 成分组；无前端页面的菜单与空分组被剔除', () => {
     const groups = toNavGroups(buildMenuTree(flat))
-    // T-AM3 前端建好后，系统设置组（含 /system/menu 映射）出现在导航中
+    // T-AM3~T-AM6 前端建好后，系统设置组（含 menu/role/region/vendor 映射）出现在导航中
     expect(groups.map((g) => g.label)).toEqual(['系统设置', '区域运营'])
-    expect(groups[0].items.map((i) => i.to)).toEqual(['/system/menu'])
+    expect(groups[0].items.map((i) => i.to)).toEqual([
+      '/system/menu', '/system/region', '/system/vendor',
+    ])
     expect(groups[1].items.map((i) => i.to)).toEqual(['/analytics', '/exam', '/reports'])
   })
 

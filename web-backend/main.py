@@ -28,6 +28,7 @@ from app.api import (
     questions,
     reports,
     rbac_api,
+    vendor_api,
     wrong_questions,
 )
 from app.core.config import settings
@@ -173,7 +174,8 @@ app.include_router(llm_usage.router, prefix="/api/admin")  # T-D3 LLM 用量与�
 app.include_router(compliance.router, prefix="/api/admin")
 app.include_router(questions.router, prefix="/api/admin")
 app.include_router(ingest.router, prefix="/api/admin")
-app.include_router(rbac_api.router, prefix="/api/admin")  # T-AM0/2/3/4 权限基座
+app.include_router(rbac_api.router, prefix="/api/admin")  # T-AM0/2/3/4/5 权限基座
+app.include_router(vendor_api.router, prefix="/api/admin")  # T-AM6 MCP 厂商与数据服务实例
 
 # T-B5：C 端直连挂载（网关 /login 与 /learning/ 路由按原路径转发、不做前缀改写，
 # 2026-10-24 部署时发现单挂 /api/admin 会导致网关侧 404，故补根路径双挂载）。
