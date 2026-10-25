@@ -70,8 +70,11 @@ def client():
             from app.services import rbac_seed
 
             pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
-            await rbac_seed.seed_rbac(db, pwd.hash("demo1234"))
 
+            # 先建本文件专属用户/租户（school/teacher 属 t_east_a，供区域/租户
+            # 隔离断言），再跑种子——种子按 username 逐条 upsert，会自动跳过
+            # 已存在的 school@tes.edu / teacher@tes.edu（T-AM7 起种子也含
+            # 五角色演示账号，顺序反了会撞 sys_user.username UNIQUE）。
             # 三所学校：两所在华东（u_region_admin 辖区），一所在华北
             for tid, name, region in [
                 ("t_east_a", "华东一中", "rgn_east"),
@@ -99,6 +102,8 @@ def client():
                 occurred_at=datetime.now(timezone.utc),
             ))
             await db.commit()
+
+            await rbac_seed.seed_rbac(db, pwd.hash("demo1234"))
 
     asyncio.run(bootstrap())
 

@@ -99,7 +99,10 @@ chmod 600 /opt/tes-edu-gateway/.env *.env
 5. **Redis 主从**：137 为主、106 为从，见 `gateway/redis/` 下的计划与监控脚本。
 6. **容器归 compose 管理**：勿再用 `docker run` 直接起 `edu-*-backend`（会与 compose 争抢容器名，`up` 报 Conflict）；换装一律交还 compose。
 7. **web-front 必须显式挂 edu-net**：compose 服务不写 `networks: - edu-net` 会落到项目默认网络 `tes-edu-gateway_default`，与 gateway/lb 不同网——其 nginx 的 `gateway` 上游启动解析即 `[emerg] host not found in upstream` 崩溃循环（2026-10-24 T-E1 踩坑）。容器内 `/api` 反代已同时改为 `resolver 127.0.0.11 + 变量 proxy_pass`，对网关重建免疫。
-8. **B 端登录 token 必须带 tenant_id**：网关 `/api/admin/*` 路由 `require_tenant: true`，JWT 无 `tenant_id` claim 一律 403（管理后台能打开但全部数据接口被挡）。`create_token(user_id, role, tenant_id=...)` 已支持；C 端 student 不带（`/learning/*` 为 jwt_c 路由，不要求租户）。
+8. **B 端登录 token 必须带 tenant_id**：网关 `/api/admin/*` 路由 `require_tenant: true`，JWT 无 `tenant_id` claim 一律 403（管理后台能打开但全部数据接口被挡）。`create_token(user_id, role, tenant_id=...)` 已支持；C 端 student 不带（`/learning/*` 为 jwt_c 路由，不要求租户）。平台级用户（admin/region_admin，`sys_user.tenant_id` 为空）由 auth.py 签发时补 `"platform"` 占位。
+9. **全量 `docker compose up` 曾撞 web-front 容器名（2026-10-25 已修复）**：`edu-web-front` 早期是 `docker run` 起的独立容器（无 compose 标签），compose 文件后来才加 web-front 服务，期间从未全量 up 过。**不指定服务名的 `up`（如 `./start.sh build`）会尝试创建 edu-web-front 而 Conflict 中止——且中止前 gateway 副本显示 "Recreate" 实际未换**（静默半成品，必须 `docker ps` 核对 CreatedAt）。已通过 `docker rm -f edu-web-front` + `compose up -d web-front` 收编，后续全量 up 正常；应急时可指定服务名绕过：`docker compose up -d --build --scale gateway=2 gateway`。
+10. **bcrypt 5.0.0 与 passlib 1.7.4 不兼容（2026-10-25 踩坑）**：`passlib[bcrypt]` extra 会解析到最新 bcrypt，5.0.0 移除 `__about__` 属性使 `CryptContext.hash()` 抛 "password cannot be longer than 72 bytes"。RBAC 种子在 lifespan 里 try/except 只打 warning **不阻断启动**，healthz 照样 ok——表象是"服务正常但 sys_user/sys_menu 全空、动态菜单 0 节点、登录走明文兜底"。已锁 `bcrypt==4.1.3`（与本地 208 绿测试环境同版本）。**教训：seed/迁移类初始化必须查 DB 行数验收，不能只看 healthz**。
+11. **137 直连 PyPI 仅 ~25kB/s**：web-backend Dockerfile 已切阿里云镜像（`mirrors.aliyun.com/pypi/simple/`），全量依赖安装从 30min+ 降到 <1min；agent-backend 构建如遇同类慢可照做。
 
 ## Kafka 模式决策：ZK → KRaft（T-E2 评估结论，2026-10-25）
 

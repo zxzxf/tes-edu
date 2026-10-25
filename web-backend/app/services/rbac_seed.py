@@ -143,15 +143,51 @@ def build_seed_region_admin_user(password_hash: str) -> dict:
     }
 
 
+def build_seed_school_user(password_hash: str) -> dict:
+    return {
+        "user_id": "u_school",
+        "username": "school@tes.edu",
+        "password_hash": password_hash,
+        "tenant_id": "demo",  # 与 auth.py _FAKE_USERS 的 _DEMO_TENANT 一致
+        "region_id": "rgn_east",
+    }
+
+
+def build_seed_teacher_user(password_hash: str) -> dict:
+    return {
+        "user_id": "u_teacher",
+        "username": "teacher@tes.edu",
+        "password_hash": password_hash,
+        "tenant_id": "demo",
+        "region_id": "rgn_east",
+    }
+
+
+def build_seed_parent_user(password_hash: str) -> dict:
+    return {
+        "user_id": "u_parent",
+        "username": "parent@tes.edu",
+        "password_hash": password_hash,
+        "tenant_id": "demo",
+        "region_id": "rgn_east",
+    }
+
+
 def build_seed_user_roles() -> List[dict]:
-    """平台级用户（admin / region_admin）的用户-角色关联。
+    """五角色演示账号的用户-角色关联（平台级 + 租户级各一）。
 
     SysUserRole.tenant_id 是主键且非空；平台角色无具体租户，用 "platform" 占位，
     避免种子漏建关联导致 /login 查不到 role_code（role=None → 鉴权链路全断）。
+    租户级账号（school/teacher/parent）挂 "demo" 租户——不建 sys_user 行时，
+    这些账号走 auth.py _FAKE_USERS 明文兜底，无权角色关联，/menu/my 返回空
+    （T-AM7 联调实测：teacher/parent 动态菜单 0 节点），故补种子。
     """
     return [
         {"user_id": "u_admin", "role_id": "role_admin", "tenant_id": "platform"},
         {"user_id": "u_region_admin", "role_id": "role_region_admin", "tenant_id": "platform"},
+        {"user_id": "u_school", "role_id": "role_school", "tenant_id": "demo"},
+        {"user_id": "u_teacher", "role_id": "role_teacher", "tenant_id": "demo"},
+        {"user_id": "u_parent", "role_id": "role_parent", "tenant_id": "demo"},
     ]
 
 
@@ -211,21 +247,33 @@ async def seed_rbac(db, password_hash: str, bcrypt=None) -> dict:
         db.add(SysRoleMenu(**rm))
     stats["role_menus"] = len(new_rm)
 
-    # 用户（admin / region_admin）
-    existing = (await db.execute(
-        select(SysUser.user_id).where(SysUser.username.in_(["admin@tes.edu", "region_admin@tes.edu"]))
-    )).scalars().all()
-    if not existing:
-        db.add(SysUser(**build_seed_admin_user(password_hash)))
-        db.add(SysUser(**build_seed_region_admin_user(password_hash)))
-        stats["users"] = 2
+    # 用户（五角色演示账号；按 username 逐条 upsert，线上旧库补插不漏）
+    all_seed_users = [
+        build_seed_admin_user(password_hash),
+        build_seed_region_admin_user(password_hash),
+        build_seed_school_user(password_hash),
+        build_seed_teacher_user(password_hash),
+        build_seed_parent_user(password_hash),
+    ]
+    existing = set((await db.execute(select(SysUser.username))).scalars().all())
+    new_users = [u for u in all_seed_users if u["username"] not in existing]
+    for u in new_users:
+        db.add(SysUser(**u))
+    stats["users"] = len(new_users)
 
-    # 用户-角色关联（admin / region_admin）；依赖用户已建
-    existing = (await db.execute(select(SysUserRole.user_id))).scalars().all()
-    if not existing:
-        for ur in build_seed_user_roles():
-            db.add(SysUserRole(**ur))
-        stats["user_roles"] = len(build_seed_user_roles())
+    # 用户-角色关联（按 (user_id, role_id) upsert：补插缺失对，不删既有授权）
+    existing_ur = {
+        tuple(r) for r in (
+            await db.execute(select(SysUserRole.user_id, SysUserRole.role_id))
+        ).all()
+    }
+    new_ur = [
+        ur for ur in build_seed_user_roles()
+        if (ur["user_id"], ur["role_id"]) not in existing_ur
+    ]
+    for ur in new_ur:
+        db.add(SysUserRole(**ur))
+    stats["user_roles"] = len(new_ur)
 
     await db.commit()
     return stats

@@ -73,7 +73,9 @@ def client():
             stats = await rbac_seed.seed_rbac(db, pwd.hash("demo1234"))
             assert stats["roles"] == 5 and stats["menus"] == len(rbac_seed.MENUS)
             # 关键断言：种子必须建立用户-角色关联，否则 /login 查不到 role_code
-            assert stats["user_roles"] == 2, f"种子漏建用户-角色关联: {stats}"
+            # （T-AM7：五角色演示账号各一条，含租户级 school/teacher/parent）
+            assert stats["user_roles"] == 5, f"种子漏建用户-角色关联: {stats}"
+            assert stats["users"] == 5, f"种子漏建演示账号: {stats}"
 
     asyncio.run(bootstrap())
 
@@ -115,12 +117,13 @@ def test_admin_menu_my_returns_full_tree(client):
 
 
 def test_parent_menu_my_only_reports(client):
-    token = _login(client, "parent@tes.edu")  # 占位库回退（无 parent 种子）
-    # 占位库无 parent@tes.edu 密码，改用网关透传身份头（无 DB 时 login 走占位）
+    # T-AM7 起 parent@tes.edu 有种子账号（u_parent + role_parent），
+    # /menu/my 按角色聚合：仅「区域运营」DIR + 「家长周报」，看不到运维页面
+    token = _login(client, "parent@tes.edu")  # 种子账号，DB bcrypt 校验
     r = client.get("/api/admin/menu/my", headers={"X-User-Id": "u_parent", "X-User-Role": "parent"})
-    # 非 admin 经 _query_user_menu_codes，但 sqlite 无该用户 -> 空
     assert r.status_code == 200
-    assert r.json() == []
+    names = {x["menu_name"] for x in r.json()}
+    assert names == {"区域运营", "家长周报"}, names
 
 
 def test_menu_crud_admin_ok_others_forbidden(client):
