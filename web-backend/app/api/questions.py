@@ -16,7 +16,7 @@ router = APIRouter(prefix="/questions", tags=["questions"])
 @router.get("", response_model=List[QuestionOut])
 async def list_questions(
     limit: int = Query(50, le=200),
-    user=Depends(require_role(Role.ADMIN, Role.RESEARCHER, Role.TEACHER)),
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     return await svc.list_questions(db, limit=limit)
@@ -29,7 +29,7 @@ async def search(
     type: Optional[str] = None,
     knowledge_point: Optional[str] = None,
     limit: int = Query(50, le=200),
-    user=Depends(require_role(Role.ADMIN, Role.RESEARCHER, Role.TEACHER)),
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     return await svc.search_questions(

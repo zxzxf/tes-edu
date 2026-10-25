@@ -38,7 +38,7 @@ async def _dispatch(rows: List[dict], db: AsyncSession, force_sync: bool = False
 async def import_json(
     payload: List[QuestionIn],
     sync: bool = Query(False, description="强制同步写库（跳过 Kafka）"),
-    user=Depends(require_role(Role.ADMIN, Role.RESEARCHER)),
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     # 过 parser 统一字段并生成 content_hash（去重指纹）
@@ -51,7 +51,7 @@ async def import_json(
 async def import_upload(
     file: UploadFile = File(...),
     sync: bool = Query(False, description="强制同步写库（跳过 Kafka）"),
-    user=Depends(require_role(Role.ADMIN, Role.RESEARCHER)),
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     content = await file.read()

@@ -27,6 +27,7 @@ from app.api import (
     metrics,
     questions,
     reports,
+    rbac_api,
     wrong_questions,
 )
 from app.core.config import settings
@@ -35,19 +36,38 @@ from app.core.db import get_db
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("web-backend")
 
-_worker_tasks: list = []
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _worker_tasks: list = []  # 局部初始化；kafka 未启用时也为空，避免 teardown UnboundLocalError
     # 1) 建表幂等；DB 未就绪时不阻断服务启动
     try:
         from app.services import course_kb as svc
+        from app.core.db import engine
 
         await svc.init_course_kb()
         logger.info("course_kb 表初始化完成")
     except Exception as e:  # noqa: BLE001
         logger.warning("course_kb 初始化跳过：%s", e)
+
+    # 1.5) 权限基座建表 + 种子（T-AM0/1：sys_* 表 + 7区域/5角色/菜单树/管理员）
+    try:
+        from app.core.db import engine
+        from app.services import rbac_seed
+
+        await rbac_seed.init_rbac(engine)
+        logger.info("权限基座表初始化完成")
+
+        # 种子：用 bcrypt 给管理员默认密码（demo1234）哈希
+        async for db in get_db():
+            from passlib.context import CryptContext
+
+            pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            stats = await rbac_seed.seed_rbac(db, pwd.hash("demo1234"))
+            if any(v for v in stats.values()):
+                logger.info("权限基座种子写入：%s", stats)
+            break
+    except Exception as e:  # noqa: BLE001
+        logger.warning("权限基座初始化跳过：%s", e)
 
     # 2) Kafka 消费端：题库入库 + 学情事件；未配置则入库接口自动降级为同步直写
     if settings.kafka_enabled:
@@ -153,6 +173,7 @@ app.include_router(llm_usage.router, prefix="/api/admin")  # T-D3 LLM 用量与�
 app.include_router(compliance.router, prefix="/api/admin")
 app.include_router(questions.router, prefix="/api/admin")
 app.include_router(ingest.router, prefix="/api/admin")
+app.include_router(rbac_api.router, prefix="/api/admin")  # T-AM0/2/3/4 权限基座
 
 # T-B5：C 端直连挂载（网关 /login 与 /learning/ 路由按原路径转发、不做前缀改写，
 # 2026-10-24 部署时发现单挂 /api/admin 会导致网关侧 404，故补根路径双挂载）。

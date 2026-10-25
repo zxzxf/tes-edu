@@ -52,3 +52,9 @@ student-app/local.properties
 student-app/.gradle/
 student-app/build/
 student-app/app/build/
+
+# 本地 RBAC 单测 venv（Python 3.11，非仓库依赖）
+web-backend/.venv_rbac/
+
+# ---- 文档流水线中间产物（交付物统一落 docx/，此处不入库）----
+output/

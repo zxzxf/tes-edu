@@ -18,7 +18,9 @@ from app.models import ops as _ops  # noqa: F401  注册运营实体表，随 cr
 
 async def init_course_kb() -> None:
     async with engine.begin() as conn:
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        # pgvector 扩展仅 PostgreSQL 支持；sqlite（本地单测）跳过，避免语法错误。
+        if engine.dialect.name == "postgresql":
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

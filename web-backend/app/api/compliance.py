@@ -20,7 +20,7 @@ router = APIRouter(prefix="/compliance", tags=["compliance"])
 @router.get("", response_model=List[ComplianceItem])
 async def list_items(
     status: str = Query(None),
-    user=Depends(require_role(Role.ADMIN, Role.RESEARCHER)),
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     return await ops.list_compliance(db, status=status)
@@ -29,7 +29,7 @@ async def list_items(
 @router.post("", response_model=ComplianceItem)
 async def create_item(
     item: ComplianceItem,
-    user=Depends(require_role(Role.ADMIN, Role.RESEARCHER)),
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     return await ops.create_compliance(db, item.model_dump(exclude={"id"}))
@@ -39,7 +39,7 @@ async def create_item(
 async def review(
     item_id: int,
     status: str = Query(...),
-    user=Depends(require_role(Role.ADMIN, Role.RESEARCHER)),
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     obj = await ops.get_compliance(db, item_id)

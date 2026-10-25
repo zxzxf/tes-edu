@@ -42,7 +42,7 @@ router = APIRouter(prefix="/exam", tags=["exam"])
 @router.post("/generate", response_model=ExamPaper)
 def generate(
     paper: ExamPaper,
-    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.RESEARCHER)),
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
 ):
     # 占位：真实场景按知识点+难度从 questions 抽题，LLM 排版
     paper.id = 1

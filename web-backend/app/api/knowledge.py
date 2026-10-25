@@ -21,7 +21,7 @@ router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 async def list_knowledge(
     subject: Optional[str] = Query(None, description="按学科过滤"),
     grade: Optional[str] = Query(None, description="按年级过滤"),
-    user=Depends(require_role(Role.ADMIN, Role.RESEARCHER)),
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     return await ops.list_knowledge(db, subject=subject, grade=grade)
@@ -30,7 +30,7 @@ async def list_knowledge(
 @router.post("", response_model=KnowledgePoint)
 async def create_knowledge(
     kp: KnowledgePoint,
-    user=Depends(require_role(Role.ADMIN, Role.RESEARCHER)),
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     return await ops.create_knowledge(db, kp.model_dump(exclude={"id"}))
