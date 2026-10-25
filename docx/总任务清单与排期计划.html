@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tes Edu 总任务清单与排期计划 · 2026-10-25</title>
+<style>
+  :root{
+    --bg:#ffffff; --surface:#f7f6f3; --border:rgba(0,0,0,.12); --border-strong:rgba(0,0,0,.25);
+    --text:#1f1f1f; --text-2:#5f5e5a; --text-3:#888780;
+    --green-bg:#EAF3DE; --green:#3B6D11; --green-bar:#639922;
+    --amber-bg:#FAEEDA; --amber:#854F0B; --amber-bar:#EF9F27;
+    --red-bg:#FCEBEB; --red:#A32D2D; --red-bar:#E24B4A;
+    --blue-bg:#E6F1FB; --blue:#185FA5;
+    --track:#F1EFE8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--surface);color:var(--text);font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;font-size:13px;line-height:1.6;padding:24px 16px;}
+  .page{max-width:1040px;margin:0 auto;background:var(--bg);border:0.5px solid var(--border);border-radius:16px;padding:32px 36px;}
+  h1{font-size:20px;font-weight:500;letter-spacing:.2px;}
+  h2{font-size:15px;font-weight:500;margin:30px 0 12px;padding-bottom:6px;border-bottom:0.5px solid var(--border);}
+  h3{font-size:13px;font-weight:500;margin:18px 0 8px;color:var(--text);}
+  .meta{font-size:12px;color:var(--text-2);margin-top:6px;}
+  .mono{font-family:"Cascadia Code",Consolas,"Courier New",monospace;font-size:12px;}
+  code{font-family:"Cascadia Code",Consolas,"Courier New",monospace;font-size:12px;background:var(--surface);padding:1px 5px;border-radius:4px;}
+  a{color:var(--blue);}
+
+  .chip{display:inline-block;font-size:11px;line-height:1;padding:4px 9px;border-radius:9px;white-space:nowrap;}
+  .chip.done{background:var(--green-bg);color:var(--green);}
+  .chip.pend{background:var(--amber-bg);color:var(--amber);}
+  .chip.block{background:var(--red-bg);color:var(--red);}
+  .chip.info{background:var(--blue-bg);color:var(--blue);}
+  .chip.todo{background:var(--track);color:var(--text-2);}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none;}
+  .dot.done{background:var(--green-bar);} .dot.pend{background:var(--amber-bar);} .dot.block{background:var(--red-bar);}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:18px 0 6px;}
+  .kpi{background:var(--surface);border-radius:10px;padding:14px 16px;}
+  .kpi .label{font-size:12px;color:var(--text-2);}
+  .kpi .value{font-size:24px;font-weight:500;margin-top:2px;}
+  .kpi .sub{font-size:12px;font-weight:400;color:var(--text-2);}
+
+  .note{background:var(--surface);border-radius:10px;padding:12px 16px;margin:12px 0;font-size:12.5px;}
+  .note b{font-weight:500;}
+  .note ul{margin:6px 0 0 18px;} .note li{margin:4px 0;}
+
+  table{width:100%;border-collapse:collapse;margin:10px 0 6px;font-size:12.5px;}
+  th{text-align:left;font-weight:500;color:var(--text-2);border-bottom:0.5px solid var(--border-strong);padding:7px 8px;white-space:nowrap;}
+  td{padding:7px 8px;border-bottom:0.5px solid var(--border);vertical-align:top;}
+  tbody tr:hover{background:var(--surface);}
+  td.num,th.num{text-align:center;}
+  tr.total td{font-weight:500;background:var(--surface);}
+
+  pre{background:var(--surface);border-radius:8px;padding:12px 14px;font-family:"Cascadia Code",Consolas,"Courier New",monospace;font-size:12px;line-height:1.5;overflow-x:auto;margin:10px 0;}
+
+  .wave{display:inline-block;font-size:11px;font-weight:500;padding:3px 8px;border-radius:6px;background:var(--blue-bg);color:var(--blue);}
+
+  footer{margin-top:26px;padding-top:14px;border-top:0.5px solid var(--border);font-size:12px;color:var(--text-3);}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Tes Edu · 总任务清单与排期计划</h1>
+  <div class="meta">全量汇总 · 汇总日期 2026-10-25 · 数据源：后台权限与系统集成 v2.3 / 学生端能力扩展 / BYOM / <b>学生Agent与学生端应用</b> / P2 计划书</div>
+  <div class="meta">完成度图例：<span class="chip done">✅ 已完成</span> <span class="chip pend">🟡 部分完成</span> <span class="chip todo">⬜ 未开始（0% 实现）</span> ｜ 估点口径：小=0.5d、小–中=0.75d、中=1d、中–高=1.5d、高=2d</div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">待办任务</div><div class="value">55</div><div class="sub">全部 0% 实现（仅规划）</div></div>
+    <div class="kpi"><div class="label">P2 历史已完成</div><div class="value">11<span class="sub">/13</span></div><div class="sub">剩 T-C5 等 3 项遗留</div></div>
+    <div class="kpi"><div class="label">全量工作量</div><div class="value">≈62.5<span class="sub">人天</span></div><div class="sub">波次 59.5d + P2 遗留 3d</div></div>
+    <div class="kpi"><div class="label">排期波次</div><div class="value">9</div><div class="sub">W1 地基 → W9 学生 App</div></div>
+  </div>
+
+  <div class="note">
+    <b>一句话现状：</b>历史 P2 主线 <b>11/13 已完成</b>；本期新增的 <b>55 项任务全部处于"规划完成、代码 0%"</b> 状态——本轮工作产出的是<b>方案与排期</b>，尚未写实现代码。
+  </div>
+
+  <h2>一、总览（完成度仪表盘）</h2>
+  <table>
+    <thead><tr><th>分类</th><th class="num">任务数</th><th class="num">已完成</th><th class="num">部分</th><th class="num">未开始</th><th class="num">估点小计</th></tr></thead>
+    <tbody>
+      <tr><td>P2 历史交付（T-C/D/E/F/B5）</td><td class="num">13</td><td class="num"><b>11</b></td><td class="num">1（T-E2 仅评估）</td><td class="num">1（T-C5）</td><td class="num">—</td></tr>
+      <tr><td>后台权限与系统集成（T-AM）</td><td class="num">9</td><td class="num">0</td><td class="num">0</td><td class="num"><b>9</b></td><td class="num">9.75d</td></tr>
+      <tr><td>MCP 商业化（T-B）</td><td class="num">6</td><td class="num">0</td><td class="num">0</td><td class="num"><b>6</b></td><td class="num">8d</td></tr>
+      <tr><td>学生端·项目（T-S）</td><td class="num">4</td><td class="num">0</td><td class="num">0</td><td class="num"><b>4</b></td><td class="num">4d</td></tr>
+      <tr><td>学生端·功能开关（T-F）</td><td class="num">4</td><td class="num">0</td><td class="num">0</td><td class="num"><b>4</b></td><td class="num">4.5d</td></tr>
+      <tr><td>学生端·防疲劳（T-A）</td><td class="num">3</td><td class="num">0</td><td class="num">0</td><td class="num"><b>3</b></td><td class="num">2.25d</td></tr>
+      <tr><td>BYOM 学校配模型（T-M）</td><td class="num">4</td><td class="num">0</td><td class="num">0</td><td class="num"><b>4</b></td><td class="num">4.5d</td></tr>
+      <tr><td>P2 遗留（T-C5/F2/E2实施）</td><td class="num">3</td><td class="num">0</td><td class="num">0</td><td class="num"><b>3</b></td><td class="num">3d</td></tr>
+      <tr><td>学生 AI 学习智能体（T-SA，含多智能体 A.5）</td><td class="num">14</td><td class="num">0</td><td class="num">0</td><td class="num"><b>14</b></td><td class="num">18.75d</td></tr>
+      <tr><td>学生端应用 student-app（T-AP）</td><td class="num">8</td><td class="num">0</td><td class="num">0</td><td class="num"><b>8</b></td><td class="num">7.75d</td></tr>
+      <tr class="total"><td>合计（待办）</td><td class="num">55</td><td class="num">0</td><td class="num">0</td><td class="num">55</td><td class="num">≈62.5d</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>关键量化基线（2026-10-25 实测）</b>
+    <ul>
+      <li>后端单测 <b>401 绿</b>（agent 229 + web 172）</li>
+      <li>知识点本体/DAG <b>435/435</b>；真实题库 <b>213 题</b>（验收目标 3000，<span class="chip block">未达标</span>）</li>
+      <li>137 容器 <b>7/7 Up</b>；公网 <code>https://sd12sd.icu/admin/</code> <b>200（Cloudflare）</b></li>
+      <li>学生 App debug APK（16MB）已连生产域名 <code>https://sd12sd.icu/</code></li>
+      <li><span class="chip block">⚠</span> 主 LLM 端点 <b>403 配额耗尽</b>，线上主解全量降级兜底</li>
+    </ul>
+  </div>
+
+  <h2>二、已完成任务（历史交付，P2 主线）</h2>
+  <table>
+    <thead><tr><th>任务</th><th>内容</th><th>完成度</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">T-C1</td><td>意图识别 + 三档响应路由</td><td><span class="chip done">✅ 2026-10-24</span></td></tr>
+      <tr><td class="mono">T-C2</td><td>Hint 阶梯 L0–L4</td><td><span class="chip done">✅ 2026-10-24</span></td></tr>
+      <tr><td class="mono">T-C3</td><td>题型路由 + 分步拆解 + 直接看解析</td><td><span class="chip done">✅ 2026-10-24</span></td></tr>
+      <tr><td class="mono">T-C4</td><td>六项埋点指标采集</td><td><span class="chip done">✅ 2026-10-25</span></td></tr>
+      <tr><td class="mono">T-D1</td><td>请求级缓存与去重</td><td><span class="chip done">✅ 已上线</span></td></tr>
+      <tr><td class="mono">T-D2</td><td>模型路由分级</td><td><span class="chip done">✅ 已上线</span></td></tr>
+      <tr><td class="mono">T-D3</td><td>降级策略 + 用量监控与预算告警</td><td><span class="chip done">✅ 已上线</span></td></tr>
+      <tr><td class="mono">T-E1</td><td>web-frontend 部署（<code>/admin/</code> 子路径）</td><td><span class="chip done">✅ 2026-10-24</span></td></tr>
+      <tr><td class="mono">T-E2</td><td>Kafka ZK→KRaft</td><td><span class="chip pend">🟡 评估完成</span> 实施推迟至试点后首周</td></tr>
+      <tr><td class="mono">T-E3</td><td>Android 真机编译验证</td><td><span class="chip done">✅ 已建 android.yml 门禁并勾除</span></td></tr>
+      <tr><td class="mono">T-F1</td><td><code>student_mastery</code> 键对齐修复（1/12→11/12）</td><td><span class="chip done">✅ 已上线</span></td></tr>
+      <tr><td class="mono">T-B5</td><td>App 图谱可视化</td><td><span class="chip done">✅ 2026-10-24</span></td></tr>
+      <tr><td class="mono">T-C5</td><td>（P2 收尾，依赖试点流水）</td><td><span class="chip todo">⬜ 未做</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2>三、待办任务总清单（33 项）</h2>
+
+  <h3>3.1 后台权限与系统集成（T-AM 系列，9 项 / 9.75d）</h3>
+  <table>
+    <thead><tr><th>任务</th><th>内容</th><th>依赖</th><th class="num">估点</th><th class="num">完成度</th><th class="num">波次</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">T-AM0</td><td>租户/学校基础管理：<code>/api/admin/tenant</code> CRUD + region 绑定（补齐 P2 缺口）</td><td>—</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W1</span></td></tr>
+      <tr><td class="mono">T-AM1</td><td>8 张表模型 + <b>引入 Alembic</b> + 种子（7 区域/5 角色/菜单树）+ 替换 <code>_FAKE_USERS</code> + rbac 枚举调整</td><td>T-AM0</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W2</span></td></tr>
+      <tr><td class="mono">T-AM2</td><td>权限引擎 <code>require_perm</code> + <code>/menu/my</code> + Redis 缓存，废弃 <code>ROLE_MODULES</code></td><td>T-AM1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W2</span></td></tr>
+      <tr><td class="mono">T-AM3</td><td>菜单管理 CRUD + 按钮级权限码 + 树形校验</td><td>T-AM2</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W2</span></td></tr>
+      <tr><td class="mono">T-AM4</td><td>角色管理 + <code>sys_role_menu</code> 授权，五角色矩阵落地</td><td>T-AM2</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W2</span></td></tr>
+      <tr><td class="mono">T-AM5</td><td>区域管理：七大区 CRUD + <code>region_id</code> 数据作用域</td><td>T-AM1</td><td class="num">0.75d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W4</span></td></tr>
+      <tr><td class="mono">T-AM6</td><td>系统服务（MCP 厂商）注册 + 每厂商独立数据服务（三层隔离）</td><td>T-AM1</td><td class="num">2d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W4</span></td></tr>
+      <tr><td class="mono">T-AM7</td><td>前端动态菜单 + <code>v-has-permission</code> 按钮指令</td><td>T-AM2/3/4</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W2</span></td></tr>
+      <tr><td class="mono">T-AM8</td><td>单测 + 联调 + 安全校验（越权 403、厂商 A/B 互读、区域过滤、脱敏）</td><td>T-AM3~7</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W7</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.2 MCP 商业化：有效期 / 续期 / 支付（T-B 系列，6 项 / 8d）</h3>
+  <table>
+    <thead><tr><th>任务</th><th>内容</th><th>依赖</th><th class="num">估点</th><th class="num">完成度</th><th class="num">波次</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">T-B1</td><td>套餐与订阅数据模型（4 张新表）+ 套餐种子</td><td>T-AM1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
+      <tr><td class="mono">T-B2</td><td>有效期校验与过期失效（调用前拦截 + 定时扫描 + 提前 7 天预警）</td><td>T-B1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
+      <tr><td class="mono">T-B3</td><td>续期下单：服务端定价 + 微信 Native/支付宝 precreate 取二维码 + 订单关闭</td><td>T-B1、<span class="chip block">商户资质</span></td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
+      <tr><td class="mono">T-B4</td><td>支付回调：网关 <code>/api/pay/notify/</code> 免鉴权路由 + 验签 + 幂等 + 延长有效期 + 主动查单补偿</td><td>T-B3</td><td class="num">2d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
+      <tr><td class="mono">T-B5</td><td>管理台续期页（套餐选择、扫码、状态轮询、剩余天数）</td><td>T-B3/B4</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
+      <tr><td class="mono">T-B6</td><td>单测 + <b>沙箱</b>全链路联调 + 安全（篡改/伪造/重放/脱敏）</td><td>T-B2~5</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.3 学生端·项目（T-S 系列，4 项 / 4d）</h3>
+  <table>
+    <thead><tr><th>任务</th><th>内容</th><th>依赖</th><th class="num">估点</th><th class="num">完成度</th><th class="num">波次</th></tr></thead>
+    <tbody>
+      <tr><td class="mono"><b>T-S0</b></td><td><b>学生网页端基座</b>（前置）：新建 <code>student-web</code> SPA（base <code>/student/</code>）+ 网关 <code>/student/</code> 路由（<code>mode: jwt_c</code>）+ 对接 App 账号。<b>学生网页端当前不存在</b></td><td>—</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W1</span></td></tr>
+      <tr><td class="mono">T-S1</td><td>项目数据模型 <code>student_project</code> / <code>student_project_task</code> + 迁移</td><td>T-AM1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W3</span></td></tr>
+      <tr><td class="mono">T-S2</td><td>项目 API <code>/api/student/projects</code>（按 <code>student_id+tenant_id</code> 隔离）</td><td>T-S1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W3</span></td></tr>
+      <tr><td class="mono">T-S3</td><td>学生网页端「我的项目」页（新建/编辑/归档、任务勾选、进度）</td><td><b>T-S0</b>, T-S2, T-AM7</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W3</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.4 学生端·功能开关（T-F 系列，4 项 / 4.5d）</h3>
+  <table>
+    <thead><tr><th>任务</th><th>内容</th><th>依赖</th><th class="num">估点</th><th class="num">完成度</th><th class="num">波次</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">T-F1</td><td><code>feature_switch</code> + <code>feature_switch_override</code> + <code>resolve_features()</code> 解析服务</td><td>T-AM1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W3</span></td></tr>
+      <tr><td class="mono">T-F2</td><td><code>GET /api/student/features</code> + 管理 API（权限码 <code>system:feature:manage</code>）</td><td>T-F1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W3</span></td></tr>
+      <tr><td class="mono">T-F3</td><td>管理员「功能开关」后台页（6 枚开关，按范围切 app/web 显隐）</td><td>T-F2, T-AM3/4</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W3</span></td></tr>
+      <tr><td class="mono">T-F4</td><td>学生 App / 网页端接入：启动时拉开关集，按集显隐入口与按钮</td><td>T-F2, <b>T-S0</b></td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W3</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.5 学生端·防疲劳（T-A 系列，3 项 / 2.25d）</h3>
+  <table>
+    <thead><tr><th>任务</th><th>内容</th><th>依赖</th><th class="num">估点</th><th class="num">完成度</th><th class="num">波次</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">T-A1</td><td><code>anti_fatigue_config</code> + 配置 API</td><td>T-F1</td><td class="num">0.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W3</span></td></tr>
+      <tr><td class="mono">T-A2</td><td>客户端计时器 + 提醒 UI（网页端模态 / App Dialog）</td><td>T-A1, T-F4</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W3</span></td></tr>
+      <tr><td class="mono">T-A3</td><td>联调：关开关不弹提醒、阈值生效、教师关本班组卷仅本班生效</td><td>T-A1~2, T-F3</td><td class="num">0.75d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W3</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.6 BYOM 学校配置大模型（T-M 系列，4 项 / 4.5d）</h3>
+  <table>
+    <thead><tr><th>任务</th><th>内容</th><th>依赖</th><th class="num">估点</th><th class="num">完成度</th><th class="num">波次</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">T-M1</td><td><code>tenant_model_config</code> 数据模型 + AES-256-GCM 密钥加密 + 迁移</td><td>—</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W6</span></td></tr>
+      <tr><td class="mono">T-M2</td><td><code>resolve_llm_config(tenant_id)</code> + 全局 env fallback + <b>SSRF 防护</b> + 缓存</td><td>T-M1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W6</span></td></tr>
+      <tr><td class="mono">T-M3</td><td>预设供应商清单（阿里云/腾讯云/火山/DeepSeek/OpenAI/Azure/智谱/Moonshot）+ 后台配置页 + 连通性自检</td><td>T-M2</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W6</span></td></tr>
+      <tr><td class="mono">T-M4</td><td>单测（解析/fallback/SSRF 拒绝/加解密）+ 试点校联调</td><td>T-M3</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W6</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.7 P2 遗留（3 项 / 3d，受外部依赖解锁）</h3>
+  <table>
+    <thead><tr><th>任务</th><th>内容</th><th>依赖</th><th class="num">估点</th><th class="num">完成度</th><th class="num">波次</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">T-C5</td><td>P2 收尾（引导式对话评测）</td><td><b>试点流水到货</b></td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num">解锁后</td></tr>
+      <tr><td class="mono">T-F2</td><td>mastery 相关收尾</td><td><b>T-A2 素材</b></td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num">解锁后</td></tr>
+      <tr><td class="mono">T-E2 实施</td><td>Kafka ZK→KRaft 切流（评估已绿）</td><td><b>试点后首周</b></td><td class="num">1d</td><td class="num"><span class="chip pend">🟡</span></td><td class="num">试点后</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.8 学生 AI 学习智能体（T-SA 系列，14 项 / 18.75d）</h3>
+  <div class="meta"><b>定位：</b>把现有"单次解题 API"（<code>agent-backend</code> 仅 <code>/solve</code>、<code>/solve_image</code>、<code>/similar</code>，无会话/记忆/画像/工具）升级为<b>以学情为底座、带记忆与工具的多轮伴随式 Agent</b>。</div>
+  <div class="meta"><b>组织形态：</b><b>多智能体（Multi-Agent）</b>——Orchestrator 总控 + 专能 Agent 群（诊断/讲解/出题/批改/规划/激励/检索），共用同一会话与记忆；裁定为<b>轻多智能体</b>（角色化 prompt + 共享状态 + 显式编排表，不引入 AutoGen/CrewAI 重型框架）。T-SA1~9 为单 Agent 底座，<b>T-SA10~14 为多智能体编排层</b>。</div>
+  <table>
+    <thead><tr><th>任务</th><th>内容</th><th>依赖</th><th class="num">估点</th><th class="num">完成度</th><th class="num">波次</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">T-SA1</td><td>数据模型 + 迁移：<code>student_agent_profile</code> / <code>session</code> / <code>memory</code>（含 <b>1024 维</b>向量，须与 <code>course_kb_embeddings</code> 同端点）+ 默认人设种子</td><td>—</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono">T-SA2</td><td>学情接入：读 mastery / ZPD / 错因分布作为上下文入参（复用 web-backend，不重复造）</td><td>T-SA1, T-F1✅</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono">T-SA3</td><td>多轮会话引擎：T-C1~C3 单次 hint 升级为<b>连续会话</b> + 超窗自动摘要压缩</td><td>T-SA1</td><td class="num">2d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono">T-SA4</td><td>长期记忆：薄弱点 + <b>已讲解法去重</b>（避免同题重复同讲法），会话结束自动摘要</td><td>T-SA1, T-SA3</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono">T-SA5</td><td>工具调用（MCP）：查图谱/错题本/组卷/相似题，<b>受订阅有效期约束</b>（过期停用）</td><td>T-SA3, T-AM6/T-B2</td><td class="num">2d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono">T-SA6</td><td>多端会话同步：App 与网页端共享 <code>session_id</code> 与上下文（切端不丢）</td><td>T-SA3, <b>T-S0</b></td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono">T-SA7</td><td>安全合规：过网关 content_safety、未成年人数据最小化、家长可见、与防疲劳（T-A）联动</td><td>T-SA3</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono">T-SA8</td><td>模型来源切换：走 BYOM <code>resolve_llm_config(tenant_id)</code> + 全局 env fallback</td><td>T-SA3, <b>T-M2</b></td><td class="num">0.75d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono">T-SA9</td><td>单测 + 评测：多轮一致性、记忆去重、工具受有效期拦截、敏感词拦截（复用 T-C5 口径）</td><td>T-SA2~8</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono"><b>T-SA10</b>（多智能体）</td><td>多 Agent 角色注册与编排：<code>student_agent_role</code> + <code>student_agent_task</code> 表；Orchestrator 由"直接作答"改为<b>分派器</b>（输出 intent + route）</td><td>T-SA1, T-SA3</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono"><b>T-SA11</b>（多智能体）</td><td>专能 Agent 实现：Diagnoser / Tutor / ItemGen / Grader / Planner / Coach 逐个接入编排（Retriever 复用现有 RAG）</td><td>T-SA10</td><td class="num">2d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono"><b>T-SA12</b>（多智能体）</td><td>Agent 级模型路由与成本归因：每个 <code>role_code</code> 绑 <code>model_grade</code>（沿用 T-D2✅）；用量按 role 归集到 T-D3✅ 监控</td><td>T-SA10</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono"><b>T-SA13</b>（多智能体）</td><td>Agent 级开关与降级：某 Agent 关闭/超预算/超时 → Orchestrator 降级为<b>单 Agent 直答</b>；开关可挂 T-F 功能开关由学校配置</td><td>T-SA10, T-F1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+      <tr><td class="mono"><b>T-SA14</b>（多智能体）</td><td>多 Agent 编排评测：分派准确率、端到端延迟、成本对比（多 Agent vs 单 Agent）、降级可用性</td><td>T-SA11~13</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W8</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.9 学生端应用 student-app（T-AP 系列，8 项 / 7.75d）</h3>
+  <div class="meta"><b>已具备：</b>T-B5 App 图谱页 <span class="chip done">✅</span>、T-E3 真机编译门禁 <span class="chip done">✅</span>、暖色主题 UI <span class="chip done">✅</span>、BASE_URL 指向生产 <code>https://sd12sd.icu/</code> <span class="chip done">✅</span>。<b>缺口：</b>无 Agent 连续会话 UI、S4 过程采集长期"无实证"、只有 debug APK 无 release 发布流程。</div>
+  <table>
+    <thead><tr><th>任务</th><th>内容</th><th>依赖</th><th class="num">估点</th><th class="num">完成度</th><th class="num">波次</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">T-AP1</td><td>Agent 连续会话 UI：单次解题页升级为多轮会话界面（消息流、打字态、引用题解/图谱）</td><td>T-SA6</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W9</span></td></tr>
+      <tr><td class="mono">T-AP2</td><td>功能开关接入：拉 <code>/api/student/features</code> 显隐导航与入口（承接 T-F4）</td><td>T-F4</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W9</span></td></tr>
+      <tr><td class="mono">T-AP3</td><td>防疲劳提醒 Dialog（承接 T-A2）</td><td>T-A2</td><td class="num">0.75d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W9</span></td></tr>
+      <tr><td class="mono">T-AP4</td><td>过程采集埋点（S4）：补齐答题/停留/回看上报，解决"长期无实证"</td><td>—</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W9</span></td></tr>
+      <tr><td class="mono">T-AP5</td><td>发布与版本管理：release 签名 + versionCode/Name 规范 + 发布清单（当前仅 debug APK）</td><td>—</td><td class="num">0.75d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W9</span></td></tr>
+      <tr><td class="mono">T-AP6</td><td>UI 规范与多机型回归：暖色组件库固化、大字体/小屏适配、启动性能</td><td>—</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W9</span></td></tr>
+      <tr><td class="mono">T-AP7</td><td>弱网与离线：请求重试、草稿暂存、失败提示可理解</td><td>T-AP1</td><td class="num">0.75d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W9</span></td></tr>
+      <tr><td class="mono">T-AP8</td><td>真机全链路联调：登录→会话→解题→判分→图谱→周报</td><td>T-AP1~7</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W9</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2>四、排期计划（波次 W1–W9）</h2>
+  <div class="meta">单人单线程估算；标注「可并行」的波次在 2 人协作下可压缩近半。</div>
+  <table>
+    <thead><tr><th>波次</th><th>任务</th><th class="num">估点</th><th class="num">可并行</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><span class="wave">W1 地基</span></td><td class="mono">T-AM0、T-S0</td><td class="num">2d</td><td class="num">✅ 两项独立</td><td>学校管理后端 + 学生网页端基座，分别解 T-AM/T-S 的悬空</td></tr>
+      <tr><td><span class="wave">W2 权限主干</span></td><td class="mono">T-AM1 → T-AM2 → T-AM3 ‖ T-AM4 → T-AM7</td><td class="num"><b>5d</b>（并行）／6d（串行）</td><td class="num">T-AM3‖T-AM4</td><td><b>关键路径</b>：所有 B 端能力的地基；跑通"菜单+角色+按钮级"</td></tr>
+      <tr><td><span class="wave">W3 学生端</span></td><td class="mono">T-F1 → T-F2 → T-F3 ‖ T-F4 ‖ T-S1 → T-S2 → T-S3；T-A1 → T-A2 → T-A3</td><td class="num"><b>9.75d</b></td><td class="num">T-F/T-S/T-A 三组</td><td>开关是总闸，#1 项目与 #3 防疲劳受其管控</td></tr>
+      <tr><td><span class="wave">W4 区域与厂商</span></td><td class="mono">T-AM5、T-AM6</td><td class="num">2.75d</td><td class="num">✅ 可并行</td><td>依赖 W2 的 T-AM1；MCP 厂商隔离（估点最高单项）</td></tr>
+      <tr><td><span class="wave">W5 MCP 商业化</span></td><td class="mono">T-B1 → T-B2 → T-B3 → T-B4 → T-B5 → T-B6</td><td class="num">8d</td><td class="num">基本串行</td><td><b>受商户资质外部阻塞</b>，建议先跑沙箱</td></tr>
+      <tr><td><span class="wave">W6 BYOM</span></td><td class="mono">T-M1 → T-M2 → T-M3 → T-M4</td><td class="num">4.5d</td><td class="num">串行</td><td>与 RBAC/Billing 低耦合，可整体前移或并行</td></tr>
+      <tr><td><span class="wave">W7 收尾</span></td><td class="mono">T-AM8</td><td class="num">1d</td><td class="num">—</td><td>全链路安全校验（越权/隔离/脱敏）</td></tr>
+      <tr><td><span class="wave">W8 学生 Agent</span></td><td class="mono">T-SA1 → T-SA2 ‖ T-SA3 → T-SA4‖T-SA5‖T-SA6‖T-SA7‖T-SA8 → T-SA9 → <b>T-SA10 → T-SA11‖T-SA12‖T-SA13 → T-SA14</b>（多智能体层）</td><td class="num"><b>18.75d</b>（并行可压至 ≈13d）</td><td class="num">T-SA2‖T-SA3；T-SA4~8 可并行；T-SA12‖T-SA13 可并行</td><td>依赖 W4（MCP 厂商）、W5（有效期）、W6（BYOM 模型解析）产物；多智能体层须在单 Agent 底座（T-SA1~9）之后</td></tr>
+      <tr><td><span class="wave">W9 学生 App</span></td><td class="mono">T-AP1 → T-AP7 → T-AP8；T-AP2/3/4/5/6 可并行</td><td class="num"><b>7.75d</b>（并行可压至 ≈5d）</td><td class="num">T-AP2~6 可并行</td><td>承接 W8 的 Agent 会话；补 S4 埋点与 release 发布流程</td></tr>
+      <tr class="total"><td>波次合计</td><td class="mono">W1 2 + W2 5 + W3 9.75 + W4 2.75 + W5 8 + W6 4.5 + W7 1 + W8 18.75 + W9 7.75</td><td class="num">59.5 人天</td><td class="num">+P2 遗留 3d</td><td><b>全量合计 ≈ 62.5 人天</b></td></tr>
+    </tbody>
+  </table>
+
+  <h3>关键路径（最长依赖链）</h3>
+  <pre>T-AM0 → T-AM1 → T-AM2 → {T-AM3‖T-AM4} → T-AM7 ──┐
+                                                  ├→ B 端能力全量可用
+T-AM1 → T-B1 → T-B2 → T-B3 → T-B4 → T-B5 → T-B6 ─┘（MCP 商业化，最长且带外部风险）
+
+T-AM1 → T-AM6(MCP厂商) → T-B2(有效期) ─┐
+                                        ├→ T-SA5（Agent 工具调用）
+T-AM1 → T-M2(BYOM 模型解析) ────────────┘
+T-SA1 → T-SA3 → T-SA6 → T-AP1 → T-AP8   （学生 Agent → App 全链路）</pre>
+  <div class="note">
+    <ul>
+      <li><b>权限主干</b>（T-AM0→…→T-AM7）是<b>最高优先级</b>：所有管理能力的地基。</li>
+      <li><b>MCP 商业化</b>（T-B）是最长且唯一带<b>外部商户资质</b>风险的链路，应尽早启动资质申请（与开发并行）。</li>
+      <li><b>学生 Agent（W8）</b> 依赖 W4/W5/W6 三处产物（MCP 厂商、订阅有效期、BYOM 模型解析），故排在 W8；<b>W9（App）</b> 承接 Agent 会话，排在最后。</li>
+    </ul>
+  </div>
+
+  <h3>并行建议（2 人协作压缩到 ≈37 人天）</h3>
+  <div class="note">
+    <ul>
+      <li><b>线程 A（平台/后端）</b>：W1 T-AM0 → W2 T-AM1~4,7 → W4 T-AM5/6 → W5 T-B → W7 T-AM8</li>
+      <li><b>线程 B（学生侧）</b>：W1 T-S0 → W3 T-F/T-S/T-A 全组 → W6 T-M → W8 T-SA 全组 → W9 T-AP 全组</li>
+      <li>两条线程在 T-AM1（表就绪）、T-AM6/T-B2（Agent 工具前提）、T-M2（模型解析）处交汇；W8/W9 内部亦有并行空间。</li>
+    </ul>
+  </div>
+
+  <h2>五、外部依赖与阻塞项（非开发可控，需提前启动）</h2>
+  <table>
+    <thead><tr><th>阻塞项</th><th>影响任务</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><b>微信/支付宝企业商户资质</b> + <code>sd12sd.icu</code> 配入 notify 白名单</td><td class="mono">T-B3 / T-B4 / T-B6</td><td>可能数周；<b>建议立即启动申请</b>，开发期先用沙箱</td></tr>
+      <tr><td><b>主 LLM 端点 403 配额耗尽</b></td><td>全部 AI 能力价值闭环</td><td>非开发任务；需充值或换端点，否则所有 AI 辅导退化成模板</td></tr>
+      <tr><td>试点流水（T-C5）</td><td class="mono">T-C5</td><td>依赖真实试点数据</td></tr>
+      <tr><td>T-A2 素材（T-F2）</td><td class="mono">T-F2</td><td>依赖外部素材到货</td></tr>
+      <tr><td>试点启动（T-E2 实施）</td><td class="mono">T-E2</td><td>试点后首周执行 <code>kafka_kraft_migrate.sh --execute</code></td></tr>
+      <tr><td><b>真机/Android 设备</b>（长期无真机）</td><td class="mono">T-AP4、T-AP8</td><td>S4 过程采集"无实证"根因；需真机或云真机，否则 T-AP8 无法验收</td></tr>
+    </tbody>
+  </table>
+
+  <h2>六、风险提示</h2>
+  <table>
+    <thead><tr><th>风险</th><th class="num">等级</th><th>对策</th></tr></thead>
+    <tbody>
+      <tr><td>33 项新任务全部 0% 实现，仅完成规划</td><td class="num"><span class="chip block">高</span></td><td>按 W1→W7 波次推进；先跑通 W2 权限主干验证范式</td></tr>
+      <tr><td>MCP 支付资质未落地</td><td class="num"><span class="chip block">高</span></td><td>资质申请与开发并行；T-B6 先跑沙箱</td></tr>
+      <tr><td>学生网页端不存在（T-S3/T-F4/T-A2 原悬空）</td><td class="num"><span class="chip pend">中</span></td><td>已补 <b>T-S0</b> 并前置到 W1</td></tr>
+      <tr><td>LLM 配额 403 使 AI 能力无实感</td><td class="num"><span class="chip block">高</span></td><td>独立于开发解决（商务/运维）</td></tr>
+      <tr><td>题库 213/3000 未达验收</td><td class="num"><span class="chip pend">中</span></td><td>属 P1 内容线，与本总表并行推进</td></tr>
+      <tr><td>Agent 多轮上下文膨胀致成本/延迟飙升</td><td class="num"><span class="chip block">高</span></td><td>T-SA3 超窗摘要压缩；复用 T-D1 缓存 + T-D3 预算告警</td></tr>
+      <tr><td>Agent 记忆向量维度不一致 → 检索失效</td><td class="num"><span class="chip block">高</span></td><td>强制 ws 端点 <b>1024 维</b>（与 <code>course_kb_embeddings</code> 一致），T-SA9 校验</td></tr>
+      <tr><td>Agent 输出不当内容（未成年用户）</td><td class="num"><span class="chip block">高</span></td><td>T-SA7 过网关 content_safety + 二次校验 + 家长可见</td></tr>
+      <tr><td>学生 App 只有 debug APK，无法正式发布</td><td class="num"><span class="chip pend">中</span></td><td>T-AP5 建 release 签名与发布流程</td></tr>
+      <tr><td>S4 过程采集长期无实证（无真机）</td><td class="num"><span class="chip pend">中</span></td><td>T-AP4 先补埋点契约；T-AP8 真机联调需真机/云真机</td></tr>
+      <tr><td>多 Agent 编排延迟叠加 / 成本上升</td><td class="num"><span class="chip block">高</span></td><td>T-SA13 超时即降级单 Agent 直答；T-SA12 Agent 级模型分档 + 按 role 归集用量；T-SA14 做成本对比，性价比不优则回退单 Agent</td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    本表为全量任务跟踪总表（<b>v3</b>：2026-10-25 并入《学生Agent与学生端应用任务计划书》全部 <b>22 项</b>——T-SA1~9 + T-AP1~8（v2 已并入）+ <b>T-SA10~14 多智能体编排层</b>（v3 新增 5 项）；待办 33→50→<b>55</b> 项、全量 ≈36→≈55.5→<b>≈62.5</b> 人天、波次 7→<b>9</b>）；各任务细节以其所属计划书为准：《后台权限与系统集成任务计划书》v2.3、《学生端能力扩展计划书》、《学校配置大模型BYOM能力任务计划书》、《学生Agent与学生端应用任务计划书》v2、《P2引导式对话与横向收尾任务计划书》。本轮产出为<b>方案与排期</b>，实现代码尚未启动。
+  </footer>
+
+</div>
+</body>
+</html>

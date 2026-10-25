@@ -1,13 +1,19 @@
 <template>
-  <div>
-    <h2>学情看板</h2>
-    <input v-model="sid" placeholder="学生ID" />
-    <button @click="load">查询</button>
-    <div v-if="data" class="panel">
-      <p>掌握度：{{ (data.mastery * 100).toFixed(0) }}%</p>
-      <p>薄弱点：{{ data.weak_points.join('、') }}</p>
-      <p>趋势：{{ data.trend.join(' → ') }}</p>
+  <div class="tes-page tes-anim">
+    <h2 class="tes-page-title">学情看板</h2>
+
+    <div class="tes-toolbar">
+      <input v-model="sid" placeholder="学生ID" />
+      <button class="tes-btn-primary" @click="load">查询</button>
     </div>
+
+    <div v-if="data" class="tes-card">
+      <div class="big">{{ (data.mastery * 100).toFixed(0) }}<span>%</span></div>
+      <div class="cap">综合掌握度</div>
+      <div class="row"><span class="k">薄弱点</span><span class="v">{{ data.weak_points.join('、') }}</span></div>
+      <div class="row"><span class="k">趋势</span><span class="v">{{ data.trend.join(' → ') }}</span></div>
+    </div>
+    <p v-else class="tes-empty">输入学生 ID 查询其学情画像。</p>
   </div>
 </template>
 
@@ -20,7 +26,14 @@ async function load() { data.value = await getAnalytics(sid.value) }
 </script>
 
 <style scoped>
-input { padding: 8px; border: 1px solid #dcdfe6; border-radius: 6px; margin-right: 8px; }
-button { padding: 8px 16px; background: #409eff; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-.panel { margin-top: 12px; background: #fff; padding: 16px; border: 1px solid #ebeef5; border-radius: 8px; }
+.big {
+  font-size: 40px; font-weight: 800; line-height: 1;
+  background: var(--brand-grad);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.big span { font-size: 20px; margin-left: 2px; }
+.cap { color: var(--muted); font-size: 13px; margin: 4px 0 14px; }
+.row { display: flex; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.k { color: var(--ink-2); font-weight: 600; min-width: 64px; }
+.v { color: var(--ink); }
 </style>

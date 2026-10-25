@@ -1,12 +1,19 @@
 <template>
-  <div>
-    <h2>自动组卷</h2>
-    <input v-model="title" placeholder="试卷标题" />
-    <input v-model="kps" placeholder="知识点，逗号分隔" />
-    <button @click="gen">生成</button>
+  <div class="tes-page tes-anim">
+    <h2 class="tes-page-title">自动组卷</h2>
+
+    <div class="tes-toolbar">
+      <input v-model="title" placeholder="试卷标题" />
+      <input v-model="kps" placeholder="知识点，逗号分隔" />
+      <button class="tes-btn-primary" @click="gen">生成</button>
+    </div>
+
     <ul v-if="paper" class="qs">
-      <li v-for="(q, i) in paper.questions" :key="i">{{ q }}</li>
+      <li v-for="(q, i) in paper.questions" :key="i" class="tes-card">
+        <span class="idx">{{ i + 1 }}</span>{{ q }}
+      </li>
     </ul>
+    <p v-else class="tes-empty">填写标题与知识点，点「生成」自动组卷。</p>
   </div>
 </template>
 
@@ -26,8 +33,11 @@ async function gen() {
 </script>
 
 <style scoped>
-input { padding: 8px; border: 1px solid #dcdfe6; border-radius: 6px; margin-right: 8px; margin-bottom: 8px; }
-button { padding: 8px 16px; background: #409eff; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-.qs { list-style: none; padding: 0; }
-.qs li { background: #fff; padding: 10px 12px; border: 1px solid #ebeef5; border-radius: 6px; margin-top: 8px; }
+.qs { list-style: none; padding: 0; margin: 0; }
+.qs li { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; line-height: 1.6; }
+.idx {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 8px;
+  display: grid; place-items: center; font-size: 13px; font-weight: 800;
+  background: var(--brand-grad-soft); color: var(--brand-2);
+}
 </style>

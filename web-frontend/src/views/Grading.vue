@@ -1,10 +1,19 @@
 <template>
-  <div>
-    <h2>教师批改</h2>
-    <input v-model="sid" placeholder="学生ID" />
-    <textarea v-model="answer" placeholder="作答内容"></textarea>
-    <button @click="submit">提交批改</button>
-    <p v-if="result" class="ok">提交成功，作答 ID：{{ result.id }}</p>
+  <div class="tes-page tes-anim">
+    <h2 class="tes-page-title">教师批改</h2>
+
+    <div class="tes-card form">
+      <label class="field">
+        <span>学生 ID</span>
+        <input v-model="sid" placeholder="student_001" />
+      </label>
+      <label class="field">
+        <span>作答内容</span>
+        <textarea v-model="answer" placeholder="粘贴学生作答…"></textarea>
+      </label>
+      <button class="tes-btn-primary" @click="submit">提交批改</button>
+      <p v-if="result" class="ok">✅ 提交成功，作答 ID：{{ result.id }}</p>
+    </div>
   </div>
 </template>
 
@@ -20,8 +29,8 @@ async function submit() {
 </script>
 
 <style scoped>
-input, textarea { display: block; width: 100%; max-width: 480px; padding: 8px; border: 1px solid #dcdfe6; border-radius: 6px; margin-bottom: 8px; }
-textarea { height: 100px; resize: vertical; }
-button { padding: 8px 16px; background: #409eff; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-.ok { color: #67c23a; }
+.form { max-width: 560px; }
+.field { display: block; margin-bottom: 16px; }
+.field span { display: block; font-size: 13px; font-weight: 600; margin-bottom: 7px; color: var(--ink-2); }
+.ok { color: var(--success); font-weight: 600; margin: 4px 0 0; }
 </style>

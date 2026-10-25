@@ -2,8 +2,14 @@
 <resources>
     <!--
       宿主 Activity 主题。本项目为纯 Jetpack Compose 应用（不依赖 Material
-      Components 库），按 Compose 模板惯例直接用框架主题；界面配色由
-      Compose 侧 MaterialTheme 管理，无需 values/colors.xml。
+      Components 库），界面配色由 Compose 侧 TesEduTheme 管理。
+      这里只负责「窗口底色 / 系统栏」与页面底色对齐，避免状态栏出现一条突兀的白边。
     -->
-    <style name="Theme.TesEdu" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.TesEdu" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FFFFF6F2</item>
+        <item name="android:statusBarColor">#FFFFF6F2</item>
+        <item name="android:navigationBarColor">#FFFFFFFF</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
 </resources>

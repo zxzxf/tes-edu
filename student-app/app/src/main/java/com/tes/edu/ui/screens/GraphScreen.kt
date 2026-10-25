@@ -74,7 +74,7 @@ private val ColorZpdRing = Color(0xFF1E88E5)    // ZPD 待学高亮环
 private val ColorSelectedRing = Color(0xFF0D47A1)
 private val ColorEdge = Color(0xFFB0BEC5)
 private val ColorEdgeActive = Color(0xFF42A5F5)
-private val ColorCanvasBg = Color(0xFFF7F9FB)
+private val ColorCanvasBg = Color(0xFFF5F6FB)
 private val BandBgA = Color(0xFFEDF2F7)   // 章节带底纹（奇偶交替，便于区分）
 private val BandBgB = Color(0xFFF7F9FB)
 

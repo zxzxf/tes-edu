@@ -117,8 +117,9 @@ class AuthInterceptor(private val session: SessionStore) : Interceptor {
 }
 
 object ApiClient {
-    // 模拟器访问宿主机网关用 10.0.2.2；真机请改为网关实际地址
-    private const val BASE_URL = "http://10.0.2.2:8080/"
+    // 生产环境：走 Cloudflare 隧道 + HTTPS 公网入口（真机可用）。
+    // 模拟器联调本地网关时改回 "http://10.0.2.2:8080/"。
+    private const val BASE_URL = "https://sd12sd.icu/"
 
     @Volatile
     private var cached: ApiService? = null

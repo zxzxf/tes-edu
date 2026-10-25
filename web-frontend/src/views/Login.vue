@@ -1,13 +1,53 @@
 <template>
-  <div class="login-wrap">
-    <div class="login-card">
-      <h2>Tes Edu 管理后台</h2>
-      <input v-model="username" placeholder="用户名" />
-      <input v-model="password" type="password" placeholder="密码" @keyup.enter="onLogin" />
-      <button @click="onLogin">登录</button>
-      <p v-if="error" class="error">{{ error }}</p>
-      <p class="hint">演示账号：admin@tes.edu / demo1234</p>
-    </div>
+  <div class="login">
+    <!-- 左侧：活力英雄区 -->
+    <aside class="hero">
+      <div class="hero-glow"></div>
+      <div class="hero-inner">
+        <div class="hero-logo">
+          <span class="mark">T</span> Tes Edu
+        </div>
+        <h1 class="hero-title">为梦想而战<br />让每一分努力都被看见</h1>
+        <p class="hero-sub">智慧助学平台 · 步骤级归因 · 个性化提分</p>
+
+        <div class="hero-chips">
+          <span class="chip">🎯 精准定位错因</span>
+          <span class="chip">🚀 逆袭不是梦</span>
+          <span class="chip">🔥 越练越强</span>
+        </div>
+
+        <div class="hero-stats">
+          <div><b>100%</b><i>过程可溯</i></div>
+          <div><b>∞</b><i>个性练习</i></div>
+          <div><b>24h</b><i>即时反馈</i></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 右侧：登录表单 -->
+    <main class="form-side">
+      <div class="form-card tes-anim">
+        <h2>欢迎回来 👋</h2>
+        <p class="form-tip">登录以进入你的助学工作台</p>
+
+        <label class="field">
+          <span>用户名</span>
+          <input v-model="username" placeholder="请输入用户名" />
+        </label>
+
+        <label class="field">
+          <span>密码</span>
+          <input v-model="password" type="password" placeholder="请输入密码" @keyup.enter="onLogin" />
+        </label>
+
+        <button class="submit" :disabled="loading" @click="onLogin">
+          {{ loading ? '登录中…' : '登 录' }}
+        </button>
+
+        <p v-if="error" class="error">⚠️ {{ error }}</p>
+        <p class="hint">演示账号：admin@tes.edu / demo1234</p>
+      </div>
+    </main>
   </div>
 </template>
 
@@ -19,25 +59,99 @@ import { useAuthStore } from '../stores/auth'
 const username = ref('')
 const password = ref('')
 const error = ref('')
+const loading = ref(false)
 const router = useRouter()
 const auth = useAuthStore()
 
 async function onLogin() {
   error.value = ''
+  if (!username.value || !password.value) {
+    error.value = '请输入用户名和密码'
+    return
+  }
+  loading.value = true
   try {
     await auth.login(username.value, password.value)
     router.push('/dashboard')
   } catch (e) {
     error.value = '登录失败：' + (e.response?.data?.detail || e.message)
+  } finally {
+    loading.value = false
   }
 }
 </script>
 
 <style scoped>
-.login-wrap { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f7fa; }
-.login-card { background: #fff; padding: 32px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); width: 320px; display: flex; flex-direction: column; gap: 12px; }
-input { padding: 10px; border: 1px solid #dcdfe6; border-radius: 6px; }
-button { padding: 10px; background: #409eff; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-.error { color: #f56c6c; font-size: 13px; }
-.hint { color: #909399; font-size: 12px; }
+.login { display: flex; height: 100vh; }
+
+/* 左侧英雄区 */
+.hero {
+  position: relative;
+  width: 46%;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #ff7a45 0%, #ff3d81 55%, #7c4dff 120%);
+  background-size: 200% 200%;
+  animation: tes-grad-shift 14s ease infinite;
+  color: #fff;
+  overflow: hidden;
+  display: flex; align-items: center;
+}
+.hero-glow {
+  position: absolute;
+  width: 380px; height: 380px;
+  top: -80px; right: -60px;
+  background: radial-gradient(circle, rgba(255,255,255,.35), transparent 70%);
+  filter: blur(6px);
+}
+.hero-inner { position: relative; padding: 0 56px; z-index: 1; }
+.hero-logo { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; margin-bottom: 40px; }
+.hero-logo .mark {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: #fff; color: #ff3d81;
+  display: grid; place-items: center; font-weight: 900;
+}
+.hero-title { font-size: 40px; line-height: 1.25; font-weight: 900; letter-spacing: 1px; }
+.hero-sub { margin-top: 18px; font-size: 15px; color: rgba(255,255,255,.9); }
+.hero-chips { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 10px; }
+.chip {
+  background: rgba(255,255,255,.16);
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 999px;
+  padding: 7px 14px; font-size: 13px; font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+.hero-stats { margin-top: 46px; display: flex; gap: 34px; }
+.hero-stats div { display: flex; flex-direction: column; }
+.hero-stats b { font-size: 28px; font-weight: 900; }
+.hero-stats i { font-style: normal; font-size: 12px; color: rgba(255,255,255,.8); margin-top: 4px; }
+
+/* 右侧表单 */
+.form-side { flex: 1; display: grid; place-items: center; padding: 24px; }
+.form-card {
+  width: 360px; max-width: 100%;
+  background: #fff; border-radius: 22px;
+  padding: 38px 34px;
+  box-shadow: 0 20px 60px rgba(255, 61, 129, .14);
+}
+.form-card h2 { font-size: 24px; }
+.form-tip { color: var(--muted); margin: 8px 0 26px; }
+.field { display: block; margin-bottom: 18px; }
+.field span { display: block; font-size: 13px; font-weight: 600; margin-bottom: 7px; color: var(--ink-2); }
+.submit {
+  width: 100%;
+  background: var(--brand-grad);
+  color: #fff; border: none; border-radius: 14px;
+  padding: 13px; font-size: 16px; font-weight: 800; letter-spacing: 2px;
+  box-shadow: 0 10px 24px rgba(255, 61, 129, .32);
+  margin-top: 6px;
+}
+.submit:hover { filter: brightness(1.05); }
+.submit:disabled { background: #e9e4ef; color: #b3adc4; box-shadow: none; cursor: not-allowed; }
+.error { color: var(--danger); font-size: 13px; margin: 14px 0 0; }
+.hint { color: var(--muted); font-size: 12px; margin: 16px 0 0; text-align: center; }
+
+@media (max-width: 820px) {
+  .hero { display: none; }
+  .form-side { background: var(--brand-grad-soft); }
+}
 </style>

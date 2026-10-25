@@ -1,26 +1,50 @@
 <template>
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="logo">Tes Edu</div>
-      <nav>
-        <router-link to="/dashboard">概览</router-link>
-        <router-link to="/knowledge">教研内容管理</router-link>
-        <router-link to="/analytics">学情看板</router-link>
-        <router-link to="/error-distribution">班级错因分布</router-link>
-        <router-link to="/wrong-questions">错题本</router-link>
-        <router-link to="/exam">自动组卷</router-link>
-        <router-link to="/grading">教师批改</router-link>
-        <router-link to="/reports">家长周报</router-link>
-        <router-link to="/compliance">合规审核</router-link>
-        <router-link to="/practice">在线练习（过程采集）</router-link>
+  <div class="tes-layout">
+    <aside class="tes-side">
+      <div class="brand">
+        <span class="brand-mark">T</span>
+        <span class="brand-text">
+          <b>Tes Edu</b>
+          <i>智慧助学平台</i>
+        </span>
+      </div>
+
+      <nav class="nav">
+        <router-link
+          v-for="item in menus"
+          :key="item.to"
+          :to="item.to"
+          class="nav-item"
+        >
+          <span class="nav-ico">{{ item.icon }}</span>
+          <span class="nav-label">{{ item.label }}</span>
+        </router-link>
       </nav>
+
+      <div class="side-foot">
+        <div class="fire">🔥 为梦想而战</div>
+        <div class="ver">v0.1.0 · 让每一分努力都被看见</div>
+      </div>
     </aside>
-    <div class="main">
-      <header class="topbar">
-        <span>{{ currentTitle }}</span>
-        <span class="user">{{ user?.username }}（{{ user?.role }}）<button @click="onLogout">退出</button></span>
+
+    <div class="tes-main">
+      <header class="tes-top">
+        <div class="crumb">
+          <span class="crumb-home">首页</span>
+          <span class="crumb-sep">/</span>
+          <span class="crumb-cur">{{ currentTitle }}</span>
+        </div>
+        <div class="top-right">
+          <span class="role-chip">{{ roleText }}</span>
+          <span class="user-chip">
+            <span class="avatar">{{ (user?.username || 'U').slice(0, 1).toUpperCase() }}</span>
+            {{ user?.username }}
+          </span>
+          <button class="logout" @click="onLogout">退出</button>
+        </div>
       </header>
-      <section class="content">
+
+      <section class="tes-content">
         <router-view />
       </section>
     </div>
@@ -38,6 +62,24 @@ const auth = useAuthStore()
 const user = auth.user
 const currentTitle = computed(() => route.meta.title || 'Tes Edu')
 
+const roleText = computed(() => {
+  const map = { admin: '管理员', teacher: '教师', parent: '家长', researcher: '教研' }
+  return map[user?.role] || user?.role || ''
+})
+
+const menus = [
+  { to: '/dashboard', label: '概览', icon: '🏠' },
+  { to: '/knowledge', label: '教研内容管理', icon: '📚' },
+  { to: '/analytics', label: '学情看板', icon: '📈' },
+  { to: '/error-distribution', label: '班级错因分布', icon: '🔍' },
+  { to: '/wrong-questions', label: '错题本', icon: '📕' },
+  { to: '/exam', label: '自动组卷', icon: '📝' },
+  { to: '/grading', label: '教师批改', icon: '✅' },
+  { to: '/reports', label: '家长周报', icon: '💌' },
+  { to: '/compliance', label: '合规审核', icon: '🛡️' },
+  { to: '/practice', label: '在线练习', icon: '🎯' },
+]
+
 function onLogout() {
   auth.logout()
   router.push('/login')
@@ -45,14 +87,101 @@ function onLogout() {
 </script>
 
 <style scoped>
-.layout { display: flex; height: 100vh; }
-.sidebar { width: 200px; background: #1f2d3d; color: #fff; padding: 16px; }
-.logo { font-weight: 700; margin-bottom: 20px; }
-.sidebar nav { display: flex; flex-direction: column; gap: 4px; }
-.sidebar a { color: #c0c4cc; padding: 8px 12px; border-radius: 6px; text-decoration: none; }
-.sidebar a.router-link-active { background: #409eff; color: #fff; }
-.main { flex: 1; display: flex; flex-direction: column; }
-.topbar { height: 56px; background: #fff; border-bottom: 1px solid #ebeef5; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
-.user button { margin-left: 8px; padding: 4px 10px; border: none; background: #f56c6c; color: #fff; border-radius: 4px; cursor: pointer; }
-.content { padding: 20px; overflow: auto; background: #f5f7fa; flex: 1; }
+.tes-layout { display: flex; height: 100vh; overflow: hidden; }
+
+/* ---------- 侧栏：深邃渐变，青春活力 ---------- */
+.tes-side {
+  width: 232px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #241b3a 0%, #3a1e5c 58%, #5b2a8c 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 16px;
+  position: relative;
+}
+.tes-side::after {
+  content: "";
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(255, 122, 69, .55), transparent 70%);
+  filter: blur(8px);
+}
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+.brand-mark {
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border-radius: 12px;
+  background: var(--brand-grad);
+  font-weight: 900; font-size: 20px; color: #fff;
+  box-shadow: 0 6px 16px rgba(255, 61, 129, .45);
+}
+.brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+.brand-text b { font-size: 17px; letter-spacing: .5px; }
+.brand-text i { font-style: normal; font-size: 11px; color: rgba(255,255,255,.6); }
+
+.nav { display: flex; flex-direction: column; gap: 4px; position: relative; z-index: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, .72);
+  font-size: 14px; font-weight: 600;
+  text-decoration: none;
+  transition: background .2s, color .2s, transform .12s;
+}
+.nav-item:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+.nav-item.router-link-active {
+  background: var(--brand-grad);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(255, 61, 129, .35);
+}
+.nav-ico { font-size: 17px; width: 22px; text-align: center; }
+.nav-label { white-space: nowrap; }
+
+.side-foot { margin-top: auto; position: relative; z-index: 1; }
+.fire {
+  font-size: 13px; font-weight: 700; color: #ffd0a3;
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  padding: 8px 14px; text-align: center;
+}
+.ver { font-size: 11px; color: rgba(255, 255, 255, .45); margin-top: 10px; text-align: center; }
+
+/* ---------- 主区 ---------- */
+.tes-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.tes-top {
+  height: 64px; flex-shrink: 0;
+  background: rgba(255, 255, 255, .85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px;
+}
+.crumb { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.crumb-home { color: var(--muted); }
+.crumb-sep { color: var(--line-strong); }
+.crumb-cur { font-weight: 800; }
+.top-right { display: flex; align-items: center; gap: 12px; }
+.role-chip {
+  font-size: 12px; font-weight: 700;
+  padding: 4px 12px; border-radius: 999px;
+  background: #eef9f3; color: var(--success);
+}
+.user-chip { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+.avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--brand-grad); color: #fff; font-size: 13px; font-weight: 800;
+}
+.logout {
+  background: #fff; color: var(--danger);
+  border: 1.5px solid #ffd6de; border-radius: 10px;
+  padding: 6px 14px; font-size: 13px;
+}
+.logout:hover { background: #fff0f3; }
+
+.tes-content { flex: 1; overflow: auto; padding: 28px; }
 </style>
