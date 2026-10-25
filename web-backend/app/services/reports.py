@@ -40,6 +40,17 @@ def _mastery_of(m) -> Optional[float]:
     return round((m.correct_count or 0) / judged, 4)
 
 
+def _as_aware(dt: Optional[datetime]) -> Optional[datetime]:
+    """naive 时间按 UTC 补齐时区，避免 aware/naive 混比报 TypeError。
+
+    PostgreSQL（timezone=True）读回为 aware；sqlite 不保留时区、读回为 naive，
+    与 now/since（aware）比较会抛 can't compare offset-naive and offset-aware。
+    """
+    if dt is not None and dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def _build_report(
     student_id: str,
     masteries: list,
@@ -83,7 +94,7 @@ def _build_report(
 
     # 学习投入（本周事件）
     since = now - timedelta(days=period_days)
-    period_events = [e for e in events if e.occurred_at and e.occurred_at >= since]
+    period_events = [e for e in events if e.occurred_at and _as_aware(e.occurred_at) >= since]
     active_days = len(
         {
             (e.occurred_at.year, e.occurred_at.month, e.occurred_at.day)

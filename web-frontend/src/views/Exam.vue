@@ -5,7 +5,9 @@
     <div class="tes-toolbar">
       <input v-model="title" placeholder="试卷标题" />
       <input v-model="kps" placeholder="知识点，逗号分隔" />
-      <button class="tes-btn-primary" @click="gen">生成</button>
+      <!-- T-AM7：按钮级权限（exam:generate）——无码角色（如 school）不可见，
+           后端 require_perm 同步拦截 -->
+      <button class="tes-btn-primary" v-has-permission="'exam:generate'" @click="gen">生成</button>
     </div>
 
     <ul v-if="paper" class="qs">

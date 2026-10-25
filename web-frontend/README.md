@@ -5,9 +5,33 @@ Vue 3 + Vite 前端骨架，对应 `web-backend` 提供的后台 API。页面已
 ## 技术栈
 
 - **Vue 3** + **Vite**
-- **vue-router 4**：路由 + 登录守卫
-- **Pinia**：auth 登录态（token 存 localStorage）
+- **vue-router 4**：路由 + 登录守卫（刷新后先拉授权再放行，见 T-AM7）
+- **Pinia**：auth 登录态 + 授权菜单/按钮权限码（token 存 localStorage）
 - **axios**：请求封装，自动附带 `Authorization: Bearer <token>`
+- **vitest + @vue/test-utils**：前端单测（T-AM7 引入）
+
+## 权限模型（T-AM7 起）
+
+导航与按钮不再硬编码角色矩阵，以后端 `GET /menu/my`（`sys_role_menu` 聚合）为唯一权威：
+
+- `src/api/menu.js`：拉授权菜单（扁平列表）；
+- `src/utils/menu.js`：纯函数层——`buildMenuTree` 建树、`collectPerms` 聚合按钮码、`matchPerm` 镜像后端 `has_perm`（`*:*` / 精确 / 通配前缀）、`MENU_ROUTE_MAP` 后端 path → 前端路由映射（未建页面的菜单不出导航，避免死链）；
+- `src/directives/permission.js`：`v-has-permission="'exam:generate'"` 按钮级指令（数组为任一命中；admin 恒放行；授权未就绪不误伤）；
+- `src/stores/auth.js`：`menus/perms/menuTree` + `hasPerm()` + `hasRouteAccess()`，localStorage 缓存供刷新秒开；
+- `src/router/index.js`：守卫在刷新后（有 token 无菜单）先 `await loadMenus()` 再放行，并按菜单映射做路由门禁（UX 层，后端 `require_role/require_perm` 才是安全边界）；
+- 后端按钮码示例：`exam:generate`（组卷）、`grading:submit/review`（批改），授权矩阵见 `web-backend/app/services/rbac_seed.py::ROLE_MENU_MAP`，与 `exam.py/grading.py` 的 `require_perm` 对齐。
+
+## 单测
+
+```bash
+npm install
+npm test           # vitest run（32 例：菜单纯函数/指令/store/Layout 动态导航）
+```
+
+> 环境注意：WorkBuddy 沙箱的 brokered-FS 埋点会拦截 vitest 的临时缓存写入，
+> 并发下 IPC 超时会误杀测试文件收集（表现为个别文件"消失"、EPERM）。
+> 跑测试时加 `CODEBUDDY_BROKERED_FS_HOOK_ENABLED=0 npm test` 只关该埋点
+> （不动沙箱本身），即可稳定全量收集。
 
 ## 模块页面
 
@@ -54,7 +78,7 @@ cd /opt/tes-edu-gateway && docker compose up -d web-front && docker kill -s HUP 
 
 - 所有请求 `baseURL = /api/admin`，与后端 `main.py` 的路由前缀一致。
 - **例外——登录必须走根路径 `POST /login`**（见 `src/api/admin.js`）：网关 `/api/admin/` 前缀路由是 RBAC + `require_tenant`，未携带 token 时会在网关层直接 401，根本到不了 web-backend 的签发逻辑；而网关 `/login` 路由 `mode` 为空不鉴权，直通后端签发 RS256 JWT（2026-10-24 线上修复）。
-- 角色控制：路由 `meta.role` 仅做前端展示约束；真实权限由网关 + 后端 RBAC 校验。
+- 角色控制：路由 `meta.role` 已移除（T-AM7）——授权以后端菜单矩阵为唯一权威，守卫经 `auth.hasRouteAccess` 执行；细粒度到按钮级由后端 `require_perm` 强制。
 
 ## 演示账号
 

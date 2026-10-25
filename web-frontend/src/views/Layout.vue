@@ -10,15 +10,25 @@
       </div>
 
       <nav class="nav">
-        <router-link
-          v-for="item in menus"
-          :key="item.to"
-          :to="item.to"
-          class="nav-item"
-        >
-          <span class="nav-ico">{{ item.icon }}</span>
-          <span class="nav-label">{{ item.label }}</span>
+        <!-- 概览无对应后端菜单节点（所有角色可见），常驻首位 -->
+        <router-link to="/dashboard" class="nav-item">
+          <span class="nav-ico">🏠</span>
+          <span class="nav-label">概览</span>
         </router-link>
+        <!-- T-AM7：其余导航按 /menu/my 授权动态渲染；无前端页面的菜单
+             （如 /system/* 管理页）经映射表过滤，不出死链 -->
+        <template v-for="g in navGroups" :key="g.key">
+          <div class="nav-group">{{ g.label }}</div>
+          <router-link
+            v-for="item in g.items"
+            :key="item.to"
+            :to="item.to"
+            class="nav-item"
+          >
+            <span class="nav-ico">{{ item.icon }}</span>
+            <span class="nav-label">{{ item.label }}</span>
+          </router-link>
+        </template>
       </nav>
 
       <div class="side-foot">
@@ -55,6 +65,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { toNavGroups } from '../utils/menu'
 
 const route = useRoute()
 const router = useRouter()
@@ -62,23 +73,17 @@ const auth = useAuthStore()
 const user = auth.user
 const currentTitle = computed(() => route.meta.title || 'Tes Edu')
 
+// T-AM7：角色文案补齐五角色（原静态表缺 region_admin/school）
 const roleText = computed(() => {
-  const map = { admin: '管理员', teacher: '教师', parent: '家长', researcher: '教研' }
+  const map = {
+    admin: '管理员', region_admin: '区域管理员', school: '学校',
+    teacher: '教师', parent: '家长',
+  }
   return map[user?.role] || user?.role || ''
 })
 
-const menus = [
-  { to: '/dashboard', label: '概览', icon: '🏠' },
-  { to: '/knowledge', label: '教研内容管理', icon: '📚' },
-  { to: '/analytics', label: '学情看板', icon: '📈' },
-  { to: '/error-distribution', label: '班级错因分布', icon: '🔍' },
-  { to: '/wrong-questions', label: '错题本', icon: '📕' },
-  { to: '/exam', label: '自动组卷', icon: '📝' },
-  { to: '/grading', label: '教师批改', icon: '✅' },
-  { to: '/reports', label: '家长周报', icon: '💌' },
-  { to: '/compliance', label: '合规审核', icon: '🛡️' },
-  { to: '/practice', label: '在线练习', icon: '🎯' },
-]
+// 动态菜单分组（源自 /menu/my 授权；BUTTON 节点与无前端页面的菜单已过滤）
+const navGroups = computed(() => toNavGroups(auth.menuTree))
 
 function onLogout() {
   auth.logout()
@@ -122,6 +127,11 @@ function onLogout() {
 .brand-text i { font-style: normal; font-size: 11px; color: rgba(255,255,255,.6); }
 
 .nav { display: flex; flex-direction: column; gap: 4px; position: relative; z-index: 1; }
+.nav-group {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  color: rgba(255, 255, 255, .45);
+  padding: 14px 14px 6px;
+}
 .nav-item {
   display: flex; align-items: center; gap: 12px;
   padding: 11px 14px;

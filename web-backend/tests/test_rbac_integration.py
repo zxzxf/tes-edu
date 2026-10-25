@@ -159,3 +159,28 @@ def test_role_authorize_admin_ok(client):
         headers={"X-User-Id": "u_admin", "X-User-Role": "admin"},
     )
     assert r.status_code == 204, r.text
+
+
+def test_platform_users_token_carries_tenant(client):
+    """T-AM7：平台级用户（admin/region_admin，sys_user.tenant_id 为空）签发的
+    JWT 必须带非空 tenant_id（"platform" 占位）——网关 /api/admin/ 路由
+    require_tenant 会 403 挡掉无租户 claim 的令牌，动态菜单 /menu/my 随之全灭。
+    """
+    from cryptography.hazmat.primitives import serialization
+    from jose import jwt as jose_jwt
+
+    key = serialization.load_pem_private_key(
+        os.environ["JWT_PRIVATE_KEY"].encode(), password=None
+    )
+    pub_pem = key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode()
+
+    for username in ("admin@tes.edu", "region_admin@tes.edu"):
+        token = _login(client, username)
+        claims = jose_jwt.decode(token, pub_pem, algorithms=["RS256"])
+        assert claims["tenant_id"] == "platform", (
+            f"{username} 令牌缺 tenant_id，将被网关 require_tenant 403 挡死"
+        )
+        assert claims["role"] in ("admin", "region_admin")

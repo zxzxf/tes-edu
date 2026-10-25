@@ -4,8 +4,7 @@
 """
 from fastapi import APIRouter, Depends
 
-from app.core.rbac import Role
-from app.core.security import require_role
+from app.core.permission import require_perm
 from app.models.schemas import ExamPaper
 
 # 示例题库（P2 接入 questions 表后由 DB 抽取替代）
@@ -42,7 +41,10 @@ router = APIRouter(prefix="/exam", tags=["exam"])
 @router.post("/generate", response_model=ExamPaper)
 def generate(
     paper: ExamPaper,
-    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
+    # T-AM7：按钮级权限码（替代 require_role 粗粒度白名单）——授权矩阵见
+    # rbac_seed.ROLE_MENU_MAP：admin(*:*)/teacher/region_admin 持 exam:generate；
+    # school 页面可见但无此按钮码，后端同样 403。
+    user=Depends(require_perm("exam:generate")),
 ):
     # 占位：真实场景按知识点+难度从 questions 抽题，LLM 排版
     paper.id = 1

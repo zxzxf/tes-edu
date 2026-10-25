@@ -74,10 +74,16 @@ async def login(req: LoginRequest):
     pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
     if not db_user.get("password_hash") or not pwd.verify(req.password, db_user["password_hash"]):
         raise HTTPException(status_code=401, detail="invalid credentials")
+    # T-AM7：平台级用户（admin/region_admin，sys_user.tenant_id 为空）签发时
+    # 补 "platform" 占位租户——网关 /api/admin/ 路由 require_tenant 要求 JWT 带
+    # 非空 tenant_id，否则动态菜单 /menu/my 等 B 端请求全被 403 挡在网关层。
+    # "platform" 与 sys_user_role.tenant_id 的平台占位一致，永不匹配真实租户，
+    # 数据作用域由 scope.resolve_scope 按角色解析（admin 全量 / region_admin 辖区），
+    # 不会因该占位串产生越权。
     token = create_token(
         user_id=db_user["user_id"],
         role=db_user["role"],
-        tenant_id=db_user.get("tenant_id"),
+        tenant_id=db_user.get("tenant_id") or "platform",
     )
     return TokenResponse(access_token=token, token_type="bearer", role=db_user["role"])
 

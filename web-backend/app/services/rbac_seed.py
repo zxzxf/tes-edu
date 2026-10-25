@@ -46,27 +46,45 @@ MENUS = [
     ("m_ops_analytics", "m_ops", "学情看板", "MENU", "/ops/analytics", "Analytics", "chart", 3, None),
     ("m_ops_wrong", "m_ops", "错题本", "MENU", "/ops/wrong", "Wrong", "wrong", 4, None),
     ("m_ops_exam", "m_ops", "自动组卷", "MENU", "/ops/exam", "Exam", "exam", 5, None),
+    ("m_ops_exam_gen", "m_ops_exam", "生成组卷", "BUTTON", "", "", "", 1, "exam:generate"),
     ("m_ops_grading", "m_ops", "教师批改", "MENU", "/ops/grading", "Grading", "grade", 6, None),
+    ("m_ops_grading_submit", "m_ops_grading", "提交批改", "BUTTON", "", "", "", 1, "grading:submit"),
+    ("m_ops_grading_review", "m_ops_grading", "评分批改", "BUTTON", "", "", "", 2, "grading:review"),
     ("m_ops_reports", "m_ops", "家长周报", "MENU", "/ops/reports", "Reports", "report", 7, None),
     ("m_ops_compliance", "m_ops", "合规审核", "MENU", "/ops/compliance", "Compliance", "shield", 8, None),
+    # T-AM7：前端已有页面补入菜单树（此前仅有静态导航，DB 无节点 → 动态菜单渲染不出）。
+    # 班级错因分布（S5 老师端）；在线练习（过程采集）。
+    ("m_ops_errordist", "m_ops", "班级错因分布", "MENU", "/ops/error-distribution", "ErrorDistribution", "search", 9, None),
+    ("m_ops_practice", "m_ops", "在线练习", "MENU", "/ops/practice", "Practice", "target", 10, None),
 ]
 
 # 角色 × 菜单授权（菜单节点 + 其下按钮一并授权）：仅 admin 见系统设置全部。
 # region_admin 见区域运营全部（不含系统设置）；其余角色按矩阵缩减。
+# parent 仅家长周报（B 端家长是周报读者，不做教学操作——与原前端静态
+# meta.role 的偏差属有意收口，以 DB 授权矩阵为唯一权威）。
+# 按钮级授权（T-AM7 起有业务按钮码）：
+#   exam:generate    组卷生成（与 exam.py require_perm 对齐：admin/teacher/region_admin）
+#   grading:submit   提交批改（与 grading.py require_perm 对齐：admin/teacher）
+#   grading:review   评分批改（与 grading.py PUT 对齐：admin/teacher）
+# school/region_admin 对批改、school 对组卷均无按钮——页面可见但动作隐藏，
+# 由后端 require_perm 兜底拦截，前端 v-has-permission 只做体验层。
 ROLE_MENU_MAP = {
     "role_admin": [m[0] for m in MENUS],  # 全菜单 + 全按钮
     "role_region_admin": [
         m[0] for m in MENUS
         if m[3] in ("DIR", "MENU")
         and not (m[0] == "m_sys" or (m[1] == "m_sys"))
-    ],  # 区域管理员：仅区域运营，不含系统设置及其全部子节点
+    ] + ["m_ops_exam_gen"],  # 区域管理员：仅区域运营，不含系统设置；保留组卷动作
     "role_school": [
         "m_ops", "m_ops_tenant", "m_ops_knowledge", "m_ops_analytics",
         "m_ops_wrong", "m_ops_exam", "m_ops_grading", "m_ops_reports", "m_ops_compliance",
-    ],
+        "m_ops_errordist", "m_ops_practice",
+    ],  # 学校：页面全览，无任何按钮动作
     "role_teacher": [
         "m_ops", "m_ops_knowledge", "m_ops_analytics", "m_ops_wrong",
         "m_ops_exam", "m_ops_grading", "m_ops_reports",
+        "m_ops_errordist", "m_ops_practice",
+        "m_ops_exam_gen", "m_ops_grading_submit", "m_ops_grading_review",
     ],
     "role_parent": ["m_ops", "m_ops_reports"],
 }
@@ -170,17 +188,28 @@ async def seed_rbac(db, password_hash: str, bcrypt=None) -> dict:
             db.add(SysRole(**r))
         stats["roles"] = len(ROLES)
 
-    # 菜单
-    existing = (await db.execute(select(SysMenu.menu_id))).scalars().all()
-    if not existing:
-        for m in build_seed_menus():
-            db.add(SysMenu(**m))
-        stats["menus"] = len(MENUS)
+    # 菜单（T-AM7 起按 menu_id 逐条 upsert：线上库已有旧种子时也能补插新节点，
+    # 如 m_ops_errordist / m_ops_practice；已存在的行不改动，保持运维手工调整）
+    existing = set((await db.execute(select(SysMenu.menu_id))).scalars().all())
+    new_menus = [m for m in build_seed_menus() if m["menu_id"] not in existing]
+    for m in new_menus:
+        db.add(SysMenu(**m))
+    stats["menus"] = len(new_menus)
 
-        # 角色-菜单授权（依赖菜单已建）
-        for rm in build_seed_role_menus():
-            db.add(SysRoleMenu(**rm))
-        stats["role_menus"] = len(build_seed_role_menus())
+    # 角色-菜单授权（同样 upsert：补插缺失的 (role_id, menu_id) 对，
+    # 如给 school/teacher 补新菜单授权；不删除既有授权）
+    existing_rm = {
+        tuple(r) for r in (
+            await db.execute(select(SysRoleMenu.role_id, SysRoleMenu.menu_id))
+        ).all()
+    }
+    new_rm = [
+        rm for rm in build_seed_role_menus()
+        if (rm["role_id"], rm["menu_id"]) not in existing_rm
+    ]
+    for rm in new_rm:
+        db.add(SysRoleMenu(**rm))
+    stats["role_menus"] = len(new_rm)
 
     # 用户（admin / region_admin）
     existing = (await db.execute(

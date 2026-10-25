@@ -117,8 +117,15 @@ def require_perm(*codes: str):
     return _dep
 
 
-def _get_db():
-    """延后导入 get_db，避免循环依赖（security->rbac，permission->security）。"""
+async def _get_db():
+    """延后导入 get_db，避免循环依赖（security->rbac，permission->security）。
+
+    必须是异步生成器依赖：FastAPI 对 async generator 依赖会 yield 其产出的值；
+    若写成同步 `return get_db()`，注入的将是 async_generator 对象本身
+    （报 'async_generator' object has no attribute 'execute'）。
+    T-AM8 首次在 API 层接入 require_perm 时发现此缺陷。
+    """
     from app.core.db import get_db
 
-    return get_db()
+    async for session in get_db():
+        yield session

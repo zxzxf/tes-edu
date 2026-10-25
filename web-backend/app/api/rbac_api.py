@@ -1,10 +1,15 @@
-"""后台权限基座 API（T-AM0/T-AM2/T-AM3/T-AM4）。
+"""后台权限基座 API（T-AM0/T-AM2/T-AM3/T-AM4，T-AM8 安全加固）。
 
 挂在 /api/admin 前缀下（由 Go 网关剥离前缀转发）。
-- /tenant       租户/学校基础管理（T-AM0）
+- /tenant       租户/学校基础管理（T-AM0；T-AM8 起按 resolve_scope 做区域/租户过滤）
 - /menu/my     按授权返回菜单树+按钮码（T-AM2）
-- /menu        菜单管理 CRUD + 按钮级权限码（T-AM3）
-- /role        角色管理 + 菜单授权（T-AM4）
+- /menu        菜单管理 CRUD + 按钮级权限码（T-AM3；写操作经 require_perm 强制）
+- /role        角色管理 + 菜单授权（T-AM4；授权经 require_perm 强制）
+
+T-AM8 安全口径：
+- 越权统一 403（require_role 粗校验 + require_perm 按钮级 + 跨区/跨租户显式校验）；
+- region_admin 辖区回查 sys_user.region_id（JWT 无 region claim）；
+- 家长↔学生绑定表属 P4，落地前学生级隔离为租户/区域粗粒度（见总表降级口径）。
 """
 
 from typing import List, Optional
@@ -15,9 +20,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
+from app.core.permission import require_perm
 from app.core.rbac import Role
 from app.core.security import get_current_user, require_role
 from app.models import rbac_models as m
+from app.services import scope as scope_svc
 
 router = APIRouter(tags=["rbac"])
 
@@ -79,9 +86,20 @@ async def list_tenants(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_role(Role.ADMIN, Role.REGION_ADMIN, Role.SCHOOL)),
 ):
+    """按数据作用域返回学校列表（T-AM8 区域过滤/租户隔离）。
+
+    - admin        全量（可按 region_id 查询参数再过滤）
+    - region_admin 仅本辖区（region_id 回查 sys_user，见 scope.resolve_scope）
+    - school       仅本校（tenant_id 取网关注入头 / sys_user.tenant_id）
+    """
+    scope = await scope_svc.resolve_scope(user, db)
     stmt = select(m.SysTenant)
-    if user["role"] == Role.REGION_ADMIN.value and user.get("region_id"):
-        stmt = stmt.where(m.SysTenant.region_id == user["region_id"])
+    if user["role"] == Role.REGION_ADMIN.value and scope["region_id"]:
+        stmt = stmt.where(m.SysTenant.region_id == scope["region_id"])
+    elif user["role"] == Role.SCHOOL.value and scope["tenant_id"]:
+        stmt = stmt.where(m.SysTenant.tenant_id == scope["tenant_id"])
+    elif region_id:
+        stmt = stmt.where(m.SysTenant.region_id == region_id)
     rows = (await db.execute(stmt)).scalars().all()
     return [TenantOut.model_validate(r) for r in rows]
 
@@ -92,9 +110,12 @@ async def create_tenant(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_role(Role.ADMIN, Role.REGION_ADMIN)),
 ):
-    if user["role"] == Role.REGION_ADMIN.value and user.get("region_id"):
-        if body.region_id and body.region_id != user["region_id"]:
+    scope = await scope_svc.resolve_scope(user, db)
+    if user["role"] == Role.REGION_ADMIN.value and scope["region_id"]:
+        # 区域管理员：要么不传区域（默认落本辖区），要么必须等于辖区，否则 403
+        if body.region_id and body.region_id != scope["region_id"]:
             raise HTTPException(status_code=403, detail="只能在本区域下建学校")
+        body.region_id = scope["region_id"]
     exists = (await db.execute(
         select(m.SysTenant).where(m.SysTenant.tenant_id == body.tenant_id)
     )).scalar_one_or_none()
@@ -119,9 +140,12 @@ async def update_tenant(
     )).scalar_one_or_none()
     if not t:
         raise HTTPException(status_code=404, detail="tenant not found")
-    if user["role"] == Role.REGION_ADMIN.value and user.get("region_id"):
-        if t.region_id != user["region_id"]:
+    scope = await scope_svc.resolve_scope(user, db)
+    if user["role"] == Role.REGION_ADMIN.value and scope["region_id"]:
+        if t.region_id != scope["region_id"]:
             raise HTTPException(status_code=403, detail="无权修改本区域外学校")
+        if body.region_id and body.region_id != scope["region_id"]:
+            raise HTTPException(status_code=403, detail="只能在本区域下建学校")
     for k, v in body.model_dump().items():
         setattr(t, k, v)
     await db.commit()
@@ -179,7 +203,7 @@ async def list_menus(
 async def create_menu(
     body: MenuIn,
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_role(Role.ADMIN)),
+    user: dict = Depends(require_perm("system:menu:add")),
 ):
     if body.parent_id:
         parent = (await db.execute(
@@ -204,7 +228,7 @@ async def update_menu(
     menu_id: str,
     body: MenuIn,
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_role(Role.ADMIN)),
+    user: dict = Depends(require_perm("system:menu:edit")),
 ):
     menu = (await db.execute(
         select(m.SysMenu).where(m.SysMenu.menu_id == menu_id)
@@ -224,7 +248,7 @@ async def update_menu(
 async def delete_menu(
     menu_id: str,
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_role(Role.ADMIN)),
+    user: dict = Depends(require_perm("system:menu:delete")),
 ):
     menu = (await db.execute(
         select(m.SysMenu).where(m.SysMenu.menu_id == menu_id)
@@ -259,7 +283,7 @@ async def authorize_role(
     role_id: str,
     body: RoleMenuIn,
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_role(Role.ADMIN)),
+    user: dict = Depends(require_perm("system:role:auth")),
 ):
     role = (await db.execute(
         select(m.SysRole).where(m.SysRole.role_id == role_id)

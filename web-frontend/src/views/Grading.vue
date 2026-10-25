@@ -11,7 +11,9 @@
         <span>作答内容</span>
         <textarea v-model="answer" placeholder="粘贴学生作答…"></textarea>
       </label>
-      <button class="tes-btn-primary" @click="submit">提交批改</button>
+      <!-- T-AM7：按钮级权限（grading:submit）——无码角色不可见，
+           后端 require_perm 同步拦截 -->
+      <button class="tes-btn-primary" v-has-permission="'grading:submit'" @click="submit">提交批改</button>
       <p v-if="result" class="ok">✅ 提交成功，作答 ID：{{ result.id }}</p>
     </div>
   </div>

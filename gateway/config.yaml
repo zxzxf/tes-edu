@@ -55,7 +55,12 @@ routes:
   - match: "/api/admin/"
     upstream: web_backend
     mode: rbac
-    roles: ["admin", "teacher", "researcher", "operator"]
+    # T-AM7（2026-10-26）：角色白名单对齐 web-backend 五角色（app/core/rbac.py
+    # Role 枚举）。旧值含已废弃的 researcher 与后端不存在的 operator，且缺
+    # region_admin/school/parent——动态菜单 /menu/my 对这三类角色会被网关
+    # 403 挡死。网关仅做粗粒度角色闸门，细粒度权限由 web-backend
+    # require_role/require_perm 按 X-User-Role 执行。
+    roles: ["admin", "region_admin", "school", "teacher", "parent"]
     # 多租户强制隔离：B 端路由要求 JWT 带非空 tenant_id，无租户令牌一律 403，
     # 防止跨空间访问（C 端路由按用户态设计，不强制租户）
     require_tenant: true

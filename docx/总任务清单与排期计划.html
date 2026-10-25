@@ -62,18 +62,18 @@
 <div class="page">
 
   <h1>Tes Edu · 总任务清单与排期计划</h1>
-  <div class="meta">全量汇总 · 汇总日期 2026-10-25 · 数据源：后台权限与系统集成 v2.3 / 学生端能力扩展 / BYOM / <b>学生Agent与学生端应用</b> / P2 计划书</div>
+  <div class="meta">全量汇总 · 汇总日期 2026-10-25（<b>v4.2 更新：2026-10-26</b>，W2 收尾 + T-AM8 实测） · 数据源：后台权限与系统集成 v2.3 / 学生端能力扩展 / BYOM / <b>学生Agent与学生端应用</b> / P2 计划书</div>
   <div class="meta">完成度图例：<span class="chip done">✅ 已完成</span> <span class="chip pend">🟡 部分完成</span> <span class="chip todo">⬜ 未开始（0% 实现）</span> ｜ 估点口径：小=0.5d、小–中=0.75d、中=1d、中–高=1.5d、高=2d</div>
 
   <div class="kpis">
-    <div class="kpi"><div class="label">待办任务</div><div class="value">55</div><div class="sub">全部 0% 实现（仅规划）</div></div>
+    <div class="kpi"><div class="label">待办任务</div><div class="value">53</div><div class="sub">W2 权限主干 + T-AM8 已实测落地</div></div>
     <div class="kpi"><div class="label">P2 历史已完成</div><div class="value">11<span class="sub">/13</span></div><div class="sub">剩 T-C5 等 3 项遗留</div></div>
     <div class="kpi"><div class="label">全量工作量</div><div class="value">≈62.5<span class="sub">人天</span></div><div class="sub">波次 59.5d + P2 遗留 3d</div></div>
     <div class="kpi"><div class="label">排期波次</div><div class="value">9</div><div class="sub">W1 地基 → W9 学生 App</div></div>
   </div>
 
   <div class="note">
-    <b>一句话现状：</b>历史 P2 主线 <b>11/13 已完成</b>；本期 <b>55 项待办</b>中，<b>W2 权限主干（T-AM0~4）单测 + 集成实测全绿（15/15），登录阻断 bug 已修复</b>，T-AM7 前端 0%，<b>其余 50 项仍处"规划完成、代码 0%"</b>——本轮产出为<b>方案与排期</b>，W2 之外尚未写实现代码。
+    <b>一句话现状：</b>历史 P2 主线 <b>11/13 已完成</b>；本期 <b>53 项待办</b>中，<b>W2 权限主干已全段实测打通（T-AM0~4 后端 15/15 + T-AM7 前端动态菜单 32/32 + T-AM8 安全校验 web 208 全绿），T-AM5/6 未启动</b>，其余 46 项仍处"规划完成、代码 0%"。
   </div>
 
   <h2>一、总览（完成度仪表盘）</h2>
@@ -81,7 +81,7 @@
     <thead><tr><th>分类</th><th class="num">任务数</th><th class="num">已完成</th><th class="num">部分</th><th class="num">未开始</th><th class="num">估点小计</th></tr></thead>
     <tbody>
       <tr><td>P2 历史交付（T-C/D/E/F/B5）</td><td class="num">13</td><td class="num"><b>11</b></td><td class="num">1（T-E2 仅评估）</td><td class="num">1（T-C5）</td><td class="num">—</td></tr>
-      <tr><td>后台权限与系统集成（T-AM）</td><td class="num">9</td><td class="num"><b>5</b>（W2 T-AM0~4 单测+集成实测全绿）</td><td class="num">0</td><td class="num"><b>4</b>（T-AM5/6/7/8）</td><td class="num">9.75d</td></tr>
+      <tr><td>后台权限与系统集成（T-AM）</td><td class="num">9</td><td class="num"><b>7</b>（W2 T-AM0~4 实测全绿；T-AM7 前端动态菜单 + T-AM8 安全校验已实测落地）</td><td class="num">0</td><td class="num"><b>2</b>（T-AM5/6）</td><td class="num">9.75d</td></tr>
       <tr><td>MCP 商业化（T-B）</td><td class="num">6</td><td class="num">0</td><td class="num">0</td><td class="num"><b>6</b></td><td class="num">8d</td></tr>
       <tr><td>学生端·项目（T-S）</td><td class="num">4</td><td class="num">0</td><td class="num">0</td><td class="num"><b>4</b></td><td class="num">4d</td></tr>
       <tr><td>学生端·功能开关（T-F）</td><td class="num">4</td><td class="num">0</td><td class="num">0</td><td class="num"><b>4</b></td><td class="num">4.5d</td></tr>
@@ -90,14 +90,15 @@
       <tr><td>P2 遗留（T-C5/F2/E2实施）</td><td class="num">3</td><td class="num">0</td><td class="num">0</td><td class="num"><b>3</b></td><td class="num">3d</td></tr>
       <tr><td>学生 AI 学习智能体（T-SA，含多智能体 A.5）</td><td class="num">14</td><td class="num">0</td><td class="num">0</td><td class="num"><b>14</b></td><td class="num">18.75d</td></tr>
       <tr><td>学生端应用 student-app（T-AP）</td><td class="num">8</td><td class="num">0</td><td class="num">0</td><td class="num"><b>8</b></td><td class="num">7.75d</td></tr>
-      <tr class="total"><td>合计（待办）</td><td class="num">55</td><td class="num"><b>5</b></td><td class="num">0</td><td class="num">50</td><td class="num">≈62.5d</td></tr>
+      <tr class="total"><td>合计（待办）</td><td class="num">53</td><td class="num"><b>7</b></td><td class="num">0</td><td class="num">46</td><td class="num">≈62.5d</td></tr>
     </tbody>
   </table>
 
   <div class="note">
-    <b>关键量化基线（2026-10-25 实测）</b>
+    <b>关键量化基线（2026-10-26 实测）</b>
     <ul>
-      <li>后端单测 <b>401 绿</b>（agent 229 + web 172）</li>
+      <li>后端单测 <b>437 绿</b>（agent 229 + web <b>208</b>，含 T-AM8 新增 19 + T-AM7 新增 1）</li>
+      <li>前端单测 <b>32 绿</b>（vitest：菜单纯函数 16 / 权限指令 7 / auth store 6 / Layout 动态导航 3）</li>
       <li>知识点本体/DAG <b>435/435</b>；真实题库 <b>213 题</b>（验收目标 3000，<span class="chip block">未达标</span>）</li>
       <li>137 容器 <b>7/7 Up</b>；公网 <code>https://sd12sd.icu/admin/</code> <b>200（Cloudflare）</b></li>
       <li>学生 App debug APK（16MB）已连生产域名 <code>https://sd12sd.icu/</code></li>
@@ -125,7 +126,7 @@
     </tbody>
   </table>
 
-  <h2>三、待办任务总清单（55 项）</h2>
+  <h2>三、待办任务总清单（53 项）</h2>
 
   <h3>3.1 后台权限与系统集成（T-AM 系列，9 项 / 9.75d）</h3>
   <table>
@@ -138,8 +139,8 @@
       <tr><td class="mono">T-AM4</td><td>角色管理 + <code>sys_role_menu</code> 授权，五角色矩阵落地【实测：角色授权集成单测通过（admin 重设角色菜单）】</td><td>T-AM2</td><td class="num">1.5d</td><td class="num"><span class="chip done">🟢</span></td><td class="num"><span class="wave">W2</span></td></tr>
       <tr><td class="mono">T-AM5</td><td>区域管理：七大区 CRUD + <code>region_id</code> 数据作用域</td><td>T-AM1</td><td class="num">0.75d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W4</span></td></tr>
       <tr><td class="mono">T-AM6</td><td>系统服务（MCP 厂商）注册 + 每厂商独立数据服务（三层隔离）</td><td>T-AM1</td><td class="num">2d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W4</span></td></tr>
-      <tr><td class="mono">T-AM7</td><td>前端动态菜单 + <code>v-has-permission</code> 按钮指令【实测：前端 0% 未动】</td><td>T-AM2/3/4</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W2</span></td></tr>
-      <tr><td class="mono">T-AM8</td><td>单测 + 联调 + 安全校验（越权 403、厂商 A/B 互读、区域过滤、脱敏）</td><td>T-AM3~7</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W7</span></td></tr>
+      <tr><td class="mono">T-AM7</td><td>前端动态菜单 + <code>v-has-permission</code> 按钮指令【实测：前端 32/32 全绿；导航/按钮以后端 <code>/menu/my</code> 为唯一权威，<code>meta.role</code> 已移除】</td><td>T-AM2/3/4</td><td class="num">1.5d</td><td class="num"><span class="chip done">🟢</span></td><td class="num"><span class="wave">W2</span></td></tr>
+      <tr><td class="mono">T-AM8</td><td>单测 + 联调 + 安全校验（越权 403、区域过滤、脱敏）【实测：web-backend 208 全绿，含安全 10 + 脱敏 9 新增】</td><td>T-AM3~7</td><td class="num">1d</td><td class="num"><span class="chip done">🟢</span></td><td class="num"><span class="wave">W7</span></td></tr>
     </tbody>
   </table>
 
@@ -155,7 +156,20 @@
           <li><code>main.py</code> lifespan 中 <code>_worker_tasks</code> 仅在 <code>kafka_enabled</code> 时赋值，Kafka 未启用时 teardown 抛 <code>UnboundLocalError</code> 致 shutdown 挂死；已改为函数内局部初始化（<b>线上同款 shutdown 隐患一并消除</b>）。</li>
         </ol>
       </li>
-      <li><b>当前结论</b>：W2 模型层、引擎层、登录链路、菜单/角色 CRUD、按钮级权限码均已<b>端到端实测打通</b>；仅 T-AM7 前端动态菜单 0% 未动、T-AM5/6/8 未启动。</li>
+      <li><b>当前结论</b>：W2 模型层、引擎层、登录链路、菜单/角色 CRUD、按钮级权限码均已<b>端到端实测打通</b>（T-AM7/T-AM8 见下轮实测）。</li>
+    </ul>
+  </div>
+
+  <div class="note">
+    <b>W2 收尾 + T-AM8 实测（2026-10-26，web-backend 208 passed + 前端 32 passed）</b>：
+    <ul>
+      <li><b>T-AM7 前端动态菜单</b>：<code>/menu/my</code> 扁平列表 → <code>buildMenuTree</code> 建树 → 侧栏分组渲染（BUTTON 与无前端页面的菜单经 <code>MENU_ROUTE_MAP</code> 过滤，不出死链）；<code>v-has-permission</code> 指令（admin 恒放行 / 数组任一命中 / 通配前缀，镜像后端 <code>has_perm</code>）；路由守卫刷新后先 <code>loadMenus()</code> 再放行 + 菜单级路由门禁。种子补插 <code>m_ops_errordist</code>/<code>m_ops_practice</code> 两个前端已有页面，<code>seed_rbac</code> 改按 menu_id upsert（线上旧库可补插）。</li>
+      <li><b>T-AM7 按钮级权限做成真拦</b>（非纯展示）：新增业务按钮码 <code>exam:generate</code>/<code>grading:submit</code>/<code>grading:review</code>，<code>exam.py</code>/<code>grading.py</code> 由 <code>require_role</code> 切 <code>require_perm</code>；前端 Exam/Grading 按钮挂指令。school 页面可见但无按钮码，后端同步 403。</li>
+      <li><b>T-AM8 安全校验</b>：<code>masking.py</code> 脱敏（对齐网关 <code>pii.go</code>：手机/身份证/邮箱，幂等）接入周报两个端点；<code>scope.py::resolve_scope</code> 数据作用域（admin 全量 / region_admin 辖区 / school 本校）接入租户三端点，跨区建/改 403 真生效。</li>
+      <li><b>同轮修复/接线 4 处</b>：① <code>permission.py::_get_db</code> 同步函数误注入 async_generator（require_perm 首次启用即暴露）；② <code>reports.py</code> sqlite naive 时间与 aware 混比 TypeError；③ <code>security.py</code> <code>Header(None)</code> 标记对象泄漏进返回值 + 补读 <code>X-Tenant-Id</code>；④ <code>auth.py</code> 平台级用户（admin/region_admin）签发补 <code>"platform"</code> 占位租户——网关 <code>/api/admin/</code> <code>require_tenant</code> 否则 403 挡死动态菜单。</li>
+      <li><b>网关角色白名单对齐</b>：<code>gateway/config.yaml</code> <code>/api/admin/</code> roles 由旧四角色（含废弃 researcher/operator，缺 region_admin/school/parent）改为后端五角色——否则动态菜单对 3/5 角色不可用（部署侧需 <code>./start.sh build</code> 重建生效）。</li>
+      <li><b>降级口径</b>：家长↔学生绑定表属 P4，落地前学生级越权为租户/区域粗粒度；MCP 厂商 A/B 互读属 T-AM6（未启动），本轮不覆盖。</li>
+      <li><b>当前结论</b>：W2 权限主干（T-AM0~4+7）与 T-AM8 安全校验<b>均已端到端实测打通</b>；仅 T-AM5/6 未启动。</li>
     </ul>
   </div>
 
@@ -340,7 +354,7 @@ T-SA1 → T-SA3 → T-SA6 → T-AP1 → T-AP8   （学生 Agent → App 全链�
   </table>
 
   <footer>
-    本表为全量任务跟踪总表（<b>v4.1</b>：2026-10-25 并入学生Agent全部 <b>22 项</b>，待办 <b>55</b> 项、全量 <b>≈62.5</b> 人天、波次 <b>W1–W9</b>；<b>同日 RBAC 单测实测驱动修复</b>：W2 权限主干 T-AM0~4 原 <code>seed_rbac</code> 漏 <code>sys_user_role</code> 关联致 <code>/login</code> 阻断，已修复并复测 <b>core 11/11 + integration 4/4 全绿（15/15）</b>，同轮修复 <code>course_kb.init_course_kb</code>（sqlite 守卫）与 <code>main.py</code> lifespan <code>_worker_tasks</code> teardown 隐患（线上 shutdown 同款）；详见 §3.1 实测备注）；各任务细节以其所属计划书为准：《后台权限与系统集成任务计划书》v2.3、《学生端能力扩展计划书》、《学校配置大模型BYOM能力任务计划书》、《学生Agent与学生端应用任务计划书》v2、《P2引导式对话与横向收尾任务计划书》。除 <b>W2 权限主干 T-AM0~4 已实测打通</b>外，本轮其余任务<b>实现代码尚未启动</b>（T-AM7 前端 0%、T-AM5/6/8 未启动）。
+    本表为全量任务跟踪总表（<b>v4.2</b>：2026-10-26 W2 收尾 + T-AM8 实测落地——T-AM7 前端动态菜单/<code>v-has-permission</code>（前端 32/32）+ T-AM8 安全校验（web-backend <b>208 passed</b>，含安全 10 + 脱敏 9 新增）双双转 🟢，待办 <b>55→53</b> 项、全量 <b>≈62.5</b> 人天、波次 <b>W1–W9</b>；同轮：<code>seed_rbac</code> 改按 menu_id upsert 并补插 2 个前端页面菜单节点与 3 个业务按钮码（<code>exam:generate</code>/<code>grading:submit</code>/<code>grading:review</code>，exam/grading 端点切 <code>require_perm</code>）、<code>auth.py</code> 平台用户签发补 <code>"platform"</code> 占位租户（解网关 <code>require_tenant</code> 对 <code>/menu/my</code> 的 403）、<code>gateway/config.yaml</code> 角色白名单对齐后端五角色；历史版本：v4.1 = 2026-10-25 并入学生Agent 22 项 + RBAC 15/15 实测修复）；各任务细节以其所属计划书为准：《后台权限与系统集成任务计划书》v2.3、《学生端能力扩展计划书》、《学校配置大模型BYOM能力任务计划书》、《学生Agent与学生端应用任务计划书》v2、《P2引导式对话与横向收尾任务计划书》。除 <b>W2 权限主干 T-AM0~4+7 与 T-AM8 已实测打通</b>外，其余任务<b>实现代码尚未启动</b>（T-AM5/6 未启动）。
   </footer>
 
 </div>

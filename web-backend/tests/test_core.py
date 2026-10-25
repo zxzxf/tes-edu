@@ -39,7 +39,19 @@ def test_get_current_user_ok():
     from app.core.security import get_current_user
 
     user = get_current_user(x_user_id="u100", x_user_role="teacher")
-    assert user == {"user_id": "u100", "role": "teacher"}
+    # T-AM8：补读网关注入的 X-Tenant-Id / X-User-Region（区域与租户过滤前置条件）
+    assert user == {"user_id": "u100", "role": "teacher", "tenant_id": None, "region_id": None}
+
+
+def test_get_current_user_reads_tenant_and_region():
+    from app.core.security import get_current_user
+
+    user = get_current_user(
+        x_user_id="u100", x_user_role="region_admin",
+        x_tenant_id="t1", x_user_region="rgn_east",
+    )
+    assert user["tenant_id"] == "t1"
+    assert user["region_id"] == "rgn_east"
 
 
 def test_require_role_allows():

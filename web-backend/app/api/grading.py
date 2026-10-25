@@ -7,8 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.rbac import Role
-from app.core.security import require_role
+from app.core.permission import require_perm
 from app.models.schemas import Submission
 from app.services import ops
 
@@ -18,7 +17,9 @@ router = APIRouter(prefix="/grading", tags=["grading"])
 @router.post("/submit", response_model=Submission)
 async def grade(
     s: Submission,
-    user=Depends(require_role(Role.ADMIN, Role.TEACHER)),
+    # T-AM7：按钮级权限码（替代 require_role 粗粒度白名单）——授权矩阵见
+    # rbac_seed.ROLE_MENU_MAP：admin(*:*)/teacher 持 grading:submit。
+    user=Depends(require_perm("grading:submit")),
     db: AsyncSession = Depends(get_db),
 ):
     return await ops.create_submission(db, s.model_dump(exclude={"id"}))
@@ -29,7 +30,9 @@ async def review(
     submission_id: int,
     score: float = Query(...),
     comment: str = "",
-    user=Depends(require_role(Role.ADMIN, Role.TEACHER)),
+    # T-AM7：按钮级权限码（与 submit 同一机制，授权矩阵见 rbac_seed）——
+    # admin(*:*)/teacher 持 grading:review。
+    user=Depends(require_perm("grading:review")),
     db: AsyncSession = Depends(get_db),
 ):
     obj = await ops.get_submission(db, submission_id)
