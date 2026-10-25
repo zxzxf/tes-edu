@@ -1,5 +1,7 @@
 package com.tes.edu.ui.screens
 
+import android.app.Activity
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.widget.Toast
@@ -40,11 +42,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tes.edu.state.AppBridge
 import com.tes.edu.ui.components.GradientButton
+import com.tes.edu.util.buildCaptureIntent
+import com.tes.edu.util.canCapture
 import com.tes.edu.ui.components.InfoPill
 import com.tes.edu.ui.components.SoftCard
 import com.tes.edu.ui.components.SoftFieldCard
@@ -55,6 +58,7 @@ import com.tes.edu.ui.theme.TesEduColors
 import com.tes.edu.viewmodel.CameraErrorKind
 import com.tes.edu.viewmodel.CameraStage
 import com.tes.edu.viewmodel.CameraViewModel
+import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
@@ -81,18 +85,40 @@ fun CameraScreen(
     // 本地可恢复的错误（无相机 App / 读图失败），不进 ViewModel——它们与上传无关
     var localError by remember { mutableStateOf<String?>(null) }
 
+    /**
+     * 相机回调。自己构造 Intent 而不是用 `TakePicture()` contract——见
+     * [buildCaptureIntent] 注释：官方 contract 既不预检也不授权 Uri。
+     */
     val takePicture = rememberLauncherForActivityResult(
-        ActivityResultContracts.TakePicture()
-    ) { ok ->
+        ActivityResultContracts.StartActivityForResult()
+    ) { res ->
         val f = pendingFile
-        when {
-            !ok -> Unit                                  // 学生主动取消，不打扰
-            f == null || !f.exists() || f.length() == 0L ->
-                localError = "没拿到照片，重新拍一次试试"
-            else -> {
-                localError = null
-                vm.prepare(f.readBytes())
+        pendingFile = null
+        if (res.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult // 主动取消
+        val fromFile = runCatching {
+            f?.takeIf { it.exists() && it.length() > 0L }?.readBytes()
+        }.getOrNull()
+        if (fromFile != null) {
+            localError = null
+            vm.prepare(fromFile)
+            return@rememberLauncherForActivityResult
+        }
+        // 少数相机 App 无视 EXTRA_OUTPUT，只把缩略图塞回 intent 的 "data"
+        val thumb = runCatching {
+            @Suppress("DEPRECATION")
+            res.data?.extras?.get("data") as? Bitmap
+        }.getOrNull()
+        val bytes = thumb?.let {
+            ByteArrayOutputStream().use { out ->
+                it.compress(Bitmap.CompressFormat.JPEG, 92, out)
+                out.toByteArray()
             }
+        }
+        if (bytes == null || bytes.isEmpty()) {
+            localError = "没拿到照片，重新拍一次试试"
+        } else {
+            localError = null
+            vm.prepare(bytes)
         }
     }
 
@@ -109,6 +135,16 @@ fun CameraScreen(
             localError = null
             vm.prepare(bytes)
         }
+    }
+
+    /**
+     * 打开相册。**这是"没有相机 App"时的唯一出路**——过去这一支只在 Toast 里
+     * 口头建议一句，学生点完"拍照"就卡在原地，等于功能死掉；现在直接替他打开。
+     */
+    val openGallery: (String?) -> Unit = { reason ->
+        reason?.let { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show() }
+        runCatching { pickImage.launch("image/*") }
+            .onFailure { localError = "这台设备既没有相机也没有相册，请改用文字输入" }
     }
 
     Column(
@@ -140,20 +176,35 @@ fun CameraScreen(
                 preview = ui.preview,
                 error = ui.error,
                 errorKind = ui.errorKind,
+                canTake = remember(ctx) { canCapture(ctx) },
                 onTake = {
-                    val f = File(File(ctx.cacheDir, "images").apply { mkdirs() }, "capture_${System.currentTimeMillis()}.jpg")
-                    pendingFile = f
-                    val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", f)
-                    runCatching { takePicture.launch(uri) }
-                        .onFailure {
-                            localError = "这台设备上没有可用的相机应用，请从相册选图"
+                    val f = File(
+                        File(ctx.cacheDir, "images").apply { mkdirs() },
+                        "capture_${System.currentTimeMillis()}.jpg"
+                    )
+                    val intent = runCatching { buildCaptureIntent(ctx, f) }
+                        .onFailure { e ->
+                            // FileProvider 配置错：Toast 里带上类名，便于一眼看出不是"没相机"
+                            localError = "拍照配置异常（${e.javaClass.simpleName}），请从相册选图"
                             Toast.makeText(ctx, localError, Toast.LENGTH_SHORT).show()
                         }
+                        .getOrNull()
+                    when {
+                        // 无相机 App（平板 / 模拟器 / 被禁用）：不再报红字，直接打开相册
+                        intent == null -> openGallery("没找到相机应用，已为你打开相册")
+                        else -> {
+                            pendingFile = f
+                            runCatching { takePicture.launch(intent) }
+                                .onFailure { e ->
+                                    pendingFile = null
+                                    openGallery(
+                                        "相机调不起来（${e.javaClass.simpleName}），已为你打开相册"
+                                    )
+                                }
+                        }
+                    }
                 },
-                onPick = {
-                    runCatching { pickImage.launch("image/*") }
-                        .onFailure { localError = "打不开相册，试试直接拍照" }
-                },
+                onPick = { openGallery(null) },
                 onRecognize = { vm.recognize() },
                 onRetake = { vm.reset() },
                 onUseText = { onNavigate(Screen.Input.route) }
@@ -201,6 +252,7 @@ private fun IdleBlock(
     preview: ByteArray?,
     error: String?,
     errorKind: CameraErrorKind?,
+    canTake: Boolean,
     onTake: () -> Unit,
     onPick: () -> Unit,
     onRecognize: () -> Unit,
@@ -246,9 +298,20 @@ private fun IdleBlock(
                 color = TesEduColors.TextMuted
             )
             Spacer(Modifier.height(16.dp))
-            GradientButton(text = "拍照", icon = Icons.Rounded.PhotoCamera) { onTake() }
-            Spacer(Modifier.height(10.dp))
-            SoftOutlinedButton(text = "从相册选图", icon = Icons.Rounded.PhotoLibrary) { onPick() }
+            if (canTake) {
+                GradientButton(text = "拍照", icon = Icons.Rounded.PhotoCamera) { onTake() }
+                Spacer(Modifier.height(10.dp))
+                SoftOutlinedButton(text = "从相册选图", icon = Icons.Rounded.PhotoLibrary) { onPick() }
+            } else {
+                // 无相机的设备（平板 / 模拟器）：不摆一个点了会回落的按钮
+                Text(
+                    "这台设备没有可用的相机应用，可以从相册里选一张题目图。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TesEduColors.TextMuted
+                )
+                Spacer(Modifier.height(12.dp))
+                GradientButton(text = "从相册选图", icon = Icons.Rounded.PhotoLibrary) { onPick() }
+            }
         }
         return
     }

@@ -11,6 +11,17 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
+    <!--
+      Android 11（API 30）起的「包可见性」限制：不声明就 queryIntentActivities()
+      恒返回空列表，导致拍照前的可用性预检误判成"没有相机 App"而白白回落相册。
+      这里声明我们要查询的 intent，不下任何 <package> 白名单。
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

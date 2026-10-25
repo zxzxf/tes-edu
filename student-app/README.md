@@ -47,8 +47,16 @@ app/src/main/res/
 
 1. **输入 / 语音**：文本或语音提问
 2. **拍照识题**（T-P2~P5 已落地）：「拍照」走系统相机 Intent（相机 App 自己持有
-   `CAMERA` 权限，本应用**无需动态申请**，只需兜底"设备无相机 App"）；「从相册选图」
-   走 `GetContent()`。选图后先在页面压缩预览（长边 1600 / JPEG 85 / ≤800KB），
+   `CAMERA` 权限，本应用**无需动态申请**）；「从相册选图」走 `GetContent()`。
+   ⚠️ 不用 `ActivityResultContracts.TakePicture()`——它内部只拼一行 Intent，**既不预检
+   有没有 App 能接、也不给 URI 授予读写权限**，无相机设备直接 `ActivityNotFoundException`、
+   国产 ROM 相机写不进 `content://` 而静默失败。改由 `util/CaptureIntent.kt` 构造：
+   `queryIntentActivities` 预检 → 对**所有候选** `grantUriPermission(READ|WRITE)` →
+   启动；无候选则**自动打开相册**（不报红字），且页面预检后直接不显示「拍照」按钮。
+   回调若目标文件为空，还会兜底读 intent `extras["data"]` 缩略图（部分相机无视
+   `EXTRA_OUTPUT`）。manifest 必须声明 `<queries><intent>IMAGE_CAPTURE`，否则
+   Android 11+ 预检恒为空、会把有相机的设备误判成没相机。
+   选图后先在页面压缩预览（长边 1600 / JPEG 85 / ≤800KB），
    确认拍清楚了再点「识别这道题」上传 `POST /api/app/solve_image`。
    识别结果**一定可编辑**——准确率是这个功能最大的风险，所以绝不"识别即提交"，
    学生改完再点「就用这道题去解」跳输入页。
