@@ -119,7 +119,19 @@ data class SolveResponse(
     // T-C3 分步拆解回传（仅压轴题 hint 轮有值）
     @SerializedName("hint_step") val hintStep: Int? = null,
     @SerializedName("hint_step_total") val hintStepTotal: Int? = null,
-    @SerializedName("hint_step_text") val hintStepText: String? = null
+    @SerializedName("hint_step_text") val hintStepText: String? = null,
+    // —— 拍照识题（T-P4，POST /api/app/solve_image）——
+    /** OCR 抽出的题面原文；拍照链路才有值，学生可改后再提交。 */
+    @SerializedName("recognized_text") val recognizedText: String? = null,
+    /**
+     * 后端是否配置了视觉模型。false 时 `recognizedText` 一定为空——
+     * 后端已改成直接短路返回，不会拿降级文案去"解题"，前端据此给明确引导。
+     */
+    @SerializedName("vlm_enabled") val vlmEnabled: Boolean? = null,
+    /** 拍照链路降级标记（未配 VLM / 未识别到文字）。 */
+    val degraded: Boolean? = null,
+    /** 降级或失败时后端给出的可直接展示的说明。 */
+    val message: String? = null
 )
 
 interface ApiService {

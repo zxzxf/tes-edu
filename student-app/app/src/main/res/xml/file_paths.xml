@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider 可授权的目录。只放 cache/images —— 相机拍照的临时落点。
+  刻意不放 external / root-path：避免把整个存储暴露给第三方相机 App。
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path
+        name="camera"
+        path="images/" />
+</paths>

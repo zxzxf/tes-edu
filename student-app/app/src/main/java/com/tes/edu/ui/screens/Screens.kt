@@ -653,12 +653,7 @@ private fun HintPanel(
     }
 }
 
-@Composable
-fun CameraScreen() = EmptyState(
-    icon = Icons.Rounded.PhotoCamera,
-    title = "拍照识题",
-    subtitle = "拍下题目自动识别，直接进入引导"
-)
+// CameraScreen：T-P2~P5 已落地，见 CameraScreen.kt（系统相机 Intent + 压缩上传 + 可编辑识别结果）
 
 @Composable
 fun ExplainScreen() = EmptyState(

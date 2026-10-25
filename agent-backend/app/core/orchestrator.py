@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import time
 
-from app.core import intent, judge_v2, llm, ocr, qtype, rag, socratic
+from app.core import config, intent, judge_v2, llm, ocr, qtype, rag, socratic
 
 # ---------------------------------------------------------------- bundle 缓存
 
@@ -253,9 +253,48 @@ async def _judge_v2_with_fallback(
 
 
 async def handle_image(image_bytes: bytes) -> dict:
-    # 拍照：先 OCR 抽题面，再走文本题链路
+    """拍照：OCR 抽题面 -> 文本题链路。
+
+    与 `similar_degraded` 同口径：不可用时**显式回 degraded/vlm_enabled**，
+    绝不静默降级。两个短路点：
+
+      1. 视觉模型未配置 —— 早期实现会把 OCR 的降级文案（"[dev-未配置视觉模型] …"）
+         原样送进 `handle_question`，LLM 于是就着这句提示生成一段"解答"，
+         接口 200、字段齐全，前端看起来完全成功。拍照页据此会展示一段
+         牛头不对马嘴的解析。这里直接短路，不消耗 LLM 配额。
+      2. OCR 返回空白 —— 图片没拍到题目/全白，同样不值得进 LLM。
+    """
+    if not config.vlm_ready():
+        return {
+            "answer": "",
+            "steps": [],
+            "similar": [],
+            "knowledge_points": [],
+            "recognized_text": "",
+            "vlm_enabled": False,
+            "degraded": True,
+            "message": (
+                "拍照识题未启用：未配置视觉模型"
+                "（VLM_BASE_URL / VLM_MODEL / LLM_API_KEY）。请先用文字输入。"
+            ),
+        }
+
     text = await ocr.recognize(image_bytes)
+    if not text.strip():
+        return {
+            "answer": "",
+            "steps": [],
+            "similar": [],
+            "knowledge_points": [],
+            "recognized_text": "",
+            "vlm_enabled": True,
+            "degraded": True,
+            "message": "没从这张图里识别出文字，换一张拍清楚些的，或改用文字输入。",
+        }
+
     result = await handle_question(text)
     # 回传识别文本，供学情上报与前端核对（文本题链路不返回该字段）
     result["recognized_text"] = text
+    result["vlm_enabled"] = True
+    result["degraded"] = False
     return result

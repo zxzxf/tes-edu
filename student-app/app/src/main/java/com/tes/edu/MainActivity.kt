@@ -94,7 +94,7 @@ fun AppRoot() {
             modifier = Modifier.padding(padding)
         ) {
             composable(Screen.Input.route) { InputScreen() }
-            composable(Screen.Camera.route) { CameraScreen() }
+            composable(Screen.Camera.route) { CameraScreen(onNavigate = go) }
             composable(Screen.Explain.route) { ExplainScreen() }
             composable(Screen.Similar.route) { SimilarScreen(onNavigate = go) }
             composable(Screen.Graph.route) { GraphScreen(onNavigate = go) }

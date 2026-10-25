@@ -5,7 +5,8 @@
 > **配套文档**：《学生Agent与学生端应用任务计划书》v2（T-AP 系列）、《学生端能力扩展计划书》（T-S/T-F/T-A 系列）、《总任务清单与排期计划》v4.4。
 > **估点口径**：小=0.5d、小–中=0.75d、中=1d、中–高=1.5d、高=2d（单人单线程）。
 >
-> **进度（2026-10-27 更新）**：**波 1 已交付并上线**（T-S1~S5 触类全链 + T-G1/G2 图谱联动，App 单测 **20 绿**、agent-backend **229 绿**）；拍照技术选型已拍板为 **MVP 系统相机 Intent**（CameraX 增强延后）；剩余波 2/波 3 内容不变。详见 §八「波 1 落地记录」。
+> **进度（2026-10-26 更新）**：**波 1 已交付并上线**（T-S1~S5 触类全链 + T-G1/G2 图谱联动）；**拍照页 UI 已交付**（T-P2~P6，App 单测 **20 → 29 绿**，agent-backend **229 绿**），拍照走系统相机 Intent、不做 CameraX。
+> ⚠️ **拍照功能当前处于"页面可用、识别未启用"状态**：后端 `vlm:false`（视觉模型未配置），上传后返回 `vlm_enabled=false`，页面会明确提示并引导改用文字输入——**这是 T-P1（VLM 额度）未落地，不是前端 bug**。详见 §八「波 1 落地记录」与「拍照页落地记录」。
 
 ---
 
@@ -100,16 +101,17 @@
 
 | 任务 | 内容 | 依赖 | 估点 |
 |---|---|---|---|
-| T-P1 | 后端 VLM 接线与验证：配置 VLM 三变量 → healthz `vlm:true` → 真实试卷照片识别质量抽检（≥3 张，含公式） | — | 0.5d |
-| T-P2 | App 拍照入口：系统相机 Intent + 权限声明（`CAMERA`）+ 拍后预览确认/重拍 | — | 0.5d |
-| T-P3 | 图片压缩与上传：长边压到 1600px、JPEG q=85、`MultipartBody` 调 `solveImage` | T-P2 | 0.5d |
-| T-P4 | 识别结果页：展示 `recognized_text`（可编辑）+「开始解题」→ 跳 Input 并预填题干 | T-P3 | 0.5d |
-| T-P5 | 失败态与降级：VLM 未配/识别为空/网络失败三态文案 + "改用文字输入"兜底 | T-P4 | 0.25d |
-| T-P6 | 单测：`CameraViewModel` 状态机（拍照→压缩→上传→识别→跳转）用 fake ApiService 走通 | T-P3 | 0.5d |
+| ~~T-P1~~ | 后端 VLM 接线与验证：配置 VLM 三变量 → healthz `vlm:true` → 真实试卷照片识别质量抽检（≥3 张，含公式） | — | 0.5d | ⬜ **未启动（外部依赖：视觉模型额度）** |
+| ~~T-P2~~ | App 拍照入口：系统相机 Intent + 拍后预览确认/重拍 | — | 0.5d | 🟢 已落地（2026-10-26） |
+| ~~T-P3~~ | 图片压缩与上传：长边压到 1600px、JPEG q=85、`MultipartBody` 调 `solveImage` | T-P2 | 0.5d | 🟢 已落地 |
+| ~~T-P4~~ | 识别结果页：展示 `recognized_text`（可编辑）+「开始解题」→ 跳 Input 并预填题干 | T-P3 | 0.5d | 🟢 已落地 |
+| ~~T-P5~~ | 失败态与降级：VLM 未配/识别为空/网络失败三态文案 + "改用文字输入"兜底 | T-P4 | 0.25d | 🟢 已落地（后端补 `vlm_enabled`/`degraded` 字段） |
+| ~~T-P6~~ | 单测：`CameraViewModel` 状态机用 fake ApiService 走通 | T-P3 | 0.5d | 🟢 已落地（9 例） |
 
-**小计 2.75d**（MVP 路径；CameraX 增强另计 1.5d，可延后）
+**小计 2.75d**（MVP 路径；CameraX 增强另计 1.5d，可延后）—— **已交付 2.25d**，仅剩 T-P1（0.5d，外部依赖）。
 
 **验收**：真机拍一张含公式的试卷题 → 识别出题干 → 点"开始解题"能拿到完整讲解；VLM 未配时给出明确"请改用文字输入"而不是空白页。
+**当前状态**：前半段（页面链路）已通并上线；后半段（真实识别）被 T-P1 阻塞，实测上传后接口 44ms 返回 `vlm_enabled=false` + 明确文案，页面按设计展示降级引导。
 
 ---
 
@@ -328,9 +330,60 @@ dueAt = now + interval 天（按本地 04:00 切日）
 ### 8.4 遗留
 
 - 触类页的**实际内容质量**取决于 LLM 额度；当前降级，需充值或换端点后复验（复验标准：变式题题干是**完整可作答**的题目，而非"…（知识点：X）"结尾的片段）。
-- 拍照页 T-P1（VLM 额度）仍待外部确认；`vlm:false` 未变。
 - 讲解页、背诵页本体未动（波 2/波 3）。
 
 ---
 
-*本计划书依据 2026-10-27 实测现状编写；任务编号 T-P/E/S/G/R 为本计划新增，与总表的 T-AP（App 发布/UI 规范/弱网）系列互补不重叠。总量 ≈13.25 人天；**波 1（2.0d）已于 2026-10-27 交付上线，剩余 ≈11.25d**。*
+## 九、拍照页落地记录（2026-10-26，已上线 137）
+
+### 9.1 交付清单
+
+**App（JVM 单测 20 → 29 绿）**
+
+| 文件 | 内容 |
+|---|---|
+| `ui/screens/CameraScreen.kt`（新增） | 拍照/相册选图 → 压缩预览 → 点「识别这道题」→ 可编辑结果 → 跳输入页 |
+| `viewmodel/CameraViewModel.kt`（新增） | 三阶段状态机 + 三类失败语义；压缩以 `suspend lambda` 注入 |
+| `util/ImageCompressor.kt`（新增） | 长边 1600 / JPEG 85 / 超 800KB 按档降质量（最低 50） |
+| `data/remote/ApiService.kt` | `SolveResponse` 补 `recognized_text` / `vlm_enabled` / `degraded` / `message` |
+| `AndroidManifest.xml` | 加 `FileProvider`（`${applicationId}.fileprovider`）+ `uses-feature camera required=false`；**移除 `READ_EXTERNAL_STORAGE`** |
+| `res/xml/file_paths.xml`（新增） | 只授权 `cache/images`，不把整个存储暴露给第三方相机 App |
+| `MainActivity.kt` | `CameraScreen(onNavigate = go)` |
+
+**后端（agent-backend 229 绿不变）**
+
+`orchestrator.handle_image` 加两个短路点：VLM 未配置 / OCR 返回空白时**直接返回**
+`vlm_enabled`+`degraded`+`message`，不再进入 `handle_question`。
+
+### 9.2 实测结论（137 线上）
+
+| 项 | 结果 |
+|---|---|
+| `POST /api/app/solve_image`（带 token，4KB 测试图） | **200 / 44ms**，`{"vlm_enabled":false,"degraded":true,"message":"拍照识题未启用：未配置视觉模型…"}` |
+| 未带 token | 401 `missing token` |
+| healthz | `vlm:false`（与预期一致，T-P1 未落地） |
+| 改造前对比 | 同为 200，但要 **1.2s**——多跑了一次无意义的 LLM（就着"未配置视觉模型"这句提示生成解答） |
+| APK 内 `AndroidManifest` | `androidx.core.content.FileProvider` + `FILE_PROVIDER_PATHS` + `res/xml/file_paths.xml` 均在；`uses-feature-not-required: camera` |
+
+### 9.3 三个设计决策（与"能不能跑"无关，但决定好不好用）
+
+1. **系统相机 Intent 免权限** —— 相机权限由相机 App 持有，本应用无需动态申请，
+   因此**不存在"拒绝授权后功能半死"的状态**；需要兜底的只有"设备上没有相机 App"
+   （`ActivityNotFoundException`，页面给"请从相册选图"）。这是选型 MVP 而非 CameraX
+   的额外收益。
+2. **识别结果一定可编辑，绝不识别即提交** —— 拍照准确率（尤其公式/手写）是这个
+   功能的头号风险，流程停在"把题干给学生看一眼"，改完再跳输入页。
+3. **压缩以 lambda 注入 ViewModel** —— `BitmapFactory` 在 JVM 单测里是 "not mocked"
+   桩，直接调用必抛异常。注入后单测传 identity，状态机得以在 JVM 上完整验证
+   （否则 T-P6 只能靠真机手点）。
+
+### 9.4 遗留
+
+- **T-P1（VLM 额度）是唯一硬阻塞**：配好后需复验的不只是"接口 200"，而是
+  **识别出的题干是否完整、公式是否保真**（建议 ≥3 张含公式的真实试卷照片）。
+- 真机未验证（无真机）：相机 Intent + FileProvider + 压缩的**端到端**行为只能上真机看，
+  当前只验证了接口契约与资源打包正确。
+
+---
+
+*本计划书依据 2026-10-26/27 实测现状编写；任务编号 T-P/E/S/G/R 为本计划新增，与总表的 T-AP（App 发布/UI 规范/弱网）系列互补不重叠。总量 ≈13.25 人天；**波 1（2.0d）已于 2026-10-27 交付上线，拍照页 UI（2.25d）已于 2026-10-26 交付上线，剩余 ≈9.0d**（讲解 3.0 + 背诵/错题本 3.5 + T-P1 0.5 + 波 2 地基 2.0）。*

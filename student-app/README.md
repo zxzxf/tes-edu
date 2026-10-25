@@ -15,12 +15,15 @@ Android 学生端（C 端核心产品），技术栈 **Kotlin + Jetpack Compose*
 ```
 app/src/main/java/com/tes/edu/
 ├── MainActivity.kt                  # 入口 + Compose 底部导航脚手架（页内联动跳转）
-├── ui/screens/Screens.kt            # 六大能力页（输入/图谱/触类已落地，其余占位）
+├── ui/screens/Screens.kt            # 六大能力页（输入/图谱/触类已落地，讲解与背诵占位）
 ├── ui/screens/GraphScreen.kt        # T-B5 知识图谱可视化（Canvas 渲染 + 节点联动）
+├── ui/screens/CameraScreen.kt       # T-P2~P5 拍照识题（系统相机 Intent + 预览 + 可编辑结果）
 ├── ui/graph/GraphLayout.kt          # 章节带布局算法（纯 Kotlin，可单测）
 ├── viewmodel/SolveViewModel.kt      # 意图分发（文本题/图片题/查点/图谱）
 ├── viewmodel/SimilarViewModel.kt    # 触类旁通（三态 + 降级标记）
+├── viewmodel/CameraViewModel.kt     # 拍照识题（压缩→上传→识别，压缩以 lambda 注入）
 ├── viewmodel/GraphViewModel.kt      # 图谱页状态（登录 + 拉图 + 选中态 + 按知识点拉题）
+├── util/ImageCompressor.kt          # 拍照压缩（长边 1600 / JPEG 85 / ≤800KB）
 ├── state/AppBridge.kt               # 跨 tab 一次性传参（进程内 StateFlow 单例）
 ├── data/remote/ApiService.kt        # Retrofit 接口（/api/app/* + /learning/*）
 ├── data/remote/GraphModels.kt       # T-B5 图谱 DTO（nodes/edges/summary）
@@ -36,13 +39,21 @@ app/src/main/res/
 ├── drawable/ic_launcher_background.xml   # 暖色渐变底（矢量）
 ├── drawable/ic_launcher_foreground.xml   # 书本＋双星前景（矢量）
 ├── mipmap-anydpi-v26/                    # API 26+ 自适应图标
-└── mipmap-*/                             # API 24/25 各密度 PNG 回退
+├── mipmap-*/                             # API 24/25 各密度 PNG 回退
+└── xml/file_paths.xml                    # FileProvider 授权目录（只开 cache/images）
 ```
 
 ## 六大能力页
 
 1. **输入 / 语音**：文本或语音提问
-2. **拍照识题**：上传图片解题
+2. **拍照识题**（T-P2~P5 已落地）：「拍照」走系统相机 Intent（相机 App 自己持有
+   `CAMERA` 权限，本应用**无需动态申请**，只需兜底"设备无相机 App"）；「从相册选图」
+   走 `GetContent()`。选图后先在页面压缩预览（长边 1600 / JPEG 85 / ≤800KB），
+   确认拍清楚了再点「识别这道题」上传 `POST /api/app/solve_image`。
+   识别结果**一定可编辑**——准确率是这个功能最大的风险，所以绝不"识别即提交"，
+   学生改完再点「就用这道题去解」跳输入页。
+   ⚠️ 后端未配视觉模型时返回 `vlm_enabled=false` + `degraded=true`，页面据此
+   显示"暂未启用"并给「改用文字输入」出口（后端已改成直接短路，不再拿降级文案去解题）。
 3. **讲解展示**：步骤与公式渲染
 4. **触类旁通**（波 1 已落地）：`POST /api/app/similar` 生成同型/变式题，
    点「再练这道」把题干带回输入页；来源题干默认取最近做的一题，可改可「换一批」。
@@ -76,13 +87,18 @@ app/src/main/res/
 
 ## 单测
 
-三个 JVM 单测类，**合计 20 tests / 0 failures / 0 errors / 0 skipped**（2026-10-27，JDK 17 下跑通）：
+四个 JVM 单测类，**合计 29 tests / 0 failures / 0 errors / 0 skipped**（2026-10-26，JDK 17 下跑通）：
 
 | 测试类 | 用例数 | 覆盖 |
 |---|---|---|
 | `viewmodel/SolveViewModelTest.kt` | 4 | T-C3 "直接看解析"链路与 Hint 阶梯状态机（fake ApiService） |
 | `viewmodel/SimilarViewModelTest.kt` | 11 | 触类旁通：三态、空白题干不发请求、降级标记透传、后端 DTO 解析（含 jsonb 字段忽略） |
+| `viewmodel/CameraViewModelTest.kt` | 9 | 拍照识题：准备/成功/未启用 VLM/识别为空/网络失败/上传字节与预览一致/可改题干/重置 |
 | `state/AppBridgeTest.kt` | 5 | 跨 tab 传参的一次性消费语义（投递→取出→清空） |
+
+- ⚠️ `CameraViewModel` 把压缩当 `suspend (ByteArray) -> ByteArray` **注入**，单测传
+  identity，这样状态机能在 JVM 上跑——`BitmapFactory` 在单测里是 "not mocked" 桩，
+  直接调用会抛异常。同理 `ImageCompressor` 本身不在 JVM 单测覆盖范围内。
 
 - 执行（**必须显式指定 JDK 17**，见下节工具链）：
 
