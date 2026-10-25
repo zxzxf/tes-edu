@@ -19,6 +19,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -58,6 +61,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tes.edu.data.remote.GraphNode
+import com.tes.edu.state.AppBridge
+import com.tes.edu.ui.components.SoftOutlinedButton
 import com.tes.edu.ui.graph.GraphLayout
 import com.tes.edu.ui.graph.LaidOutEdge
 import com.tes.edu.ui.graph.LaidOutNode
@@ -90,7 +95,11 @@ private const val MAX_SCALE = 2.5f
  *  - 底部详情卡：掌握度/练习统计/可练题目数/前置链。
  */
 @Composable
-fun GraphScreen(vm: GraphViewModel = viewModel()) {
+fun GraphScreen(
+    // T-G1/G2：节点详情的两个联动出口（跳输入页练题 / 跳背诵页定范围）
+    onNavigate: (String) -> Unit = {},
+    vm: GraphViewModel = viewModel()
+) {
     val ui by vm.ui.collectAsState()
 
     var scale by remember { mutableFloatStateOf(0.6f) }
@@ -202,6 +211,18 @@ fun GraphScreen(vm: GraphViewModel = viewModel()) {
                     ui.selected?.let { node ->
                         NodeDetailCard(
                             node = node,
+                            kpLoading = ui.kpLoading,
+                            notice = ui.kpNotice,
+                            onPractice = {
+                                vm.practiceKp(node) { stem ->
+                                    AppBridge.postQuestion(stem)
+                                    onNavigate(Screen.Input.route)
+                                }
+                            },
+                            onReview = {
+                                AppBridge.postFocusKp(node.code, node.title)
+                                onNavigate(Screen.Review.route)
+                            },
                             onClose = { vm.select(null) },
                             modifier = Modifier.align(Alignment.BottomCenter)
                         )
@@ -431,9 +452,22 @@ private fun DrawScope.drawGraphNode(
     }
 }
 
-/** 选中节点详情卡：掌握度 / 练习统计 / 可练题数 / 前置链。 */
+/**
+ * 选中节点详情卡：掌握度 / 练习统计 / 可练题数 / 前置链 + 两个联动出口。
+ *
+ * T-G1「练这个知识点」：调 T-A4 变式题拿真实题干 -> 跳输入页预填；
+ * T-G2「背这个知识点」：把 code 交给背诵页限定范围（页本体属波 3）。
+ */
 @Composable
-private fun NodeDetailCard(node: GraphNode, onClose: () -> Unit, modifier: Modifier = Modifier) {
+private fun NodeDetailCard(
+    node: GraphNode,
+    kpLoading: Boolean,
+    notice: String?,
+    onPractice: () -> Unit,
+    onReview: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val bandLabel = when (node.band) {
         GraphNode.BAND_STRONG -> "已掌握"
         GraphNode.BAND_MEDIUM -> "巩固中"
@@ -512,6 +546,31 @@ private fun NodeDetailCard(node: GraphNode, onClose: () -> Unit, modifier: Modif
                     color = Color.Gray,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SoftOutlinedButton(
+                    text = if (kpLoading) "找题中…" else "练这个知识点",
+                    icon = Icons.Rounded.PlayArrow,
+                    enabled = !kpLoading,
+                    modifier = Modifier.weight(1f),
+                    onClick = onPractice
+                )
+                SoftOutlinedButton(
+                    text = "背这个知识点",
+                    icon = Icons.Rounded.Bookmark,
+                    modifier = Modifier.weight(1f),
+                    onClick = onReview
+                )
+            }
+
+            notice?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFFEF5350)
                 )
             }
         }

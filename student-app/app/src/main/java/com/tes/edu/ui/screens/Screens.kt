@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Quiz
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.TipsAndUpdates
 import androidx.compose.material3.AlertDialog
@@ -44,6 +45,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +60,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tes.edu.data.remote.Judgement
+import com.tes.edu.state.AppBridge
 import com.tes.edu.ui.components.GradientButton
 import com.tes.edu.ui.components.InfoPill
 import com.tes.edu.ui.components.LabelValueRow
@@ -69,6 +72,7 @@ import com.tes.edu.ui.components.SoftQuote
 import com.tes.edu.ui.components.TesHero
 import com.tes.edu.ui.components.EmptyState
 import com.tes.edu.ui.theme.TesEduColors
+import com.tes.edu.viewmodel.SimilarViewModel
 import com.tes.edu.viewmodel.SolveUiState
 import com.tes.edu.viewmodel.SolveViewModel
 
@@ -110,6 +114,20 @@ fun InputScreen(vm: SolveViewModel = viewModel()) {
     var reply by remember { mutableStateOf("") }
     // T-C3：直接看解析的一次轻确认弹层（常驻按钮点击后弹出，确认才直达 L4）
     var showDirectConfirm by remember { mutableStateOf(false) }
+
+    // T-S4：触类页「再练这道」/ 图谱「练这个知识点」投递过来的题干——
+    // 进来即预填并清掉上一题的作答与结果，避免"新题旧答"混着提交。
+    val pendingQuestion by AppBridge.pendingQuestion.collectAsState()
+    LaunchedEffect(pendingQuestion) {
+        val q = pendingQuestion
+        if (!q.isNullOrBlank()) {
+            question = q
+            process = ""
+            reply = ""
+            vm.reset()
+            AppBridge.consumeQuestion()
+        }
+    }
 
     Column(
         Modifier
@@ -172,7 +190,11 @@ fun InputScreen(vm: SolveViewModel = viewModel()) {
             text = if (process.isBlank()) "只求讲解" else "提交作答并判分",
             icon = Icons.Rounded.AutoAwesome,
             enabled = question.isNotBlank() && !ui.loading
-        ) { vm.solve(question, process) }
+        ) {
+            // 记录来源题干：触类页据此自动生成变式题
+            AppBridge.setLastQuestion(question)
+            vm.solve(question, process)
+        }
 
         // T-C2：进入 Hint 阶梯对话（首轮 L0 点考点；阶梯只存在于引导档）
         if (!ui.hintActive) {
@@ -181,7 +203,10 @@ fun InputScreen(vm: SolveViewModel = viewModel()) {
                 text = "开始引导（一步一步来）",
                 icon = Icons.Rounded.TipsAndUpdates,
                 enabled = question.isNotBlank() && !ui.loading
-            ) { vm.startHint(question) }
+            ) {
+                AppBridge.setLastQuestion(question)
+                vm.startHint(question)
+            }
         }
 
         if (ui.loading) {
@@ -642,17 +667,285 @@ fun ExplainScreen() = EmptyState(
     subtitle = "分步解析与公式推导将在这里呈现"
 )
 
+/**
+ * 触类旁通（T-S3/T-S4）：一题做完 -> 3 道同型/变式题 -> 点「再练这道」回输入页。
+ *
+ * 来源题干两条路：① 输入页提交过题，进来即自动带出并自动生成；
+ * ② 学生在本页直接写题干。识别到不是自己想要的题就改题干或「换一批」，
+ * 不做"生成即练"——变式题由 LLM 生成，内容质量必须留人工判断的口子。
+ */
 @Composable
-fun SimilarScreen() = EmptyState(
-    icon = Icons.Rounded.AutoStories,
-    title = "触类旁通",
-    subtitle = "做完一题，顺手串起同型题"
-)
+fun SimilarScreen(
+    onNavigate: (String) -> Unit = {},
+    vm: SimilarViewModel = viewModel()
+) {
+    val ui by vm.ui.collectAsState()
+    val lastQuestion by AppBridge.lastQuestion.collectAsState()
+    var question by remember { mutableStateOf("") }
+    // 自动带出只做一次：学生之后手动改题干时不被旧值顶回去
+    var autoFilled by remember { mutableStateOf(false) }
+
+    LaunchedEffect(lastQuestion) {
+        if (!autoFilled && lastQuestion.isNotBlank() && !ui.loaded) {
+            question = lastQuestion
+            autoFilled = true
+            vm.load(lastQuestion)
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp)
+    ) {
+        Spacer(Modifier.height(14.dp))
+
+        TesHero(
+            title = "触类旁通",
+            subtitle = "同型题串起来练，才算真的会",
+            badge = "AI 变式生成"
+        )
+
+        Spacer(Modifier.height(18.dp))
+
+        SoftFieldCard(
+            label = "来源题目",
+            hint = "默认取你最近做的一题",
+            value = question,
+            onValueChange = {
+                question = it
+                if (it.isBlank()) vm.clear()
+            },
+            placeholder = "把要延伸的题目放进来…",
+            minLines = 3,
+            leadingIcon = Icons.Rounded.Quiz
+        )
+
+        Spacer(Modifier.height(14.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            GradientButton(
+                text = if (ui.loading) "生成中…" else "生成变式题",
+                icon = Icons.Rounded.AutoAwesome,
+                enabled = question.isNotBlank() && !ui.loading,
+                modifier = Modifier.weight(1f)
+            ) { vm.load(question) }
+
+            if (ui.loaded) {
+                SoftOutlinedButton(
+                    text = "换一批",
+                    icon = Icons.Rounded.Refresh,
+                    enabled = !ui.loading,
+                    modifier = Modifier.weight(1f)
+                ) { vm.refresh() }
+            }
+        }
+
+        if (ui.loading) {
+            Spacer(Modifier.height(16.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = TesEduColors.Brand
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "正在想同型题…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TesEduColors.TextSecondary
+                )
+            }
+        }
+
+        ui.error?.let { err ->
+            Spacer(Modifier.height(16.dp))
+            SoftNotice(
+                text = err,
+                icon = Icons.Rounded.ErrorOutline,
+                color = TesEduColors.Danger,
+                bg = TesEduColors.DangerSoft
+            )
+        }
+
+        if (ui.knowledgePoints.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                ui.knowledgePoints.forEach { kp ->
+                    InfoPill(kp, TesEduColors.BrandDeep, TesEduColors.BrandSoft)
+                }
+            }
+        }
+
+        if (ui.loaded && !ui.loading && ui.items.isEmpty() && ui.error == null) {
+            Spacer(Modifier.height(16.dp))
+            SoftNotice(
+                text = "这次没生成出变式题，换个题干或再试一次",
+                icon = Icons.Rounded.Info,
+                color = TesEduColors.Amber,
+                bg = TesEduColors.AmberSoft
+            )
+        }
+
+        if (ui.degraded) {
+            Spacer(Modifier.height(16.dp))
+            SoftNotice(
+                text = "AI 变式题暂时不可用（模型额度受限），下面是题库片段，" +
+                    "不是完整题目，不能拿来直接练。",
+                icon = Icons.Rounded.Info,
+                color = TesEduColors.Amber,
+                bg = TesEduColors.AmberSoft
+            )
+        }
+
+        ui.items.forEachIndexed { i, item ->
+            Spacer(Modifier.height(14.dp))
+            VariantCard(
+                index = i,
+                text = item,
+                // 降级片段不带完整题干，"再练这道"会把残句搬回输入页——禁用它
+                practiceEnabled = !ui.degraded,
+                onPractice = {
+                    // 直接把题干搬到输入页，学生落地即可作答
+                    AppBridge.postQuestion(item)
+                    onNavigate(Screen.Input.route)
+                }
+            )
+        }
+
+        if (ui.items.isNotEmpty() && !ui.degraded) {
+            Spacer(Modifier.height(14.dp))
+            SoftNotice(
+                text = "变式题由 AI 生成，偶尔会雷同或偏题；不对味就点「换一批」。",
+                icon = Icons.Rounded.Info,
+                color = TesEduColors.Amber,
+                bg = TesEduColors.AmberSoft
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "点「再练这道」会把题干带回输入页，原来的作答会被清空。",
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
+        } else if (ui.items.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "想练完整的同型题，可以去「图谱」选一个知识点点「练这个知识点」——那里取的是题库真题。",
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
+        }
+
+        Spacer(Modifier.height(28.dp))
+    }
+}
+
+/** 变式题卡：序号角标 + 题干 + 「再练这道」（降级片段时禁用该按钮）。 */
+@Composable
+private fun VariantCard(
+    index: Int,
+    text: String,
+    practiceEnabled: Boolean,
+    onPractice: () -> Unit
+) {
+    SoftCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(26.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(TesEduColors.BrandSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "${index + 1}",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TesEduColors.Brand
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "变式题 ${index + 1}",
+                style = MaterialTheme.typography.titleSmall,
+                color = TesEduColors.TextPrimary
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TesEduColors.TextPrimary
+        )
+        Spacer(Modifier.height(14.dp))
+        SoftOutlinedButton(
+            text = if (practiceEnabled) "再练这道" else "片段不完整，暂不可练",
+            icon = Icons.Rounded.EditNote,
+            enabled = practiceEnabled
+        ) { onPractice() }
+    }
+}
 
 // GraphScreen：T-B5 知识图谱可视化已落地，见 GraphScreen.kt（Canvas 分层 DAG + 掌握度叠层 + ZPD）
+
+/**
+ * 背诵卡 / 错题本：本体属波 2/3（T-R1~R7，后端缺学生端点与 drill_cards 表）。
+ *
+ * 波 1 先把图谱「背这个知识点」的落点接住：显示已选定的知识点范围，
+ * 等背诵页本体落地时直接读同一个 `AppBridge.pendingFocusKp` 即可，无需再改图谱。
+ */
 @Composable
-fun ReviewScreen() = EmptyState(
-    icon = Icons.Rounded.Bookmark,
-    title = "背诵卡 / 错题本",
-    subtitle = "错题自动归档，离线也能背"
-)
+fun ReviewScreen() {
+    val focusKp by AppBridge.pendingFocusKp.collectAsState()
+    val focusTitle by AppBridge.pendingFocusTitle.collectAsState()
+
+    Column(Modifier.fillMaxSize()) {
+        if (focusKp != null) {
+            Spacer(Modifier.height(14.dp))
+            SoftCard(modifier = Modifier.padding(horizontal = 18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Rounded.Bookmark,
+                        contentDescription = null,
+                        tint = TesEduColors.Brand,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "已选定背诵范围",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TesEduColors.TextMuted
+                        )
+                        Text(
+                            "${focusTitle ?: focusKp} · ${focusKp}",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = TesEduColors.TextPrimary
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "背诵卡正在建设中，届时这里会按该知识点筛出待背卡片。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TesEduColors.TextMuted
+                )
+            }
+        }
+        EmptyState(
+            icon = Icons.Rounded.Bookmark,
+            title = "背诵卡 / 错题本",
+            subtitle = "错题自动归档，离线也能背"
+        )
+    }
+}

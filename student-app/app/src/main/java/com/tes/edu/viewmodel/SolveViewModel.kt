@@ -115,6 +115,15 @@ class SolveViewModel(
         }
     }
 
+    /**
+     * T-S4/T-G1：清空本次结果，准备接一道新题。
+     * 触类「再练这道」与图谱「练这个知识点」投递新题干时调用——
+     * 不清会把上一题的答案/判分卡留在新题干下面。
+     */
+    fun reset() {
+        _ui.value = SolveUiState()
+    }
+
     private fun SolveUiState.applyResponse(
         res: SolveResponse,
         loading: Boolean,

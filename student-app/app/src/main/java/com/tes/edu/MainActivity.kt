@@ -68,20 +68,23 @@ fun AppRoot() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
+    // 页内联动跳转（触类「再练这道」、图谱两个按钮）：复用底部导航的
+    // 单实例 + 保状态语义，避免切页堆出多份返回栈。
+    val go: (String) -> Unit = { route ->
+        navController.navigate(route) {
+            popUpTo(navController.graph.startDestinationId) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     Scaffold(
         containerColor = TesEduColors.Bg,
         bottomBar = {
             TesBottomBar(
                 items = items,
                 currentRoute = currentRoute,
-                onSelect = { screen ->
-                    navController.navigate(screen.route) {
-                        // 单实例 + 保留各页状态，反复切页不堆栈
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                }
+                onSelect = { screen -> go(screen.route) }
             )
         }
     ) { padding ->
@@ -93,8 +96,8 @@ fun AppRoot() {
             composable(Screen.Input.route) { InputScreen() }
             composable(Screen.Camera.route) { CameraScreen() }
             composable(Screen.Explain.route) { ExplainScreen() }
-            composable(Screen.Similar.route) { SimilarScreen() }
-            composable(Screen.Graph.route) { GraphScreen() }
+            composable(Screen.Similar.route) { SimilarScreen(onNavigate = go) }
+            composable(Screen.Graph.route) { GraphScreen(onNavigate = go) }
             composable(Screen.Review.route) { ReviewScreen() }
         }
     }

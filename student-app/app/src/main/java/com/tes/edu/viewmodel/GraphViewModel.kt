@@ -28,7 +28,10 @@ data class GraphUiState(
     val graph: GraphResponse? = null,
     val layout: GraphLayout? = null,
     val selected: GraphNode? = null,
-    val studentId: String = DEFAULT_STUDENT_ID
+    val studentId: String = DEFAULT_STUDENT_ID,
+    // T-G1：节点详情「练这个知识点」——拉题中的加载态与无题/失败提示
+    val kpLoading: Boolean = false,
+    val kpNotice: String? = null
 ) {
     companion object {
         /**
@@ -75,7 +78,43 @@ class GraphViewModel : ViewModel() {
     }
 
     fun select(node: GraphNode?) {
-        _ui.update { it.copy(selected = node) }
+        _ui.update { it.copy(selected = node, kpNotice = null) }
+    }
+
+    /**
+     * T-G1：从图谱直接开练——按知识点 code 拉真实题目（T-A4 `/learning/variants`，
+     * 同点变式优先、下游兜底），取出题干交给调用方跳输入页。
+     *
+     * 不用 `/api/app/similar` 的 LLM 生成：图谱要的是"这题确实属于该知识点"，
+     * 库里的题可回查 content_hash，生成题做不到。
+     *
+     * @param onPicked 仅在真的拿到题干时回调；无题/失败只更新 `kpNotice`，不跳转。
+     */
+    fun practiceKp(node: GraphNode, onPicked: (String) -> Unit) {
+        viewModelScope.launch {
+            _ui.update { it.copy(kpLoading = true, kpNotice = null) }
+            runCatching {
+                ensureLogin()
+                ApiClient.instance.variants(kp = node.code, n = 1)
+            }.onSuccess { res ->
+                val stem = res.items.firstOrNull()?.stem?.takeIf { it.isNotBlank() }
+                if (stem != null) {
+                    _ui.update { it.copy(kpLoading = false, kpNotice = null) }
+                    onPicked(stem)
+                } else {
+                    _ui.update {
+                        it.copy(
+                            kpLoading = false,
+                            kpNotice = res.note ?: "该知识点暂无可练题目（题库未覆盖）"
+                        )
+                    }
+                }
+            }.onFailure { e ->
+                _ui.update {
+                    it.copy(kpLoading = false, kpNotice = "拉取题目失败：${e.message}")
+                }
+            }
+        }
     }
 
     /** 无 token 先登录（占位账号）；登录成功让 ApiClient 重建以带上拦截器。 */

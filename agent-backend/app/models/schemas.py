@@ -36,6 +36,11 @@ class SolveResponse(BaseModel):
     steps: list[str] = []
     similar: list[str] = []
     knowledge_points: list[str] = []
+    # T-D3 / 波1 触类页：变式题是否由检索兜底生成（True=LLM 未生成，
+    # 列表是题库片段而非完整题目）。此前 orchestrator 已算出该值但本模型
+    # 未声明，被 response_model 静默过滤——App 拿不到就无从提示，
+    # 会把截断片段当成可练的题展示。必须回传。
+    similar_degraded: bool = False
     # 命中的标注题 hash：步骤级归因的归属对象（前端可据此回查该题）
     content_hash: Optional[str] = None
     # T-C1 意图三档路由回传：intent=direct/explain/guide（explicit 模式为 None），

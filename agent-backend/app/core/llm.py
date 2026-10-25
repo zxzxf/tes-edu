@@ -374,8 +374,10 @@ async def suggest_similar_detailed(question: str, context: dict | None = None) -
 
     chunks = (context or {}).get("chunks", [])
     return {
+        # 波 1 实测：额度耗尽时这里给出的是检索片段（截断），不是可练的完整题目。
+        # 文案不再自称"变式"（避免 App/埋点把它当真题统计），改称"片段"。
         "similar": [
-            f"变式：{c['text'][:40]}…（同类题，知识点：{c.get('knowledge_point', '')}）"
+            f"相似题片段：{c['text'][:40]}…（知识点：{c.get('knowledge_point', '')}）"
             for c in chunks[:3]
         ] or ["[dev] 暂无检索结果，无法生成变式题"],
         # 只有"配了 LLM 却没生成出来"才算降级；dev（无密钥）本就是模板模式，不计

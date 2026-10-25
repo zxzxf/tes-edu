@@ -48,6 +48,45 @@ data class Judgement(
     @SerializedName("need_process") val needProcess: Boolean = false
 )
 
+/**
+ * 触类旁通请求（agent-backend `SimilarRequest`）。
+ * @param count 变式题条数，后端默认 3；LLM 生成，实际条数以后端返回为准。
+ */
+data class SimilarRequest(
+    val question: String,
+    val subject: String? = null,
+    val count: Int = 3
+)
+
+/**
+ * T-A4 变式题 /learning/variants 的单题。
+ *
+ * 只声明 App 真正要用的标量字段——`options` 与 `knowledge_points` 在库里是 jsonb，
+ * 不同行可能是数组也可能是字符串，声明成 List 会让 Gson 在遇到字符串时整条解析失败。
+ * Gson 默认忽略未声明字段，不声明即安全。
+ */
+data class VariantItem(
+    val id: Long? = null,
+    val subject: String? = null,
+    val type: String? = null,
+    val stem: String? = null,
+    val answer: String? = null,
+    val difficulty: Int? = null,
+    @SerializedName("content_hash") val contentHash: String? = null,
+    /** 命中的知识点（可能是自身或下游） */
+    @SerializedName("kp_hit") val kpHit: String? = null,
+    /** 0=同点变式，1=直接下游，2=间接下游 */
+    val tier: Int? = null
+)
+
+/** T-A4 变式题响应：items 为该知识点（及下游）的真实题目，不足 n 时 note 说明原因。 */
+data class VariantsResponse(
+    val kp: String? = null,
+    val items: List<VariantItem> = emptyList(),
+    val total: Int = 0,
+    val note: String? = null
+)
+
 data class SolveResponse(
     val answer: String,
     val steps: List<String> = emptyList(),
@@ -55,6 +94,12 @@ data class SolveResponse(
     @SerializedName("knowledge_points") val knowledgePoints: List<String> = emptyList(),
     @SerializedName("content_hash") val contentHash: String? = null,
     val judgement: Judgement? = null,
+    /**
+     * 变式题是否由检索兜底生成（后端 `similar_degraded`）。
+     * true 时 `similar` 里是题库片段（截断文本），不是可练的完整题目——
+     * 触类页据此禁用「再练这道」，避免把残句当题干搬回输入页。
+     */
+    @SerializedName("similar_degraded") val similarDegraded: Boolean = false,
     // T-C1 意图三档路由回传（埋点与"当前为引导档/直给档"展示）
     val intent: String? = null,
     val mode: String? = null,
@@ -95,6 +140,23 @@ interface ApiService {
         @Query("student_id") studentId: String,
         @Query("subject") subject: String? = null
     ): GraphResponse
+
+    /**
+     * 触类旁通：基于题干让 LLM 生成同型/变式题（返回体复用 SolveResponse，
+     * 取 `similar` 与 `knowledge_points`，`answer` 在该模式下无意义）。
+     */
+    @POST("/api/app/similar")
+    suspend fun similar(@Body req: SimilarRequest): SolveResponse
+
+    /**
+     * T-A4 变式题：给定知识点 code 拉真实题目（同点优先、下游兜底）。
+     * 图谱「练这个知识点」走这条——比 LLM 生成更可控，且题在库里可回查。
+     */
+    @GET("learning/variants")
+    suspend fun variants(
+        @Query("kp") kp: String,
+        @Query("n") n: Int = 1
+    ): VariantsResponse
 }
 
 /**

@@ -14,13 +14,15 @@ Android 学生端（C 端核心产品），技术栈 **Kotlin + Jetpack Compose*
 
 ```
 app/src/main/java/com/tes/edu/
-├── MainActivity.kt                  # 入口 + Compose 底部导航脚手架
-├── ui/screens/Screens.kt            # 六大能力页（图谱已落地，其余占位）
-├── ui/screens/GraphScreen.kt        # T-B5 知识图谱可视化（Canvas 渲染）
+├── MainActivity.kt                  # 入口 + Compose 底部导航脚手架（页内联动跳转）
+├── ui/screens/Screens.kt            # 六大能力页（输入/图谱/触类已落地，其余占位）
+├── ui/screens/GraphScreen.kt        # T-B5 知识图谱可视化（Canvas 渲染 + 节点联动）
 ├── ui/graph/GraphLayout.kt          # 章节带布局算法（纯 Kotlin，可单测）
 ├── viewmodel/SolveViewModel.kt      # 意图分发（文本题/图片题/查点/图谱）
-├── viewmodel/GraphViewModel.kt      # 图谱页状态（登录 + 拉图 + 选中态）
-├── data/remote/ApiService.kt        # Retrofit 接口（契约对齐 /api/app/*）
+├── viewmodel/SimilarViewModel.kt    # 触类旁通（三态 + 降级标记）
+├── viewmodel/GraphViewModel.kt      # 图谱页状态（登录 + 拉图 + 选中态 + 按知识点拉题）
+├── state/AppBridge.kt               # 跨 tab 一次性传参（进程内 StateFlow 单例）
+├── data/remote/ApiService.kt        # Retrofit 接口（/api/app/* + /learning/*）
 ├── data/remote/GraphModels.kt       # T-B5 图谱 DTO（nodes/edges/summary）
 ├── data/remote/AuthModels.kt        # 登录 DTO（占位 /login）
 ├── data/remote/SessionStore.kt      # 令牌持久化（SharedPreferences）
@@ -36,11 +38,17 @@ app/src/main/java/com/tes/edu/
 1. **输入 / 语音**：文本或语音提问
 2. **拍照识题**：上传图片解题
 3. **讲解展示**：步骤与公式渲染
-4. **触类旁通**：相似题推荐列表
-5. **知识图谱**（T-B5 已落地）：章节带布局的 DAG 渲染，节点颜色=掌握度
+4. **触类旁通**（波 1 已落地）：`POST /api/app/similar` 生成同型/变式题，
+   点「再练这道」把题干带回输入页；来源题干默认取最近做的一题，可改可「换一批」。
+   ⚠️ 后端 LLM 额度受限时会走检索兜底（`similar_degraded=true`），
+   此时列表是**题库片段而非完整题目**，页面会禁用「再练这道」并提示。
+5. **知识图谱**（T-B5 已落地，波 1 补联动）：章节带布局的 DAG 渲染，节点颜色=掌握度
    （绿=已掌握 / 黄=巩固中 / 红=薄弱 / 灰=未学），蓝环=ZPD 待学；
    支持拖动平移、双指缩放、点节点看掌握度/练习统计/前置链详情。
    数据来自 `GET /learning/knowledge-graph`（web-backend，经网关 jwt_c 路由）。
+   节点详情两个出口：**「练这个知识点」** 走 `GET /learning/variants?kp=<code>&n=1`
+   取**题库真题**的题干跳输入页（不依赖 LLM 额度）；**「背这个知识点」** 把
+   knowledge_point 交给背诵页限定范围（背诵页本体属波 3）。
 6. **背诵卡 / 错题本**：本地记忆与复习
 
 ## 网络
@@ -62,9 +70,14 @@ app/src/main/java/com/tes/edu/
 
 ## 单测
 
-- `app/src/test/java/com/tes/edu/viewmodel/SolveViewModelTest.kt`：JVM 单测
-  （fake ApiService），覆盖 T-C3 "直接看解析"链路与 Hint 阶梯状态机的 mock 走通。
-  **实测 4 tests / 0 failures / 0 errors / 0 skipped**（2026-10-27，JDK 17 下跑通）。
+三个 JVM 单测类，**合计 20 tests / 0 failures / 0 errors / 0 skipped**（2026-10-27，JDK 17 下跑通）：
+
+| 测试类 | 用例数 | 覆盖 |
+|---|---|---|
+| `viewmodel/SolveViewModelTest.kt` | 4 | T-C3 "直接看解析"链路与 Hint 阶梯状态机（fake ApiService） |
+| `viewmodel/SimilarViewModelTest.kt` | 11 | 触类旁通：三态、空白题干不发请求、降级标记透传、后端 DTO 解析（含 jsonb 字段忽略） |
+| `state/AppBridgeTest.kt` | 5 | 跨 tab 传参的一次性消费语义（投递→取出→清空） |
+
 - 执行（**必须显式指定 JDK 17**，见下节工具链）：
 
   ```bash
@@ -72,7 +85,9 @@ app/src/main/java/com/tes/edu/
   JAVA_HOME=<repo>/../tools/jdk-17.0.20.1+1 ./gradlew :app:testDebugUnitTest --no-daemon --console=plain
   ```
 
-- 报告：`app/build/test-results/testDebugUnitTest/TEST-com.tes.edu.viewmodel.SolveViewModelTest.xml`。
+- 报告：`app/build/test-results/testDebugUnitTest/*.xml`（每个测试类一个）。
+- ⚠️ 写 Kotlin 单测时注意：`"..."` 里的 `$` 是模板起始符，题干含 `$U=` 这类 LaTeX
+  必须写成 `\$U=`，否则编译报 `Unresolved reference`。
 
 ## 本地存储
 
