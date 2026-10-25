@@ -63,7 +63,7 @@
 <div class="page">
 
   <h1>Tes Edu · 全局进度与执行视图</h1>
-  <div class="meta">汇总日期 2026-10-25 · 单一任务跟踪总表《总任务清单与排期计划》<b>v4.2</b> 的<b>派生视图</b>：上半部＝全局进度横切，下半部＝W1–W9 执行纵向切片</div>
+  <div class="meta">汇总日期 2026-10-26 · 单一任务跟踪总表《总任务清单与排期计划》<b>v4.3</b> 的<b>派生视图</b>：上半部＝全局进度横切，下半部＝W1–W9 执行纵向切片</div>
   <div class="meta">完成度图例：<span class="chip done">✅ 已完成</span> <span class="chip pend">🟡 部分完成</span> <span class="chip todo">⬜ 未开始（0% 实现）</span> ｜ 估点口径：小=0.5d、小–中=0.75d、中=1d、中–高=1.5d、高=2d（单人单线程）</div>
 
   <div class="kpis">
@@ -92,15 +92,16 @@
   </table>
 
   <div class="note">
-    <b>一句话现状：</b>历史 P2 主线 <b>11/13 已完成</b>；本期 <b>53 项待办</b>中，<b>W2 权限主干已全段实测打通</b>（T-AM0~4 后端 15/15 + T-AM7 前端动态菜单 32/32 + T-AM8 安全校验 web 208 全绿）并<b>上线 137</b>（三容器重建 + 五角色联调）；T-AM5/6 未启动，其余 46 项仍处"规划完成、代码 0%"。
+    <b>一句话现状：</b>历史 P2 主线 <b>11/13 已完成</b>；本期 <b>53 项待办</b>中，<b>W2 权限主干已全段实测打通</b>（T-AM0~4 后端 15/15 + T-AM7 前端动态菜单 + <b>T-AM3/T-AM4 管理页</b>前端 74/74 + T-AM8 安全校验 web 209 全绿）并<b>上线 137</b>（三容器重建 + 五角色联调 + 管理页双容器重建）；T-AM5/6 未启动，其余 46 项仍处"规划完成、代码 0%"。
   </div>
 
   <h3>关键量化基线（2026-10-26 实测）</h3>
   <div class="note">
     <ul>
-      <li>后端单测 <b>437 绿</b>（agent 229 + web <b>208</b>，含 T-AM8 新增 19 + T-AM7 新增 1）</li>
-      <li>前端单测 <b>32 绿</b>（vitest：菜单纯函数 16 / 权限指令 7 / auth store 6 / Layout 动态导航 3）</li>
+      <li>后端单测 <b>438 绿</b>（agent 229 + web <b>209</b>，含 T-AM8 新增 19 + T-AM7 新增 1 + T-AM3/4 前端配套授权回显端点 1）</li>
+      <li>前端单测 <b>74 绿</b>（vitest：菜单纯函数 16 / 权限指令 7 / auth store 6 / Layout 动态导航 3 / 管理面树形与错误文案 23 / API 契约 8 / 菜单管理页组件 6 / 角色管理页组件 5 / 其他 6）</li>
       <li>W2 上线 137：gateway×2（五角色白名单）/ web-backend（种子 25 菜单 + 5 角色账号）/ web-front（动态菜单）重建验证；五角色经 lb 登录 + <code>/menu/my</code> 全 200</li>
+      <li><b>T-AM3/T-AM4 管理页上线 137（2026-10-26）</b>：<code>/system/menu</code> 菜单管理（树形表格 + 新建/编辑/删除）+ <code>/system/role</code> 角色管理（授权树三态复选框）双容器重建；后端补 <code>GET /role/{id}/menus</code> 授权回显（PUT 为全量替换语义，读不回就不能安全提交）；线上往返实测 204 + 12 项一致、teacher 403 边界生效</li>
       <li>知识点本体/DAG <b>435/435</b>；真实题库 <b>213 题</b>（验收目标 3000，<span class="chip block">未达标</span>）</li>
       <li>137 容器 <b>7/7 Up</b>；公网 <code>https://sd12sd.icu/admin/</code> <b>200</b>（Cloudflare）</li>
       <li>学生 App debug APK（16MB）已连生产域名 <code>https://sd12sd.icu/</code></li>
@@ -113,12 +114,12 @@
     <thead><tr><th>波次</th><th>任务链</th><th class="num">估点</th><th>可并行</th><th>说明</th></tr></thead>
     <tbody>
       <tr><td><span class="wave">W1 地基</span></td><td class="mono">T-AM0、T-S0</td><td class="num">2d</td><td>✅ 两项独立</td><td>学校管理后端 + 学生网页端基座，分别解 T-AM/T-S 悬空</td></tr>
-      <tr><td><span class="wave">W2 权限主干</span></td><td class="mono">T-AM1 → T-AM2 → T-AM3 ‖ T-AM4 → T-AM7</td><td class="num">5d</td><td>T-AM3‖T-AM4</td><td><b>关键路径</b>：所有 B 端能力地基；跑通"菜单+角色+按钮级" <span class="chip done">✅ 已打通并上线 137（T-AM7 前端 32/32）</span></td></tr>
+      <tr><td><span class="wave">W2 权限主干</span></td><td class="mono">T-AM1 → T-AM2 → T-AM3 ‖ T-AM4 → T-AM7</td><td class="num">5d</td><td>T-AM3‖T-AM4</td><td><b>关键路径</b>：所有 B 端能力地基；跑通"菜单+角色+按钮级" <span class="chip done">✅ 已打通并上线 137（前端 74/74，含 T-AM3/T-AM4 管理页）</span></td></tr>
       <tr><td><span class="wave">W3 学生端</span></td><td class="mono">T-F1→T-F2→T-F3‖T-F4‖T-S1→T-S2→T-S3；T-A1→T-A2→T-A3</td><td class="num">9.75d</td><td>T-F/T-S/T-A 三组可并行</td><td>开关是总闸；项目与防疲劳受其管控</td></tr>
       <tr><td><span class="wave">W4 区域与厂商</span></td><td class="mono">T-AM5、T-AM6</td><td class="num">2.75d</td><td>✅ 可并行</td><td>依赖 W2 的 T-AM1；MCP 厂商隔离（估点最高单项）</td></tr>
       <tr><td><span class="wave">W5 MCP 商业化</span></td><td class="mono">T-B1→T-B2→T-B3→T-B4→T-B5→T-B6</td><td class="num">8d</td><td>基本串行</td><td><span class="chip block">受商户资质外部阻塞</span>，建议先跑沙箱</td></tr>
       <tr><td><span class="wave">W6 BYOM</span></td><td class="mono">T-M1→T-M2→T-M3→T-M4</td><td class="num">4.5d</td><td>串行</td><td>与 RBAC/Billing 低耦合，可整体前移或并行</td></tr>
-      <tr><td><span class="wave">W7 收尾</span></td><td class="mono">T-AM8</td><td class="num">1d</td><td>—</td><td>全链路安全校验（越权/隔离/脱敏） <span class="chip done">✅ 已完成（web-backend 208 全绿，含安全 10 + 脱敏 9）</span></td></tr>
+      <tr><td><span class="wave">W7 收尾</span></td><td class="mono">T-AM8</td><td class="num">1d</td><td>—</td><td>全链路安全校验（越权/隔离/脱敏） <span class="chip done">✅ 已完成（web-backend 209 全绿，含安全 10 + 脱敏 9）</span></td></tr>
       <tr><td><span class="wave">W8 学生 Agent</span></td><td class="mono">T-SA1→T-SA2‖T-SA3→T-SA4~8→T-SA9→<b>T-SA10→T-SA11‖T-SA12‖T-SA13→T-SA14</b></td><td class="num">18.75d</td><td>T-SA2‖T-SA3；T-SA4~8 并行；T-SA12‖T-SA13</td><td>依赖 W4（厂商）、W5（有效期）、W6（BYOM 模型解析）；多智能体层须在单 Agent 底座之后</td></tr>
       <tr><td><span class="wave">W9 学生 App</span></td><td class="mono">T-AP1→T-AP7→T-AP8；T-AP2/3/4/5/6 可并行</td><td class="num">7.75d</td><td>T-AP2~6 可并行</td><td>承接 W8 Agent 会话；补 S4 埋点与 release 发布流程</td></tr>
       <tr class="total"><td>波次合计</td><td class="mono">W1 2 + W2 5 + W3 9.75 + W4 2.75 + W5 8 + W6 4.5 + W7 1 + W8 18.75 + W9 7.75</td><td class="num">59.5 人天</td><td>+P2 遗留 3d</td><td><b>全量合计 ≈ 62.5 人天</b></td></tr>
@@ -156,7 +157,7 @@ T-SA1 → T-SA3 → T-SA6 → T-AP1 → T-AP8   （学生 Agent → App 全链�
   </table>
 
   <footer>
-    本视图为《总任务清单与排期计划》<b>v4.2</b>（2026-10-25 汇总 / 2026-10-26 更新：53 项待办、已完成 7 / ≈62.5 人天 / W1–W9）的派生快照；任务细节以各专项计划书为准。<b>W2 权限主干（T-AM0~4+7）与 T-AM8 已实测打通并上线 137</b>（后端 437 绿 + 前端 32 绿，五角色联调全 200）；其余 46 项实现代码尚未启动。
+    本视图为《总任务清单与排期计划》<b>v4.3</b>（2026-10-25 汇总 / 2026-10-26 更新：53 项待办、已完成 7 / ≈62.5 人天 / W1–W9）的派生快照；任务细节以各专项计划书为准。<b>W2 权限主干（T-AM0~4+7）、T-AM8 与 T-AM3/T-AM4 前端管理页均已实测打通并上线 137</b>（后端 438 绿 + 前端 74 绿，五角色联调全 200 + 管理页授权往返实测）；其余 46 项实现代码尚未启动。
   </footer>
 </div>
 </body>

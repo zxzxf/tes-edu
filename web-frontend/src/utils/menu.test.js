@@ -84,11 +84,15 @@ describe('routePathOf（后端 path → 前端路由映射）', () => {
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/knowledge' })).toBe('/knowledge')
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/error-distribution' })).toBe('/error-distribution')
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/wrong' })).toBe('/wrong-questions')
+    // T-AM3/T-AM4 前端管理页（2026-10-26 建）后，/system/* 两个管理页可导航
+    expect(routePathOf({ menu_type: 'MENU', path: '/system/menu' })).toBe('/system/menu')
+    expect(routePathOf({ menu_type: 'MENU', path: '/system/role' })).toBe('/system/role')
   })
 
   it('前端无页面的菜单（null）不导航', () => {
-    expect(routePathOf({ menu_type: 'MENU', path: '/system/menu' })).toBe(null)
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/tenant' })).toBe(null)
+    expect(routePathOf({ menu_type: 'MENU', path: '/system/region' })).toBe(null)
+    expect(routePathOf({ menu_type: 'MENU', path: '/system/vendor' })).toBe(null)
   })
 
   it('未知 path / 非 MENU / 空 path 一律 null（fail-closed）', () => {
@@ -109,9 +113,10 @@ describe('routePathOf（后端 path → 前端路由映射）', () => {
 describe('toNavGroups', () => {
   it('DIR 成分组；无前端页面的菜单与空分组被剔除', () => {
     const groups = toNavGroups(buildMenuTree(flat))
-    expect(groups.map((g) => g.label)).toEqual(['区域运营'])
-    // 系统设置组内唯一 MENU（/system/menu）无前端页面 → 整组剔除
-    expect(groups[0].items.map((i) => i.to)).toEqual(['/analytics', '/exam', '/reports'])
+    // T-AM3 前端建好后，系统设置组（含 /system/menu 映射）出现在导航中
+    expect(groups.map((g) => g.label)).toEqual(['系统设置', '区域运营'])
+    expect(groups[0].items.map((i) => i.to)).toEqual(['/system/menu'])
+    expect(groups[1].items.map((i) => i.to)).toEqual(['/analytics', '/exam', '/reports'])
   })
 
   it('空树返回空分组', () => {

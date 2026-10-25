@@ -4,7 +4,7 @@
 - /tenant       租户/学校基础管理（T-AM0；T-AM8 起按 resolve_scope 做区域/租户过滤）
 - /menu/my     按授权返回菜单树+按钮码（T-AM2）
 - /menu        菜单管理 CRUD + 按钮级权限码（T-AM3；写操作经 require_perm 强制）
-- /role        角色管理 + 菜单授权（T-AM4；授权经 require_perm 强制）
+- /role        角色管理 + 菜单授权（T-AM4；GET 回显当前授权，PUT 全量替换经 require_perm 强制）
 
 T-AM8 安全口径：
 - 越权统一 403（require_role 粗校验 + require_perm 按钮级 + 跨区/跨租户显式校验）；
@@ -276,6 +276,28 @@ async def list_roles(
         {"role_id": r.role_id, "role_code": r.role_code, "role_name": r.role_name}
         for r in rows
     ]
+
+
+@router.get("/role/{role_id}/menus")
+async def get_role_menus(
+    role_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role(Role.ADMIN)),
+):
+    """返回角色已授权菜单 ID 列表（T-AM4 前端授权树回显）。
+
+    PUT /role/{role_id}/menus 是全量替换语义——前端必须先读回当前授权
+    再提交勾选结果，否则空手提交会把角色菜单清空。
+    """
+    role = (await db.execute(
+        select(m.SysRole).where(m.SysRole.role_id == role_id)
+    )).scalar_one_or_none()
+    if not role:
+        raise HTTPException(status_code=404, detail="role not found")
+    ids = (await db.execute(
+        select(m.SysRoleMenu.menu_id).where(m.SysRoleMenu.role_id == role_id)
+    )).scalars().all()
+    return {"role_id": role_id, "menu_ids": list(ids)}
 
 
 @router.put("/role/{role_id}/menus", status_code=204)

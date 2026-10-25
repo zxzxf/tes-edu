@@ -48,11 +48,12 @@ describe('Layout 动态导航（T-AM7）', () => {
   it('按授权菜单渲染：概览常驻 + 动态组，剔除无页面菜单与 BUTTON', async () => {
     const wrapper = await mountLayout('teacher', TEACHER_MENUS)
 
-    expect(navLabels(wrapper)).toEqual(['概览', '教研内容管理', '学情看板'])
-    expect(groupLabels(wrapper)).toEqual(['区域运营'])
-    expect(navHrefs(wrapper)).toEqual(['/dashboard', '/knowledge', '/analytics'])
-    // 系统设置组（唯一子项无前端页面）整体不出现；BUTTON 不进导航
-    expect(wrapper.text()).not.toContain('系统设置')
+    // T-AM3/T-AM4 前端管理页建好后，/system/menu 有路由映射，
+    // 系统设置组随授权菜单出现；/ops/tenant（学校管理）仍无页面被剔除
+    expect(navLabels(wrapper)).toEqual(['概览', '菜单管理', '教研内容管理', '学情看板'])
+    expect(groupLabels(wrapper)).toEqual(['系统设置', '区域运营'])
+    expect(navHrefs(wrapper)).toEqual(['/dashboard', '/system/menu', '/knowledge', '/analytics'])
+    // BUTTON 不进导航；无前端页面的菜单不出现在导航
     expect(wrapper.text()).not.toContain('生成组卷')
     expect(wrapper.text()).not.toContain('学校管理')
   })

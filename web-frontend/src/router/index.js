@@ -13,6 +13,8 @@ import Reports from '../views/Reports.vue'
 import Compliance from '../views/Compliance.vue'
 import Practice from '../views/Practice.vue'
 import ErrorDistribution from '../views/ErrorDistribution.vue'
+import SystemMenu from '../views/SystemMenu.vue'
+import SystemRole from '../views/SystemRole.vue'
 
 // 路由访问控制（T-AM7）：不再用 meta.role 硬编码角色矩阵——授权以后端
 // sys_role_menu 聚合的 /menu/my 为唯一权威，守卫经 auth.hasRouteAccess 执行
@@ -34,7 +36,11 @@ const routes = [
       { path: 'grading', name: 'grading', component: Grading, meta: { title: '教师批改' } },
       { path: 'reports', name: 'reports', component: Reports, meta: { title: '家长周报' } },
       { path: 'compliance', name: 'compliance', component: Compliance, meta: { title: '合规审核' } },
-      { path: 'practice', name: 'practice', component: Practice, meta: { title: '在线练习（过程采集）' } }
+      { path: 'practice', name: 'practice', component: Practice, meta: { title: '在线练习（过程采集）' } },
+      // T-AM3/T-AM4 管理页：授权可达性由 auth.hasRouteAccess 按 /menu/my 判定
+      // （见 utils/menu.js 的 MENU_ROUTE_MAP），此处不硬编码角色
+      { path: 'system/menu', name: 'system-menu', component: SystemMenu, meta: { title: '菜单管理' } },
+      { path: 'system/role', name: 'system-role', component: SystemRole, meta: { title: '角色管理' } }
     ]
   }
 ]

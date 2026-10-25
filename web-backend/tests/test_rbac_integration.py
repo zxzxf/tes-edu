@@ -164,6 +164,33 @@ def test_role_authorize_admin_ok(client):
     assert r.status_code == 204, r.text
 
 
+def test_role_menus_read_back_for_auth_tree(client):
+    """T-AM4 前端授权树回显：GET /role/{id}/menus 必须能读回当前授权——
+    PUT 是全量替换语义，读不回来前端就无法安全提交勾选结果。"""
+    headers = {"X-User-Id": "u_admin", "X-User-Role": "admin"}
+    _login(client, "admin@tes.edu")
+
+    r = client.put(
+        "/api/admin/role/role_teacher/menus",
+        json={"menu_ids": ["m_ops", "m_ops_reports", "m_ops_analytics"]},
+        headers=headers,
+    )
+    assert r.status_code == 204, r.text
+
+    r2 = client.get("/api/admin/role/role_teacher/menus", headers=headers)
+    assert r2.status_code == 200, r2.text
+    assert set(r2.json()["menu_ids"]) == {"m_ops", "m_ops_reports", "m_ops_analytics"}
+
+    # 非 admin 403；不存在角色 404
+    r3 = client.get(
+        "/api/admin/role/role_teacher/menus",
+        headers={"X-User-Id": "u_parent", "X-User-Role": "parent"},
+    )
+    assert r3.status_code == 403, r3.text
+    r4 = client.get("/api/admin/role/role_none/menus", headers=headers)
+    assert r4.status_code == 404, r4.text
+
+
 def test_platform_users_token_carries_tenant(client):
     """T-AM7：平台级用户（admin/region_admin，sys_user.tenant_id 为空）签发的
     JWT 必须带非空 tenant_id（"platform" 占位）——网关 /api/admin/ 路由
