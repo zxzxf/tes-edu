@@ -41,6 +41,8 @@ MENUS = [
     ("m_sys_region_del", "m_sys_region", "删除区域", "BUTTON", "", "", "", 3, "system:region:delete"),
     ("m_sys_vendor", "m_sys", "系统服务(MCP厂商)", "MENU", "/system/vendor", "Vendor", "cloud", 4, None),
     ("m_sys_vendor_manage", "m_sys_vendor", "厂商管理", "BUTTON", "", "", "", 1, "system:vendor:manage"),
+    ("m_sys_feature", "m_sys", "功能开关", "MENU", "/system/feature", "Feature", "switch", 5, None),
+    ("m_sys_feature_manage", "m_sys_feature", "功能开关管理", "BUTTON", "", "", "", 1, "system:feature:manage"),
 
     ("m_ops", None, "区域运营", "DIR", "/ops", "Layout", "ops", 2, None),
     ("m_ops_tenant", "m_ops", "学校管理", "MENU", "/ops/tenant", "Tenant", "school", 1, None),
@@ -76,17 +78,19 @@ ROLE_MENU_MAP = {
         m[0] for m in MENUS
         if m[3] in ("DIR", "MENU")
         and not (m[0] == "m_sys" or (m[1] == "m_sys"))
-    ] + ["m_ops_exam_gen"],  # 区域管理员：仅区域运营，不含系统设置；保留组卷动作
+    ] + ["m_ops_exam_gen", "m_sys_feature", "m_sys_feature_manage"],  # 区域管理员：区域运营 + 功能开关（不含系统设置其余）
     "role_school": [
         "m_ops", "m_ops_tenant", "m_ops_knowledge", "m_ops_analytics",
         "m_ops_wrong", "m_ops_exam", "m_ops_grading", "m_ops_reports", "m_ops_compliance",
         "m_ops_errordist", "m_ops_practice",
-    ],  # 学校：页面全览，无任何按钮动作
+        "m_sys_feature", "m_sys_feature_manage",  # 学校：可管控本校功能显隐
+    ],
     "role_teacher": [
         "m_ops", "m_ops_knowledge", "m_ops_analytics", "m_ops_wrong",
         "m_ops_exam", "m_ops_grading", "m_ops_reports",
         "m_ops_errordist", "m_ops_practice",
         "m_ops_exam_gen", "m_ops_grading_submit", "m_ops_grading_review",
+        "m_sys_feature", "m_sys_feature_manage",  # 教师：可管控本班功能显隐
     ],
     "role_parent": ["m_ops", "m_ops_reports"],
 }
@@ -279,3 +283,22 @@ async def seed_rbac(db, password_hash: str, bcrypt=None) -> dict:
 
     await db.commit()
     return stats
+
+
+async def seed_features(db) -> dict:
+    """种子功能开关定义（T-F1：6 枚默认开）。幂等：已存在则跳过。"""
+    from sqlalchemy import select
+
+    from app.models import student_features as sf
+    from app.services.student_features import build_seed_features
+
+    existing = set(
+        (await db.execute(select(sf.FeatureSwitch.feature_key))).scalars().all()
+    )
+    rows = [f for f in build_seed_features() if f["feature_key"] not in existing]
+    if not rows:
+        return {"feature": 0}
+    for f in rows:
+        db.add(sf.FeatureSwitch(**f))
+    await db.commit()
+    return {"feature": len(rows)}

@@ -46,6 +46,13 @@ routes:
     mode: jwt_c
     rate: 30
     burst: 60
+  # W3 学生端能力（项目/功能开关/防疲劳）：C 端用户态，jwt_c 验签后透传身份头；
+  # 学生端隔离由 web-backend 按 X-Tenant-Id/X-User-Id 执行（同 /learning/）。
+  - match: "/api/student/"
+    upstream: web_backend
+    mode: jwt_c
+    rate: 30
+    burst: 60
   # 占位登录（web-backend POST /login 换 JWT）：本身不鉴权
   - match: "/login"
     upstream: web_backend

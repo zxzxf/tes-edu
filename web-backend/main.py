@@ -28,6 +28,7 @@ from app.api import (
     questions,
     reports,
     rbac_api,
+    student_features,
     vendor_api,
     wrong_questions,
 )
@@ -66,6 +67,10 @@ async def lifespan(app: FastAPI):
             stats = await rbac_seed.seed_rbac(db, pwd.hash("demo1234"))
             if any(v for v in stats.values()):
                 logger.info("权限基座种子写入：%s", stats)
+            # 功能开关种子（T-F1：6 枚默认开）
+            fs_stats = await rbac_seed.seed_features(db)
+            if fs_stats.get("feature"):
+                logger.info("功能开关种子写入：%s", fs_stats)
             break
     except Exception as e:  # noqa: BLE001
         logger.warning("权限基座初始化跳过：%s", e)
@@ -176,6 +181,8 @@ app.include_router(questions.router, prefix="/api/admin")
 app.include_router(ingest.router, prefix="/api/admin")
 app.include_router(rbac_api.router, prefix="/api/admin")  # T-AM0/2/3/4/5 权限基座
 app.include_router(vendor_api.router, prefix="/api/admin")  # T-AM6 MCP 厂商与数据服务实例
+app.include_router(student_features.student_router, prefix="/api/student")  # W3 学生端能力（项目/功能开关/防疲劳）
+app.include_router(student_features.admin_router, prefix="/api/admin")  # W3 功能开关/防疲劳管理（require_perm system:feature:manage）
 
 # T-B5：C 端直连挂载（网关 /login 与 /learning/ 路由按原路径转发、不做前缀改写，
 # 2026-10-24 部署时发现单挂 /api/admin 会导致网关侧 404，故补根路径双挂载）。

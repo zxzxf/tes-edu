@@ -101,7 +101,7 @@
       <li>前端单测 <b>103 绿 / 12 文件</b>（vitest：菜单/树形纯函数、错误文案、API 契约、权限指令、auth store、Layout 动态导航与<b>四个管理页组件</b>——菜单/角色/区域/厂商）</li>
       <li><b>T-AM3/T-AM4 管理页上线 137（2026-10-26）</b>：<code>/system/menu</code> 菜单管理（树形表格 + 新建/编辑/删除）+ <code>/system/role</code> 角色管理（授权树三态复选框）双容器重建；后端补 <code>GET /role/{id}/menus</code> 授权回显；线上往返实测 204 + 12 项一致、teacher 403 边界生效</li>
       <li><b>T-AM5/T-AM6 上线 137（2026-10-27）</b>：<code>/system/region</code> 区域管理（七大区 CRUD + tenant/user 绑定计数 + 删除守卫 + 防环）+ <code>/system/vendor</code> MCP 厂商管理（厂商/实例 CRUD + 连通测试，<b>凭证 AES-256-GCM 加密只写不回显</b>、vendor_id 路径隔离）双容器重建 + lb HUP；线上 9 项实测全过（区域 CRUD 201/200/204、按钮码补插、<code>/system</code> 四菜单、厂商注册明文扫描 0、跨厂商 404、删除守卫 400、连通测试 200 不 500、三路由 200、新 bundle <code>index-CeA6y4Mi.js</code> 212.41 kB）</li>
-      <li>知识点本体/DAG <b>435/435</b>；真实题库 <b>213 题</b>（验收目标 3000，<span class="chip block">未达标</span>）</li>
+      <li>知识点本体/DAG <b>435/435</b> <span class="chip done">P0-2 数学完成</span> / 物理 DAG 缺失 <span class="chip pend">待补</span>；<span class="chip info">P0-5 AGE 已取消（关系表 DAG 等效满足 DoD）</span>；真实题库 <b>213 题</b> <span class="chip pend">P0-3 进行中 7%</span>（验收目标 3000，素材已到 216 题待扩量）</li>
       <li>137 容器 <b>7/7 Up</b>；公网 <code>https://sd12sd.icu/admin/</code> <b>200（Cloudflare）</b></li>
       <li>学生 App debug APK（16MB）已连生产域名 <code>https://sd12sd.icu/</code></li>
       <li><span class="chip block">⚠</span> 主 LLM 端点 <b>403 配额耗尽</b>，线上主解全量降级兜底</li>

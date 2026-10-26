@@ -1,0 +1,272 @@
+/* =====================================================================
+ * Tes Edu · 全局设计系统（高中活力风）
+ * 暖色渐变 + 大圆角卡片 + 青春 slogon，统一 admin 与练习页观感
+ * ===================================================================== */
+
+:root {
+  /* 品牌渐变：橙 → 品红，热情、年轻、有冲劲 */
+  --brand: #ff5e62;
+  --brand-2: #ff3d81;
+  --brand-grad: linear-gradient(135deg, #ff7a45 0%, #ff3d81 100%);
+  --brand-grad-soft: linear-gradient(135deg, #ffe3d6 0%, #ffd9ec 100%);
+
+  /* 辅助色 */
+  --accent: #7c4dff;   /* 电光紫 */
+  --cyan: #1fb6ff;     /* 活力蓝 */
+  --gold: #ffb020;     /* 拼搏金 */
+
+  /* 背景与表面 */
+  --bg: #fff6f2;
+  --bg-2: #fdf4fb;
+  --surface: #ffffff;
+
+  /* 文字 */
+  --ink: #1f1b2e;
+  --ink-2: #5b5670;
+  --muted: #908aa3;
+
+  /* 线条 */
+  --line: #f1eaf2;
+  --line-strong: #e8e0ec;
+
+  /* 语义色 */
+  --success: #00c48c;
+  --warning: #ffb020;
+  --danger: #ff4d6d;
+
+  /* 圆角与阴影 */
+  --r-lg: 20px;
+  --r-md: 14px;
+  --r-sm: 10px;
+  --shadow-sm: 0 2px 10px rgba(31, 27, 46, .06);
+  --shadow: 0 12px 30px rgba(255, 61, 129, .10);
+  --shadow-lg: 0 18px 50px rgba(255, 61, 129, .16);
+
+  --font: "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.65;
+  background:
+    radial-gradient(1100px 560px at 102% -12%, rgba(255, 61, 129, .09), transparent 60%),
+    radial-gradient(1000px 520px at -12% 112%, rgba(124, 77, 255, .09), transparent 60%),
+    var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 { font-weight: 800; letter-spacing: .2px; color: var(--ink); margin: 0; }
+a { color: var(--accent); text-decoration: none; }
+
+/* ---------- 基础控件统一（全站生效） ---------- */
+button {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .2s ease, background .2s ease, filter .2s ease;
+}
+button:hover { transform: translateY(-1px); }
+button:active { transform: translateY(0); }
+
+input, textarea, select {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: #fff;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  width: 100%;
+  transition: border-color .2s, box-shadow .2s;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--brand-2);
+  box-shadow: 0 0 0 4px rgba(255, 61, 129, .14);
+}
+textarea { resize: vertical; line-height: 1.6; }
+
+/* ---------- 通用卡片 ---------- */
+.tes-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  transition: transform .18s ease, box-shadow .25s ease;
+}
+.tes-card:hover { box-shadow: var(--shadow); }
+
+/* ---------- 通用按钮 ---------- */
+.tes-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #fff;
+  color: var(--ink);
+  border: 1.5px solid var(--line-strong);
+}
+.tes-btn:hover { border-color: var(--brand-2); color: var(--brand-2); }
+.tes-btn-primary {
+  background: var(--brand-grad);
+  color: #fff;
+  border: none;
+  box-shadow: 0 8px 20px rgba(255, 61, 129, .28);
+}
+.tes-btn-primary:hover { filter: brightness(1.05); color: #fff; }
+.tes-btn:disabled, .tes-btn-primary:disabled {
+  background: #e9e4ef;
+  color: #b3adC4;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ---------- 徽标 / 标签 ---------- */
+.tes-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--brand-grad-soft);
+  color: var(--brand-2);
+}
+.tes-tag {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #f3eefe;
+  color: var(--accent);
+}
+
+/* ---------- 页面标题区 ---------- */
+.tes-page { max-width: 1180px; margin: 0 auto; }
+.tes-page-head { margin-bottom: 22px; }
+.tes-page-head h1 { font-size: 24px; }
+.tes-page-head p { color: var(--muted); margin: 6px 0 0; }
+
+/* ---------- 统计卡 ---------- */
+.tes-stat {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+}
+.tes-stat::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: var(--brand-grad);
+}
+.tes-stat .num { font-size: 30px; font-weight: 800; line-height: 1.1; }
+.tes-stat .lbl { color: var(--ink-2); font-size: 13px; margin-top: 6px; }
+
+/* ---------- 响应式网格 ---------- */
+.tes-grid { display: grid; gap: 18px; }
+.tes-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.tes-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 960px) {
+  .tes-grid.cols-3, .tes-grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .tes-grid.cols-3, .tes-grid.cols-4 { grid-template-columns: 1fr; }
+}
+
+/* ---------- 页面标题（渐变强调条） ---------- */
+.tes-page-title {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 22px; font-weight: 800; margin: 0 0 18px;
+}
+.tes-page-title::before {
+  content: ""; width: 5px; height: 22px; border-radius: 4px;
+  background: var(--brand-grad);
+}
+
+/* ---------- 工具条（搜索/操作区） ---------- */
+.tes-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
+.tes-toolbar input, .tes-toolbar select { width: auto; min-width: 180px; }
+
+/* ---------- 表格 ---------- */
+.tes-table-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 6px 14px;
+  overflow: hidden;
+}
+.tes-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.tes-table thead th {
+  background: linear-gradient(180deg, #fff5f8, #fdeef5);
+  color: var(--ink-2); font-weight: 700; text-align: left;
+  padding: 12px 14px; border-bottom: 1px solid var(--line-strong);
+}
+.tes-table tbody td { padding: 12px 14px; border-bottom: 1px solid var(--line); color: var(--ink); }
+.tes-table tbody tr { transition: background .15s; }
+.tes-table tbody tr:hover { background: #fff7fb; }
+.tes-table tbody tr:last-child td { border-bottom: none; }
+
+/* ---------- 进度条 ---------- */
+.tes-progress {
+  display: inline-block; width: 150px; height: 9px;
+  background: #eef0f6; border-radius: 999px; overflow: hidden; vertical-align: middle;
+}
+.tes-progress .fill { display: block; height: 100%; background: var(--brand-grad); border-radius: 999px; }
+
+/* ---------- 内联标签 ---------- */
+.tes-pill {
+  display: inline-flex; align-items: center; padding: 2px 9px;
+  border-radius: 999px; font-size: 11px; font-weight: 700;
+  background: #eef9f3; color: var(--success);
+}
+.tes-pill.danger { background: #ffe9ee; color: var(--danger); }
+.tes-pill.warn { background: #fff3da; color: #c77700; }
+.tes-pill.info { background: #eef4ff; color: var(--accent); }
+
+/* ---------- 空状态 / 提示 ---------- */
+.tes-empty {
+  color: var(--muted); font-size: 13px;
+  background: var(--brand-grad-soft);
+  border: 1px dashed #ffd0e0; border-radius: var(--r-md);
+  padding: 18px; text-align: center;
+}
+
+/* ---------- 入场动效 ---------- */
+@keyframes tes-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.tes-anim { animation: tes-fade-up .4s ease both; }
+
+@keyframes tes-grad-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

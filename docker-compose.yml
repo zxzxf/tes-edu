@@ -45,6 +45,15 @@ services:
     depends_on:
       - gateway
 
+  # T-S0（2026-10-26）：学生网页端基座，挂在 /student/ 子路径。
+  # 静态由本容器 nginx 服务，edu-lb 剥 /student 前缀反代到此处（见 deploy/nginx.conf）。
+  student-web:
+    build: ./student-web
+    ports:
+      - "8082:80"
+    depends_on:
+      - gateway
+
   postgres:
     image: pgvector/pgvector:pg16
     environment:
