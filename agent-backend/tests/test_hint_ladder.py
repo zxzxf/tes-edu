@@ -484,3 +484,21 @@ def test_salvage_does_not_swallow_steps_field():
     # answer 内含转义引号时不得提前截断
     raw2 = r'{"answer": "他说\"你好\"，然后 a=1", "steps": ["x"]}'
     assert "然后 a=1" in llm._salvage_text(raw2)
+
+
+def test_guide_mode_forbids_numeric_conclusion_on_multi_step():
+    """回归：引导档不得给多步推导题的数值结论，但简单题直给的例外必须保留。
+
+    真机事故：歧义题「(x+2)/(e^x+a) 最大值1 求a」在引导档被答成 a=0（正确 a=1）。
+    不给推导过程的数字 = 让学生背答案，且模型只给方向时会草率估算。
+    """
+    assert "严禁输出任何数值结论" in llm._SYSTEM
+    assert "多步推导题" in llm._SYSTEM
+    assert "a=0" in llm._SYSTEM  # 反面示例，让模型知道错在哪
+
+    # 简单题直给的例外必须还在，否则 1+1 又会退化成"用手指或画图数 1"
+    assert "一步可得" in llm._SYSTEM
+    assert "不要把简单题强行拆成数手指式的引导" in llm._SYSTEM
+
+    # 两条规则按"一步可得 / 两步及以上"划分，不得自相矛盾
+    assert llm._SYSTEM.index("一步可得") < llm._SYSTEM.index("两步及以上")
