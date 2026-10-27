@@ -157,7 +157,7 @@ def test_objective_unmapped_distractor_falls_back_to_llm(monkeypatch):
     _patch_bundle(monkeypatch, single_bundle())
     called = {}
 
-    async def fake_llm(bundle, student_answer):
+    async def fake_llm(bundle, student_answer, **_kw):
         called["hit"] = True
         return {"correct": False, "partial": False, "comment": "llm",
                 "first_wrong_step": 3, "error_type": "unknown", "evidence": "",
@@ -231,7 +231,7 @@ def test_blank_correct_answer(monkeypatch):
 def test_blank_unmatched_falls_back_to_llm(monkeypatch):
     _patch_bundle(monkeypatch, blank_bundle())
 
-    async def fake_llm(bundle, student_answer):
+    async def fake_llm(bundle, student_answer, **_kw):
         return {"correct": False, "partial": False, "comment": "llm",
                 "first_wrong_step": 1, "error_type": "calc", "evidence": "",
                 "correction": "", "attribution_source": "llm"}
@@ -247,7 +247,7 @@ def test_essay_uses_llm(monkeypatch):
     _patch_bundle(monkeypatch, essay_bundle())
     called = {}
 
-    async def fake_llm(bundle, student_answer):
+    async def fake_llm(bundle, student_answer, **_kw):
         called["hit"] = True
         return {"correct": False, "partial": False, "comment": "第1步就错",
                 "first_wrong_step": 1, "error_type": "concept", "evidence": "C=π/3",
@@ -313,7 +313,7 @@ def test_essay_with_process_goes_to_llm(monkeypatch):
     _patch_bundle(monkeypatch, essay_bundle())
     called = {}
 
-    async def fake_llm(bundle, student_answer):
+    async def fake_llm(bundle, student_answer, **_kw):
         called["hit"] = True
         return {"correct": False, "partial": False, "comment": "第1步错",
                 "first_wrong_step": 1, "error_type": "concept", "evidence": "",
@@ -340,7 +340,7 @@ def test_orchestrator_skips_llm_fallback_when_need_process(monkeypatch):
     """要求补过程时不得退回 v1 判分：既白花 token，又可能把"没写过程"判成"做错"。"""
     from app.core import orchestrator
 
-    async def fake_judge_v2(_q, _a, context=None):
+    async def fake_judge_v2(_q, _a, context=None, **_kw):
         return {"correct": None, "partial": False, "comment": "请写过程",
                 "first_wrong_step": None, "error_type": None, "evidence": "",
                 "correction": "", "attribution_source": "unknown", "need_process": True}

@@ -50,21 +50,32 @@ def route_model(
     qtype_: str | None = None,
     steps: int | None = None,
     hint_level: int | None = None,
+    simple: str | None = None,
+    hard: str | None = None,
 ) -> dict:
     """路由纯函数：按 题型 + 难度(tier) + mode 挑模型。
 
     返回 ``{"model", "grade", "reason", "tier", "qtype", "steps"}``。
     ``grade`` 为 ``simple`` / ``hard`` / ``single``（未启用分级）。
+
+    ``simple`` / ``hard`` 为可选覆盖：BYOM 租户可传自己的分级模型
+    （``LLMConfig.model_simple`` / ``model_hard``），缺省回落平台全局
+    ``LLM_MODEL_SIMPLE`` / ``LLM_MODEL_HARD``。二者相同/缺失即回落单一模型。
     """
     mode_l = (mode or "").strip().lower()
     tier_v, qtype_v, steps_v = _derive(context, tier, qtype_, steps)
 
-    # 未配置分级模型 -> 单一模型，行为等同接入路由前
-    if not config.routing_enabled():
+    simple_m = simple or config.LLM_MODEL_SIMPLE
+    hard_m = hard or config.LLM_MODEL_HARD
+    # 分级仅在「配置了不同模型」时生效；否则回落单一模型。
+    # 单一模型必须是「调用方/租户传入的 model」（即 simple/hard 覆盖值），
+    # 而非平台全局 LLM_MODEL——否则租户只配一个模型时会被错打成平台模型名。
+    if not (simple_m and hard_m and simple_m != hard_m):
+        single = simple or hard or config.LLM_MODEL
         return {
-            "model": config.LLM_MODEL,
+            "model": single,
             "grade": GRADE_SINGLE,
-            "reason": "未配置分级模型（LLM_MODEL_SIMPLE/HARD），回落单一 LLM_MODEL",
+            "reason": "未配置分级模型（LLM_MODEL_SIMPLE/HARD 相同或缺失），回落单一模型",
             "tier": tier_v,
             "qtype": qtype_v,
             "steps": steps_v,
@@ -72,7 +83,7 @@ def route_model(
 
     # 1) 轻量档位：直给简版 / 变式题
     if mode_l in SIMPLE_MODES:
-        return _pick(GRADE_SIMPLE, f"mode={mode_l} 轻量请求", tier_v, qtype_v, steps_v)
+        return _pick(GRADE_SIMPLE, f"mode={mode_l} 轻量请求", tier_v, qtype_v, steps_v, simple_m, hard_m)
 
     # 2) 压轴解答（题型过程类 + ≥3 步 + 难度 hard）-> 大模型
     if tier_v == qtype.TIER_FINALE:
@@ -82,16 +93,18 @@ def route_model(
             tier_v,
             qtype_v,
             steps_v,
+            simple_m,
+            hard_m,
         )
 
     # 3) 记忆型（单选/多选）-> 小模型（再难的选择题也是记忆型）
     if qtype_v and any(t in qtype_v for t in qtype.MEMORY_TYPES):
-        return _pick(GRADE_SIMPLE, f"{qtype_v}为记忆型", tier_v, qtype_v, steps_v)
+        return _pick(GRADE_SIMPLE, f"{qtype_v}为记忆型", tier_v, qtype_v, steps_v, simple_m, hard_m)
 
     # 4) 讲解档且多步 -> 大模型
     if mode_l == "explain" and steps_v >= HARD_MIN_STEPS:
         return _pick(
-            GRADE_HARD, f"讲解档且 {steps_v} 步（≥{HARD_MIN_STEPS}）", tier_v, qtype_v, steps_v
+            GRADE_HARD, f"讲解档且 {steps_v} 步（≥{HARD_MIN_STEPS}）", tier_v, qtype_v, steps_v, simple_m, hard_m
         )
 
     # 5) 其余（引导档 / 少步讲解）-> 小模型
@@ -101,11 +114,13 @@ def route_model(
         tier_v,
         qtype_v,
         steps_v,
+        simple_m,
+        hard_m,
     )
 
 
-def _pick(grade: str, reason: str, tier, qtype_v, steps_v) -> dict:
-    model = config.LLM_MODEL_HARD if grade == GRADE_HARD else config.LLM_MODEL_SIMPLE
+def _pick(grade: str, reason: str, tier, qtype_v, steps_v, simple: str, hard: str) -> dict:
+    model = hard if grade == GRADE_HARD else simple
     return {
         "model": model,
         "grade": grade,

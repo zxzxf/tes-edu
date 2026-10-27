@@ -18,7 +18,7 @@
 """
 from __future__ import annotations
 
-from app.core import config
+from app.core import config, tenant_llm
 
 INTENT_DIRECT = "direct"
 INTENT_EXPLAIN = "explain"
@@ -114,20 +114,21 @@ def _needs_llm_classification(question: str) -> bool:
     return len(q) >= _LLM_FALLBACK_MIN_LEN
 
 
-async def classify_intent_llm(question: str, context: dict | None = None) -> str | None:
+async def classify_intent_llm(question: str, context: dict | None = None, *, llm_cfg=None) -> str | None:
     """LLM 轻量兜底分类：一次 temperature=0 的短调用。
 
     任何失败（无密钥/超时/解析失败/返回非法值）都返回 None，
     由调用方降级到引导档——绝不猜一个直给档出来。
+
+    W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。
     """
     if not config.llm_ready():
         return None
     try:
-        from openai import AsyncOpenAI  # 延迟导入，与 llm.py 同款
-
-        client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+        cfg = llm_cfg or await tenant_llm.resolve_llm_config(None)
+        client = tenant_llm.make_client(cfg)
         resp = await client.chat.completions.create(
-            model=config.LLM_MODEL,
+            model=cfg.chat_model,
             temperature=0,
             max_tokens=8,
             messages=[
@@ -157,7 +158,7 @@ async def classify_intent_llm(question: str, context: dict | None = None) -> str
 
 
 async def resolve_response_mode(
-    question: str, context: dict | None = None
+    question: str, context: dict | None = None, *, llm_cfg=None
 ) -> tuple[str, str, str]:
     """编排侧入口：返回 (intent, mode, source)。
 
@@ -165,11 +166,13 @@ async def resolve_response_mode(
       1. 规则分类（零成本，覆盖常见问句）；
       2. 规则未命中且问句足够长 -> 一次 LLM 轻量分类；
       3. 以上都失败 -> **默认引导档**（source=default），不静默直给。
+
+    W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。
     """
     intent = classify_intent(question, context)
     source = "rules"
     if intent is None and _needs_llm_classification(question):
-        intent = await classify_intent_llm(question, context)
+        intent = await classify_intent_llm(question, context, llm_cfg=llm_cfg)
         source = "llm" if intent else "default"
     if intent not in TIER_TO_MODE:
         intent = INTENT_GUIDE

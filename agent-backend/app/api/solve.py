@@ -19,6 +19,7 @@ def _identity(request: Request) -> dict:
 @router.post("/solve", response_model=SolveResponse)
 async def solve(req: SolveRequest, request: Request):
     """文本题：解题 + 分步讲解 + 触类旁通（T-C1 起按意图三档路由，T-C2 起支持 Hint 阶梯）"""
+    tenant_id = _identity(request).get("tenant_id") or ""
     result = await orchestrator.handle_question(
         req.question,
         mode=req.mode,  # None -> 意图三档路由；显式值 -> 尊重调用方
@@ -28,6 +29,7 @@ async def solve(req: SolveRequest, request: Request):
         student_reply=req.student_reply,
         direct_reveal=req.direct_reveal,
         student_id=_identity(request).get("student_id") or "",
+        tenant_id=tenant_id,
     )
     # T-C3 "直接看解析"是一等功能：mode=direct 直达 L4。
     # 行为入埋点且不作为违规（R6）——与"挫败两次被动拿到 L4"区分，
@@ -134,7 +136,7 @@ async def solve(req: SolveRequest, request: Request):
 async def solve_image(file: UploadFile = File(...), request: Request = None):
     """拍照题：OCR 识别 -> 解题"""
     data = await file.read()
-    result = await orchestrator.handle_image(data)
+    result = await orchestrator.handle_image(data, tenant_id=_identity(request).get("tenant_id") or "")
     events.emit_student_event_bg(
         {
             "event_type": "solve_image",
@@ -150,7 +152,8 @@ async def solve_image(file: UploadFile = File(...), request: Request = None):
 async def similar(req: SimilarRequest, request: Request):
     """触类旁通：基于题干生成相似/变式题"""
     result = await orchestrator.handle_question(
-        req.question, mode="similar", subject=req.subject
+        req.question, mode="similar", subject=req.subject,
+        tenant_id=_identity(request).get("tenant_id") or "",
     )
     events.emit_student_event_bg(
         {

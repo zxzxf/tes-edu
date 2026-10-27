@@ -25,7 +25,7 @@ import re
 import unicodedata
 from typing import Any
 
-from app.core import config
+from app.core import config, tenant_llm
 
 # taxonomy 七类 + unknown（见 步骤级归因标注Schema-v1）
 TAXONOMY = ("concept", "formula", "case", "calc", "read", "logic", "strategy")
@@ -340,8 +340,11 @@ def _split_blanks(ans: str) -> list[str]:
     return [x for x in re.split(r"[;；,，/]", ans) if x]
 
 
-async def judge_by_llm(bundle: dict, student_answer: str) -> dict:
-    """路径③：LLM 对齐参考步骤（客观题兜底 / 解答题主路径）。"""
+async def judge_by_llm(bundle: dict, student_answer: str, *, llm_cfg=None) -> dict:
+    """路径③：LLM 对齐参考步骤（客观题兜底 / 解答题主路径）。
+
+    W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。
+    """
     if not config.llm_ready():
         return _unknown("查表未命中且未配置 LLM，无法判定，转人工复核")
 
@@ -358,11 +361,10 @@ async def judge_by_llm(bundle: dict, student_answer: str) -> dict:
         f"【学生作答】\n{student_answer[:1200]}"
     )
     try:
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+        cfg = llm_cfg or await tenant_llm.resolve_llm_config(None)
+        client = tenant_llm.make_client(cfg)
         resp = await client.chat.completions.create(
-            model=config.LLM_MODEL,
+            model=cfg.chat_model,
             messages=[
                 {"role": "system", "content": _JUDGE_V2_SYSTEM},
                 {"role": "user", "content": user},
@@ -391,11 +393,13 @@ async def judge_by_llm(bundle: dict, student_answer: str) -> dict:
 
 # ---------------------------------------------------------------- 入口
 
-async def judge(question: str, student_answer: str, context: dict | None = None) -> dict:
+async def judge(question: str, student_answer: str, context: dict | None = None, *, llm_cfg=None) -> dict:
     """judge v2 统一入口：先查表，查不到再 LLM，都不行则 unknown。
 
     S4 提交协议：解答类题型必须先贴过程文本，否则返回 need_process=true 要求补过程，
     **不判分**（correct 保持 None，避免把"没写过程"记成"做错了"）。
+
+    W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。
     """
     answer = (student_answer or "").strip()
     if not answer:
@@ -423,7 +427,7 @@ async def judge(question: str, student_answer: str, context: dict | None = None)
             return hit
 
     # 解答题 / 查表未命中 -> LLM
-    return await judge_by_llm(bundle, student_answer)
+    return await judge_by_llm(bundle, student_answer, llm_cfg=llm_cfg)
 
 
 async def seed_steps_bg(content_hash: str, bundle: dict) -> None:

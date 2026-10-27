@@ -494,7 +494,7 @@ def test_api_direct_reveal_param_still_works(client_finale):
 def test_api_finale_judgement_advances_step(client_finale, monkeypatch):
     """提交作答且判对 -> 本轮即面向下一步（答对是最大推进信号）。"""
 
-    async def _fake_judge(question, student_answer, context=None):
+    async def _fake_judge(question, student_answer, context=None, **kwargs):
         return {"correct": True, "partial": False, "comment": "对", "attribution_source": "map", "need_process": False}
 
     monkeypatch.setattr(orchestrator.judge_v2, "judge", _fake_judge)

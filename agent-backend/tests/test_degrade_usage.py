@@ -50,6 +50,10 @@ def llm_on(monkeypatch):
     monkeypatch.setattr(config, "LLM_BASE_URL", "https://fake/v1")
     monkeypatch.setattr(config, "LLM_API_KEY", "k")
     monkeypatch.setattr(config, "LLM_MODEL", "qwen3.8-flash")
+    # import 期冻结：LLM_MODEL_SIMPLE/HARD 在 config 加载时等于 LLM_MODEL，
+    # 测试里需同步覆写，否则全局回落的 LLMConfig 仍带默认 deepseek-chat。
+    monkeypatch.setattr(config, "LLM_MODEL_SIMPLE", "qwen3.8-flash")
+    monkeypatch.setattr(config, "LLM_MODEL_HARD", "qwen3.8-flash")
     return config
 
 

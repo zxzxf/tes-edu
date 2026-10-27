@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import time
 
-from app.core import config, intent, judge_v2, llm, ocr, qtype, rag, socratic
+from app.core import config, intent, judge_v2, llm, ocr, qtype, rag, socratic, tenant_llm
 
 # ---------------------------------------------------------------- bundle 缓存
 
@@ -65,7 +65,11 @@ async def handle_question(
     student_reply: str | None = None,
     direct_reveal: bool = False,
     student_id: str | None = None,
+    tenant_id: str | None = None,
 ) -> dict:
+    # 0) W6 BYOM T-M4：解析租户级模型配置（命中租户行且 enabled → 解密；否则回落全局 env）。
+    #    一次请求内只解析一次，向下游所有 LLM 调用透传，避免重复查库/缓存。
+    cfg = await tenant_llm.resolve_llm_config(tenant_id) if tenant_id else None
     # 1) RAG 检索上下文（知识点 / 例题 / 题型）
     ctx = await rag.retrieve(question, subject=subject)
     # 2) T-C3 "直接看解析"一等功能：mode=direct 直达 L4（等价 direct_reveal），
@@ -83,6 +87,7 @@ async def handle_question(
             student_reply=student_reply,
             direct_reveal=direct_reveal,
             student_id=student_id,
+            llm_cfg=cfg,
         )
     # 4) 意图三档路由（T-C1）：
     #    - 显式传 mode（含 /similar 的 similar）-> 尊重调用方，intent 不分类；
@@ -91,7 +96,7 @@ async def handle_question(
         intent_tier, resolved_mode, intent_source = None, mode, "explicit"
     else:
         intent_tier, resolved_mode, intent_source = await intent.resolve_response_mode(
-            question, ctx
+            question, ctx, llm_cfg=cfg
         )
     # 5) LLM 解题 + 分步讲解（按档位生成）；T-D1 请求级缓存（键含学科/mode/hint_level）
     #    T-D2：题型档位与步骤数透传给模型路由（缓存未命中才真正进路由）
@@ -105,9 +110,10 @@ async def handle_question(
         content_hash=judge_v2._pick_content_hash(ctx),
         tier=_route_tier.get("tier"),
         steps=len(ctx.get("steps") or []),
+        llm_cfg=cfg,
     )
     # 6) 触类旁通（T-D3：变式降级单独标记，不污染主解 degraded 语义）
-    sim = await llm.suggest_similar_detailed(question, context=ctx)
+    sim = await llm.suggest_similar_detailed(question, context=ctx, llm_cfg=cfg)
     out = {
         **result,
         "similar": sim["similar"],
@@ -131,7 +137,7 @@ async def handle_question(
     #    判据用 `is not None`：字段出现即表示"提交了作答"，
     #    空串是"交了白卷"，必须回 need_process 引导，而不是静默不判分。
     if student_answer is not None:
-        out["judgement"] = await _judge_v2_with_fallback(question, student_answer, ctx)
+        out["judgement"] = await _judge_v2_with_fallback(question, student_answer, ctx, llm_cfg=cfg)
     return out
 
 
@@ -144,6 +150,7 @@ async def _handle_hint_round(
     student_reply: str | None,
     direct_reveal: bool,
     student_id: str | None,
+    llm_cfg=None,
 ) -> dict:
     """T-C2/T-C3：Hint 阶梯的一轮对话。
 
@@ -178,7 +185,7 @@ async def _handle_hint_round(
     # 阶梯轮中提交了作答 -> judge v2（答对是该轮最大的"推进"信号）
     judgement = None
     if student_answer is not None:
-        judgement = await _judge_v2_with_fallback(question, student_answer, ctx)
+        judgement = await _judge_v2_with_fallback(question, student_answer, ctx, llm_cfg=llm_cfg)
 
     if finale and bundle:
         total_steps = len(bundle.get("steps") or [])
@@ -193,6 +200,7 @@ async def _handle_hint_round(
     hint = await socratic.generate_hint(
         question, ctx, level, history, step,
         subject=subject, content_hash=content_hash, tier=route.get("tier"),
+        llm_cfg=llm_cfg,
     )
 
     socratic.ladder.record_round(
@@ -202,7 +210,7 @@ async def _handle_hint_round(
         streak=streak,
         step=step_idx if step else None,
     )
-    sim = await llm.suggest_similar_detailed(question, context=ctx)
+    sim = await llm.suggest_similar_detailed(question, context=ctx, llm_cfg=llm_cfg)
     out = {
         **hint,
         "similar": sim["similar"],
@@ -235,15 +243,17 @@ async def _handle_hint_round(
 
 
 async def _judge_v2_with_fallback(
-    question: str, student_answer: str, ctx: dict
+    question: str, student_answer: str, ctx: dict, *, llm_cfg=None
 ) -> dict:
-    """judge v2 主判；低置信（unknown）时退回 v1 的对错布尔，保住原有信号。"""
-    j = await judge_v2.judge(question, student_answer, context=ctx)
+    """judge v2 主判；低置信（unknown）时退回 v1 的对错布尔，保住原有信号。
+
+    W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。"""
+    j = await judge_v2.judge(question, student_answer, context=ctx, llm_cfg=llm_cfg)
     # S4：被要求补过程时不要退回 v1 —— 那会白花一次 LLM 且可能把"没写过程"判成"做错"
     if j.get("need_process"):
         return j
     if j.get("attribution_source") == judge_v2.UNKNOWN:
-        v1 = await llm.judge(question, student_answer, context=ctx)
+        v1 = await llm.judge(question, student_answer, context=ctx, llm_cfg=llm_cfg)
         if isinstance(v1.get("correct"), bool):
             j["correct"] = v1["correct"]
             j["partial"] = bool(v1.get("partial", False))
@@ -252,7 +262,7 @@ async def _judge_v2_with_fallback(
     return j
 
 
-async def handle_image(image_bytes: bytes) -> dict:
+async def handle_image(image_bytes: bytes, *, tenant_id: str | None = None) -> dict:
     """拍照：OCR 抽题面 -> 文本题链路。
 
     与 `similar_degraded` 同口径：不可用时**显式回 degraded/vlm_enabled**，
@@ -292,7 +302,7 @@ async def handle_image(image_bytes: bytes) -> dict:
             "message": "没从这张图里识别出文字，换一张拍清楚些的，或改用文字输入。",
         }
 
-    result = await handle_question(text)
+    result = await handle_question(text, tenant_id=tenant_id)
     # 回传识别文本，供学情上报与前端核对（文本题链路不返回该字段）
     result["recognized_text"] = text
     result["vlm_enabled"] = True

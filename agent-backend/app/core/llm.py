@@ -9,7 +9,7 @@ import json
 import logging
 import time
 
-from app.core import config, llm_cache, model_router, usage
+from app.core import config, llm_cache, model_router, tenant_llm, usage
 
 log = logging.getLogger("llm")
 
@@ -63,22 +63,28 @@ async def solve(
     tier: str | None = None,
     steps: int | None = None,
     store=None,
+    tenant_id: str | None = None,
+    llm_cfg=None,
 ) -> dict:
     """解题入口。真实模式经 T-D1 请求级缓存（同题/近似题命中则跳过 LLM）。
 
     **T-D2 与 T-D1 的衔接**：模型路由发生在 ``_remote_solve`` 内，而它只在缓存
     未命中时才被调用——即"缓存未命中才进路由"。
+
+    W6 BYOM T-M4：``tenant_id`` / ``llm_cfg`` 透传租户级模型配置（解析一次后向下游复用）；
+    无租户配置时回落全局 env，行为等同接入 BYOM 前。
     """
     if config.llm_ready():
+        cfg = llm_cfg or await tenant_llm.resolve_llm_config(tenant_id)
 
         async def _call(q, c, m):
-            return await _remote_solve(q, c, m, tier=tier, steps=steps)
+            return await _remote_solve(q, c, m, tier=tier, steps=steps, llm_cfg=cfg)
 
         def _on_cache_hit() -> None:
             # T-D3：缓存命中不烧 LLM，但仍要计数（否则算不出缓存省了多少）
             usage.record_usage_bg(
                 mode=mode, subject=subject, cache_hit=True, grade="cache",
-                model=config.LLM_MODEL,
+                model=cfg.chat_model,
             )
 
         return await llm_cache.cached_solve(
@@ -102,11 +108,15 @@ async def _remote_solve(
     *,
     tier: str | None = None,
     steps: int | None = None,
+    llm_cfg=None,
 ) -> dict:
-    from openai import AsyncOpenAI  # 延迟导入
-
-    # T-D2：按题型 + 难度(tier) + mode 选模型（未配分级时回落单一 LLM_MODEL）
-    route = model_router.route_model(mode=mode, context=context, tier=tier, steps=steps)
+    # W6 BYOM T-M4：租户级配置（chat 段）驱动客户端与模型路由
+    cfg = llm_cfg or await tenant_llm.resolve_llm_config(None)
+    # T-D2：按题型 + 难度(tier) + mode 选模型（未配分级时回落单一模型；租户可覆盖）
+    route = model_router.route_model(
+        mode=mode, context=context, tier=tier, steps=steps,
+        simple=cfg.model_simple, hard=cfg.model_hard,
+    )
     # T-D3：预算超线且动作为 force_simple → 本轮强制降级为小模型（配额节流）
     try:
         bstate = await usage.budget_state()
@@ -114,7 +124,7 @@ async def _remote_solve(
         if bstate.get("force_simple") and route.get("grade") == model_router.GRADE_HARD:
             route = dict(
                 route,
-                model=config.LLM_MODEL_SIMPLE,
+                model=cfg.model_simple,
                 grade="hard_forced_simple",
                 reason="日预算超线（T-D3），强制降级为小模型",
             )
@@ -130,7 +140,7 @@ async def _remote_solve(
         route["reason"],
     )
 
-    client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+    client = tenant_llm.make_client(cfg)
     t0 = time.monotonic()
     try:
         resp = await client.chat.completions.create(
@@ -273,15 +283,21 @@ async def judge(
     question: str,
     student_answer: str,
     context: dict | None = None,
+    *,
+    tenant_id: str | None = None,
+    llm_cfg=None,
 ) -> dict:
-    """判定学生作答。真实模式交给 LLM；否则用检索到的参考答案做兜底比对。"""
+    """判定学生作答。真实模式交给 LLM；否则用检索到的参考答案做兜底比对。
+
+    W6 BYOM T-M4：``tenant_id`` / ``llm_cfg`` 透传租户级模型配置。
+    """
     if config.llm_ready():
-        return await _remote_judge(question, student_answer, context)
+        return await _remote_judge(question, student_answer, context, llm_cfg=llm_cfg)
     return _dev_judge(student_answer, context)
 
 
-async def _remote_judge(question: str, student_answer: str, context: dict | None) -> dict:
-    from openai import AsyncOpenAI  # 延迟导入
+async def _remote_judge(question: str, student_answer: str, context: dict | None, *, llm_cfg=None) -> dict:
+    cfg = llm_cfg or await tenant_llm.resolve_llm_config(None)
 
     chunks = (context or {}).get("chunks", [])
     ref = "\n".join(
@@ -297,14 +313,14 @@ async def _remote_judge(question: str, student_answer: str, context: dict | None
     ]
     t0 = time.monotonic()
     try:
-        client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+        client = tenant_llm.make_client(cfg)
         resp = await client.chat.completions.create(
-            model=config.LLM_MODEL, messages=messages, temperature=0
+            model=cfg.chat_model, messages=messages, temperature=0
         )
         data = _parse_json(resp.choices[0].message.content or "")
         if isinstance(data.get("correct"), bool):
             usage.record_usage_bg(
-                model=config.LLM_MODEL, grade="single", mode="judge",
+                model=cfg.chat_model, grade="single", mode="judge",
                 latency_ms=int((time.monotonic() - t0) * 1000), **_tokens(resp),
             )
             return {
@@ -314,7 +330,7 @@ async def _remote_judge(question: str, student_answer: str, context: dict | None
             }
     except Exception as e:  # noqa: BLE001 判分失败降级为兜底比对，不影响主链路
         usage.record_usage_bg(
-            model=config.LLM_MODEL, grade="single", mode="judge", degraded=True,
+            model=cfg.chat_model, grade="single", mode="judge", degraded=True,
             error_kind=usage.classify_error(e),
             latency_ms=int((time.monotonic() - t0) * 1000),
         )
@@ -333,20 +349,25 @@ def _dev_judge(student_answer: str, context: dict | None) -> dict:
     return {"correct": False, "partial": False, "comment": "与参考答案不一致（兜底比对）"}
 
 
-async def suggest_similar_detailed(question: str, context: dict | None = None) -> dict:
+async def suggest_similar_detailed(
+    question: str, context: dict | None = None, *, tenant_id: str | None = None, llm_cfg=None
+) -> dict:
     """变式题生成（带降级标记）：``{"similar": [...], "degraded": bool}``。
 
     T-D3：变式是旁路能力，LLM 配额打满时曾把整轮 Hint 对话打成 500（T-C2 实测），
     故这里失败静默回落检索结果，但**必须把 degraded 标记回传**，
     让埋点与用量表能统计"变式降级率"——否则降级是隐形的。
+
+    W6 BYOM T-M4：``tenant_id`` / ``llm_cfg`` 透传租户级模型配置。
     """
     if config.llm_ready():
+        cfg = llm_cfg or await tenant_llm.resolve_llm_config(tenant_id)
         t0 = time.monotonic()
-        route = model_router.route_model(mode="similar", context=context)
+        route = model_router.route_model(
+            mode="similar", context=context, simple=cfg.model_simple, hard=cfg.model_hard
+        )
         try:
-            from openai import AsyncOpenAI  # 延迟导入
-
-            client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+            client = tenant_llm.make_client(cfg)
             resp = await client.chat.completions.create(
                 model=route["model"],
                 messages=_build_messages(question, context, "similar"),

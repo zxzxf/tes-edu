@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import time
 
-from app.core import config, llm_cache, model_router, qtype, usage
+from app.core import config, llm_cache, model_router, qtype, tenant_llm, usage
 
 # ---------------------------------------------------------------- 阶梯定义
 
@@ -539,25 +539,30 @@ async def _remote_hint(
     content_hash: str | None = None,
     tier: str | None = None,
     store=None,
+    llm_cfg=None,
 ) -> dict | None:
     """LLM 生成 Hint（T-D1 缓存：同题同 Hint 级命中则跳过 LLM）。
 
     返回 None 表示失败（无密钥/超时/解析失败）——此类结果不缓存。
     契约校验不在这里做，统一收口到 ``generate_hint``。
+
+    W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。
     """
     if not config.llm_ready():
         return None
 
+    cfg = llm_cfg or await tenant_llm.resolve_llm_config(None)
+
     async def _call(q, ctx, m):
         return await _remote_hint_raw(
-            q, ctx, level, history, step, tier=tier, subject=subject
+            q, ctx, level, history, step, tier=tier, subject=subject, llm_cfg=cfg
         )
 
     def _on_cache_hit() -> None:
         # T-D3：Hint 是消耗大头，命中也要计数（缓存省了多少）
         usage.record_usage_bg(
             mode="guide", subject=subject, cache_hit=True, grade="cache",
-            model=config.LLM_MODEL,
+            model=cfg.chat_model,
         )
 
     # 上下文变体：对话历史与当前步骤会实质改变 Hint 输出，必须入键（否则串味）；
@@ -595,15 +600,18 @@ async def _remote_hint_raw(
     *,
     tier: str | None = None,
     subject: str | None = None,
+    llm_cfg=None,
 ) -> dict | None:
     """原始 LLM Hint 生成（无缓存包装）。失败返回 None（T-D3：并记一行降级用量）。"""
     t0 = time.monotonic()
     try:
-        from openai import AsyncOpenAI  # 延迟导入，与 llm.py 同款
-
+        cfg = llm_cfg or await tenant_llm.resolve_llm_config(None)
         # T-D2：Hint 属引导档，默认小模型；压轴（tier=finale）上大模型
-        route = model_router.route_model(mode="guide", context=context, tier=tier)
-        client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+        route = model_router.route_model(
+            mode="guide", context=context, tier=tier,
+            simple=cfg.model_simple, hard=cfg.model_hard,
+        )
+        client = tenant_llm.make_client(cfg)
         resp = await client.chat.completions.create(
             model=route["model"],
             messages=_build_hint_messages(question, context, level, history, step),
@@ -659,6 +667,7 @@ async def generate_hint(
     content_hash: str | None = None,
     tier: str | None = None,
     store=None,
+    llm_cfg=None,
 ) -> dict:
     """生成本轮 Hint：LLM 优先，失败/违约回落 template_hint。
 
@@ -669,12 +678,15 @@ async def generate_hint(
     T-C3：``step``（qtype.step_guidance 产物）传入时模板与 LLM prompt
     都锚定压轴题当前步骤。
 
+    W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。
+
     返回值形如 ``{"answer": ..., "steps": [...]}``。
     """
     try:
         hint = await _remote_hint(
             question, context, level, history, step,
             subject=subject, content_hash=content_hash, tier=tier, store=store,
+            llm_cfg=llm_cfg,
         )
     except Exception:  # noqa: BLE001 双保险：生成层任何意外都回落模板
         hint = None

@@ -89,7 +89,7 @@ def test_resolve_rules_hit_no_llm_call(monkeypatch):
 def test_resolve_llm_fallback_used_when_rules_miss(monkeypatch):
     """规则未命中且问句够长 -> LLM 兜底生效。"""
 
-    async def _fake_llm(q, context=None):
+    async def _fake_llm(q, context=None, **_kw):
         return intent.INTENT_EXPLAIN
 
     monkeypatch.setattr(intent, "classify_intent_llm", _fake_llm)
@@ -101,7 +101,7 @@ def test_resolve_llm_fallback_used_when_rules_miss(monkeypatch):
 def test_resolve_llm_failure_degrades_to_guide(monkeypatch):
     """LLM 分类失败（None）-> 显式降级引导档，不静默直给。"""
 
-    async def _fail_llm(q, context=None):
+    async def _fail_llm(q, context=None, **_kw):
         return None
 
     monkeypatch.setattr(intent, "classify_intent_llm", _fail_llm)
