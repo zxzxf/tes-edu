@@ -171,6 +171,9 @@ async def _search_pg(q_vec: list[float], subject: str | None) -> list[dict]:
               -- 硬隔离 seed demo 假题：id 1-46 的编造例题不参与线上检索，
               -- 只保留供压测/回滚；物理删除前一律靠此谓词挡掉。
               AND (is_demo IS NOT TRUE)
+              -- 隔离区：OCR 未核对/据答案倒推入库的存疑条目（source_tag='quarantine'）
+              -- 不参与线上检索，教研核对后再摘牌恢复。
+              AND (source_tag IS DISTINCT FROM 'quarantine')
             ORDER BY embedding <=> $1::vector
             LIMIT $3
         """

@@ -366,3 +366,24 @@ def test_api_hint_off_keeps_tier_routing(client):
     assert j["intent"] == "explain"
     assert j["intent_source"] == "rules"
     assert j.get("hint_level") is None
+
+
+def test_template_evidence_is_marked_as_other_question():
+    """回归：模板回落里的检索片段必须标明『非本题』，防止同类题答案被当成本题答案。
+
+    事故背景：题库条目（f(x)=x+2e^x+a…解得 a=2）被降级文案原样吐出，
+    学生在另一道题上看到 a=2。片段只可作通法参考。
+    """
+    ctx = {"chunks": [{"text": "已知函数 f(x)=x+2e^x+a 的最大值为 1，解得 a=2",
+                       "knowledge_point": "导数与函数最值", "score": 0.9}]}
+    ev = socratic._evidence(ctx)
+    assert "非本题" in ev
+    assert "不可直接套用" in ev
+
+    for level in (socratic.LEVEL_L2, socratic.LEVEL_L3, socratic.LEVEL_L4):
+        out = socratic.template_hint("求 a 的值", ctx, level)
+        ans = out["answer"]
+        if "同类题思路" in ans or "关键依据" in ans or "这一步这样推" in ans:
+            assert "非本题" in ans
+    # L4 必须额外给出显式告警句
+    assert "当成本题答案" in socratic.template_hint("求 a 的值", ctx, socratic.LEVEL_L4)["answer"]
