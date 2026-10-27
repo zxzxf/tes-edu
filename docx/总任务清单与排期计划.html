@@ -258,10 +258,10 @@
   <table>
     <thead><tr><th>任务</th><th>内容</th><th>依赖</th><th class="num">估点</th><th class="num">完成度</th><th class="num">波次</th></tr></thead>
     <tbody>
-      <tr><td class="mono">T-M1</td><td><code>tenant_model_config</code> 数据模型 + AES-256-GCM 密钥加密 + 迁移</td><td>—</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W6</span></td></tr>
-      <tr><td class="mono">T-M2</td><td><code>resolve_llm_config(tenant_id)</code> + 全局 env fallback + <b>SSRF 防护</b> + 缓存</td><td>T-M1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W6</span></td></tr>
-      <tr><td class="mono">T-M3</td><td>预设供应商清单（阿里云/腾讯云/火山/DeepSeek/OpenAI/Azure/智谱/Moonshot）+ 后台配置页 + 连通性自检</td><td>T-M2</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W6</span></td></tr>
-      <tr><td class="mono">T-M4</td><td>单测（解析/fallback/SSRF 拒绝/加解密）+ 试点校联调</td><td>T-M3</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W6</span></td></tr>
+      <tr><td class="mono">T-M1</td><td><code>tenant_model_config</code> 数据模型 + AES-256-GCM 密钥加密 + 迁移 <span class="chip done">✅ 代码已落地</span></td><td>—</td><td class="num">1d</td><td class="num"><span class="chip done">✅</span></td><td class="num"><span class="wave">W6</span></td></tr>
+      <tr><td class="mono">T-M2</td><td><code>resolve_llm_config(tenant_id)</code> + 全局 env fallback + <b>SSRF 防护</b> + 缓存 <span class="chip done">✅ 代码已落地</span></td><td>T-M1</td><td class="num">1d</td><td class="num"><span class="chip done">✅</span></td><td class="num"><span class="wave">W6</span></td></tr>
+      <tr><td class="mono">T-M3</td><td>预设供应商清单（阿里云/腾讯云/火山/DeepSeek/OpenAI/Azure/智谱/Moonshot）+ 后台配置页 + 连通性自检 <span class="chip done">✅ 代码已落地</span></td><td>T-M2</td><td class="num">1.5d</td><td class="num"><span class="chip done">✅</span></td><td class="num"><span class="wave">W6</span></td></tr>
+      <tr><td class="mono">T-M4</td><td>单测（解析/fallback/SSRF 拒绝/加解密）+ 试点校联调 <span class="chip pend">🟡 单测完成 / 联调待试点</span></td><td>T-M3</td><td class="num">1d</td><td class="num"><span class="chip pend">🟡</span></td><td class="num"><span class="wave">W6</span></td></tr>
     </tbody>
   </table>
 
