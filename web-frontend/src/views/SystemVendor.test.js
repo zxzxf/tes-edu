@@ -5,7 +5,7 @@ import SystemVendor from './SystemVendor.vue'
 import { useAuthStore } from '../stores/auth'
 import {
   listVendors, createVendor, updateVendor, deleteVendor,
-  listInstances, createInstance, testVendor,
+  listInstances, createInstance, updateInstance, testVendor,
 } from '../api/vendor'
 
 vi.mock('../api/vendor', () => ({
@@ -26,6 +26,7 @@ const VENDORS = [
     vendor_id: 'v_aliyun', vendor_name: '阿里云百炼', vendor_type: 'aliyun',
     base_url: 'https://dashscope.aliyuncs.com', auth_type: 'apikey',
     status: 1, has_credential: true, instance_count: 2,
+    region_id: 'r_henan', tenant_id: 'school_pilot_01',
   },
   {
     vendor_id: 'v_tencent', vendor_name: '腾讯云', vendor_type: 'tencent',
@@ -63,6 +64,7 @@ beforeEach(() => {
   deleteVendor.mockResolvedValue('')
   listInstances.mockResolvedValue(INSTANCES)
   createInstance.mockResolvedValue({})
+  updateInstance.mockResolvedValue({})
   testVendor.mockResolvedValue({ ok: true, status_code: 200, latency_ms: 120, detail: 'HTTP 200' })
 })
 
@@ -185,5 +187,104 @@ describe('SystemVendor 厂商管理页（T-AM6）', () => {
     expect(confirmSpy.mock.calls[0][0]).toContain('2 个数据服务实例')
     expect(deleteVendor).toHaveBeenCalledWith('v_aliyun')
     confirmSpy.mockRestore()
+  })
+
+  // ---------- 列表化改造（对齐 BYOM T-M5 / 275c272） ----------
+
+  it('表格外层有 .table-scroll 横向滚动兜底，操作列不会被 overflow:hidden 裁掉', async () => {
+    const wrapper = await mountVendor()
+    // .tes-table-card 是 overflow:hidden，必须靠内层 .table-scroll 兜底
+    expect(wrapper.find('.tes-table-card .table-scroll').exists()).toBe(true)
+    expect(wrapper.find('.table-scroll table.vendor-table').exists()).toBe(true)
+    // 操作列（连通测试/编辑/删除）必须仍在 DOM 中
+    const ops = wrapper.findAll('tbody tr')[0].findAll('td.op .tes-btn.sm')
+    expect(ops.map((b) => b.text())).toEqual(['连通测试', '编辑', '删除'])
+  })
+
+  it('状态列是可点 pill，点击即切换启停且回填全部字段', async () => {
+    const wrapper = await mountVendor()
+    const pill = wrapper.findAll('tbody tr')[0].find('.pill-btn')
+    expect(pill.text()).toBe('启用')
+    expect(pill.classes()).toContain('on')
+
+    await pill.trigger('click')
+    await flushPromises()
+
+    expect(updateVendor).toHaveBeenCalledTimes(1)
+    const [id, payload] = updateVendor.mock.calls[0]
+    expect(id).toBe('v_aliyun')
+    expect(payload.status).toBe(0)  // 启用 → 停用
+    // 列表刷新
+    expect(listVendors).toHaveBeenCalledTimes(2)
+  })
+
+  it('⚠️ 启停/编辑必须回填 region_id/tenant_id：后端 PUT 全量覆盖，缺键会被静默置 None', async () => {
+    const wrapper = await mountVendor()
+    await wrapper.findAll('tbody tr')[0].find('.pill-btn').trigger('click')
+    await flushPromises()
+
+    const payload = updateVendor.mock.calls[0][1]
+    expect(payload).toMatchObject({ region_id: 'r_henan', tenant_id: 'school_pilot_01' })
+    expect(payload.region_id).not.toBeNull()
+  })
+
+  it('编辑保存时归属字段原样带回（表单不显示也不丢）', async () => {
+    const wrapper = await mountVendor()
+    await wrapper.findAll('tbody tr')[0].findAll('.tes-btn.sm')[2].trigger('click') // 编辑
+    // 只改名称，不碰凭证
+    await wrapper.findAll('input[placeholder="展示名"]')[0].setValue('阿里云百炼（改名）')
+    await wrapper.find('.dlg-actions .tes-btn-primary').trigger('click')
+    await flushPromises()
+
+    const payload = updateVendor.mock.calls[0][1]
+    expect(payload.vendor_name).toBe('阿里云百炼（改名）')
+    expect(payload.region_id).toBe('r_henan')
+    expect(payload.tenant_id).toBe('school_pilot_01')
+    // 留空凭证 = 不带该键（后端语义「不覆盖」）
+    expect(payload.credential).toBeUndefined()
+  })
+
+  it('归属为空的厂商：region_id/tenant_id 显式传 null，不隐藏副行', async () => {
+    const wrapper = await mountVendor()
+    await wrapper.findAll('tbody tr')[1].find('.pill-btn').trigger('click') // 腾讯云（无归属）
+    await flushPromises()
+
+    const payload = updateVendor.mock.calls[0][1]
+    expect('region_id' in payload).toBe(true)
+    expect(payload.region_id).toBeNull()
+    expect(payload.status).toBe(1)  // 停用 → 启用
+  })
+
+  it('连通测试横幅分行展示判定 + HTTP/耗时/诊断', async () => {
+    const wrapper = await mountVendor()
+    await wrapper.findAll('tbody tr')[0].findAll('.tes-btn.sm')[1].trigger('click') // 连通测试
+    await flushPromises()
+
+    const banner = wrapper.find('.tes-empty.probe.ok')
+    expect(banner.exists()).toBe(true)
+    expect(banner.find('.probe-head').text()).toContain('可达 ✅')
+    expect(banner.find('.probe-line').text()).toContain('200')
+    expect(banner.find('.probe-line').text()).toContain('120ms')
+    expect(banner.find('.probe-line').text()).toContain('HTTP 200')
+  })
+
+  it('实例弹窗表格也有 .table-scroll 兜底 + 状态 pill 可点', async () => {
+    const wrapper = await mountVendor()
+    await wrapper.findAll('tbody tr')[0].findAll('.tes-btn.sm')[0].trigger('click') // 实例（2）
+    await flushPromises()
+
+    expect(wrapper.find('.wide-dlg .table-scroll table.inst-table').exists()).toBe(true)
+    const instPill = wrapper.find('.wide-dlg tbody tr .pill-btn')
+    expect(instPill.text()).toBe('启用')
+
+    await instPill.trigger('click')
+    await flushPromises()
+    expect(updateInstance).toHaveBeenCalledTimes(1)
+    expect(updateInstance.mock.calls[0][0]).toBe('v_aliyun')
+    expect(updateInstance.mock.calls[0][1]).toBe('inst_main')
+    expect(updateInstance.mock.calls[0][2]).toMatchObject({
+      instance_id: 'inst_main', service_name: '主数据服务',
+      data_namespace: 'ns_main', isolation_mode: 'logical', status: 0,
+    })
   })
 })

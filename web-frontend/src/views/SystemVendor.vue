@@ -1,6 +1,11 @@
 <template>
   <div class="tes-page tes-anim">
     <h2 class="tes-page-title">系统服务（MCP 厂商）</h2>
+    <p class="tes-sub">
+      列表化管理平台接入的 MCP 服务厂商。每个厂商可挂多个<b>数据服务实例</b>，
+      实例之间按 <code>data_namespace</code> 隔离，互不干扰。
+      凭证经 AES-256-GCM 加密落库，任何接口都<b>不回显明文</b>，列表只提示「是否已存」。
+    </p>
 
     <div class="tes-toolbar">
       <!-- T-AM6：写操作统一走 system:vendor:manage 按钮码（后端 require_perm 同步拦截） -->
@@ -11,56 +16,89 @@
     </div>
 
     <p v-if="error" class="tes-empty err">{{ error }}</p>
-    <p v-else-if="testResult" class="tes-empty" :class="testResult.ok ? 'ok' : 'err'">
-      连通性测试「{{ testResult.vendor_name }}」：
-      {{ testResult.ok ? '可达' : '不可达' }}
-      <span v-if="testResult.status_code">HTTP {{ testResult.status_code }}</span>
-      <span v-if="testResult.latency_ms != null">{{ testResult.latency_ms }}ms</span>
-      —— {{ testResult.detail }}
-    </p>
+
+    <!-- 连通测试结果横幅（ok / 诊断 / HTTP / 耗时 分行展示，口径同 BYOM 探测横幅） -->
+    <div v-else-if="testResult" class="tes-empty probe" :class="testResult.ok ? 'ok' : 'err'">
+      <div class="probe-head">
+        <b>连通性测试「{{ testResult.vendor_name }}」</b>
+        <span>判定：{{ testResult.ok ? '可达 ✅' : '不可达 ❌' }}</span>
+      </div>
+      <div class="probe-line">
+        <span class="kv-k">HTTP</span>
+        <b>{{ testResult.status_code ?? '—' }}</b>
+        <span v-if="testResult.latency_ms != null">· {{ testResult.latency_ms }}ms</span>
+        · {{ testResult.detail }}
+      </div>
+    </div>
 
     <div v-if="rows.length" class="tes-table-card">
-      <table class="tes-table">
-        <thead>
-          <tr>
-            <th>厂商</th><th>类型</th><th>服务地址</th><th>认证</th>
-            <th>凭证</th><th>实例</th><th>状态</th><th class="op">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in rows" :key="row.vendor_id">
-            <td>
-              <b>{{ row.vendor_name }}</b>
-              <code class="mid">{{ row.vendor_id }}</code>
-            </td>
-            <td>{{ row.vendor_type }}</td>
-            <td><code v-if="row.base_url">{{ row.base_url }}</code><span v-else class="muted">—</span></td>
-            <td>{{ row.auth_type || '—' }}</td>
-            <!-- 凭证只回显布尔：已存=密文在库，明文任何路径都拿不到 -->
-            <td>
-              <span v-if="row.has_credential" class="tes-pill">已加密保存</span>
-              <span v-else class="tes-pill warn">未保存</span>
-            </td>
-            <td>
-              <button class="tes-btn sm" @click="openInstances(row)">
-                实例（{{ row.instance_count }}）
-              </button>
-            </td>
-            <td>
-              <span class="tes-pill" :class="row.status === 1 ? '' : 'danger'">
-                {{ row.status === 1 ? '启用' : '停用' }}
-              </span>
-            </td>
-            <td class="op">
-              <button class="tes-btn sm" v-has-permission="'system:vendor:manage'" :disabled="testingId === row.vendor_id" @click="test(row)">
-                {{ testingId === row.vendor_id ? '测试中…' : '连通测试' }}
-              </button>
-              <button class="tes-btn sm" v-has-permission="'system:vendor:manage'" @click="openEdit(row)">编辑</button>
-              <button class="tes-btn sm danger" v-has-permission="'system:vendor:manage'" @click="remove(row)">删除</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="tes-table vendor-table">
+          <thead>
+            <tr>
+              <th>厂商</th>
+              <th>服务地址</th>
+              <th>认证 / 凭证</th>
+              <th>实例</th>
+              <th>状态</th>
+              <th class="op">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rows" :key="row.vendor_id">
+              <!-- 厂商：名称 + ID + 类型/归属折进副行（省列宽，避免操作列被挤掉） -->
+              <td>
+                <b>{{ row.vendor_name }}</b>
+                <code class="mid">{{ row.vendor_id }}</code>
+                <div class="sub">{{ typeLabel(row.vendor_type) }}</div>
+                <div v-if="row.region_id || row.tenant_id" class="sub muted">
+                  归属 {{ row.region_id || '—' }} / {{ row.tenant_id || '—' }}
+                </div>
+              </td>
+
+              <td>
+                <code v-if="row.base_url" class="url" :title="row.base_url">{{ row.base_url }}</code>
+                <span v-else class="muted">未配置（无法连通测试）</span>
+              </td>
+
+              <!-- 认证方式 + 凭证状态合并一列：凭证只回显布尔，明文任何路径都拿不到 -->
+              <td>
+                <div>{{ authLabel(row.auth_type) }}</div>
+                <div class="sub">
+                  <span v-if="row.has_credential" class="tes-pill">已加密保存</span>
+                  <span v-else class="tes-pill warn">未保存</span>
+                </div>
+              </td>
+
+              <td>
+                <button class="tes-btn sm" @click="openInstances(row)">
+                  实例（{{ row.instance_count }}）
+                </button>
+              </td>
+
+              <!-- 状态：点击即切换启停（省一个操作按钮位，口径同 BYOM 列表） -->
+              <td>
+                <button
+                  class="pill-btn"
+                  :class="row.status === 1 ? 'on' : 'off'"
+                  v-has-permission="'system:vendor:manage'"
+                  :disabled="togglingId === row.vendor_id"
+                  :title="row.status === 1 ? '点击停用' : '点击启用'"
+                  @click="toggle(row)"
+                >{{ togglingId === row.vendor_id ? '切换中…' : (row.status === 1 ? '启用' : '停用') }}</button>
+              </td>
+
+              <td class="op">
+                <button class="tes-btn sm" v-has-permission="'system:vendor:manage'" :disabled="testingId === row.vendor_id" @click="test(row)">
+                  {{ testingId === row.vendor_id ? '测试中…' : '连通测试' }}
+                </button>
+                <button class="tes-btn sm" v-has-permission="'system:vendor:manage'" @click="openEdit(row)">编辑</button>
+                <button class="tes-btn sm danger" v-has-permission="'system:vendor:manage'" @click="remove(row)">删除</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
     <p v-else-if="!loading" class="tes-empty">暂无厂商，点击「注册厂商」接入首个 MCP 服务。</p>
 
@@ -126,27 +164,48 @@
           <span v-if="instLoading" class="tes-tag">加载中…</span>
         </div>
         <p v-if="instError" class="tes-empty err">{{ instError }}</p>
-        <table v-if="instances.length" class="tes-table">
-          <thead>
-            <tr><th>实例</th><th>服务名</th><th>数据命名空间</th><th>隔离</th><th>连接</th><th class="op">操作</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="i in instances" :key="i.instance_id">
-              <td><code class="mid">{{ i.instance_id }}</code></td>
-              <td>{{ i.service_name }}</td>
-              <td><code>{{ i.data_namespace }}</code></td>
-              <td><span class="tes-pill" :class="i.isolation_mode === 'physical' ? 'info' : ''">{{ i.isolation_mode === 'physical' ? '物理' : '逻辑' }}</span></td>
-              <td>
-                <span v-if="i.has_connection" class="tes-pill">已加密保存</span>
-                <span v-else class="tes-pill warn">未保存</span>
-              </td>
-              <td class="op">
-                <button class="tes-btn sm" v-has-permission="'system:vendor:manage'" @click="openInstEdit(i)">编辑</button>
-                <button class="tes-btn sm danger" v-has-permission="'system:vendor:manage'" @click="removeInstance(i)">删除</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-if="instances.length" class="table-scroll">
+          <table class="tes-table inst-table">
+            <thead>
+              <tr>
+                <th>服务名 / 实例 ID</th><th>数据命名空间</th><th>隔离</th>
+                <th>连接</th><th>状态</th><th class="op">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="i in instances" :key="i.instance_id">
+                <td>
+                  <b>{{ i.service_name }}</b>
+                  <code class="mid block">{{ i.instance_id }}</code>
+                </td>
+                <td><code>{{ i.data_namespace }}</code></td>
+                <td>
+                  <span class="tes-pill" :class="i.isolation_mode === 'physical' ? 'info' : ''">
+                    {{ i.isolation_mode === 'physical' ? '物理' : '逻辑' }}
+                  </span>
+                </td>
+                <td>
+                  <span v-if="i.has_connection" class="tes-pill">已加密保存</span>
+                  <span v-else class="tes-pill warn">未保存</span>
+                </td>
+                <td>
+                  <button
+                    class="pill-btn"
+                    :class="i.status === 1 ? 'on' : 'off'"
+                    v-has-permission="'system:vendor:manage'"
+                    :disabled="instTogglingId === i.instance_id"
+                    :title="i.status === 1 ? '点击停用' : '点击启用'"
+                    @click="toggleInstance(i)"
+                  >{{ instTogglingId === i.instance_id ? '切换中…' : (i.status === 1 ? '启用' : '停用') }}</button>
+                </td>
+                <td class="op">
+                  <button class="tes-btn sm" v-has-permission="'system:vendor:manage'" @click="openInstEdit(i)">编辑</button>
+                  <button class="tes-btn sm danger" v-has-permission="'system:vendor:manage'" @click="removeInstance(i)">删除</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <p v-else-if="!instLoading" class="tes-empty">该厂商暂无数据服务实例。</p>
 
         <!-- 新建 / 编辑实例子对话框 -->
@@ -217,6 +276,8 @@ const form = ref(blankVendorForm())
 // 连通性测试：进行中标记 + 结果横幅（ok/detail 由后端实调返回）
 const testingId = ref('')
 const testResult = ref(null)
+// 状态列可点 pill 的启停进行中态
+const togglingId = ref('')
 
 // 实例管理对话框状态
 const instVendor = ref(null)
@@ -227,11 +288,26 @@ const instDialog = ref(null)  // { mode: 'create' | 'edit' }
 const instSaving = ref(false)
 const instFormError = ref('')
 const instForm = ref(blankInstanceForm())
+const instTogglingId = ref('')
+
+const TYPE_LABELS = {
+  aliyun: '阿里云', tencent: '腾讯云', ark: '火山方舟',
+  deepseek: 'DeepSeek', custom: '自定义',
+}
+const AUTH_LABELS = { apikey: 'API Key', oauth: 'OAuth', aksk: 'AK/SK' }
+
+function typeLabel(t) {
+  return TYPE_LABELS[t] || t || '—'
+}
+function authLabel(a) {
+  return AUTH_LABELS[a] || a || '—'
+}
 
 function blankVendorForm() {
   return {
     vendor_id: '', vendor_name: '', vendor_type: 'aliyun',
     base_url: '', auth_type: 'apikey', credential: '', status: 1,
+    region_id: null, tenant_id: null,
   }
 }
 
@@ -270,12 +346,20 @@ function openEdit(row) {
     auth_type: row.auth_type || 'apikey',
     credential: '',  // 凭证不回显：编辑态永远从空开始，留空=不覆盖
     status: row.status ?? 1,
+    // 归属字段必须带进表单：后端 PUT 是全量覆盖，不传即被置 None（静默解绑）
+    region_id: row.region_id ?? null,
+    tenant_id: row.tenant_id ?? null,
   }
   formError.value = ''
   dialog.value = { mode: 'edit' }
 }
 
-/** 表单 → VendorIn 载荷。credential 空串时不带该键——后端语义为「不传则不覆盖」。 */
+/**
+ * 表单 → VendorIn 载荷。
+ * - credential 空串时不带该键——后端语义为「不传则不覆盖」；
+ * - region_id / tenant_id 恒带上（哪怕 null），因为后端 PUT 走全量
+ *   model_dump + setattr，缺键会被当 None 写入，把已有归属静默清掉。
+ */
 function vendorPayload() {
   const p = {
     vendor_id: form.value.vendor_id.trim(),
@@ -284,10 +368,26 @@ function vendorPayload() {
     base_url: form.value.base_url.trim() || null,
     auth_type: form.value.auth_type || null,
     status: Number(form.value.status) || 0,
+    region_id: form.value.region_id ?? null,
+    tenant_id: form.value.tenant_id ?? null,
   }
   const cred = form.value.credential.trim()
   if (cred) p.credential = cred
   return p
+}
+
+/** 行内启停专用载荷：表单没打开，字段全部从列表行原样回填。 */
+function togglePayload(row, nextStatus) {
+  return {
+    vendor_id: row.vendor_id,
+    vendor_name: row.vendor_name,
+    vendor_type: row.vendor_type,
+    base_url: row.base_url || null,
+    auth_type: row.auth_type || null,
+    status: nextStatus,
+    region_id: row.region_id ?? null,
+    tenant_id: row.tenant_id ?? null,
+  }
 }
 
 function validateVendor(payload) {
@@ -320,6 +420,19 @@ async function save() {
   }
 }
 
+/** 状态列 pill 直接启停（等价于编辑弹窗只改 status 再保存） */
+async function toggle(row) {
+  togglingId.value = row.vendor_id
+  try {
+    await updateVendor(row.vendor_id, togglePayload(row, row.status === 1 ? 0 : 1))
+    await load()
+  } catch (e) {
+    error.value = errMsg(e, '状态切换失败')
+  } finally {
+    togglingId.value = ''
+  }
+}
+
 async function remove(row) {
   // 删除守卫前置提示：名下有实例时后端 400
   const hint = row.instance_count
@@ -337,6 +450,7 @@ async function remove(row) {
 async function test(row) {
   testingId.value = row.vendor_id
   testResult.value = null
+  error.value = ''
   try {
     const res = await testVendor(row.vendor_id)
     testResult.value = { ...res, vendor_name: row.vendor_name }
@@ -426,6 +540,25 @@ async function saveInstance() {
   }
 }
 
+/** 实例状态列 pill 直接启停（InstanceIn 无可选归属字段，全量回填即可） */
+async function toggleInstance(i) {
+  instTogglingId.value = i.instance_id
+  try {
+    await updateInstance(instVendor.value.vendor_id, i.instance_id, {
+      instance_id: i.instance_id,
+      service_name: i.service_name,
+      data_namespace: i.data_namespace,
+      isolation_mode: i.isolation_mode || 'logical',
+      status: i.status === 1 ? 0 : 1,
+    })
+    await openInstances(instVendor.value)
+  } catch (e) {
+    instError.value = errMsg(e, '状态切换失败')
+  } finally {
+    instTogglingId.value = ''
+  }
+}
+
 async function removeInstance(i) {
   if (!window.confirm(`确定删除实例「${i.service_name}」？`)) return
   try {
@@ -441,9 +574,38 @@ onMounted(load)
 </script>
 
 <style scoped>
+/* 页头说明段（.tes-sub 全局未定义，这里补样式，口径同 BYOM 页头） */
+.tes-sub { margin: 4px 0 14px; font-size: 13px; line-height: 1.7; color: var(--muted); }
+.tes-sub code { font-size: 12px; background: #f6f6fb; padding: 1px 5px; border-radius: 5px; }
+
 .mid { margin-left: 8px; font-size: 11px; color: var(--muted); }
+.mid.block { display: block; margin: 3px 0 0; }
 .muted { color: var(--muted); }
+.sub { margin-top: 3px; font-size: 11px; color: var(--muted); line-height: 1.4; }
 td.op, th.op { white-space: nowrap; text-align: right; }
+
+/* ⚠️ .tes-table-card 是 overflow:hidden（全局样式），列一多就会把最右的操作列
+   整列裁掉——用户看到的就是「编辑/删除按钮不见了」（BYOM 列表 275c272 同款坑）。
+   两层兜底：内层 .table-scroll 提供横向滚动 + 表格 min-width 让浏览器出滚动条
+   而不是压缩/裁剪；再把「类型/归属」折进厂商副行、「认证/凭证」并一列精简列宽。 */
+.table-scroll { overflow-x: auto; }
+.vendor-table { min-width: 860px; }
+.inst-table { min-width: 720px; }
+code.url {
+  display: inline-block; max-width: 260px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
+}
+
+/* 状态 pill：可点击切换启停（不用 .tes-btn.sm，避免打乱行内按钮序号） */
+.pill-btn {
+  display: inline-flex; align-items: center; padding: 2px 9px;
+  border-radius: 999px; font-size: 11px; font-weight: 700; cursor: pointer;
+  border: 1px solid transparent; background: #eef9f3; color: var(--success);
+}
+.pill-btn.off { background: #ffe9ee; color: var(--danger); }
+.pill-btn:hover:not(:disabled) { filter: brightness(.95); border-color: currentColor; }
+.pill-btn:disabled { opacity: .55; cursor: not-allowed; }
+
 .tes-btn.sm { padding: 5px 12px; font-size: 12px; border-radius: var(--r-sm); }
 .tes-btn.sm.danger { color: var(--danger); border-color: #ffd6de; }
 .tes-btn.sm.danger:hover { background: #fff0f3; color: var(--danger); }
@@ -451,6 +613,15 @@ td.op, th.op { white-space: nowrap; text-align: right; }
 .tes-empty.err { background: #ffe9ee; border-color: #ffd6de; color: var(--danger); text-align: left; }
 .tes-empty.ok { background: #e3f9f1; border-color: #b8ecda; color: #00795c; text-align: left; }
 .hint { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+
+/* 连通性结果：判定 + HTTP/耗时/诊断 分行展示 */
+.probe { display: flex; flex-direction: column; gap: 6px; }
+.probe-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.probe-line { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 12px; }
+.kv-k {
+  flex: none; padding: 1px 6px; border-radius: 5px; font-size: 10px; font-weight: 700;
+  background: #eef4ff; color: var(--accent);
+}
 
 /* ---------- 对话框 ---------- */
 .mask {
@@ -460,10 +631,14 @@ td.op, th.op { white-space: nowrap; text-align: right; }
 }
 .dialog { width: 720px; max-width: 100%; max-height: 88vh; overflow: auto; }
 .dialog h3 { margin-bottom: 16px; }
-.wide-dlg { width: 860px; }
+.wide-dlg { width: 900px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
 .form-grid label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .form-grid .wide { grid-column: 1 / -1; }
+.form-grid input, .form-grid select {
+  border: 1.5px solid var(--line-strong); border-radius: 8px; padding: 8px 10px; font: inherit;
+}
+.form-grid input:focus, .form-grid select:focus { outline: none; border-color: var(--brand-2, #ff7a7a); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .inst-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 
