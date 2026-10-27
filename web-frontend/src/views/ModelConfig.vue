@@ -3,6 +3,8 @@
     <h2 class="tes-page-title">模型配置（BYOM）</h2>
     <p class="tes-sub">
       列表化管理各租户的自有大模型。未配置的租户，其请求自动回落平台全局模型。
+      每条配置含两段：<b>Chat</b>（解题/对话）与 <b>Embedding</b>（向量检索），
+      可指向不同厂商，因此可能有两把 Key；未单独配置 Embedding 时复用 Chat 段的凭证。
     </p>
 
     <div class="tes-toolbar">
@@ -59,20 +61,30 @@
                 <div v-else class="sub muted">Embed 复用 Chat 段</div>
               </td>
 
-              <!-- API Key：默认掩码，点「反显」取明文（后端鉴权 + 审计） -->
+              <!-- API Key：默认掩码，点「反显」取明文（后端鉴权 + 审计）
+                   两把密钥分属两段：Chat（解题/对话）与 Embedding（向量检索），
+                   可指向不同厂商，故分别打标签，避免误以为重复配置。 -->
               <td class="key-cell">
                 <template v-if="revealed[row.tenant_id]">
-                  <code class="key plain">{{ revealed[row.tenant_id].api_key || '(空)' }}</code>
+                  <div class="kv">
+                    <span class="kv-k">Chat</span>
+                    <code class="key plain">{{ revealed[row.tenant_id].api_key || '(空)' }}</code>
+                  </div>
                   <div class="key-ops">
                     <button class="tes-btn xs" @click="copy(revealed[row.tenant_id].api_key)">复制</button>
                     <button class="tes-btn xs" @click="hideKey(row)">隐藏</button>
                   </div>
-                  <div v-if="revealed[row.tenant_id].embed_api_key" class="sub muted">
-                    Embed：{{ revealed[row.tenant_id].embed_api_key }}
+                  <div v-if="revealed[row.tenant_id].embed_api_key" class="kv">
+                    <span class="kv-k">Embed</span>
+                    <code class="key plain">{{ revealed[row.tenant_id].embed_api_key }}</code>
+                    <button class="tes-btn xs" @click="copy(revealed[row.tenant_id].embed_api_key)">复制</button>
                   </div>
                 </template>
                 <template v-else>
-                  <code class="key">{{ row.api_key_masked || '—' }}</code>
+                  <div class="kv">
+                    <span class="kv-k">Chat</span>
+                    <code class="key">{{ row.api_key_masked || '—' }}</code>
+                  </div>
                   <div class="key-ops">
                     <button
                       class="tes-btn xs"
@@ -81,7 +93,11 @@
                       @click="reveal(row)"
                     >{{ revealingId === row.tenant_id ? '读取中…' : '反显' }}</button>
                   </div>
-                  <div v-if="row.has_embed_api_key" class="sub muted">Embed：{{ row.embed_api_key_masked }}</div>
+                  <div v-if="row.has_embed_api_key" class="kv">
+                    <span class="kv-k">Embed</span>
+                    <code class="key">{{ row.embed_api_key_masked }}</code>
+                  </div>
+                  <div v-else class="sub muted">Embed 复用 Chat 凭证</div>
                 </template>
               </td>
 
@@ -505,7 +521,14 @@ code.url {
 .pill-btn:disabled { opacity: .55; cursor: not-allowed; }
 
 /* API Key 单元格：默认掩码，反显后可复制 */
-.key-cell { min-width: 190px; }
+.key-cell { min-width: 200px; }
+/* 两段密钥分标签：Chat / Embed，避免误读为重复配置 */
+.kv { display: flex; align-items: center; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+.kv-k {
+  flex: none; padding: 1px 6px; border-radius: 5px; font-size: 10px; font-weight: 700;
+  background: #eef4ff; color: var(--accent);
+}
+.kv + .kv { margin-top: 6px; }
 .key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .key.plain {
   display: inline-block; max-width: 230px; word-break: break-all;
