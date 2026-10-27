@@ -20,7 +20,9 @@ _FAKE_USERS = {
     "teacher@tes.edu": {"password": "demo1234", "role": "teacher", "name": "教师B", "tenant_id": _DEMO_TENANT},
     "parent@tes.edu": {"password": "demo1234", "role": "parent", "name": "家长C", "tenant_id": _DEMO_TENANT},
     "admin@tes.edu": {"password": "demo1234", "role": "admin", "name": "管理员D", "tenant_id": _DEMO_TENANT},
-    "student@tes.edu": {"password": "demo1234", "role": "student", "name": "学生E"},
+    # App 占位学生账号挂试点校 school_pilot_01：无租户会回落全局模型，
+    # 挂校后 agent 按该校 BYOM（tenant_model_config）出模型（2026-10-27 拍板）。
+    "student@tes.edu": {"password": "demo1234", "role": "student", "name": "学生E", "tenant_id": "school_pilot_01"},
 }
 
 
