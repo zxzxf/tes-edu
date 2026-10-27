@@ -1,5 +1,6 @@
 package com.tes.edu.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.ErrorOutline
@@ -53,12 +55,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tes.edu.data.local.entities.WrongQuestion
 import com.tes.edu.data.remote.Judgement
 import com.tes.edu.state.AppBridge
 import com.tes.edu.util.MathText
@@ -76,6 +80,10 @@ import com.tes.edu.ui.theme.TesEduColors
 import com.tes.edu.viewmodel.SimilarViewModel
 import com.tes.edu.viewmodel.SolveUiState
 import com.tes.edu.viewmodel.SolveViewModel
+import com.tes.edu.viewmodel.WrongBookViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // 六大能力页定义（底部导航）
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
@@ -84,7 +92,8 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     object Explain : Screen("explain", "讲解", Icons.Rounded.MenuBook)
     object Similar : Screen("similar", "触类", Icons.Rounded.AutoStories)
     object Graph : Screen("graph", "图谱", Icons.Rounded.AccountTree)
-    object Review : Screen("review", "背诵", Icons.Rounded.Bookmark)
+    // 标签随内容走：这一页现在是错题本，就叫「错题」
+    object Review : Screen("review", "错题", Icons.Rounded.Bookmark)
 }
 
 // 错因七类的中文展示名（后端落库为英文 taxonomy）
@@ -108,7 +117,10 @@ private val ERROR_TYPE_LABEL = mapOf(
  * 结果区（参考答案 / 判分卡 / 引导对话）按信息优先级逐层展开。
  */
 @Composable
-fun InputScreen(vm: SolveViewModel = viewModel()) {
+fun InputScreen(
+    vm: SolveViewModel = viewModel(),
+    wrongVm: WrongBookViewModel = viewModel()
+) {
     val ui by vm.ui.collectAsState()
     var question by remember { mutableStateOf("") }
     var process by remember { mutableStateOf("") }
@@ -260,7 +272,14 @@ fun InputScreen(vm: SolveViewModel = viewModel()) {
 
         ui.judgement?.let { j ->
             Spacer(Modifier.height(16.dp))
-            JudgementCard(j)
+            JudgementCard(
+                j = j,
+                question = question,
+                myAnswer = process,
+                correctAnswer = ui.answer,
+                knowledgePoint = ui.knowledgePoints.firstOrNull() ?: "",
+                vm = wrongVm
+            )
         }
 
         // ---------------- T-C2/C3：Hint 阶梯对话区 ----------------
@@ -396,7 +415,15 @@ private fun AnswerCard(answer: String) {
  * 明细字段走「标签-值」两列，成段文字（证据/点评/纠正）用浅底色块承托。
  */
 @Composable
-private fun JudgementCard(j: Judgement) {
+private fun JudgementCard(
+    j: Judgement,
+    question: String,
+    myAnswer: String,
+    correctAnswer: String,
+    knowledgePoint: String,
+    vm: WrongBookViewModel
+) {
+    val ctx = LocalContext.current
     val accent: Color
     val soft: Color
     val title: String
@@ -508,6 +535,34 @@ private fun JudgementCard(j: Judgement) {
             j.correction?.takeIf { it.isNotBlank() }?.let {
                 Spacer(Modifier.height(10.dp))
                 SoftQuote("纠正", it, accent, soft)
+            }
+        }
+
+        // 错题本入口：做错 / 还没写过程（值得回头看）的才收，判对的不需要
+        if (j.correct == false || j.needProcess) {
+            Spacer(Modifier.height(14.dp))
+            SoftOutlinedButton(
+                text = "收进错题本",
+                icon = Icons.Rounded.Bookmark
+            ) {
+                vm.save(
+                    WrongQuestion(
+                        question = question,
+                        myAnswer = myAnswer,
+                        correctAnswer = correctAnswer,
+                        knowledgePoint = knowledgePoint,
+                        errorType = j.errorType,
+                        firstWrongStep = j.firstWrongStep,
+                        comment = j.comment,
+                        correction = j.correction
+                    )
+                ) { added ->
+                    Toast.makeText(
+                        ctx,
+                        if (added) "已收进错题本，去「背诵」页能翻到" else "这道题已经在错题本里了",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
     }
@@ -623,7 +678,8 @@ private fun HintPanel(
             onValueChange = onReplyChange,
             placeholder = "说说这一步的思路…",
             minLines = 2,
-            leadingIcon = Icons.Rounded.ChatBubbleOutline
+            leadingIcon = Icons.Rounded.ChatBubbleOutline,
+            mathPreview = true
         )
 
         Spacer(Modifier.height(12.dp))
@@ -899,20 +955,41 @@ private fun VariantCard(
 // GraphScreen：T-B5 知识图谱可视化已落地，见 GraphScreen.kt（Canvas 分层 DAG + 掌握度叠层 + ZPD）
 
 /**
- * 背诵卡 / 错题本：本体属波 2/3（T-R1~R7，后端缺学生端点与 drill_cards 表）。
+ * 错题本（T-R）：本地 Room 缓存，断网也能翻。
  *
- * 波 1 先把图谱「背这个知识点」的落点接住：显示已选定的知识点范围，
- * 等背诵页本体落地时直接读同一个 `AppBridge.pendingFocusKp` 即可，无需再改图谱。
+ * 归档入口在输入页的判分卡上（做错 / 还没写过程才收，判对的不收）——
+ * 不搞自动全量归档：那样随手一试的题也会进来，错题本很快就失去意义。
+ *
+ * 背诵卡本体属波 2/3（后端缺学生端点与 drill_cards 表）；这里仍把图谱
+ * 「背这个知识点」的落点接住，读同一个 `AppBridge.pendingFocusKp`。
  */
 @Composable
-fun ReviewScreen() {
+fun ReviewScreen(
+    onNavigate: (String) -> Unit = {},
+    vm: WrongBookViewModel = viewModel()
+) {
+    val items by vm.items.collectAsState()
     val focusKp by AppBridge.pendingFocusKp.collectAsState()
     val focusTitle by AppBridge.pendingFocusTitle.collectAsState()
+    // 删除是破坏性操作，先问一句再删
+    var pendingRemove by remember { mutableStateOf<WrongQuestion?>(null) }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp)
+    ) {
+        Spacer(Modifier.height(14.dp))
+        TesHero(
+            title = "错题本",
+            subtitle = "错了的题收在这儿，回头再练一遍",
+            badge = "本地离线 · ${items.size} 道"
+        )
+
         if (focusKp != null) {
             Spacer(Modifier.height(14.dp))
-            SoftCard(modifier = Modifier.padding(horizontal = 18.dp)) {
+            SoftCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Rounded.Bookmark,
@@ -942,10 +1019,165 @@ fun ReviewScreen() {
                 )
             }
         }
-        EmptyState(
-            icon = Icons.Rounded.Bookmark,
-            title = "背诵卡 / 错题本",
-            subtitle = "错题自动归档，离线也能背"
+
+        if (items.isEmpty()) {
+            Spacer(Modifier.height(24.dp))
+            EmptyState(
+                icon = Icons.Rounded.Bookmark,
+                title = "错题本还是空的",
+                subtitle = "做题被判错时点「收进错题本」，就会存到这里"
+            )
+        } else {
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "最近错的排在最前面。点「重练这道」会把题干带回输入页。",
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
+            items.forEach { q ->
+                Spacer(Modifier.height(14.dp))
+                WrongCard(
+                    q = q,
+                    onPractice = {
+                        AppBridge.postQuestion(q.question)
+                        onNavigate(Screen.Input.route)
+                    },
+                    onRemove = { pendingRemove = q }
+                )
+            }
+            Spacer(Modifier.height(28.dp))
+        }
+    }
+
+    pendingRemove?.let { q ->
+        AlertDialog(
+            onDismissRequest = { pendingRemove = null },
+            shape = RoundedCornerShape(22.dp),
+            containerColor = TesEduColors.Surface,
+            title = {
+                Text(
+                    "移出错题本？",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TesEduColors.TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    "「${q.question.take(40)}…」将从错题本里移除，本地记录一并删掉。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TesEduColors.TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.remove(q)
+                    pendingRemove = null
+                }) { Text("移出", color = TesEduColors.Danger) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRemove = null }) { Text("再留着") }
+            }
         )
+    }
+}
+
+/** 单条错题：错因 + 题干 + 我的作答 + 纠正，两个出口（重练 / 移出）。 */
+@Composable
+private fun WrongCard(
+    q: WrongQuestion,
+    onPractice: () -> Unit,
+    onRemove: () -> Unit
+) {
+    SoftCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(30.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(TesEduColors.DangerSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.Bookmark,
+                    contentDescription = null,
+                    tint = TesEduColors.Danger,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "错题",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = TesEduColors.TextPrimary
+                )
+                if (!q.knowledgePoint.isNullOrBlank()) {
+                    Text(
+                        q.knowledgePoint,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TesEduColors.TextMuted
+                    )
+                }
+            }
+            Text(
+                remember(q.createdAt) {
+                    SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(q.createdAt))
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+        // 题干里常有 `e^x`、`x^2`，走公式渲染
+        MathText(
+            q.question,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TesEduColors.TextPrimary
+        )
+
+        if (!q.errorType.isNullOrBlank()) {
+            Spacer(Modifier.height(10.dp))
+            InfoPill(
+                "错因 · ${ERROR_TYPE_LABEL[q.errorType] ?: q.errorType}",
+                TesEduColors.Danger,
+                TesEduColors.DangerSoft
+            )
+            q.firstWrongStep?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "首个出错步骤：第 $it 步",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TesEduColors.TextMuted
+                )
+            }
+        }
+
+        if (q.myAnswer.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            SoftQuote("我的作答", q.myAnswer, TesEduColors.Amber, TesEduColors.AmberSoft)
+        }
+        if (!q.correction.isNullOrBlank()) {
+            Spacer(Modifier.height(8.dp))
+            SoftQuote("纠正", q.correction!!, TesEduColors.Success, TesEduColors.SuccessSoft)
+        } else if (q.correctAnswer.isNotBlank()) {
+            Spacer(Modifier.height(8.dp))
+            SoftQuote("参考答案", q.correctAnswer, TesEduColors.Success, TesEduColors.SuccessSoft)
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SoftOutlinedButton(
+                text = "重练这道",
+                icon = Icons.Rounded.EditNote,
+                modifier = Modifier.weight(1f)
+            ) { onPractice() }
+            SoftOutlinedButton(
+                text = "移出",
+                icon = Icons.Rounded.Delete,
+                modifier = Modifier.weight(1f)
+            ) { onRemove() }
+        }
     }
 }

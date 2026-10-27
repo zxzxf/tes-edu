@@ -1,17 +1,24 @@
 package com.tes.edu.util
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
@@ -222,6 +229,66 @@ fun MathText(
         style = style,
         color = color
     )
+}
+
+/** 常用数学符号：手机键盘里找这些要翻好几屏，点一下直接插入。 */
+val MATH_SYMBOLS: List<String> = listOf(
+    "π", "√", "≤", "≥", "≠", "±", "×", "÷",
+    "²", "³", "₁", "₂", "∑", "∫",
+    "∞", "∠", "⊥", "∥", "→", "∈",
+    "^", "_"
+)
+
+/**
+ * 符号条：横向滚动的符号 chip，点一下把符号追加到输入末尾。
+ * 只做追加、不动光标——手机上"插到光标处"要靠 TextField 的 selection 状态，
+ * 收益不大却容易在中文输入法下错位，输入端够用就好。
+ */
+@Composable
+fun MathSymbolBar(
+    onInsert: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        MATH_SYMBOLS.forEach { sym ->
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(TesEduColors.FieldBg)
+                    .clickable { onInsert(sym) }
+                    .padding(horizontal = 11.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    sym,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TesEduColors.TextPrimary
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 输入区的公式套件：实时预览（有公式才出现）+ 符号条。
+ * 所有可输入的文本框都挂这一个，保证"能输入的地方就能写公式"。
+ */
+@Composable
+fun MathInputBar(
+    value: String,
+    onInsert: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.fillMaxWidth()) {
+        MathPreview(value)
+        if (hasMath(value)) Spacer(Modifier.height(7.dp))
+        MathSymbolBar(onInsert)
+    }
 }
 
 /**

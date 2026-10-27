@@ -1,14 +1,21 @@
 package com.tes.edu.ui.screens
 
+import android.Manifest
 import android.app.Activity
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -138,13 +146,76 @@ fun CameraScreen(
     }
 
     /**
-     * 打开相册。**这是"没有相机 App"时的唯一出路**——过去这一支只在 Toast 里
-     * 口头建议一句，学生点完"拍照"就卡在原地，等于功能死掉；现在直接替他打开。
+     * 打开相册。**这是"没有相机 App"或"没开通相机权限"时的唯一出路**——
+     * 过去这一支只在 Toast 里口头建议一句，学生点完"拍照"就卡在原地，
+     * 等于功能死掉；现在直接替他打开。
      */
     val openGallery: (String?) -> Unit = { reason ->
         reason?.let { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show() }
         runCatching { pickImage.launch("image/*") }
             .onFailure { localError = "这台设备既没有相机也没有相册，请改用文字输入" }
+    }
+
+    /**
+     * 真正的拍照动作：建临时文件 → 构造带 Uri 授权的系统相机 Intent → 起相机。
+     * 单独抽出来，是为了让权限流程「授权通过后再执行它」。
+     */
+    val launchTake: () -> Unit = {
+        val f = File(
+            File(ctx.cacheDir, "images").apply { mkdirs() },
+            "capture_${System.currentTimeMillis()}.jpg"
+        )
+        val intent = runCatching { buildCaptureIntent(ctx, f) }
+            .onFailure { e ->
+                // FileProvider 配置错：Toast 里带上类名，便于一眼看出不是"没相机"
+                localError = "拍照配置异常（${e.javaClass.simpleName}），请从相册选图"
+                Toast.makeText(ctx, localError, Toast.LENGTH_SHORT).show()
+            }
+            .getOrNull()
+        when {
+            // 无相机 App（平板 / 模拟器 / 被禁用）：不再报红字，直接打开相册
+            intent == null -> openGallery("没找到相机应用，已为你打开相册")
+            else -> {
+                pendingFile = f
+                runCatching { takePicture.launch(intent) }
+                    .onFailure { e ->
+                        pendingFile = null
+                        openGallery("相机调不起来（${e.javaClass.simpleName}），已为你打开相册")
+                    }
+            }
+        }
+    }
+
+    // -------- 相机权限：没开通就好好说清楚，别让学生对着一行红字发呆 --------
+    var permissionBlocked by remember { mutableStateOf(false) }
+    /** 用户勾了「不再询问」：系统弹窗不会再出现，只能去设置页手动开。 */
+    var permissionPermanently by remember { mutableStateOf(false) }
+
+    val requestCamera = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            permissionBlocked = false
+            launchTake()
+        } else {
+            // shouldShowRequestPermissionRationale=false 即永久拒绝（或从未弹过就被策略拦下）
+            val act = ctx as? Activity
+            permissionPermanently =
+                act?.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) == false
+            permissionBlocked = true
+        }
+    }
+
+    /** 拍照入口：先查权限——已开通直接拍，没开通先申请，被拒则落到下面的提示卡。 */
+    val onTakeWithPermission: () -> Unit = {
+        val granted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            permissionBlocked = false
+            launchTake()
+        } else {
+            requestCamera.launch(Manifest.permission.CAMERA)
+        }
     }
 
     Column(
@@ -171,39 +242,35 @@ fun CameraScreen(
             Spacer(Modifier.height(12.dp))
         }
 
+        // 权限没开通：给一条说得清、有出路的提示（开通 / 先用相册）
+        if (permissionBlocked) {
+            PermissionCard(
+                permanently = permissionPermanently,
+                onRetry = { requestCamera.launch(Manifest.permission.CAMERA) },
+                onOpenSettings = {
+                    runCatching {
+                        ctx.startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.fromParts("package", ctx.packageName, null)
+                            )
+                        )
+                    }.onFailure {
+                        localError = "打不开设置页，请在系统设置里手动打开「相机」权限"
+                    }
+                },
+                onUseGallery = { openGallery(null) }
+            )
+            Spacer(Modifier.height(12.dp))
+        }
+
         when (ui.stage) {
             CameraStage.Idle -> IdleBlock(
                 preview = ui.preview,
                 error = ui.error,
                 errorKind = ui.errorKind,
                 canTake = remember(ctx) { canCapture(ctx) },
-                onTake = {
-                    val f = File(
-                        File(ctx.cacheDir, "images").apply { mkdirs() },
-                        "capture_${System.currentTimeMillis()}.jpg"
-                    )
-                    val intent = runCatching { buildCaptureIntent(ctx, f) }
-                        .onFailure { e ->
-                            // FileProvider 配置错：Toast 里带上类名，便于一眼看出不是"没相机"
-                            localError = "拍照配置异常（${e.javaClass.simpleName}），请从相册选图"
-                            Toast.makeText(ctx, localError, Toast.LENGTH_SHORT).show()
-                        }
-                        .getOrNull()
-                    when {
-                        // 无相机 App（平板 / 模拟器 / 被禁用）：不再报红字，直接打开相册
-                        intent == null -> openGallery("没找到相机应用，已为你打开相册")
-                        else -> {
-                            pendingFile = f
-                            runCatching { takePicture.launch(intent) }
-                                .onFailure { e ->
-                                    pendingFile = null
-                                    openGallery(
-                                        "相机调不起来（${e.javaClass.simpleName}），已为你打开相册"
-                                    )
-                                }
-                        }
-                    }
-                },
+                onTake = onTakeWithPermission,
                 onPick = { openGallery(null) },
                 onRecognize = { vm.recognize() },
                 onRetake = { vm.reset() },
@@ -243,6 +310,73 @@ fun CameraScreen(
         }
 
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+/**
+ * 相机权限没开通时的说明卡。
+ *
+ * 语气上刻意不写"权限被拒绝"——那像在责备用户。这里说清楚三件事：
+ * 为什么要这个权限、怎么开通、以及**不开通也有路走**（相册选图一样能解题）。
+ * 永久拒绝（勾了「不再询问」）时系统弹窗不会再出现，只能指向设置页，
+ * 所以主按钮的文案与跳转按 `permanently` 分流。
+ */
+@Composable
+private fun PermissionCard(
+    permanently: Boolean,
+    onRetry: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onUseGallery: () -> Unit
+) {
+    SoftCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(TesEduColors.AmberSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.PhotoCamera,
+                    contentDescription = null,
+                    tint = TesEduColors.Amber,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "还没开通相机权限",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = TesEduColors.TextPrimary
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    if (permanently) "之前选过「不再询问」，需要到设置里打开" else "开通后就能拍照识题",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TesEduColors.TextMuted
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "拍照识题要用相机把题目拍下来，所以需要你的相机权限。" +
+                "开通后回到这一页再点「拍照」就行；不急着拍也没关系，" +
+                "从相册里选一张题目图，一样能识别、能解题。",
+            style = MaterialTheme.typography.bodySmall,
+            color = TesEduColors.TextSecondary
+        )
+        Spacer(Modifier.height(14.dp))
+        GradientButton(
+            text = if (permanently) "去设置里开通" else "开通相机权限",
+            icon = Icons.Rounded.PhotoCamera
+        ) { if (permanently) onOpenSettings() else onRetry() }
+        Spacer(Modifier.height(10.dp))
+        SoftOutlinedButton(
+            text = "先用相册选图",
+            icon = Icons.Rounded.PhotoLibrary
+        ) { onUseGallery() }
     }
 }
 

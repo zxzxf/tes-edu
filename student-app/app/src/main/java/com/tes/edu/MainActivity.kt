@@ -98,7 +98,7 @@ fun AppRoot() {
             composable(Screen.Explain.route) { ExplainScreen() }
             composable(Screen.Similar.route) { SimilarScreen(onNavigate = go) }
             composable(Screen.Graph.route) { GraphScreen(onNavigate = go) }
-            composable(Screen.Review.route) { ReviewScreen() }
+            composable(Screen.Review.route) { ReviewScreen(onNavigate = go) }
         }
     }
 }

@@ -47,7 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tes.edu.ui.theme.TesEduColors
-import com.tes.edu.util.MathPreview
+import com.tes.edu.util.MathInputBar
 import com.tes.edu.util.MathText
 
 // ------------------------------------------------------------------ 卡片 / 容器
@@ -252,7 +252,12 @@ fun SoftFieldCard(
         )
         if (mathPreview) {
             Spacer(Modifier.height(8.dp))
-            MathPreview(value)
+            MathInputBar(
+                value = value,
+                // 追加到末尾：光标处插入要拿 TextFieldValue 的 selection，
+                // 中文输入法下容易错位，输入端不值得冒这个险
+                onInsert = { sym -> onValueChange(value + sym) }
+            )
         }
     }
 }
