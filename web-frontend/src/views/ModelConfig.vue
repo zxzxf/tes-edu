@@ -25,97 +25,92 @@
     </p>
 
     <div v-if="rows.length" class="tes-table-card">
-      <table class="tes-table">
-        <thead>
-          <tr>
-            <th v-if="isAdmin">租户</th>
-            <th>供应商</th>
-            <th>API Base URL</th>
-            <th>Chat 模型</th>
-            <th>分级模型</th>
-            <th>Embedding</th>
-            <th>API Key</th>
-            <th>状态</th>
-            <th>更新时间</th>
-            <th class="op">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in rows" :key="row.tenant_id">
-            <td v-if="isAdmin"><code class="mid">{{ row.tenant_id }}</code></td>
-            <td>
-              <b>{{ row.provider_display || row.provider }}</b>
-              <code class="mid">{{ row.provider }}</code>
-            </td>
-            <td><code class="url">{{ row.base_url }}</code></td>
-            <td><code>{{ row.model }}</code></td>
-            <td>
-              <div v-if="row.model_simple || row.model_hard" class="stack">
-                <span v-if="row.model_simple">简单：<code>{{ row.model_simple }}</code></span>
-                <span v-if="row.model_hard">困难：<code>{{ row.model_hard }}</code></span>
-              </div>
-              <span v-else class="muted">同 Chat 模型</span>
-            </td>
-            <td>
-              <span v-if="row.embed_model">
-                <code>{{ row.embed_model }}</code>
-                <span class="mid">· {{ row.embed_dim }}维</span>
-              </span>
-              <span v-else class="muted">复用 Chat 段</span>
-            </td>
+      <div class="table-scroll">
+        <table class="tes-table byom-table">
+          <thead>
+            <tr>
+              <th v-if="isAdmin">租户</th>
+              <th>供应商</th>
+              <th>API Base URL</th>
+              <th>模型</th>
+              <th>API Key</th>
+              <th>状态</th>
+              <th>更新</th>
+              <th class="op">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rows" :key="row.tenant_id">
+              <td v-if="isAdmin"><code class="mid">{{ row.tenant_id }}</code></td>
+              <td>
+                <b :title="row.provider">{{ row.provider_display || row.provider }}</b>
+              </td>
+              <td><code class="url" :title="row.base_url">{{ row.base_url }}</code></td>
 
-            <!-- API Key：默认掩码，点「反显」取明文（后端鉴权 + 审计） -->
-            <td class="key-cell">
-              <template v-if="revealed[row.tenant_id]">
-                <code class="key plain">{{ revealed[row.tenant_id].api_key || '(空)' }}</code>
-                <div class="key-ops">
-                  <button class="tes-btn xs" @click="copy(revealed[row.tenant_id].api_key)">复制</button>
-                  <button class="tes-btn xs" @click="hideKey(row)">隐藏</button>
+              <!-- 模型：主模型 + 分级/Embedding 折进副行小字（省列宽，避免操作列被挤掉） -->
+              <td>
+                <code>{{ row.model }}</code>
+                <div v-if="row.model_simple || row.model_hard" class="sub">
+                  分级 简单 {{ row.model_simple || '同' }} · 困难 {{ row.model_hard || '同' }}
                 </div>
-                <div v-if="revealed[row.tenant_id].embed_api_key" class="key-ops">
-                  <span class="mid">Embed：</span>
-                  <code class="key plain">{{ revealed[row.tenant_id].embed_api_key }}</code>
+                <div v-if="row.embed_model" class="sub muted">
+                  Embed {{ row.embed_model }}·{{ row.embed_dim }}维
                 </div>
-              </template>
-              <template v-else>
-                <code class="key">{{ row.api_key_masked || '—' }}</code>
-                <div class="key-ops">
-                  <button
-                    class="tes-btn xs"
-                    v-has-permission="'system:byom:manage'"
-                    :disabled="revealingId === row.tenant_id"
-                    @click="reveal(row)"
-                  >{{ revealingId === row.tenant_id ? '读取中…' : '反显' }}</button>
-                </div>
-                <div v-if="row.has_embed_api_key" class="mid">Embed：{{ row.embed_api_key_masked }}</div>
-              </template>
-            </td>
+                <div v-else class="sub muted">Embed 复用 Chat 段</div>
+              </td>
 
-            <td>
-              <span class="tes-pill" :class="row.enabled ? '' : 'danger'">
-                {{ row.enabled ? '启用' : '停用' }}
-              </span>
-            </td>
-            <td class="mid">{{ fmtTime(row.updated_at) }}</td>
-            <td class="op">
-              <button
-                class="tes-btn sm"
-                v-has-permission="'system:byom:manage'"
-                :disabled="testingId === row.tenant_id"
-                @click="test(row)"
-              >{{ testingId === row.tenant_id ? '测试中…' : '连通测试' }}</button>
-              <button class="tes-btn sm" v-has-permission="'system:byom:manage'" @click="openEdit(row)">编辑</button>
-              <button
-                class="tes-btn sm"
-                v-has-permission="'system:byom:manage'"
-                :disabled="togglingId === row.tenant_id"
-                @click="toggle(row)"
-              >{{ row.enabled ? '停用' : '启用' }}</button>
-              <button class="tes-btn sm danger" v-has-permission="'system:byom:manage'" @click="remove(row)">删除</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              <!-- API Key：默认掩码，点「反显」取明文（后端鉴权 + 审计） -->
+              <td class="key-cell">
+                <template v-if="revealed[row.tenant_id]">
+                  <code class="key plain">{{ revealed[row.tenant_id].api_key || '(空)' }}</code>
+                  <div class="key-ops">
+                    <button class="tes-btn xs" @click="copy(revealed[row.tenant_id].api_key)">复制</button>
+                    <button class="tes-btn xs" @click="hideKey(row)">隐藏</button>
+                  </div>
+                  <div v-if="revealed[row.tenant_id].embed_api_key" class="sub muted">
+                    Embed：{{ revealed[row.tenant_id].embed_api_key }}
+                  </div>
+                </template>
+                <template v-else>
+                  <code class="key">{{ row.api_key_masked || '—' }}</code>
+                  <div class="key-ops">
+                    <button
+                      class="tes-btn xs"
+                      v-has-permission="'system:byom:manage'"
+                      :disabled="revealingId === row.tenant_id"
+                      @click="reveal(row)"
+                    >{{ revealingId === row.tenant_id ? '读取中…' : '反显' }}</button>
+                  </div>
+                  <div v-if="row.has_embed_api_key" class="sub muted">Embed：{{ row.embed_api_key_masked }}</div>
+                </template>
+              </td>
+
+              <!-- 状态：点击即切换启停（省一个操作按钮位） -->
+              <td>
+                <button
+                  class="pill-btn"
+                  :class="row.enabled ? 'on' : 'off'"
+                  v-has-permission="'system:byom:manage'"
+                  :disabled="togglingId === row.tenant_id"
+                  :title="row.enabled ? '点击停用' : '点击启用'"
+                  @click="toggle(row)"
+                >{{ togglingId === row.tenant_id ? '切换中…' : (row.enabled ? '启用' : '停用') }}</button>
+              </td>
+              <td class="mid" :title="row.updated_at">{{ fmtTime(row.updated_at) }}</td>
+              <td class="op">
+                <button
+                  class="tes-btn sm"
+                  v-has-permission="'system:byom:manage'"
+                  :disabled="testingId === row.tenant_id"
+                  @click="test(row)"
+                >{{ testingId === row.tenant_id ? '测试中…' : '连通测试' }}</button>
+                <button class="tes-btn sm" v-has-permission="'system:byom:manage'" @click="openEdit(row)">编辑</button>
+                <button class="tes-btn sm danger" v-has-permission="'system:byom:manage'" @click="remove(row)">删除</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
     <p v-else-if="!loading" class="tes-empty">
       尚未配置自有大模型，点击「新增配置」接入首条；未配置时请求回落平台全局模型。
@@ -475,7 +470,8 @@ async function remove(row) {
 
 function fmtTime(iso) {
   if (!iso) return '—'
-  return String(iso).slice(0, 19).replace('T', ' ')
+  // 只留 MM-DD HH:mm，避免长时间戳把表格撑宽挤掉操作列
+  return String(iso).slice(5, 16).replace('T', ' ')
 }
 
 onMounted(load)
@@ -484,14 +480,37 @@ onMounted(load)
 <style scoped>
 .mid { font-size: 11px; color: var(--muted); }
 .muted { color: var(--muted); }
+.sub { margin-top: 3px; font-size: 11px; color: var(--muted); line-height: 1.4; }
 td.op, th.op { white-space: nowrap; text-align: right; }
-.stack { display: flex; flex-direction: column; gap: 2px; }
-code.url { display: inline-block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+
+/* ⚠️ .tes-table-card 是 overflow:hidden（全局样式），列一多就会把最右的操作列
+   整列裁掉——用户看到的就是「编辑/删除按钮不见了」。这里两层兜底：
+   1) 内层 .table-scroll 提供横向滚动；2) 表格设 min-width 让浏览器出滚动条
+   而不是压缩/裁剪。配合上面把分级模型、Embedding 折进副行精简列宽。 */
+.table-scroll { overflow-x: auto; }
+.byom-table { min-width: 860px; }
+code.url {
+  display: inline-block; max-width: 220px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
+}
+
+/* 状态 pill：可点击切换启停 */
+.pill-btn {
+  display: inline-flex; align-items: center; padding: 2px 9px;
+  border-radius: 999px; font-size: 11px; font-weight: 700; cursor: pointer;
+  border: 1px solid transparent; background: #eef9f3; color: var(--success);
+}
+.pill-btn.off { background: #ffe9ee; color: var(--danger); }
+.pill-btn:hover:not(:disabled) { filter: brightness(.95); border-color: currentColor; }
+.pill-btn:disabled { opacity: .55; cursor: not-allowed; }
 
 /* API Key 单元格：默认掩码，反显后可复制 */
 .key-cell { min-width: 190px; }
 .key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-.key.plain { word-break: break-all; background: #fff6f0; padding: 2px 6px; border-radius: 6px; color: #a34b00; }
+.key.plain {
+  display: inline-block; max-width: 230px; word-break: break-all;
+  background: #fff6f0; padding: 2px 6px; border-radius: 6px; color: #a34b00;
+}
 .key-ops { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 .tes-btn.xs { padding: 2px 8px; font-size: 11px; border-radius: var(--r-sm, 8px); }
 .tes-btn.xs:disabled { opacity: .5; cursor: not-allowed; }

@@ -260,7 +260,7 @@ PY
        docker cp /tmp/_hc_byom.py edu-web-backend:/tmp/_hc_byom.py 2>/dev/null; \
        docker exec edu-web-backend python /tmp/_hc_byom.py 2>&1 | grep -E 'LOGIN|OK|FAIL'; \
        echo '-- web-front BYOM bundle'; \
-       docker exec edu-web-front grep -rl 'byom-form' /usr/share/nginx/html/assets/*.js >/dev/null 2>&1 && echo 'BYOM JS BUNDLED OK' || echo 'BYOM JS MISSING (前端需含 ModelConfig.vue)'; \
+       docker exec edu-web-front sh -c 'grep -l "byom/presets" /usr/share/nginx/html/assets/*.js >/dev/null 2>&1' && echo 'BYOM JS BUNDLED OK' || echo 'BYOM JS MISSING (前端需含 ModelConfig.vue)'; \
        echo '-- student-web 静态路由（经 edu-lb :80）'; \
        if docker ps --filter name=edu-student-web --format '{{.Names}}' | grep -q edu-student-web; then \
          curl -s -o /dev/null -w '/student/ -> HTTP %{http_code}\n' -m 8 http://127.0.0.1:80/student/; \
