@@ -68,14 +68,29 @@ docker exec -e DATABASE_URL=<web容器同款> edu-web-backend \
 
 ---
 
-## 四、试点校真实验收（后续排期，非阻塞）
+## 四、试点校真实验收（2026-10-27 已完成 ✅）
 
-当前验收用平台级 `platform` 租户（admin 登录）写了一条测试配置，证明全链路通。
-试点校真实验收时：
-1. 让试点校管理员账号（带真实 `tenant_id`）登录 `https://sd12sd.icu/admin/system/model-config`。
-2. 选「自定义 / Custom」，填端点 URL（与 Key **分两个框**），模型名（如 `qwen3.6-flash`），点连通性自检 → 保存。
-3. 用该校 C 端 JWT 打 `/api/app/solve`，网关注入 `X-Tenant-Id` → agent `resolve_llm_config` 走该校配置。
-4. 验收判据：响应正常返回解题；agent 日志确认 `model=<该校模型>`；用无 tenant_id 的 token 再打一次，确认回落全局 `LLM_MODEL`。
+已创建**独立试点校租户 + 学校管理员账号**并完成全链路真实验收（非平台租户代配）：
+
+**试点校身份**（密码线下单独交付，不入 git）：
+- 租户：`school_pilot_01`（试点校一号(河南)，区域 `rgn_central`）
+- 账号：`pilot@school01.edu`，角色 `school`（bcrypt 哈希入库 `sys_user`，角色关联挂本租户）
+- BYOM 配置：`custom` + `token-plan.maas.qianwenaiapi.com/compatible-mode/v1` + `qwen3.6-flash`（密钥 AES-256-GCM 加密落 `tenant_model_config`，回显 `****cFxs`）
+
+**验收证据链**（school 账号经网关全链路实测）：
+| # | 验收项 | 结果 |
+|---|--------|------|
+| 1 | `/login` 签发 JWT | ✅ `role=school`，tenant 落 `school_pilot_01` |
+| 2 | `/api/admin/menu/my` 动态菜单 | ✅ 15 节点，含「模型配置(BYOM)」页 |
+| 3 | `GET /byom/presets` | ✅ 9 家预设 |
+| 4 | `POST /byom/connectivity-test` | ✅ `ok:True, HTTP 200, 1.8s` |
+| 5 | `PUT /byom/config`（不带 tenant_id） | ✅ 强制落本账号租户 `school_pilot_01` |
+| 6 | `GET /byom/config` 回读 | ✅ 脱敏 `****cFxs`，明文不回显 |
+| 7 | agent `resolve_llm_config("school_pilot_01")` | ✅ `source=tenant`，密钥解密成功 |
+| 8 | 用解密 key **实调 LLM** | ✅ `qwen3.6-flash` 返回「收到」 |
+| 9 | 未配置租户 fallback | ✅ `source=global` → 全局 `qwen3.8-flash` |
+
+试点校学生 C 端请求带 `tenant_id=school_pilot_01` claim 时，agent 解题链路自动走该校 BYOM 模型；未配置租户回落全局 env，行为不变。
 
 ### 回滚预案
 ```bash
