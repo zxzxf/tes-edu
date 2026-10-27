@@ -160,4 +160,42 @@ class SolveViewModelTest {
         assertEquals(2, ui.hintMaxRounds)
         assertFalse("非阶梯轮不进阶梯", ui.hintActive)
     }
+
+    // -------------------------------------------------- 解题步骤展示（steps）
+
+    @Test
+    fun solve_stepsExposedOnUiState() {
+        api.next = SolveResponse(
+            answer = "引导档不给答案",
+            steps = listOf(" 先明确已知条件 ", "由 Sn 求 an 需分 n=1 与 n≥2", "")
+        )
+        vm.solve("已知 Sn 求通项")
+        // 空白步骤被滤掉，前后空格被 trim
+        assertEquals(listOf("先明确已知条件", "由 Sn 求 an 需分 n=1 与 n≥2"), vm.ui.value.visibleSteps)
+    }
+
+    @Test
+    fun filterSteps_dropsBlankAndPlaceholderOnly() {
+        assertEquals(emptyList<String>(), filterSteps(emptyList()))
+        assertEquals(emptyList<String>(), filterSteps(listOf("", "   ")))
+        // 直给档的 4 字占位：单步过短，不值得单独成卡
+        assertEquals(emptyList<String>(), filterSteps(listOf("直接计算")))
+        // 两步及以上照常展示
+        assertEquals(
+            listOf("直接给出关键步骤", "套用通法求解"),
+            filterSteps(listOf("直接给出关键步骤", "套用通法求解"))
+        )
+        // 单步但内容够长（引导档的第一步提示）要展示
+        assertEquals(
+            listOf("第一步：从「数列通项」入手，明确已知条件和所求量"),
+            filterSteps(listOf("第一步：从「数列通项」入手，明确已知条件和所求量"))
+        )
+    }
+
+    @Test
+    fun emptyStepsMeansNoCard() {
+        api.next = SolveResponse(answer = "2", steps = listOf("直接计算"))
+        vm.solve("1+1等于多少")
+        assertTrue("单条占位步骤不展示卡片", vm.ui.value.visibleSteps.isEmpty())
+    }
 }

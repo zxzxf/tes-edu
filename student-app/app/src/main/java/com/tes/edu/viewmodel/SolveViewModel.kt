@@ -41,7 +41,29 @@ data class SolveUiState(
     /** "直接看解析"常驻按钮的展示条件：已进入引导对话且未直达过 L4。 */
     val showDirectReveal: Boolean
         get() = hintActive && !hintDirectReveal
+
+    /** 展示用的解题步骤（已过滤空白与占位短句）。 */
+    val visibleSteps: List<String>
+        get() = filterSteps(steps)
 }
+
+/**
+ * 解题步骤展示前的清洗：去首尾空白、丢空串，并滤掉"只有一句占位短句"的噪声。
+ *
+ * 后端在直给档（如「1+1 等于多少」）会回 `["直接计算"]` 这类 4 字占位——
+ * 单步且过短时单独成卡没有信息量，反而显得啰嗦；两步及以上，或单步内容够长
+ * （引导档的"第一步：从……入手"、解析档的完整推导）才值得占一块卡片。
+ */
+internal fun filterSteps(steps: List<String>): List<String> {
+    val cleaned = steps.map { it.trim() }.filter { it.isNotEmpty() }
+    if (cleaned.isEmpty()) return emptyList()
+    // 单步且短于阈值（8 字）视为占位文案，不展示
+    if (cleaned.size == 1 && cleaned[0].length < MIN_VISIBLE_STEP_LEN) return emptyList()
+    return cleaned
+}
+
+/** 单步展示的长度下限（见 [filterSteps]）。 */
+private const val MIN_VISIBLE_STEP_LEN = 8
 
 class SolveViewModel(
     // T-C3：可注入 ApiService——生产走 ApiClient.instance（无参构造，Android 反射实例化），

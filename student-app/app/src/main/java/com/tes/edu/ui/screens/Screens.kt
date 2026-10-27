@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.MenuBook
@@ -278,6 +279,13 @@ fun InputScreen(
             AnswerCard(ui.answer)
         }
 
+        // 解题步骤：引导档的第一步提示、解析档的分步推导都落在这里
+        // （后端把引导内容放在 steps 而非 answer，不展示等于学生看不到引导）
+        if (ui.visibleSteps.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            StepsCard(ui.visibleSteps)
+        }
+
         ui.judgement?.let { j ->
             Spacer(Modifier.height(16.dp))
             JudgementCard(
@@ -415,6 +423,72 @@ private fun AnswerCard(answer: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = TesEduColors.TextPrimary
         )
+    }
+}
+
+/**
+ * 解题步骤卡：带序号圆标的分步列表，正文走 MathText（`e^x`、`\frac{}{}` 按公式渲染）。
+ *
+ * 步骤里常常夹着上标和分式，直接 Text 会糊成一串符号，这里复用解析卡同一套渲染。
+ */
+@Composable
+private fun StepsCard(steps: List<String>) {
+    SoftCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(26.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(TesEduColors.BrandSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.FormatListNumbered,
+                    contentDescription = null,
+                    tint = TesEduColors.Brand,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "解题步骤",
+                style = MaterialTheme.typography.titleSmall,
+                color = TesEduColors.TextPrimary,
+                modifier = Modifier.weight(1f)
+            )
+            InfoPill("${steps.size} 步", TesEduColors.TextSecondary, TesEduColors.FieldBg)
+        }
+        Spacer(Modifier.height(12.dp))
+        steps.forEachIndexed { index, step ->
+            Row(Modifier.fillMaxWidth()) {
+                Box(
+                    Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(TesEduColors.BrandSoft),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "${index + 1}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TesEduColors.Brand,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                MathText(
+                    step,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TesEduColors.TextPrimary,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 1.dp)
+                )
+            }
+            if (index < steps.lastIndex) {
+                Spacer(Modifier.height(10.dp))
+            }
+        }
     }
 }
 
