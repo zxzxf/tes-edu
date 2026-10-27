@@ -31,6 +31,13 @@
 #      静态路由是一对：必须【先起容器、再 reload edu-lb】。顺序反了 nginx -t 会因
 #      proxy_pass http://student-web:80 解析不到主机名而失败，reload 直接报错。
 #      另：容器别名必须含 student-web（edu-lb 配置写死该上游名）。
+#   8. 网关 gateway 的 config.yaml 是【打进镜像】的（Dockerfile COPY → /app/config.yaml），
+#      不是 bind mount，改路由必须重建镜像 + 换容器，改宿主机文件不生效。
+#      且绝不能用 `docker compose build/up`：compose 解析整个 compose 文件时会要求
+#      web-backend 的 JWT_PRIVATE_KEY 已 export（多行 PEM 无法进 .env），否则
+#      插值失败 exit 15（2026-10-27 踩过）。正确做法：docker build 直接构建 +
+#      docker run 重建 2 副本，env 从 secrets/jwt_public.pem 与 .env 取。
+#      副本名 tes-edu-gateway-gateway-{2,3}，网络别名必须含 gateway（edu-lb upstream 写死）。
 set -euo pipefail
 
 KEY="${SSH_KEY:-E:/137服务器/id_ed25519}"
@@ -174,6 +181,50 @@ recreate_student() {
        echo 'lb reloaded'"
 }
 
+# ---------- 2b. 网关（config.yaml 打进镜像，必须重建镜像+换容器） ----------
+# 见踩坑第 8 条：不能用 docker compose build/up（JWT_PRIVATE_KEY 插值会 exit 15）。
+GW_IMG="registry.cn-shanghai.aliyuncs.com/mis_ser/edu-gateway:latest"
+
+build_gateway() {
+  echo "==> [gateway] 同步 config.yaml（先备份线上旧配置）"
+  scp -i "${KEY}" -o StrictHostKeyChecking=no "${LOCAL_ROOT}/gateway/config.yaml" "${HOST}:/opt/gw_config.yaml.new" >/dev/null
+
+  echo "==> [gateway] 构建镜像（docker build，非 compose）"
+  ssh -i "${KEY}" -o StrictHostKeyChecking=no "${HOST}" \
+      "set -e; \
+       cp ${REMOTE_DIR}/gateway/config.yaml ${REMOTE_DIR}/gateway/config.yaml.bak-${BAK} 2>/dev/null || true; \
+       cp /opt/gw_config.yaml.new ${REMOTE_DIR}/gateway/config.yaml; \
+       docker tag ${GW_IMG} edu-gateway:bak-${BAK} 2>/dev/null || true; \
+       docker build -t ${GW_IMG} ${REMOTE_DIR}/gateway 2>&1 | tail -3"
+}
+
+recreate_gateway() {
+  echo "==> [gateway] 重建 2 副本 + reload edu-lb"
+  ssh -i "${KEY}" -o StrictHostKeyChecking=no "${HOST}" \
+      "set -e; \
+       PEM=\$(cat ${REMOTE_DIR}/secrets/jwt_public.pem); \
+       RP=\$(sed -n 's/^REDIS_PASSWORD=//p' ${REMOTE_DIR}/.env | head -1 | tr -d '\r' | tr -d '\"'); \
+       for i in 2 3; do \
+         name=tes-edu-gateway-gateway-\$i; \
+         docker rm -f \$name >/dev/null 2>&1 || true; \
+         docker run -d --name \$name \
+           --network ${NET} --network-alias gateway \
+           --restart unless-stopped \
+           -v tes-edu-gateway_gateway-log:/var/log/gateway \
+           -e REDIS_ENABLED=true -e REDIS_ADDR=redis:6379 \
+           -e REDIS_PASSWORD=\"\$RP\" \
+           -e CONFIG_PATH=/app/config.yaml \
+           -e \"JWT_PUBLIC_KEY=\$PEM\" \
+           -e GATEWAY_LOG=/var/log/gateway/access.log \
+           ${GW_IMG}; \
+         echo \"started \$name\"; \
+       done; \
+       sleep 6; \
+       docker ps --filter name=tes-edu-gateway-gateway --format '{{.Names}} {{.Status}}'; \
+       docker kill -s HUP edu-lb; \
+       echo 'lb reloaded'"
+}
+
 # ---------- 3. 健康检查 + BYOM 关键路由自检 ----------
 healthcheck() {
   echo "==> 健康检查 + BYOM 自检"
@@ -214,7 +265,10 @@ PY
        if docker ps --filter name=edu-student-web --format '{{.Names}}' | grep -q edu-student-web; then \
          curl -s -o /dev/null -w '/student/ -> HTTP %{http_code}\n' -m 8 http://127.0.0.1:80/student/; \
          curl -s -o /dev/null -w '/student/projects (SPA深链) -> HTTP %{http_code}\n' -m 8 http://127.0.0.1:80/student/projects; \
-       else echo '(student-web 未部署则跳过)'; fi"
+       else echo '(student-web 未部署则跳过)'; fi; \
+       echo '-- 学生端 API 路由（经 edu-lb，无 token 期望 401；404=网关缺 /api/student/ 路由）'; \
+       curl -s -o /dev/null -w '/api/student/features -> HTTP %{http_code}\n' -m 8 http://127.0.0.1:80/api/student/features; \
+       curl -s -o /dev/null -w '/api/student/projects -> HTTP %{http_code}\n' -m 8 http://127.0.0.1:80/api/student/projects"
 }
 
 case "${1:-all}" in
@@ -222,9 +276,10 @@ case "${1:-all}" in
   agent)   build_backend agent; recreate_agent ;;
   front)   build_front;        recreate_front ;;
   student) build_student;      recreate_student ;;
-  all)     build_backend web;  build_backend agent; build_front; build_student; \
-           recreate_web; recreate_agent; recreate_front; recreate_student ;;
-  *)       echo "用法: $0 web|agent|front|student|all"; exit 1 ;;
+  gateway) build_gateway;      recreate_gateway ;;
+  all)     build_backend web;  build_backend agent; build_front; build_student; build_gateway; \
+           recreate_web; recreate_agent; recreate_front; recreate_student; recreate_gateway ;;
+  *)       echo "用法: $0 web|agent|front|student|gateway|all"; exit 1 ;;
 esac
 
 healthcheck
