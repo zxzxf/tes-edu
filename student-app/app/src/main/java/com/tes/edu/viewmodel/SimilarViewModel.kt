@@ -3,6 +3,7 @@ package com.tes.edu.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tes.edu.data.remote.ApiClient
+import com.tes.edu.data.remote.LoginManager
 import com.tes.edu.data.remote.ApiService
 import com.tes.edu.data.remote.SimilarRequest
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,7 +58,7 @@ class SimilarViewModel(
         }
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true, error = null, sourceQuestion = q)
-            runCatching {
+            LoginManager.withAuth {
                 api.similar(SimilarRequest(question = q, count = count))
             }.onSuccess { res ->
                 _ui.value = _ui.value.copy(

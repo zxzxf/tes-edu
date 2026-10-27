@@ -3,11 +3,9 @@ package com.tes.edu.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tes.edu.data.remote.ApiClient
-import com.tes.edu.data.remote.AppContextProvider
+import com.tes.edu.data.remote.LoginManager
 import com.tes.edu.data.remote.GraphNode
 import com.tes.edu.data.remote.GraphResponse
-import com.tes.edu.data.remote.LoginRequest
-import com.tes.edu.data.remote.SessionStore
 import com.tes.edu.ui.graph.GraphLayout
 import com.tes.edu.ui.graph.GraphLayoutCalc
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -119,13 +117,7 @@ class GraphViewModel : ViewModel() {
 
     /** 无 token 先登录（占位账号）；登录成功让 ApiClient 重建以带上拦截器。 */
     private suspend fun ensureLogin() {
-        val session = SessionStore(AppContextProvider.context)
-        if (!session.token.isNullOrBlank()) return
-        val res = ApiClient.instance.login(
-            LoginRequest(GraphUiState.DEV_USERNAME, GraphUiState.DEV_PASSWORD)
-        )
-        session.token = res.accessToken
-        session.role = res.role
-        ApiClient.rebuild()
+        // 统一走 LoginManager（输入/触类/拍照模块共用）；登录失败抛错进 error 态
+        if (!LoginManager.ensureLogin()) error("登录失败，请检查网络后重试")
     }
 }

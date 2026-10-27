@@ -3,6 +3,7 @@ package com.tes.edu.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tes.edu.data.remote.ApiClient
+import com.tes.edu.data.remote.LoginManager
 import com.tes.edu.data.remote.ApiService
 import com.tes.edu.data.remote.Judgement
 import com.tes.edu.data.remote.SolveRequest
@@ -57,7 +58,7 @@ class SolveViewModel(
     fun solve(question: String, process: String? = null) {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true, error = null, judgement = null)
-            runCatching {
+            LoginManager.withAuth {
                 api.solve(
                     SolveRequest(
                         question = question,
@@ -76,7 +77,7 @@ class SolveViewModel(
     fun startHint(question: String) {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true, error = null)
-            runCatching {
+            LoginManager.withAuth {
                 api.solve(SolveRequest(question = question, hint = true))
             }.onSuccess { res -> _ui.value = _ui.value.applyResponse(res, loading = false, hintActive = true) }
              .onFailure { _ui.value = _ui.value.copy(loading = false, error = "请求失败：${it.message}") }
@@ -91,7 +92,7 @@ class SolveViewModel(
     fun replyHint(question: String, reply: String) {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true, error = null)
-            runCatching {
+            LoginManager.withAuth {
                 api.solve(
                     SolveRequest(question = question, hint = true, studentReply = reply)
                 )
@@ -108,7 +109,7 @@ class SolveViewModel(
     fun revealDirect(question: String) {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true, error = null)
-            runCatching {
+            LoginManager.withAuth {
                 api.solve(SolveRequest(question = question, mode = "direct"))
             }.onSuccess { res -> _ui.value = _ui.value.applyResponse(res, loading = false, hintActive = true) }
              .onFailure { _ui.value = _ui.value.copy(loading = false, error = "请求失败：${it.message}") }

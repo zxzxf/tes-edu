@@ -3,6 +3,7 @@ package com.tes.edu.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tes.edu.data.remote.ApiClient
+import com.tes.edu.data.remote.LoginManager
 import com.tes.edu.data.remote.ApiService
 import com.tes.edu.data.remote.SolveResponse
 import com.tes.edu.util.ImageCompressor
@@ -105,7 +106,7 @@ class CameraViewModel(
                 "capture.jpg",
                 bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
             )
-            runCatching { api.solveImage(part) }
+            LoginManager.withAuth { api.solveImage(part) }
                 .onSuccess { res -> applyResult(res) }
                 .onFailure { e ->
                     _ui.value = _ui.value.copy(
