@@ -86,7 +86,8 @@ _GUIDE_KEYWORDS = (
 
 # 规则未命中时，多长的问句值得花一次 LLM 分类（短问句直接默认引导档，
 # 避免"这题怎么做"这类最常见问句也触发远程调用）。
-_LLM_FALLBACK_MIN_LEN = 12
+# T-C5：提到 30，过滤掉纯数学表达式（它们本来就没意图信号，烧 LLM 纯属浪费）。
+_LLM_FALLBACK_MIN_LEN = 30
 
 
 def classify_intent(question: str, context: dict | None = None) -> str | None:
@@ -164,17 +165,40 @@ async def resolve_response_mode(
 
     兜底顺序（验收点）：
       1. 规则分类（零成本，覆盖常见问句）；
-      2. 规则未命中且问句足够长 -> 一次 LLM 轻量分类；
+      2. 规则未命中且问句足够长 -> 一次 LLM 轻量分类（T-C5 起加请求级缓存）；
       3. 以上都失败 -> **默认引导档**（source=default），不静默直给。
 
     W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。
     """
+    # 规则先行：零成本，不走缓存
     intent = classify_intent(question, context)
     source = "rules"
-    if intent is None and _needs_llm_classification(question):
-        intent = await classify_intent_llm(question, context, llm_cfg=llm_cfg)
-        source = "llm" if intent else "default"
-    if intent not in TIER_TO_MODE:
+    if intent is not None:
+        return intent, TIER_TO_MODE[intent], source
+
+    # 短问句直接默认引导档，不烧 LLM
+    if not _needs_llm_classification(question):
+        return INTENT_GUIDE, TIER_TO_MODE[INTENT_GUIDE], "default"
+
+    # T-C5：LLM 分类走缓存（同题不再重烧，TTL 与解题缓存一致）
+    from app.core import llm_cache
+
+    store = llm_cache.get_default_store()
+    cache_key = f"intent:{llm_cache.normalize_question(question)}"
+    cached = await store.get(cache_key)
+    if cached and isinstance(cached, dict) and "intent" in cached:
+        intent_val = cached["intent"]
+        return intent_val, TIER_TO_MODE.get(intent_val, TIER_TO_MODE[INTENT_GUIDE]), "cache"
+
+    # 回源：烧一次 LLM
+    intent = await classify_intent_llm(question, context, llm_cfg=llm_cfg)
+    source = "llm" if intent else "default"
+    if intent is None:
         intent = INTENT_GUIDE
         source = "default"
-    return intent, TIER_TO_MODE[intent], source
+
+    # 落缓存（只存成功的结果，失败不落）
+    result_tuple = (intent, TIER_TO_MODE[intent], source)
+    await store.set(cache_key, {"intent": intent}, ttl=llm_cache.CACHE_TTL_SECONDS)
+
+    return result_tuple
