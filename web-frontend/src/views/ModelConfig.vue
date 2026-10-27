@@ -3,8 +3,9 @@
     <h2 class="tes-page-title">模型配置（BYOM）</h2>
     <p class="tes-sub">
       列表化管理各租户的自有大模型。未配置的租户，其请求自动回落平台全局模型。
-      每条配置含两段：<b>Chat</b>（解题/对话）与 <b>Embedding</b>（向量检索），
-      可指向不同厂商，因此可能有两把 Key；未单独配置 Embedding 时复用 Chat 段的凭证。
+      每条配置含三段：<b>Chat</b>（解题/对话）、<b>Embedding</b>（向量检索）、
+      <b>视觉模型</b>（拍照识题）。Embedding 与视觉模型均可缺省复用 Chat 段的凭证与端点，
+      视觉模型名（vlm_model）填写后，该租户的学生端拍照识题即走本校配置。
     </p>
 
     <div class="tes-toolbar">
@@ -41,6 +42,17 @@
         <span class="kv-k">Embed</span>
         未单独配置 embedding 模型（复用 Chat 段），不单独探测。
       </div>
+      <div class="probe-line" v-if="banner.vlm">
+        <span class="kv-k">VLM</span>
+        <b>{{ verdict(banner.vlm) }}</b>
+        <span v-if="banner.vlm.status_code">HTTP {{ banner.vlm.status_code }}</span>
+        <span v-if="banner.vlm.latency_ms != null">· {{ banner.vlm.latency_ms }}ms</span>
+        · {{ banner.vlm.detail }}
+      </div>
+      <div class="probe-line muted" v-else-if="banner.ok !== null">
+        <span class="kv-k">VLM</span>
+        未配置视觉模型（复用 Chat 段无法探测），拍照识题回落全局或不可用。
+      </div>
     </div>
 
     <div v-if="rows.length" class="tes-table-card">
@@ -76,6 +88,10 @@
                   Embed {{ row.embed_model }}·{{ row.embed_dim }}维
                 </div>
                 <div v-else class="sub muted">Embed 复用 Chat 段</div>
+                <div v-if="row.vlm_model" class="sub vlm">
+                  VLM 拍照识题 {{ row.vlm_model }}
+                </div>
+                <div v-else class="sub muted">VLM 未配置（拍照识题回落全局）</div>
               </td>
 
               <!-- API Key：默认掩码，点「反显」取明文（后端鉴权 + 审计）
@@ -230,6 +246,22 @@
           </div>
         </details>
 
+        <details class="adv">
+          <summary>高级 · 视觉模型段（拍照识题，可选）</summary>
+          <p class="hint" style="margin-top:8px">
+            拍照识题的视觉模型。密钥复用上方 Chat 段的 API Key，无需重复填写；
+            VLM Base URL 留空即复用 Chat Base URL；视觉模型名（如 qwen-vl-max、gpt-4o）必填方可启用拍照识题。
+          </p>
+          <div class="form-grid">
+            <label class="wide">视觉模型 Base URL
+              <input v-model.trim="form.vlm_base_url" placeholder="留空=复用 Chat Base URL" />
+            </label>
+            <label class="wide">视觉模型名（VLM Model）
+              <input v-model.trim="form.vlm_model" placeholder="如 qwen-vl-max / gpt-4o" />
+            </label>
+          </div>
+        </details>
+
         <p v-if="formError" class="tes-empty err">{{ formError }}</p>
         <div class="dlg-actions">
           <button class="tes-btn" @click="dialog = null">取消</button>
@@ -298,6 +330,8 @@ function blankForm() {
     embed_api_key: '',
     embed_model: '',
     embed_dim: 1024,
+    vlm_base_url: '',
+    vlm_model: '',
   }
 }
 
@@ -396,6 +430,9 @@ async function testDraft() {
       embed_base_url: form.value.embed_base_url || undefined,
       embed_api_key: form.value.embed_api_key || undefined,
       embed_model: form.value.embed_model || undefined,
+      // 填了视觉模型就一并探测 VLM 段；vlm_base_url 留空 = 复用 Chat Base URL
+      vlm_base_url: form.value.vlm_base_url || undefined,
+      vlm_model: form.value.vlm_model || undefined,
     })
     banner.value = { ...res, title: '连通性测试（未保存的填写值）' }
   } catch (e) {
@@ -435,6 +472,8 @@ function openEdit(row) {
     embed_api_key: '', // 同上
     embed_model: row.embed_model || '',
     embed_dim: row.embed_dim || 1024,
+    vlm_base_url: row.vlm_base_url || '',
+    vlm_model: row.vlm_model || '',
   }
   selectedProvider.value = row.provider || 'custom'
   formError.value = ''
@@ -473,6 +512,8 @@ async function save() {
       embed_api_key: form.value.embed_api_key || undefined,
       embed_model: form.value.embed_model || undefined,
       embed_dim: form.value.embed_dim,
+      vlm_base_url: form.value.vlm_base_url || undefined,
+      vlm_model: form.value.vlm_model || undefined,
     })
     dialog.value = null
     await load()
@@ -500,6 +541,9 @@ async function toggle(row) {
       embed_base_url: row.embed_base_url || undefined,
       embed_model: row.embed_model || undefined,
       embed_dim: row.embed_dim || 1024,
+      // vlm 段原样回填
+      vlm_base_url: row.vlm_base_url || undefined,
+      vlm_model: row.vlm_model || undefined,
     })
     hideKey(row)
     await load()
@@ -542,6 +586,7 @@ onMounted(load)
 .mid { font-size: 11px; color: var(--muted); }
 .muted { color: var(--muted); }
 .sub { margin-top: 3px; font-size: 11px; color: var(--muted); line-height: 1.4; }
+.sub.vlm { color: #c2611a; font-weight: 600; }
 td.op, th.op { white-space: nowrap; text-align: right; }
 
 /* ⚠️ .tes-table-card 是 overflow:hidden（全局样式），列一多就会把最右的操作列

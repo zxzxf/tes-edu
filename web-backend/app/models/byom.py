@@ -43,6 +43,11 @@ class TenantModelConfig(Base):
     model_simple = Column(String(128), nullable=True)
     model_hard = Column(String(128), nullable=True)
 
+    # 视觉模型段（拍照识题；T-VLM）。密钥复用 chat 段的 api_key_enc（即 LLM_API_KEY），
+    # 不另存一列；vlm_base_url 留空 = 复用 chat base_url，vlm_model 留空 = 本租户回落全局 VLM。
+    vlm_base_url = Column(Text, nullable=True)
+    vlm_model = Column(String(128), nullable=True)
+
     enabled = Column(Boolean, default=True)
     rag_top_k = Column(Integer, default=4)
 

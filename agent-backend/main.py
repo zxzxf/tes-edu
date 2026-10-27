@@ -54,6 +54,20 @@ async def healthz():
             db_ping = True
         except Exception:
             db_ping = False
+    # vlm 就绪：全局 env 配了，或任一租户在 BYOM 后台配了 vlm_model（轻量探库，异常按 False）
+    vlm_ready = config.vlm_ready()
+    if not vlm_ready:
+        try:
+            from app.core import tenant_llm
+
+            pool = await pg.get_pool()
+            async with pool.acquire() as conn:
+                cnt = await conn.fetchval(
+                    "SELECT COUNT(*) FROM tenant_model_config WHERE vlm_model IS NOT NULL AND vlm_model <> '' AND enabled"
+                )
+            vlm_ready = bool(cnt)
+        except Exception:
+            vlm_ready = vlm_ready
     return {
         "status": "ok",
         "mode": config.mode(),
@@ -61,6 +75,6 @@ async def healthz():
         "embed": config.embed_ready(),
         "db": config.db_ready(),
         "db_ping": db_ping,
-        "vlm": config.vlm_ready(),
+        "vlm": vlm_ready,
         "kafka": config.kafka_ready(),
     }

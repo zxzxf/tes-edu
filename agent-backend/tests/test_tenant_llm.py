@@ -97,6 +97,8 @@ def _tenant_row(
     rag_top_k=4,
     embed_base_url=None,
     embed_api_key=None,
+    vlm_base_url=None,
+    vlm_model=None,
 ):
     return {
         "tenant_id": tenant_id,
@@ -112,6 +114,8 @@ def _tenant_row(
         "model_hard": model_hard,
         "enabled": enabled,
         "rag_top_k": rag_top_k,
+        "vlm_base_url": vlm_base_url,
+        "vlm_model": vlm_model,
     }
 
 
@@ -132,6 +136,10 @@ def test_resolve_tenant_full():
     assert cfg.provider == "aliyun"
     assert cfg.rag_top_k == 4
     assert cfg.tenant_id == "t1"
+    # VLM 段缺省：vlm_base_url 回落 chat base_url，vlm_model 空（未单独配）
+    assert cfg.vlm_base_url.endswith("/compatible-mode/v1")
+    assert cfg.vlm_model == ""
+    assert tl.vlm_enabled(cfg) is False
 
 
 def test_resolve_no_tenant_falls_back():
@@ -191,6 +199,58 @@ def test_global_config_fields(monkeypatch):
     assert cfg.chat_api_key == "sk-global"
     assert cfg.chat_model == "g-model"
     assert cfg.source == "global"
+
+
+# ---------------------------------------------------------------- VLM 段解析
+
+def test_resolve_tenant_with_vlm():
+    async def load(tid):
+        return _tenant_row(
+            "t9",
+            vlm_base_url="https://vlm.example.com/v1",
+            vlm_model="qwen-vl-max",
+        )
+
+    cfg = asyncio.run(resolve_llm_config("t9", loader=load, cache=tl._LocalCache()))
+    assert cfg.vlm_model == "qwen-vl-max"
+    assert cfg.vlm_base_url == "https://vlm.example.com/v1"
+    assert cfg.vlm_base_url != cfg.chat_base_url  # 独立 VLM 端点
+    assert tl.vlm_enabled(cfg) is True
+
+
+def test_resolve_tenant_vlm_reuses_chat_base_when_blank():
+    async def load(tid):
+        return _tenant_row("t10", vlm_model="gpt-4o")  # 不填 vlm_base_url
+
+    cfg = asyncio.run(resolve_llm_config("t10", loader=load, cache=tl._LocalCache()))
+    assert cfg.vlm_model == "gpt-4o"
+    assert cfg.vlm_base_url == cfg.chat_base_url  # 回落 chat base_url
+    assert tl.vlm_enabled(cfg) is True
+
+
+def test_resolve_tenant_vlm_falls_back_to_global(monkeypatch):
+    # 租户配了 chat 但没配 vlm_model → 回落平台全局 VLM（保留接入 BYOM 前的拍照识题能力）
+    monkeypatch.setattr(cfg_mod, "VLM_BASE_URL", "https://g-vlm.example/v1")
+    monkeypatch.setattr(cfg_mod, "LLM_API_KEY", "sk-global")
+    monkeypatch.setattr(cfg_mod, "VLM_MODEL", "global-vlm")
+
+    async def load(tid):
+        return _tenant_row("t11")  # 无 vlm_model
+
+    cfg = asyncio.run(resolve_llm_config("t11", loader=load, cache=tl._LocalCache()))
+    assert cfg.vlm_model == "global-vlm"
+    assert cfg.vlm_base_url == "https://g-vlm.example/v1"
+    assert tl.vlm_enabled(cfg) is True
+
+
+def test_global_vlm_fields(monkeypatch):
+    monkeypatch.setattr(cfg_mod, "VLM_BASE_URL", "https://g-vlm.example/v1")
+    monkeypatch.setattr(cfg_mod, "LLM_API_KEY", "sk-global")
+    monkeypatch.setattr(cfg_mod, "VLM_MODEL", "global-vlm")
+    cfg = asyncio.run(resolve_llm_config(None, cache=tl._LocalCache()))
+    assert cfg.vlm_model == "global-vlm"
+    assert cfg.vlm_base_url == "https://g-vlm.example/v1"
+    assert tl.vlm_enabled(cfg) is True
 
 
 # ---------------------------------------------------------------- 缓存语义

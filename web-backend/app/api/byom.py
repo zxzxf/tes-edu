@@ -48,6 +48,9 @@ class ByomConfigIn(BaseModel):
     model_hard: Optional[str] = None
     rag_top_k: int = Field(default=4, ge=1, le=50)
     enabled: bool = True
+    # 视觉模型段（拍照识题）：密钥复用 chat 段 api_key，不单独传
+    vlm_base_url: Optional[str] = None
+    vlm_model: Optional[str] = None
 
 
 class ConnectivityTestIn(BaseModel):
@@ -58,6 +61,9 @@ class ConnectivityTestIn(BaseModel):
     # 给了 embed_model 才会顺带探测 Embedding 段；embed_api_key 留空表示复用 Chat Key
     embed_api_key: Optional[str] = None
     embed_model: Optional[str] = None
+    # 给了 vlm_model 才会顺带探测视觉模型段；vlm_base_url 留空表示复用 Chat Base URL
+    vlm_base_url: Optional[str] = None
+    vlm_model: Optional[str] = None
 
 
 class RevealKeyIn(BaseModel):
@@ -181,6 +187,8 @@ async def save_config(
         model_simple=body.model_simple or None,
         model_hard=body.model_hard or None,
         rag_top_k=body.rag_top_k,
+        vlm_base_url=body.vlm_base_url or None,
+        vlm_model=body.vlm_model or None,
     )
     # 尽力清 agent 侧解析缓存（未配 REDIS_URL 则靠 T-M2 短 TTL 自愈）
     await svc.invalidate_agent_cache(tenant_id)
@@ -240,7 +248,7 @@ async def connectivity_test(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_perm("system:byom:manage")),
 ):
-    """候选配置连通性自检：Chat 段必测，给了 embed_model 时一并测 Embedding 段。"""
+    """候选配置连通性自检：Chat 段必测；给了 embed_model / vlm_model 时一并进行对应段探测。"""
     chat = await svc.probe_endpoint(body.base_url, body.api_key, body.model)
     embedding = None
     if body.embed_model:
@@ -249,10 +257,20 @@ async def connectivity_test(
             body.embed_api_key or body.api_key,
             body.embed_model,
         )
+    vlm = None
+    if body.vlm_model:
+        vlm = await svc.probe_endpoint(
+            body.vlm_base_url or body.base_url,
+            body.api_key,  # 视觉模型复用 chat 段密钥
+            body.vlm_model,
+        )
     return {
-        "ok": bool(chat.get("ok")) and (bool(embedding["ok"]) if embedding else True),
+        "ok": bool(chat.get("ok"))
+        and (bool(embedding["ok"]) if embedding else True)
+        and (bool(vlm["ok"]) if vlm else True),
         "chat": chat,
         "embedding": embedding,
+        "vlm": vlm,
     }
 
 
@@ -299,9 +317,18 @@ async def test_stored_config(
         if emb_key:
             embedding = await svc.probe_embedding(emb_base, emb_key, row.embed_model)
 
+    # 视觉模型段（T-VLM）：密钥复用 chat 段 api_key
+    vlm = None
+    if row.vlm_model:
+        vlm_base = row.vlm_base_url or row.base_url
+        vlm = await svc.probe_endpoint(vlm_base, api_key, row.vlm_model)
+
     return {
-        "ok": bool(chat.get("ok")) and (bool(embedding["ok"]) if embedding else True),
+        "ok": bool(chat.get("ok"))
+        and (bool(embedding["ok"]) if embedding else True)
+        and (bool(vlm["ok"]) if vlm else True),
         "tenant_id": target,
         "chat": chat,
         "embedding": embedding,
+        "vlm": vlm,
     }

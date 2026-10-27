@@ -58,6 +58,9 @@ class LLMConfig:
     source: str            # "tenant" | "global"
     provider: str = "custom"
     tenant_id: Optional[str] = None
+    # 视觉模型段（拍照识题，T-VLM）：密钥复用 chat_api_key，不另存
+    vlm_base_url: str = ""
+    vlm_model: str = ""
 
 
 # ------------------------------------------------------------------- SSRF 闸门
@@ -225,7 +228,8 @@ async def _fetch_tenant_row(tenant_id: str) -> Optional[dict]:
             row = await conn.fetchrow(
                 """SELECT tenant_id, provider, base_url, api_key_enc, model,
                           embed_base_url, embed_api_key_enc, embed_model, embed_dim,
-                          model_simple, model_hard, enabled, rag_top_k
+                          model_simple, model_hard, enabled, rag_top_k,
+                          vlm_base_url, vlm_model
                    FROM tenant_model_config WHERE tenant_id=$1""",
                 tenant_id,
             )
@@ -252,6 +256,9 @@ def _global_config() -> LLMConfig:
         rag_top_k=config.TOP_K,
         source="global",
         provider="global",
+        # VLM 全局段（env）：VLM_BASE_URL 缺省回落 LLM_BASE_URL
+        vlm_base_url=config.VLM_BASE_URL or "",
+        vlm_model=config.VLM_MODEL or "",
     )
 
 
@@ -335,7 +342,14 @@ async def resolve_llm_config(
         source="tenant",
         provider=row.get("provider") or "custom",
         tenant_id=tenant_id,
+        # 视觉模型段（T-VLM）：vlm_base_url 缺省复用 chat base_url；密钥复用 chat key
+        vlm_base_url=row.get("vlm_base_url") or row["base_url"],
+        vlm_model=row.get("vlm_model") or "",
     )
+    # 租户未单独配 vlm_model 时，回落平台全局 VLM（保留接入 BYOM 前的拍照识题能力）
+    if not cfg.vlm_model and config.vlm_ready():
+        cfg.vlm_base_url = config.VLM_BASE_URL or cfg.vlm_base_url
+        cfg.vlm_model = config.VLM_MODEL or ""
     try:
         await backend.set(key, asdict(cfg))
     except Exception as e:  # noqa: BLE001
@@ -365,3 +379,8 @@ def make_client(cfg: "LLMConfig"):
     from openai import AsyncOpenAI
 
     return AsyncOpenAI(api_key=cfg.chat_api_key, base_url=cfg.chat_base_url)
+
+
+def vlm_enabled(cfg: "LLMConfig") -> bool:
+    """VLM（拍照识题）是否可用：base_url + 密钥（复用 chat key）+ 视觉模型名三者齐备。"""
+    return bool(cfg.vlm_base_url and cfg.chat_api_key and cfg.vlm_model)

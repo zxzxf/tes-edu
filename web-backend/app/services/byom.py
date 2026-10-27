@@ -64,6 +64,8 @@ async def upsert_config(
     model_simple: Optional[str] = None,
     model_hard: Optional[str] = None,
     rag_top_k: int = 4,
+    vlm_base_url: Optional[str] = None,
+    vlm_model: Optional[str] = None,
 ) -> TenantModelConfig:
     """按 tenant_id 幂等 upsert。
 
@@ -87,6 +89,9 @@ async def upsert_config(
     obj.model_hard = model_hard
     obj.enabled = enabled
     obj.rag_top_k = rag_top_k
+    # 视觉模型段（T-VLM）：密钥复用 chat 段 api_key_enc，不另存列
+    obj.vlm_base_url = vlm_base_url
+    obj.vlm_model = vlm_model
 
     db.add(obj)
     await db.commit()
@@ -142,6 +147,8 @@ def serialize_config_masked(obj: TenantModelConfig) -> dict:
         "model_simple": obj.model_simple or "",
         "model_hard": obj.model_hard or "",
         "rag_top_k": obj.rag_top_k,
+        "vlm_base_url": obj.vlm_base_url or "",
+        "vlm_model": obj.vlm_model or "",
         "enabled": obj.enabled,
         "has_api_key": bool(obj.api_key_enc),
         "api_key_masked": api_key_masked,

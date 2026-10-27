@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import time
 
-from app.core import config, intent, judge_v2, llm, ocr, qtype, rag, socratic, tenant_llm
+from app.core import intent, judge_v2, llm, ocr, qtype, rag, socratic, tenant_llm
 
 # ---------------------------------------------------------------- bundle 缓存
 
@@ -268,13 +268,13 @@ async def handle_image(image_bytes: bytes, *, tenant_id: str | None = None) -> d
     与 `similar_degraded` 同口径：不可用时**显式回 degraded/vlm_enabled**，
     绝不静默降级。两个短路点：
 
-      1. 视觉模型未配置 —— 早期实现会把 OCR 的降级文案（"[dev-未配置视觉模型] …"）
-         原样送进 `handle_question`，LLM 于是就着这句提示生成一段"解答"，
-         接口 200、字段齐全，前端看起来完全成功。拍照页据此会展示一段
-         牛头不对马嘴的解析。这里直接短路，不消耗 LLM 配额。
+      1. 视觉模型未配置 —— 按租户从 BYOM 解析 VLM 配置（复用学校 chat 段 api_key），
+         回落平台全局 VLM；两者皆无则直接短路，不消耗 LLM 配额，也不把降级文案
+         当题面送进 handle_question（早期实现会因此生成牛头不对马嘴的"解析"）。
       2. OCR 返回空白 —— 图片没拍到题目/全白，同样不值得进 LLM。
     """
-    if not config.vlm_ready():
+    cfg = await tenant_llm.resolve_llm_config(tenant_id) if tenant_id else tenant_llm._global_config()
+    if not tenant_llm.vlm_enabled(cfg):
         return {
             "answer": "",
             "steps": [],
@@ -284,12 +284,17 @@ async def handle_image(image_bytes: bytes, *, tenant_id: str | None = None) -> d
             "vlm_enabled": False,
             "degraded": True,
             "message": (
-                "拍照识题未启用：未配置视觉模型"
-                "（VLM_BASE_URL / VLM_MODEL / LLM_API_KEY）。请先用文字输入。"
+                "拍照识题未启用：该租户未配置视觉模型"
+                "（请在 BYOM 后台填写 vlm_model，密钥复用 Chat 段）。请先用文字输入。"
             ),
         }
 
-    text = await ocr.recognize(image_bytes)
+    text = await ocr.recognize(
+        image_bytes,
+        base_url=cfg.vlm_base_url,
+        api_key=cfg.chat_api_key,
+        model=cfg.vlm_model,
+    )
     if not text.strip():
         return {
             "answer": "",

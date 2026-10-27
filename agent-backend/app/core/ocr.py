@@ -1,31 +1,38 @@
 """OCR / 多模态识别：拍照识题抽题面。
 
-真实模式：配置视觉模型（VLM_BASE_URL/VLM_MODEL + LLM_API_KEY）后，图片转 base64 交给视觉模型识别。
-dev 模式：返回明确标注的降级文本，不阻塞文本题主链路。
+真实模式：把图片转 base64 交给视觉模型（VLM）识别。VLM 配置由调用方按租户解析后传入
+（base_url / api_key / model），不再依赖全局 env——这样拍照识题可直接复用学校（租户）
+在 BYOM 后台配置的视觉模型，缺省则回落平台全局 VLM（见 tenant_llm.resolve_llm_config）。
 """
 from __future__ import annotations
 
 import base64
 
-from app.core import config
+
+async def recognize(
+    image_bytes: bytes,
+    *,
+    base_url: str,
+    api_key: str,
+    model: str,
+) -> str:
+    """调用视觉模型识别题面文字。
+
+    参数
+    ----
+    base_url / api_key / model: 已解析好的 VLM 端点（来自租户 BYOM 配置，回落全局）。
+    调用方（orchestrator.handle_image）须先确认三者齐备再调用本函数。
+    """
+    return await _vlm_recognize(image_bytes, base_url=base_url, api_key=api_key, model=model)
 
 
-async def recognize(image_bytes: bytes) -> str:
-    if config.vlm_ready():
-        return await _vlm_recognize(image_bytes)
-    return (
-        "[dev-未配置视觉模型] 拍照识题未启用，请先用文本输入；"
-        "配置 VLM_BASE_URL / VLM_MODEL / LLM_API_KEY 后启用。"
-    )
-
-
-async def _vlm_recognize(image_bytes: bytes) -> str:
+async def _vlm_recognize(image_bytes: bytes, *, base_url: str, api_key: str, model: str) -> str:
     from openai import AsyncOpenAI  # 延迟导入
 
-    client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.VLM_BASE_URL)
+    client = AsyncOpenAI(api_key=api_key, base_url=base_url)
     b64 = base64.b64encode(image_bytes).decode("ascii")
     resp = await client.chat.completions.create(
-        model=config.VLM_MODEL,
+        model=model,
         messages=[
             {
                 "role": "user",
