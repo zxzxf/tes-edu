@@ -94,7 +94,11 @@ describe('routePathOf（后端 path → 前端路由映射）', () => {
   })
 
   it('前端无页面的菜单（null）不导航', () => {
-    expect(routePathOf({ menu_type: 'MENU', path: '/ops/tenant' })).toBe(null)
+    expect(routePathOf({ menu_type: 'MENU', path: '/ops/unknown' })).toBe(null)
+  })
+
+  it('学校管理页已建：/ops/tenant → /tenant', () => {
+    expect(routePathOf({ menu_type: 'MENU', path: '/ops/tenant' })).toBe('/tenant')
   })
 
   it('未知 path / 非 MENU / 空 path 一律 null（fail-closed）', () => {

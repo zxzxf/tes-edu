@@ -51,17 +51,18 @@ describe('Layout 动态导航（T-AM7）', () => {
     const wrapper = await mountLayout('teacher', TEACHER_MENUS)
 
     // T-AM3~T-AM6 前端管理页建好后，/system/menu、/system/region、/system/vendor 有路由映射，
-    // 系统设置组随授权菜单出现；/ops/tenant（学校管理）仍无页面被剔除
+    // 系统设置组随授权菜单出现；T-AM9 学校管理页已建，/ops/tenant 解析为 /tenant 出现在导航
     expect(navLabels(wrapper)).toEqual([
-      '概览', '菜单管理', '区域管理', '系统服务(MCP厂商)', '教研内容管理', '学情看板',
+      '概览', '菜单管理', '区域管理', '系统服务(MCP厂商)', '学校管理', '教研内容管理', '学情看板',
     ])
     expect(groupLabels(wrapper)).toEqual(['系统设置', '区域运营'])
     expect(navHrefs(wrapper)).toEqual([
-      '/dashboard', '/system/menu', '/system/region', '/system/vendor', '/knowledge', '/analytics',
+      '/dashboard', '/system/menu', '/system/region', '/system/vendor', '/tenant', '/knowledge', '/analytics',
     ])
-    // BUTTON 不进导航；无前端页面的菜单不出现在导航
+    // BUTTON 不进导航；无前端页面的菜单不出现在导航（生成组卷是 BUTTON，不出现）
     expect(wrapper.text()).not.toContain('生成组卷')
-    expect(wrapper.text()).not.toContain('学校管理')
+    // 学校管理页已建，授权内且可导航 → 出现
+    expect(wrapper.text()).toContain('学校管理')
   })
 
   it('角色文案显示五角色映射', async () => {
