@@ -13,9 +13,14 @@ T-AM8 安全口径：
 - 家长↔学生绑定表属 P4，落地前学生级隔离为租户/区域粗粒度（见总表降级口径）。
 """
 
+import secrets
+import string
+from datetime import datetime
 from typing import List, Optional
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
+from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -170,6 +175,42 @@ async def update_tenant(
     await db.commit()
     await db.refresh(t)
     return TenantOut.model_validate(t)
+
+
+@router.delete("/tenant/{tenant_id}", status_code=204)
+async def delete_tenant(
+    tenant_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role(Role.ADMIN, Role.REGION_ADMIN)),
+):
+    """删除学校（T-AM9 补齐：此前仅有 GET/POST/PUT）。
+
+    - admin        可删任意学校
+    - region_admin 仅可删本辖区学校（越区 403）
+    - 删除守卫：仍有用户（sys_user.tenant_id）绑定时 409 拒绝，避免孤儿账号
+      （镜像区域删除守卫哲学；空学校可直接删，便于测试）
+    """
+    t = (await db.execute(
+        select(m.SysTenant).where(m.SysTenant.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+    if not t:
+        raise HTTPException(status_code=404, detail="tenant not found")
+    scope = await scope_svc.resolve_scope(user, db)
+    if user["role"] == Role.REGION_ADMIN.value and scope["region_id"]:
+        if t.region_id != scope["region_id"]:
+            raise HTTPException(status_code=403, detail="无权删除本区域外学校")
+    bound = (await db.execute(
+        select(func.count(func.distinct(m.SysUser.user_id)))
+        .where(m.SysUser.tenant_id == tenant_id)
+    )).scalar() or 0
+    if bound:
+        raise HTTPException(
+            status_code=409,
+            detail=f"tenant in use: {bound} users bound; reassign or delete them first",
+        )
+    await db.delete(t)
+    await db.commit()
+    return None
 
 
 # ---------------- T-AM5 区域管理 CRUD ----------------
@@ -435,6 +476,233 @@ async def delete_menu(
     await db.delete(menu)
     await db.commit()
     return None
+
+
+# ---------------- 用户管理 CRUD + 密码重置（系统设置 > 用户管理） ----------------
+# T-AM9：后台用户运维。SysUser 此前仅作种子/登录身份载体，此处补齐完整的
+# 增删改查与密码重置，并支持用户-角色关联（复用 sys_user_role，tenant_id 占位
+# 口径与 rbac_seed 一致：平台级角色 admin/region_admin 用 "platform"，其余按用户租户）。
+# 权限码：system:user:add / edit / delete / resetpwd（按钮级，仅 admin 经 ROLE_MENU_MAP
+# 获得；region_admin 等不授系统设置，故 effect 上等同 admin-only，后端 require_perm 兜底）。
+_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+class UserIn(BaseModel):
+    username: str
+    password: str
+    tenant_id: Optional[str] = None
+    region_id: Optional[str] = None
+    status: int = 1
+    role_ids: List[str] = []
+
+
+class UserUpdateIn(BaseModel):
+    username: Optional[str] = None
+    tenant_id: Optional[str] = None
+    region_id: Optional[str] = None
+    status: Optional[int] = None
+    role_ids: List[str] = []
+
+
+class UserOut(BaseModel):
+    user_id: str
+    username: str
+    tenant_id: Optional[str] = None
+    region_id: Optional[str] = None
+    status: int
+    role_ids: List[str] = []
+    created_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ResetPasswordIn(BaseModel):
+    password: Optional[str] = None  # 留空则随机生成
+
+
+def _gen_password(n: int = 12) -> str:
+    """生成不含歧义字符的随机密码（字母+数字），供管理员重置后告知用户。"""
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(n))
+
+
+async def _set_user_roles(
+    db: AsyncSession, user_id: str, role_ids: List[str], user_tenant_id: Optional[str]
+) -> None:
+    """全量替换某用户的角色关联（与角色授权 PUT 同语义：先清后插）。
+
+    平台级角色(admin/region_admin)以 "platform" 占位租户；其余按用户租户收敛。
+    tenant_id 为空时回退 "platform"，避免 SysUserRole 主键(含 tenant_id)为空。
+    """
+    await db.execute(
+        m.SysUserRole.__table__.delete().where(m.SysUserRole.user_id == user_id)
+    )
+    role_ids = [r for r in (role_ids or []) if r]
+    if not role_ids:
+        return
+    roles = (await db.execute(
+        select(m.SysRole).where(m.SysRole.role_id.in_(role_ids))
+    )).scalars().all()
+    for role in roles:
+        if role.role_code in (Role.ADMIN.value, Role.REGION_ADMIN.value):
+            assoc_tenant = "platform"
+        else:
+            assoc_tenant = user_tenant_id or "platform"
+        db.add(m.SysUserRole(user_id=user_id, role_id=role.role_id, tenant_id=assoc_tenant))
+
+
+def _user_row_to_out(u, role_ids: List[str]) -> UserOut:
+    return UserOut(
+        user_id=u.user_id, username=u.username, tenant_id=u.tenant_id,
+        region_id=u.region_id, status=u.status,
+        role_ids=role_ids or [], created_at=u.created_at,
+    )
+
+
+@router.get("/user", response_model=List[UserOut])
+async def list_users(
+    keyword: Optional[str] = None,
+    status: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role(Role.ADMIN)),
+):
+    """用户列表（仅 admin；支持用户名模糊查询 + 状态过滤）。
+
+    返回不含 password_hash；附带每个用户的 role_ids 便于前端回显。
+    """
+    stmt = select(m.SysUser)
+    if keyword:
+        stmt = stmt.where(m.SysUser.username.ilike(f"%{keyword.strip()}%"))
+    if status is not None:
+        stmt = stmt.where(m.SysUser.status == status)
+    stmt = stmt.order_by(m.SysUser.username)
+    users = (await db.execute(stmt)).scalars().all()
+
+    role_map: dict = {}
+    if users:
+        uids = [u.user_id for u in users]
+        rows = (await db.execute(
+            select(m.SysUserRole.user_id, m.SysUserRole.role_id)
+            .where(m.SysUserRole.user_id.in_(uids))
+        )).all()
+        for uid, rid in rows:
+            role_map.setdefault(uid, []).append(rid)
+    return [_user_row_to_out(u, role_map.get(u.user_id, [])) for u in users]
+
+
+@router.post("/user", response_model=UserOut, status_code=201)
+async def create_user(
+    body: UserIn,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_perm("system:user:add")),
+):
+    username = (body.username or "").strip()
+    if not username or not body.password:
+        raise HTTPException(status_code=400, detail="username 与 password 必填")
+    dup = (await db.execute(
+        select(m.SysUser).where(m.SysUser.username == username)
+    )).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail="username already exists")
+    user_id = "u_" + uuid4().hex[:12]
+    u = m.SysUser(
+        user_id=user_id,
+        username=username,
+        password_hash=_pwd.hash(body.password),
+        tenant_id=body.tenant_id or None,
+        region_id=body.region_id or None,
+        status=body.status if body.status in (0, 1) else 1,
+    )
+    db.add(u)
+    await db.flush()
+    await _set_user_roles(db, user_id, body.role_ids, u.tenant_id)
+    await db.commit()
+    await db.refresh(u)
+    return _user_row_to_out(u, body.role_ids)
+
+
+@router.put("/user/{user_id}", response_model=UserOut)
+async def update_user(
+    user_id: str,
+    body: UserUpdateIn,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_perm("system:user:edit")),
+):
+    u = (await db.execute(
+        select(m.SysUser).where(m.SysUser.user_id == user_id)
+    )).scalar_one_or_none()
+    if not u:
+        raise HTTPException(status_code=404, detail="user not found")
+    if body.username is not None:
+        new_name = body.username.strip()
+        if new_name and new_name != u.username:
+            dup = (await db.execute(
+                select(m.SysUser).where(m.SysUser.username == new_name)
+            )).scalar_one_or_none()
+            if dup:
+                raise HTTPException(status_code=409, detail="username already exists")
+            u.username = new_name
+    if body.tenant_id is not None:
+        u.tenant_id = body.tenant_id or None
+    if body.region_id is not None:
+        u.region_id = body.region_id or None
+    if body.status is not None:
+        u.status = body.status if body.status in (0, 1) else u.status
+    if body.role_ids is not None:
+        await _set_user_roles(db, user_id, body.role_ids, u.tenant_id)
+    await db.commit()
+    await db.refresh(u)
+    role_ids = (await db.execute(
+        select(m.SysUserRole.role_id).where(m.SysUserRole.user_id == user_id)
+    )).scalars().all()
+    return _user_row_to_out(u, list(role_ids))
+
+
+@router.delete("/user/{user_id}", status_code=204)
+async def delete_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_perm("system:user:delete")),
+):
+    # 守卫：禁止删除当前登录账号，避免管理员把自己锁死（失去系统设置入口）
+    if user_id == user["user_id"]:
+        raise HTTPException(status_code=400, detail="不能删除当前登录账号")
+    u = (await db.execute(
+        select(m.SysUser).where(m.SysUser.user_id == user_id)
+    )).scalar_one_or_none()
+    if not u:
+        raise HTTPException(status_code=404, detail="user not found")
+    # 级联清除角色关联（sys_user_role 无 ON DELETE 级联，需手动清）
+    await db.execute(
+        m.SysUserRole.__table__.delete().where(m.SysUserRole.user_id == user_id)
+    )
+    await db.delete(u)
+    await db.commit()
+    return None
+
+
+@router.post("/user/{user_id}/reset-password")
+async def reset_password(
+    user_id: str,
+    body: Optional[ResetPasswordIn] = None,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_perm("system:user:resetpwd")),
+):
+    """密码重置：未传 password 则随机生成 12 位，返回明文供管理员告知用户。
+
+    明文仅存在于本次响应，不落库；旧哈希被覆盖。
+    """
+    if body is None:
+        body = ResetPasswordIn()
+    u = (await db.execute(
+        select(m.SysUser).where(m.SysUser.user_id == user_id)
+    )).scalar_one_or_none()
+    if not u:
+        raise HTTPException(status_code=404, detail="user not found")
+    new_pwd = (body.password or "").strip() or _gen_password(12)
+    u.password_hash = _pwd.hash(new_pwd)
+    await db.commit()
+    return {"user_id": user_id, "username": u.username, "password": new_pwd}
 
 
 # ---------------- T-AM4 角色管理 + 菜单授权 ----------------

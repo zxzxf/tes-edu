@@ -34,6 +34,22 @@ export function updateRoleMenus(roleId, menuIds) {
   return client.put(`/role/${encodeURIComponent(roleId)}/menus`, { menu_ids: menuIds })
 }
 
+// ---------- T-AM0 租户/学校管理 ----------
+// 后端 app/api/rbac_api.py::/tenant。TenantOut 见后端定义（租户/学校）。
+// T-AM9 用户管理页用其填充「租户」下拉。
+export function listTenants() {
+  return client.get('/tenant')
+}
+export function createTenant(data) {
+  return client.post('/tenant', data)
+}
+export function updateTenant(tenantId, data) {
+  return client.put(`/tenant/${encodeURIComponent(tenantId)}`, data)
+}
+export function deleteTenant(tenantId) {
+  return client.delete(`/tenant/${encodeURIComponent(tenantId)}`)
+}
+
 // ---------- T-AM5 区域管理 ----------
 // 后端 app/api/rbac_api.py::/region。RegionOut 带 tenant_count/user_count
 // （绑定的学校/用户数，同时是删除守卫依据：有绑定时 DELETE 返回 400，
@@ -49,4 +65,24 @@ export function updateRegion(regionId, data) {
 }
 export function deleteRegion(regionId) {
   return client.delete(`/region/${encodeURIComponent(regionId)}`)
+}
+
+// ---------- T-AM9 用户管理 ----------
+// 后端 app/api/rbac_api.py::/user。仅 admin 可见（系统设置内），写操作走
+// system:user:{add,edit,delete,resetpwd} 按钮码，越权由后端 403 兜底。
+// reset-password 成功响应含明文 password（仅本次返回，不落库），前端需显式告知用户。
+export function listUsers(params = {}) {
+  return client.get('/user', { params })
+}
+export function createUser(data) {
+  return client.post('/user', data)
+}
+export function updateUser(userId, data) {
+  return client.put(`/user/${encodeURIComponent(userId)}`, data)
+}
+export function deleteUser(userId) {
+  return client.delete(`/user/${encodeURIComponent(userId)}`)
+}
+export function resetUserPassword(userId, password) {
+  return client.post(`/user/${encodeURIComponent(userId)}/reset-password`, { password })
 }

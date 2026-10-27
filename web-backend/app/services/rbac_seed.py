@@ -45,9 +45,17 @@ MENUS = [
     ("m_sys_feature_manage", "m_sys_feature", "功能开关管理", "BUTTON", "", "", "", 1, "system:feature:manage"),
     ("m_sys_byom", "m_sys", "模型配置(BYOM)", "MENU", "/system/model-config", "ModelConfig", "cloud", 6, None),
     ("m_sys_byom_manage", "m_sys_byom", "模型配置管理", "BUTTON", "", "", "", 1, "system:byom:manage"),
+    ("m_sys_user", "m_sys", "用户管理", "MENU", "/system/user", "User", "user", 7, None),
+    ("m_sys_user_add", "m_sys_user", "新建用户", "BUTTON", "", "", "", 1, "system:user:add"),
+    ("m_sys_user_edit", "m_sys_user", "编辑用户", "BUTTON", "", "", "", 2, "system:user:edit"),
+    ("m_sys_user_del", "m_sys_user", "删除用户", "BUTTON", "", "", "", 3, "system:user:delete"),
+    ("m_sys_user_resetpwd", "m_sys_user", "重置密码", "BUTTON", "", "", "", 4, "system:user:resetpwd"),
 
     ("m_ops", None, "区域运营", "DIR", "/ops", "Layout", "ops", 2, None),
     ("m_ops_tenant", "m_ops", "学校管理", "MENU", "/ops/tenant", "Tenant", "school", 1, None),
+    ("m_ops_tenant_add", "m_ops_tenant", "新建学校", "BUTTON", "", "", "", 1, "system:tenant:add"),
+    ("m_ops_tenant_edit", "m_ops_tenant", "编辑学校", "BUTTON", "", "", "", 2, "system:tenant:edit"),
+    ("m_ops_tenant_del", "m_ops_tenant", "删除学校", "BUTTON", "", "", "", 3, "system:tenant:delete"),
     ("m_ops_knowledge", "m_ops", "教研内容管理", "MENU", "/ops/knowledge", "Knowledge", "book", 2, None),
     ("m_ops_analytics", "m_ops", "学情看板", "MENU", "/ops/analytics", "Analytics", "chart", 3, None),
     ("m_ops_wrong", "m_ops", "错题本", "MENU", "/ops/wrong", "Wrong", "wrong", 4, None),
@@ -80,7 +88,8 @@ ROLE_MENU_MAP = {
         m[0] for m in MENUS
         if m[3] in ("DIR", "MENU")
         and not (m[0] == "m_sys" or (m[1] == "m_sys"))
-    ] + ["m_ops_exam_gen", "m_sys_feature", "m_sys_feature_manage", "m_sys_byom", "m_sys_byom_manage"],  # 区域管理员：区域运营 + 功能开关 + 模型配置（不含系统设置其余）
+    ] + ["m_ops_exam_gen", "m_sys_feature", "m_sys_feature_manage", "m_sys_byom", "m_sys_byom_manage",
+         "m_ops_tenant_add", "m_ops_tenant_edit", "m_ops_tenant_del"],  # 区域管理员：区域运营 + 功能开关 + 模型配置（不含系统设置其余）；含学校增删改按钮码
     "role_school": [
         "m_ops", "m_ops_tenant", "m_ops_knowledge", "m_ops_analytics",
         "m_ops_wrong", "m_ops_exam", "m_ops_grading", "m_ops_reports", "m_ops_compliance",

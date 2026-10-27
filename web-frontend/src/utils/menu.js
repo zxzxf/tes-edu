@@ -15,7 +15,7 @@
 export const ICON_MAP = {
   setting: '⚙️', menu: '🧭', role: '👥', region: '🗺️', cloud: '☁️', ops: '🧩',
   school: '🏫', book: '📚', chart: '📈', search: '🔍', wrong: '📕', exam: '📝',
-  grade: '✅', report: '💌', shield: '🛡️', target: '🎯',
+  grade: '✅', report: '💌', shield: '🛡️', target: '🎯', user: '👤',
 }
 
 /**
@@ -27,7 +27,7 @@ export const ICON_MAP = {
  * 避免死链。新增前端页面时在此补一行映射即可。
  */
 export const MENU_ROUTE_MAP = {
-  '/ops/tenant': null, // 学校管理页（T-AM0 前端）未建
+  '/ops/tenant': '/tenant', // 学校管理页（T-AM9 前端，2026-10-27 建；挂在区域运营下）
   '/ops/knowledge': '/knowledge',
   '/ops/analytics': '/analytics',
   '/ops/error-distribution': '/error-distribution',
@@ -42,6 +42,7 @@ export const MENU_ROUTE_MAP = {
   '/system/region': '/system/region', // 区域管理页（T-AM5 前端，2026-10-27 建）
   '/system/vendor': '/system/vendor', // MCP 厂商管理页（T-AM6 前端，2026-10-27 建）
   '/system/model-config': '/system/model-config', // 模型配置(BYOM) 页（W6 T-M3 前端）
+  '/system/user': '/system/user', // 用户管理页（T-AM9 前端）
 }
 
 /** 菜单 → 可导航的前端路由；非 MENU 类型 / 未映射 / 显式 null 均返回 null */
