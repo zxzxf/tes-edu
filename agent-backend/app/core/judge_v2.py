@@ -21,11 +21,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import unicodedata
 from typing import Any
 
 from app.core import config, llm, tenant_llm
+
+log = logging.getLogger("judge_v2")
 
 # taxonomy 七类 + unknown（见 步骤级归因标注Schema-v1）
 TAXONOMY = ("concept", "formula", "case", "calc", "read", "logic", "strategy")
@@ -431,21 +434,36 @@ async def judge(question: str, student_answer: str, context: dict | None = None,
     return await judge_by_llm(bundle, student_answer, llm_cfg=llm_cfg)
 
 
-async def seed_steps_bg(content_hash: str, bundle: dict) -> None:
+async def seed_steps_bg(
+    content_hash: str,
+    bundle: dict,
+    *,
+    tenant_id: str | None = None,
+    llm_cfg=None,
+) -> None:
     """无标注题：后台用 analysis 现生成参考步骤并落库（跑一题攒一题）。
 
     默认关闭（JUDGE_AUTOSEED=1 开启）。启用时走后台任务，不阻塞判分响应。
+
+    BYOM：模型/端点/密钥一律走 ``tenant_llm`` 解析（``llm_cfg`` 透传优先，
+    否则按 ``tenant_id`` 查租户配置，未配才回落平台全局 env）。
+    改造前这里硬编码 ``config.LLM_*``，全球局密钥失效或租户未走平台端点时会全败。
     """
     if not AUTO_SEED_STEPS or not bundle or bundle["steps"]:
         return
-    if not (config.llm_ready() and config.db_ready() and bundle["analysis"]):
+    # 注意：不再用 config.llm_ready() 卡门——那只校验平台全局 env，
+    # 纯 BYOM 部署（租户自带端点、全局未配 LLM）会被误判为不可用。
+    # 真正的可用性由解析出的 cfg（chat 段三件套）决定。
+    if not (config.db_ready() and bundle["analysis"]):
         return
     try:
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL)
+        cfg = await tenant_llm.resolve_for(tenant_id, llm_cfg=llm_cfg)
+        if not (cfg.chat_base_url and cfg.chat_api_key and cfg.chat_model):
+            log.info("seed_steps 跳过：租户 %s 无可用 chat 配置", tenant_id)
+            return
+        client = tenant_llm.make_client(cfg)
         resp = await client.chat.completions.create(
-            model=config.LLM_MODEL,
+            model=cfg.chat_model,
             messages=[
                 {"role": "system", "content": _SEED_SYSTEM},
                 {
@@ -473,10 +491,19 @@ async def seed_steps_bg(content_hash: str, bundle: dict) -> None:
                     str(it.get("text") or "")[:500],
                 )
     except Exception as e:  # noqa: BLE001 攒步骤是锦上添花，失败静默
-        print(f"[warn] seed_steps 失败（不影响判分）: {type(e).__name__}: {e}")
+        log.warning("seed_steps 失败（不影响判分）: %s: %s", type(e).__name__, e)
 
 
-def spawn_seed_steps(content_hash: str, bundle: dict) -> None:
+def spawn_seed_steps(
+    content_hash: str,
+    bundle: dict,
+    *,
+    tenant_id: str | None = None,
+    llm_cfg=None,
+) -> None:
+    """后台派发步骤生成。``llm_cfg`` 由判分主链路透传，避免重复解析租户配置。"""
     if not AUTO_SEED_STEPS:
         return
-    asyncio.create_task(seed_steps_bg(content_hash, bundle))
+    asyncio.create_task(
+        seed_steps_bg(content_hash, bundle, tenant_id=tenant_id, llm_cfg=llm_cfg)
+    )

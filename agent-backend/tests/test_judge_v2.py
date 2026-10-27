@@ -379,3 +379,173 @@ def test_labels_extraction():
     assert judge_v2._labels("我认为是 b 和 d") == ["B", "D"]
     assert judge_v2._labels("多选 AB") == ["A", "B"]
     assert judge_v2._labels("没有选项") == []
+
+
+# ------------------------------------------------- seed_steps BG（BYOM）
+
+class _FakeResp:
+    def __init__(self, payload: str):
+        self.choices = [type("C", (), {"message": type("M", (), {"content": payload})()})()]
+
+
+class _FakeCompletions:
+    def __init__(self, sink: dict, payload: str):
+        self.sink = sink
+        self.payload = payload
+
+    async def create(self, **kw):
+        self.sink.update(kw)
+        return _FakeResp(self.payload)
+
+
+class _FakeClient:
+    def __init__(self, sink: dict, payload: str, cfg):
+        # 记录客户端构造参数：必须来自租户 cfg，而不是 config.LLM_*
+        sink["client_kwargs"] = {"base_url": cfg.chat_base_url, "api_key": cfg.chat_api_key}
+        self.chat = type("Chat", (), {"completions": _FakeCompletions(sink, payload)})()
+
+
+class _FakeConn:
+    def __init__(self, sink: list):
+        self.sink = sink
+
+    async def execute(self, sql, *args):
+        self.sink.append((sql, args))
+
+
+class _FakePool:
+    def __init__(self, sink: list):
+        self.sink = sink
+
+    def acquire(self):
+        conn = _FakeConn(self.sink)
+        import contextlib
+
+        @contextlib.asynccontextmanager
+        async def _acq():
+            yield conn
+
+        return _acq()
+
+
+def _seed_bundle():
+    b = essay_bundle()
+    b["steps"] = []
+    b["analysis"] = "先求 C=π/3，再由正弦定理求边。"
+    return b
+
+
+def _patch_seed(monkeypatch, cfg, inserted: list):
+    monkeypatch.setattr(judge_v2, "AUTO_SEED_STEPS", True)
+    monkeypatch.setattr("app.core.config.db_ready", lambda: True)
+    # 关键：全局 env 配成明显不同的值，一旦代码回退到 config.LLM_* 就会暴露
+    monkeypatch.setattr("app.core.config.LLM_BASE_URL", "https://global.invalid/v1")
+    monkeypatch.setattr("app.core.config.LLM_API_KEY", "GLOBAL-KEY")
+    monkeypatch.setattr("app.core.config.LLM_MODEL", "global-model")
+
+    async def fake_resolve(tenant_id=None, *, llm_cfg=None):
+        return llm_cfg or cfg
+
+    monkeypatch.setattr(judge_v2.tenant_llm, "resolve_for", fake_resolve)
+
+    async def fake_pool():
+        return _FakePool(inserted)
+
+    import app.db.pg as pg
+    monkeypatch.setattr(pg, "get_pool", fake_pool)
+
+
+def test_seed_steps_uses_tenant_config(monkeypatch):
+    """seed_steps_bg 必须用租户 cfg 建客户端（端点/密钥/模型），不得硬编码全局 env。"""
+    from app.core.tenant_llm import LLMConfig
+
+    cfg = LLMConfig(
+        chat_base_url="https://tenant.example.com/v1", chat_api_key="TENANT-KEY",
+        chat_model="tenant-model", embed_base_url="", embed_api_key="",
+        embed_model="", embed_dim=1024, model_simple="", model_hard="",
+        rag_top_k=5, source="tenant", tenant_id="school_pilot_01",
+    )
+    sink: list = []
+    calls: dict = {}
+    _patch_seed(monkeypatch, cfg, sink)
+
+    async def _go():
+        captured = {}
+        monkeypatch.setattr(
+            judge_v2.tenant_llm, "make_client",
+            lambda c: _FakeClient(captured, '[{"step_no":1,"text":"求C"}]', c),
+        )
+        await judge_v2.seed_steps_bg("h1", _seed_bundle(), tenant_id="school_pilot_01")
+        return captured
+
+    captured = _run(_go())
+    assert captured["client_kwargs"] == {
+        "base_url": "https://tenant.example.com/v1", "api_key": "TENANT-KEY"
+    }
+    assert captured.get("model") == "tenant-model"
+    assert sink and sink[0][1][0] == "h1"
+
+
+def test_seed_steps_falls_back_to_global_when_no_tenant(monkeypatch):
+    """未配租户时回落全局：仍走 tenant_llm 解析（cfg.source == global），不直连 config。"""
+    from app.core.tenant_llm import LLMConfig
+
+    cfg = LLMConfig(
+        chat_base_url="https://global.invalid/v1", chat_api_key="GLOBAL-KEY",
+        chat_model="global-model", embed_base_url="", embed_api_key="",
+        embed_model="", embed_dim=1024, model_simple="", model_hard="",
+        rag_top_k=5, source="global",
+    )
+    sink: list = []
+    _patch_seed(monkeypatch, cfg, sink)
+    seen: dict = {}
+
+    async def _go():
+        monkeypatch.setattr(
+            judge_v2.tenant_llm, "make_client",
+            lambda c: _FakeClient(seen, '[{"step_no":2,"text":"代入"}]', c),
+        )
+        await judge_v2.seed_steps_bg("h2", _seed_bundle())
+
+    _run(_go())
+    assert seen["client_kwargs"]["api_key"] == "GLOBAL-KEY"
+    assert seen.get("model") == "global-model"
+
+
+def test_seed_steps_skips_without_chat_model(monkeypatch):
+    """chat 段三件套不齐 -> 静默跳过，不落库、不抛异常。"""
+    from app.core.tenant_llm import LLMConfig
+
+    cfg = LLMConfig(
+        chat_base_url="https://tenant.example.com/v1", chat_api_key="K",
+        chat_model="", embed_base_url="", embed_api_key="", embed_model="",
+        embed_dim=1024, model_simple="", model_hard="", rag_top_k=5, source="tenant",
+    )
+    _patch_seed(monkeypatch, cfg, [])
+
+    def explode(*_a, **_kw):
+        raise AssertionError("chat_model 为空时不应构造客户端")
+
+    monkeypatch.setattr(judge_v2.tenant_llm, "make_client", explode)
+    _run(judge_v2.seed_steps_bg("h3", _seed_bundle(), tenant_id="t1"))
+
+
+def test_spawn_seed_steps_passes_tenant_and_cfg(monkeypatch):
+    """spawn 必须把 tenant_id / llm_cfg 透传下去（否则后台任务回落全局）。"""
+    monkeypatch.setattr(judge_v2, "AUTO_SEED_STEPS", True)
+    seen: dict = {}
+
+    async def fake_seed(ch, bundle, *, tenant_id=None, llm_cfg=None):
+        seen.update({"ch": ch, "tenant_id": tenant_id, "llm_cfg": llm_cfg})
+
+    monkeypatch.setattr(judge_v2, "seed_steps_bg", fake_seed)
+
+    async def _go():
+        judge_v2.spawn_seed_steps("h4", _seed_bundle(), tenant_id="school_pilot_01",
+                                  llm_cfg={"chat_model": "m"})
+        await asyncio.sleep(0)
+
+    _run(_go())
+    assert seen["ch"] == "h4"
+    assert seen["tenant_id"] == "school_pilot_01"
+    assert seen["llm_cfg"] == {"chat_model": "m"}
