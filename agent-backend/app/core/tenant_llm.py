@@ -188,6 +188,12 @@ class _SqliteCache:
                 "key TEXT PRIMARY KEY, value TEXT, ts REAL)"
             )
             conn.commit()
+            # 收紧权限：缓存里虽已剔除密钥，但仍属配置敏感信息，
+            # 只让属主读写（默认 umask 下会是 644，同容器其它用户也能读）。
+            try:
+                os.chmod(self.db_path, 0o600)
+            except OSError as e:  # noqa: BLE001
+                log.debug("byom sqlite chmod failed: %s", e)
             self._conn = conn
         return self._conn
 
