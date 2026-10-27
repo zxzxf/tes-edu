@@ -414,3 +414,20 @@ def test_short_compute_question_goes_direct_not_guide():
     assert not intent._looks_like_compute("帮我讲解一下导数")  # 无数字
     i, m, src = asyncio.run(intent.resolve_response_mode("1+1等于多少"))
     assert (i, m, src) == (intent.INTENT_DIRECT, "quick", "default")
+
+
+def test_no_internal_retrieval_state_leaks_into_prompt():
+    """回归：提示词不得让学生看到『检索无结果』这类系统内部状态。
+
+    真机现象：问 1+1，答案开头是「检索无结果。依基础运算通法：1+1=2」。
+    """
+    # 禁止条款本身必须在（它靠列举反面话术生效，故不能按字面去搜"检索无结果"）
+    assert "禁止在答案里汇报系统内部状态" in llm._SYSTEM
+    # 但不得再出现要求模型"说明检索情况"的指令
+    assert "请说明" not in llm._SYSTEM
+
+    msgs = llm._build_messages("1+1等于多少", None, "quick")
+    body = msgs[-1]["content"]
+    assert "无检索结果" not in body
+    assert "请说明" not in body
+    assert "（无参考材料，直接按学科通法作答）" in body  # 只约束行为，不要求汇报
