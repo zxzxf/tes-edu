@@ -471,3 +471,16 @@ def test_truncated_json_never_leaks_raw_to_student():
     assert llm._parse_json('{"answer": "ok", "steps": ["a"]}') == {
         "answer": "ok", "steps": ["a"],
     }
+
+
+def test_salvage_does_not_swallow_steps_field():
+    """回归：截断 JSON 里 answer 之后还有 steps 时，不得把 steps 并进 answer。"""
+    raw = ('{"answer": "若 f(x)=(x+2)/(e^x+a)，则 a=0。", '
+           '"steps": ["第一步：确认题意", "第二步：求导"]')
+    out = llm._salvage_text(raw)
+    assert "第一步" not in out and "steps" not in out
+    assert out == "若 f(x)=(x+2)/(e^x+a)，则 a=0。"
+
+    # answer 内含转义引号时不得提前截断
+    raw2 = r'{"answer": "他说\"你好\"，然后 a=1", "steps": ["x"]}'
+    assert "然后 a=1" in llm._salvage_text(raw2)

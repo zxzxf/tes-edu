@@ -113,8 +113,10 @@ def _salvage_text(text: str) -> str:
         s = s.strip("`").replace("json", "", 1).strip()
     if not s.startswith("{"):
         return s
-    # 先试完整字段（非贪婪会漏，故取最长匹配到最后一个引号+分隔符）
-    m = re.search(r'"answer"\s*:\s*"(.*)"\s*[,}]', s, re.S)
+    # 先把后续字段（steps/similar…）整段切掉，避免正则越界把 steps 吞进 answer
+    s = re.split(r'",\s*"(?:steps|similar|comment|correct)"\s*:', s, maxsplit=1)[0]
+    # 结束引号必须"未转义"，否则遇到 \" 会提前截断
+    m = re.search(r'"answer"\s*:\s*"((?:[^"\\]|\\.)*)"', s, re.S)
     if m:
         try:
             return json.loads('"' + m.group(1) + '"')
