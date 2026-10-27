@@ -18,13 +18,30 @@
     </div>
 
     <p v-if="error" class="tes-empty err">{{ error }}</p>
-    <p v-else-if="banner" class="tes-empty" :class="banner.ok ? 'ok' : 'err'">
-      <span v-if="banner.title">{{ banner.title }}：</span>
-      <b>{{ banner.ok ? '可达 ✅' : '不可达 ❌' }}</b>
-      <span v-if="banner.status_code">HTTP {{ banner.status_code }}</span>
-      <span v-if="banner.latency_ms != null">· {{ banner.latency_ms }}ms</span>
-      · {{ banner.detail }}
-    </p>
+    <div v-else-if="banner" class="tes-empty probe" :class="banner.ok ? 'ok' : 'err'">
+      <div class="probe-head">
+        <b>{{ banner.title }}</b>
+        <span>总判定：{{ banner.ok ? '全部可达 ✅' : '存在不可达 ❌' }}</span>
+      </div>
+      <div class="probe-line">
+        <span class="kv-k">Chat</span>
+        <b>{{ verdict(banner.chat) }}</b>
+        <span v-if="banner.chat?.status_code">HTTP {{ banner.chat.status_code }}</span>
+        <span v-if="banner.chat?.latency_ms != null">· {{ banner.chat.latency_ms }}ms</span>
+        · {{ banner.chat?.detail }}
+      </div>
+      <div class="probe-line" v-if="banner.embedding">
+        <span class="kv-k">Embed</span>
+        <b>{{ verdict(banner.embedding) }}</b>
+        <span v-if="banner.embedding.status_code">HTTP {{ banner.embedding.status_code }}</span>
+        <span v-if="banner.embedding.latency_ms != null">· {{ banner.embedding.latency_ms }}ms</span>
+        · {{ banner.embedding.detail }}
+      </div>
+      <div class="probe-line muted" v-else>
+        <span class="kv-k">Embed</span>
+        未单独配置 embedding 模型（复用 Chat 段），不单独探测。
+      </div>
+    </div>
 
     <div v-if="rows.length" class="tes-table-card">
       <div class="table-scroll">
@@ -332,11 +349,12 @@ async function test(row) {
   banner.value = null
   try {
     const res = await testStoredConfig(row.tenant_id)
-    banner.value = { ...res, title: `连通性测试「${row.tenant_id} · ${row.model}」` }
+    banner.value = { ...res, title: `连通性测试「${row.tenant_id}」` }
   } catch (e) {
     banner.value = {
-      ok: false, status_code: null, latency_ms: null,
-      detail: errMsg(e, '测试失败'), title: `连通性测试「${row.tenant_id}」`,
+      ok: false, title: `连通性测试「${row.tenant_id}」`,
+      chat: { ok: false, status_code: null, latency_ms: null, detail: errMsg(e, '测试失败') },
+      embedding: null,
     }
   } finally {
     testingId.value = ''
@@ -359,13 +377,17 @@ async function testDraft() {
       base_url: form.value.base_url,
       api_key: form.value.api_key,
       model: form.value.model,
+      // 填了 Embedding 模型就一并探测该段；密钥留空 = 复用 Chat Key
       embed_base_url: form.value.embed_base_url || undefined,
+      embed_api_key: form.value.embed_api_key || undefined,
+      embed_model: form.value.embed_model || undefined,
     })
     banner.value = { ...res, title: '连通性测试（未保存的填写值）' }
   } catch (e) {
     banner.value = {
-      ok: false, status_code: null, latency_ms: null,
-      detail: errMsg(e, '测试失败'), title: '连通性测试（未保存的填写值）',
+      ok: false, title: '连通性测试（未保存的填写值）',
+      chat: { ok: false, status_code: null, latency_ms: null, detail: errMsg(e, '测试失败') },
+      embedding: null,
     }
   } finally {
     testingDraft.value = false
@@ -484,6 +506,14 @@ async function remove(row) {
   }
 }
 
+// 429 是「被限流」而非不可达：地址与密钥有效，别误判成配置错误
+function verdict(seg) {
+  if (!seg) return '—'
+  if (seg.ok) return '可达 ✅'
+  if (seg.status_code === 429) return '可达（被限流）⚠️'
+  return '不可达 ❌'
+}
+
 function fmtTime(iso) {
   if (!iso) return '—'
   // 只留 MM-DD HH:mm，避免长时间戳把表格撑宽挤掉操作列
@@ -544,6 +574,10 @@ code.url {
 .tes-btn.sm:disabled { opacity: .5; cursor: not-allowed; }
 .tes-empty.err { background: #ffe9ee; border-color: #ffd6de; color: var(--danger); text-align: left; }
 .tes-empty.ok { background: #e3f9f1; border-color: #b8ecda; color: #00795c; text-align: left; }
+/* 连通性结果：Chat / Embedding 两段分列展示 */
+.probe { display: flex; flex-direction: column; gap: 6px; }
+.probe-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.probe-line { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 12px; }
 
 .hint { font-weight: 400; font-size: 12px; color: var(--muted); line-height: 1.5; }
 .chip {

@@ -55,6 +55,9 @@ class ConnectivityTestIn(BaseModel):
     api_key: str = Field(..., min_length=1)
     model: str = Field(..., min_length=1)
     embed_base_url: Optional[str] = None
+    # 给了 embed_model 才会顺带探测 Embedding 段；embed_api_key 留空表示复用 Chat Key
+    embed_api_key: Optional[str] = None
+    embed_model: Optional[str] = None
 
 
 class RevealKeyIn(BaseModel):
@@ -237,8 +240,20 @@ async def connectivity_test(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_perm("system:byom:manage")),
 ):
-    result = await svc.probe_endpoint(body.base_url, body.api_key, body.model)
-    return result
+    """候选配置连通性自检：Chat 段必测，给了 embed_model 时一并测 Embedding 段。"""
+    chat = await svc.probe_endpoint(body.base_url, body.api_key, body.model)
+    embedding = None
+    if body.embed_model:
+        embedding = await svc.probe_embedding(
+            body.embed_base_url or body.base_url,
+            body.embed_api_key or body.api_key,
+            body.embed_model,
+        )
+    return {
+        "ok": bool(chat.get("ok")) and (bool(embedding["ok"]) if embedding else True),
+        "chat": chat,
+        "embedding": embedding,
+    }
 
 
 @router.post("/byom/configs/{tenant_id}/test")
@@ -247,7 +262,14 @@ async def test_stored_config(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_perm("system:byom:manage")),
 ):
-    """列表行内连通测试：直接用库里已存（解密后）的密钥与模型实调端点。"""
+    """列表行内连通测试：直接用库里已存（解密后）的密钥实调端点。
+
+    两段分别探测（BYOM 允许 Chat 与 Embedding 指向不同厂商/不同 Key）：
+    - Chat 段：base_url + model + chat key；
+    - Embedding 段：仅当配了 embed_model 才探测，端点取 embed_base_url（缺省回落
+      base_url），密钥取 embed key（缺省回落 chat key）；没配 embed_model 的行
+      embedding 返回 None，表示「复用 Chat 段，不单独探测」。
+    """
     target = _target_tenant(user, tenant_id)
     row = await svc.get_config(db, target)
     if not row:
@@ -258,4 +280,28 @@ async def test_stored_config(
         raise HTTPException(status_code=400, detail=f"密钥解密失败：{str(e)[:120]}")
     if not api_key:
         raise HTTPException(status_code=400, detail="该配置缺少 API Key")
-    return await svc.probe_endpoint(row.base_url, api_key, row.model)
+
+    chat = await svc.probe_endpoint(row.base_url, api_key, row.model)
+
+    embedding = None
+    if row.embed_model:
+        emb_base = row.embed_base_url or row.base_url
+        try:
+            emb_key = (
+                svc.decrypt_embed_api_key(row.embed_api_key_enc) if row.embed_api_key_enc else api_key
+            )
+        except Exception as e:  # noqa: BLE001
+            emb_key = None
+            embedding = {
+                "ok": False, "status_code": None, "latency_ms": 0,
+                "detail": f"Embedding 密钥解密失败：{str(e)[:120]}",
+            }
+        if emb_key:
+            embedding = await svc.probe_embedding(emb_base, emb_key, row.embed_model)
+
+    return {
+        "ok": bool(chat.get("ok")) and (bool(embedding["ok"]) if embedding else True),
+        "tenant_id": target,
+        "chat": chat,
+        "embedding": embedding,
+    }

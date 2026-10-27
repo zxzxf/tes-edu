@@ -204,6 +204,9 @@ async def probe_endpoint(
                 detail = "无权限访问 (403)，检查密钥或账号额度"
             elif sc == 404:
                 detail = "端点路径不存在 (404)，请检查 base_url 是否含 /v1"
+            elif sc == 429:
+                # 429 = 地址与密钥都有效，只是速率/配额受限：文案要写清，别误报成不可达
+                detail = "被限流 (429)：地址与密钥有效，仅速率/配额受限，稍后重试或提配额"
             return {"ok": sc < 400, "status_code": sc, "latency_ms": latency, "detail": detail}
         # 注入的假响应可能直接返回 dict
         return resp
@@ -215,6 +218,69 @@ async def probe_endpoint(
             "latency_ms": latency,
             "detail": f"{type(e).__name__}: {str(e)[:200]}",
         }
+
+
+# ---------- T-M5：Embedding 段连通性自检（与 Chat 段分开探测） ----------
+
+async def probe_embedding(
+    base_url: str,
+    api_key: str,
+    model: str,
+    *,
+    timeout: float = 8.0,
+    _transport=None,
+) -> dict:
+    """Embedding 段连通性自检：SSRF 校验后实调 OpenAI 兼容 /embeddings。
+
+    与 ``probe_endpoint``（Chat 段）结构一致，返回 {ok, status_code, latency_ms, detail}。
+    未配置 embed_model 的租户不调用本函数——那种情况由调用方判为「复用 Chat 段」。
+    """
+    try:
+        assert_safe_base_url(base_url)
+    except SSRFRejected as e:
+        return {"ok": False, "status_code": None, "latency_ms": 0, "detail": f"SSRF 拦截：{e}"}
+
+    transport = _transport or _httpx_embed_transport
+    started = time.perf_counter()
+    try:
+        resp = await transport(base_url, api_key, model, timeout)
+        latency = int((time.perf_counter() - started) * 1000)
+        if hasattr(resp, "status_code"):
+            sc = resp.status_code
+            detail = f"HTTP {sc}"
+            if sc == 401:
+                detail = "密钥无效或缺失 (401)"
+            elif sc == 403:
+                detail = "无权限访问 (403)，检查密钥或账号额度"
+            elif sc == 404:
+                detail = "端点路径不存在 (404)，请检查 base_url 是否含 /v1，或该端点不支持 /embeddings"
+            elif sc == 400:
+                detail = "请求被拒 (400)，检查 embed 模型名是否被该端点支持"
+            elif sc == 429:
+                detail = "被限流 (429)：地址与密钥有效，仅速率/配额受限，稍后重试或提配额"
+            return {"ok": sc < 400, "status_code": sc, "latency_ms": latency, "detail": detail}
+        return resp
+    except Exception as e:  # noqa: BLE001
+        latency = int((time.perf_counter() - started) * 1000)
+        return {
+            "ok": False,
+            "status_code": None,
+            "latency_ms": latency,
+            "detail": f"{type(e).__name__}: {str(e)[:200]}",
+        }
+
+
+async def _httpx_embed_transport(base_url: str, api_key: str, model: str, timeout: float):
+    import httpx
+
+    url = base_url.rstrip("/") + "/embeddings"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {"model": model, "input": "ping"}
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        return await client.post(url, headers=headers, json=payload)
 
 
 async def _httpx_transport(base_url: str, api_key: str, model: str, timeout: float):
