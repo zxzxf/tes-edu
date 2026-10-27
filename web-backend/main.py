@@ -30,6 +30,7 @@ from app.api import (
     rbac_api,
     student_features,
     vendor_api,
+    byom as byom_api,
     wrong_questions,
 )
 from app.core.config import settings
@@ -54,7 +55,7 @@ async def lifespan(app: FastAPI):
     # 1.5) 权限基座建表 + 种子（T-AM0/1：sys_* 表 + 7区域/5角色/菜单树/管理员）
     try:
         from app.core.db import engine
-        from app.services import rbac_seed
+        from app.services import rbac_seed, byom_preset
 
         await rbac_seed.init_rbac(engine)
         logger.info("权限基座表初始化完成")
@@ -71,6 +72,10 @@ async def lifespan(app: FastAPI):
             fs_stats = await rbac_seed.seed_features(db)
             if fs_stats.get("feature"):
                 logger.info("功能开关种子写入：%s", fs_stats)
+            # 预设供应商清单种子（W6 T-M3：8 家 + 自定义）
+            ps_stats = await byom_preset.seed_presets(db)
+            if ps_stats:
+                logger.info("预设供应商清单种子写入：%s 条", ps_stats)
             break
     except Exception as e:  # noqa: BLE001
         logger.warning("权限基座初始化跳过：%s", e)
@@ -181,6 +186,7 @@ app.include_router(questions.router, prefix="/api/admin")
 app.include_router(ingest.router, prefix="/api/admin")
 app.include_router(rbac_api.router, prefix="/api/admin")  # T-AM0/2/3/4/5 权限基座
 app.include_router(vendor_api.router, prefix="/api/admin")  # T-AM6 MCP 厂商与数据服务实例
+app.include_router(byom_api.router, prefix="/api/admin")  # W6 BYOM 学校配置大模型（T-M3）
 app.include_router(student_features.student_router, prefix="/api/student")  # W3 学生端能力（项目/功能开关/防疲劳）
 app.include_router(student_features.admin_router, prefix="/api/admin")  # W3 功能开关/防疲劳管理（require_perm system:feature:manage）
 

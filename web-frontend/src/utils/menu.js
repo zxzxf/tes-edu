@@ -41,6 +41,7 @@ export const MENU_ROUTE_MAP = {
   '/system/role': '/system/role', // 角色管理页（T-AM4 前端，2026-10-26 建）
   '/system/region': '/system/region', // 区域管理页（T-AM5 前端，2026-10-27 建）
   '/system/vendor': '/system/vendor', // MCP 厂商管理页（T-AM6 前端，2026-10-27 建）
+  '/system/model-config': '/system/model-config', // 模型配置(BYOM) 页（W6 T-M3 前端）
 }
 
 /** 菜单 → 可导航的前端路由；非 MENU 类型 / 未映射 / 显式 null 均返回 null */

@@ -43,6 +43,8 @@ MENUS = [
     ("m_sys_vendor_manage", "m_sys_vendor", "厂商管理", "BUTTON", "", "", "", 1, "system:vendor:manage"),
     ("m_sys_feature", "m_sys", "功能开关", "MENU", "/system/feature", "Feature", "switch", 5, None),
     ("m_sys_feature_manage", "m_sys_feature", "功能开关管理", "BUTTON", "", "", "", 1, "system:feature:manage"),
+    ("m_sys_byom", "m_sys", "模型配置(BYOM)", "MENU", "/system/model-config", "ModelConfig", "cloud", 6, None),
+    ("m_sys_byom_manage", "m_sys_byom", "模型配置管理", "BUTTON", "", "", "", 1, "system:byom:manage"),
 
     ("m_ops", None, "区域运营", "DIR", "/ops", "Layout", "ops", 2, None),
     ("m_ops_tenant", "m_ops", "学校管理", "MENU", "/ops/tenant", "Tenant", "school", 1, None),
@@ -78,12 +80,13 @@ ROLE_MENU_MAP = {
         m[0] for m in MENUS
         if m[3] in ("DIR", "MENU")
         and not (m[0] == "m_sys" or (m[1] == "m_sys"))
-    ] + ["m_ops_exam_gen", "m_sys_feature", "m_sys_feature_manage"],  # 区域管理员：区域运营 + 功能开关（不含系统设置其余）
+    ] + ["m_ops_exam_gen", "m_sys_feature", "m_sys_feature_manage", "m_sys_byom", "m_sys_byom_manage"],  # 区域管理员：区域运营 + 功能开关 + 模型配置（不含系统设置其余）
     "role_school": [
         "m_ops", "m_ops_tenant", "m_ops_knowledge", "m_ops_analytics",
         "m_ops_wrong", "m_ops_exam", "m_ops_grading", "m_ops_reports", "m_ops_compliance",
         "m_ops_errordist", "m_ops_practice",
         "m_sys_feature", "m_sys_feature_manage",  # 学校：可管控本校功能显隐
+        "m_sys_byom", "m_sys_byom_manage",  # 学校：可配本租户大模型（BYOM）
     ],
     "role_teacher": [
         "m_ops", "m_ops_knowledge", "m_ops_analytics", "m_ops_wrong",

@@ -18,6 +18,7 @@ import SystemRole from '../views/SystemRole.vue'
 import SystemRegion from '../views/SystemRegion.vue'
 import SystemVendor from '../views/SystemVendor.vue'
 import SystemFeature from '../views/SystemFeature.vue'
+import ModelConfig from '../views/ModelConfig.vue'
 
 // 路由访问控制（T-AM7）：不再用 meta.role 硬编码角色矩阵——授权以后端
 // sys_role_menu 聚合的 /menu/my 为唯一权威，守卫经 auth.hasRouteAccess 执行
@@ -46,7 +47,8 @@ const routes = [
       { path: 'system/role', name: 'system-role', component: SystemRole, meta: { title: '角色管理' } },
       { path: 'system/region', name: 'system-region', component: SystemRegion, meta: { title: '区域管理' } },
       { path: 'system/vendor', name: 'system-vendor', component: SystemVendor, meta: { title: '系统服务（MCP厂商）' } },
-      { path: 'system/feature', name: 'system-feature', component: SystemFeature, meta: { title: '功能开关' } }
+      { path: 'system/feature', name: 'system-feature', component: SystemFeature, meta: { title: '功能开关' } },
+      { path: 'system/model-config', name: 'system-model-config', component: ModelConfig, meta: { title: '模型配置（BYOM）' } }
     ]
   }
 ]
