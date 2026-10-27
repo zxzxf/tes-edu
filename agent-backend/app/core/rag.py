@@ -10,11 +10,14 @@ type 的查询（自愈，不影响检索主链路）。
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 
 from app.core import config, embeddings
 from app.core.embeddings import EmbedConfig
+
+log = logging.getLogger("rag")
 
 _DOCS: list[dict] = []
 _VEC: list[list[float]] = []
@@ -96,14 +99,45 @@ async def retrieve(query: str, subject: str | None = None, *, llm_cfg=None) -> d
                 model=emb_model,
                 dim=int(getattr(llm_cfg, "embed_dim", 0) or config.EMBED_DIM),
             )
-    q_vec = await embeddings.embed_one(query, embed_cfg=embed_cfg)
+    q_vec = await _embed_query(query, embed_cfg)
+    if q_vec is None:
+        # 检索降级：向量化不可用（配额耗尽 / 端点挂了）时**不炸链**——
+        # RAG 是增强项，缺了照样能解题，只是拿不到知识点上下文。
+        # 2026-10-27 线上事故：租户 embed 端点 429 预算耗尽，embed 抛异常
+        # 直接把 /api/app/solve 打成 500，学生端整条链路不可用。
+        return {"chunks": [], "points": [], "degraded": True}
+
     if config.db_ready():
-        chunks = await _search_pg(q_vec, subject)
+        try:
+            chunks = await _search_pg(q_vec, subject)
+        except Exception as e:  # noqa: BLE001
+            log.warning("rag pg search failed, degrade to empty: %s", str(e)[:160])
+            return {"chunks": [], "points": [], "degraded": True}
     else:
         await _ensure_vectors()
         chunks = _search_memory(q_vec, subject)
     points = list(dict.fromkeys(c["knowledge_point"] for c in chunks if c.get("knowledge_point")))
-    return {"chunks": chunks, "points": points}
+    return {"chunks": chunks, "points": points, "degraded": False}
+
+
+async def _embed_query(query: str, embed_cfg: EmbedConfig | None) -> list[float] | None:
+    """给查询向量化：先按租户 embed 配置；失败则回落全局；都失败返回 ``None``。
+
+    返回 ``None`` 由调用方降级为「无检索上下文」，绝不把异常抛给上层。
+    """
+    attempts: list = [embed_cfg] if embed_cfg is not None else [None]
+    if embed_cfg is not None:
+        attempts.append(None)  # 再试一次全局配置（租户端点配额耗尽时可能救回来）
+    for cfg in attempts:
+        try:
+            return await embeddings.embed_one(query, embed_cfg=cfg)
+        except Exception as e:  # noqa: BLE001
+            log.warning(
+                "rag embed failed (%s): %s",
+                "tenant" if cfg is not None else "global",
+                str(e)[:160],
+            )
+    return None
 
 
 def _search_memory(q_vec: list[float], subject: str | None) -> list[dict]:
