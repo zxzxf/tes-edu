@@ -1,6 +1,8 @@
 package com.tes.edu.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.EditNote
@@ -62,8 +65,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tes.edu.data.local.entities.DrillCard
 import com.tes.edu.data.local.entities.WrongQuestion
 import com.tes.edu.data.remote.Judgement
+import com.tes.edu.data.remote.MasteryPoint
+import com.tes.edu.data.remote.WrongStats
 import com.tes.edu.state.AppBridge
 import com.tes.edu.util.MathText
 import com.tes.edu.ui.components.GradientButton
@@ -77,10 +83,12 @@ import com.tes.edu.ui.components.SoftQuote
 import com.tes.edu.ui.components.TesHero
 import com.tes.edu.ui.components.EmptyState
 import com.tes.edu.ui.theme.TesEduColors
+import com.tes.edu.viewmodel.DrillViewModel
 import com.tes.edu.viewmodel.SimilarViewModel
 import com.tes.edu.viewmodel.SolveUiState
 import com.tes.edu.viewmodel.SolveViewModel
 import com.tes.edu.viewmodel.WrongBookViewModel
+import com.tes.edu.viewmodel.WrongFilter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -953,26 +961,34 @@ private fun VariantCard(
 }
 
 // GraphScreen：T-B5 知识图谱可视化已落地，见 GraphScreen.kt（Canvas 分层 DAG + 掌握度叠层 + ZPD）
-
 /**
- * 错题本（T-R）：本地 Room 缓存，断网也能翻。
+ * 复习页（T-R + 间隔复习）：错题本 / 背诵卡两个分段。
  *
  * 归档入口在输入页的判分卡上（做错 / 还没写过程才收，判对的不收）——
- * 不搞自动全量归档：那样随手一试的题也会进来，错题本很快就失去意义。
+ * 不搞自动全量归档：那样随手一试的题也会进来，错题本很快失去意义。
  *
- * 背诵卡本体属波 2/3（后端缺学生端点与 drill_cards 表）；这里仍把图谱
- * 「背这个知识点」的落点接住，读同一个 `AppBridge.pendingFocusKp`。
+ * 两段都是「本地优先 + 联网同步」：进页面触发一次同步，之后的新增/删除/
+ * 评分都先落本地（离线可用），联网时再与后端对账。
  */
 @Composable
 fun ReviewScreen(
     onNavigate: (String) -> Unit = {},
-    vm: WrongBookViewModel = viewModel()
+    vm: WrongBookViewModel = viewModel(),
+    drillVm: DrillViewModel = viewModel()
 ) {
+    val ctx = LocalContext.current
+    var tab by remember { mutableStateOf(ReviewTab.WRONG) }
     val items by vm.items.collectAsState()
     val focusKp by AppBridge.pendingFocusKp.collectAsState()
     val focusTitle by AppBridge.pendingFocusTitle.collectAsState()
     // 删除是破坏性操作，先问一句再删
     var pendingRemove by remember { mutableStateOf<WrongQuestion?>(null) }
+
+    // 进入页面同步一次：不做后台定时轮询（学生端没必要，也费电）
+    LaunchedEffect(Unit) {
+        vm.sync()
+        drillVm.load()
+    }
 
     Column(
         Modifier
@@ -982,71 +998,39 @@ fun ReviewScreen(
     ) {
         Spacer(Modifier.height(14.dp))
         TesHero(
-            title = "错题本",
-            subtitle = "错了的题收在这儿，回头再练一遍",
+            title = "错题 · 背诵",
+            subtitle = "错了的题常回头，该背的卡按时来",
             badge = "本地离线 · ${items.size} 道"
         )
 
-        if (focusKp != null) {
-            Spacer(Modifier.height(14.dp))
-            SoftCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Rounded.Bookmark,
-                        contentDescription = null,
-                        tint = TesEduColors.Brand,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            "已选定背诵范围",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TesEduColors.TextMuted
-                        )
-                        Text(
-                            "${focusTitle ?: focusKp} · ${focusKp}",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = TesEduColors.TextPrimary
-                        )
+        Spacer(Modifier.height(14.dp))
+        ReviewTabSwitch(selected = tab, onSelect = { tab = it })
+
+        Spacer(Modifier.height(14.dp))
+        when (tab) {
+            ReviewTab.WRONG -> WrongSection(
+                vm = vm,
+                onNavigate = onNavigate,
+                onMakeCard = { q ->
+                    drillVm.addFromWrong(q) { added ->
+                        Toast.makeText(
+                            ctx,
+                            if (added) "已做成背诵卡，去「背诵」页就能背到" else "这道题没有题干，做不成卡",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "背诵卡正在建设中，届时这里会按该知识点筛出待背卡片。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TesEduColors.TextMuted
-                )
-            }
+                },
+                onRemove = { pendingRemove = it }
+            )
+
+            ReviewTab.DRILL -> DrillSection(
+                vm = drillVm,
+                focusKp = focusKp,
+                focusTitle = focusTitle
+            )
         }
 
-        if (items.isEmpty()) {
-            Spacer(Modifier.height(24.dp))
-            EmptyState(
-                icon = Icons.Rounded.Bookmark,
-                title = "错题本还是空的",
-                subtitle = "做题被判错时点「收进错题本」，就会存到这里"
-            )
-        } else {
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "最近错的排在最前面。点「重练这道」会把题干带回输入页。",
-                style = MaterialTheme.typography.labelSmall,
-                color = TesEduColors.TextMuted
-            )
-            items.forEach { q ->
-                Spacer(Modifier.height(14.dp))
-                WrongCard(
-                    q = q,
-                    onPractice = {
-                        AppBridge.postQuestion(q.question)
-                        onNavigate(Screen.Input.route)
-                    },
-                    onRemove = { pendingRemove = q }
-                )
-            }
-            Spacer(Modifier.height(28.dp))
-        }
+        Spacer(Modifier.height(28.dp))
     }
 
     pendingRemove?.let { q ->
@@ -1064,7 +1048,7 @@ fun ReviewScreen(
             },
             text = {
                 Text(
-                    "「${q.question.take(40)}…」将从错题本里移除，本地记录一并删掉。",
+                    "「${q.question.take(40)}…」将从错题本里移除，联网后服务端记录也会一起删掉。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TesEduColors.TextSecondary
                 )
@@ -1082,11 +1066,306 @@ fun ReviewScreen(
     }
 }
 
-/** 单条错题：错因 + 题干 + 我的作答 + 纠正，两个出口（重练 / 移出）。 */
+/** 两个分段：错题 / 背诵。 */
+private enum class ReviewTab(val label: String) { WRONG("错题"), DRILL("背诵") }
+
+/** 分段控件：选中项用品牌色浅底 + 品牌色文字，未选中只有浅灰底。 */
+@Composable
+private fun ReviewTabSwitch(selected: ReviewTab, onSelect: (ReviewTab) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(TesEduColors.FieldBg)
+            .padding(4.dp)
+    ) {
+        ReviewTab.entries.forEach { tab ->
+            val isSelected = tab == selected
+            Box(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(if (isSelected) TesEduColors.Surface else Color.Transparent)
+                    .clickable { onSelect(tab) }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    tab.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) TesEduColors.Brand else TesEduColors.TextMuted
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- 错题段
+
+@Composable
+private fun WrongSection(
+    vm: WrongBookViewModel,
+    onNavigate: (String) -> Unit,
+    onMakeCard: (WrongQuestion) -> Unit,
+    onRemove: (WrongQuestion) -> Unit
+) {
+    val all by vm.items.collectAsState()
+    val visible by vm.visible.collectAsState()
+    val kpOptions by vm.kpOptions.collectAsState()
+    val filter by vm.filter.collectAsState()
+    val stats by vm.stats.collectAsState()
+    val pending by vm.hasPending.collectAsState()
+    val syncing by vm.syncing.collectAsState()
+    val error by vm.error.collectAsState()
+
+    // 断网只是轻提示：本地数据照常可读，不打断复习
+    error?.let { msg ->
+        SoftNotice(
+            text = msg,
+            icon = Icons.Rounded.CloudOff,
+            color = TesEduColors.Amber,
+            bg = TesEduColors.AmberSoft
+        )
+        Spacer(Modifier.height(12.dp))
+    }
+
+    if (syncing || pending > 0) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (syncing) {
+                CircularProgressIndicator(
+                    Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = TesEduColors.Brand
+                )
+            }
+            if (pending > 0) {
+                InfoPill("未同步 $pending 条", TesEduColors.Amber, TesEduColors.AmberSoft)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+    }
+
+    if (all.isEmpty()) {
+        Spacer(Modifier.height(24.dp))
+        EmptyState(
+            icon = Icons.Rounded.Bookmark,
+            title = "错题本还是空的",
+            subtitle = "做题被判错时点「收进错题本」，就会存到这里"
+        )
+        return
+    }
+
+    WrongStatsCard(total = all.size, items = all, stats = stats)
+
+    Spacer(Modifier.height(14.dp))
+    SoftCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "筛选",
+                style = MaterialTheme.typography.titleSmall,
+                color = TesEduColors.TextPrimary
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "按知识点 / 错因挑着看",
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
+            Spacer(Modifier.weight(1f))
+            if (filter.active) {
+                Text(
+                    "全部",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TesEduColors.Brand,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { vm.setFilter(WrongFilter()) }
+                )
+            }
+        }
+        if (kpOptions.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            ChipRow(
+                title = "知识点",
+                options = kpOptions,
+                selected = filter.kp,
+                labelOf = { it },
+                onSelect = { vm.setFilter(filter.copy(kp = it)) }
+            )
+        }
+        val errorOptions = (all.mapNotNull { it.errorType } +
+            (stats?.byErrorType?.keys ?: emptyList())).distinct().sorted()
+        if (errorOptions.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            ChipRow(
+                title = "错因",
+                options = errorOptions,
+                selected = filter.errorType,
+                labelOf = { ERROR_TYPE_LABEL[it] ?: it },
+                onSelect = { vm.setFilter(filter.copy(errorType = it)) }
+            )
+        }
+    }
+
+    Spacer(Modifier.height(12.dp))
+    if (visible.isEmpty()) {
+        SoftNotice(
+            text = "当前筛选下没有错题，点右上角「全部」看回全部。",
+            icon = Icons.Rounded.Info,
+            color = TesEduColors.Amber,
+            bg = TesEduColors.AmberSoft
+        )
+    } else {
+        Text(
+            "最近错的排在最前面。点「重练这道」会把题干带回输入页。",
+            style = MaterialTheme.typography.labelSmall,
+            color = TesEduColors.TextMuted
+        )
+        visible.forEach { q ->
+            Spacer(Modifier.height(14.dp))
+            WrongCard(
+                q = q,
+                mastery = stats?.mastery?.firstOrNull { it.kp == q.knowledgePoint },
+                onPractice = {
+                    AppBridge.postQuestion(q.question)
+                    onNavigate(Screen.Input.route)
+                },
+                onMakeCard = { onMakeCard(q) },
+                onRemove = { onRemove(q) }
+            )
+        }
+    }
+}
+
+/** 统计条：总数 + 错因 Top 3 + 掌握度（后两者拿不到就隐藏对应部分）。 */
+@Composable
+private fun WrongStatsCard(total: Int, items: List<WrongQuestion>, stats: WrongStats?) {
+    // 服务端给了分布就用服务端的，没给就按本地算（离线也能看出自己错在哪）
+    val byType = stats?.byErrorType?.takeIf { it.isNotEmpty() }
+        ?: items.mapNotNull { it.errorType }.groupingBy { it }.eachCount()
+    val top = byType.entries.sortedByDescending { it.value }.take(3)
+
+    SoftCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Rounded.TipsAndUpdates,
+                contentDescription = null,
+                tint = TesEduColors.Brand,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "共 $total 道错题",
+                style = MaterialTheme.typography.titleSmall,
+                color = TesEduColors.TextPrimary
+            )
+        }
+        if (top.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                top.joinToString(" · ") { (code, n) -> "${ERROR_TYPE_LABEL[code] ?: code} $n" },
+                style = MaterialTheme.typography.bodySmall,
+                color = TesEduColors.TextSecondary
+            )
+        }
+        // 掌握度来自后端统计：拿不到就整块隐藏，不报错也不编数字
+        val mastery = stats?.mastery?.takeIf { it.isNotEmpty() }
+        if (mastery != null) {
+            Spacer(Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                mastery.take(3).forEach { m ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            m.kp,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TesEduColors.TextMuted,
+                            modifier = Modifier.weight(1f)
+                        )
+                        MasteryPill(m)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 「该知识点掌握度 62%（较上周 +10%）」。 */
+@Composable
+private fun MasteryPill(m: MasteryPoint) {
+    val up = m.delta >= 0
+    val percent = (m.mastery * 100).toInt().coerceIn(0, 100)
+    val delta = (m.delta * 100).toInt()
+    val text = "掌握度 $percent%（较上周 ${if (up) "+" else ""}$delta%）"
+    InfoPill(
+        text,
+        if (up) TesEduColors.Success else TesEduColors.Danger,
+        if (up) TesEduColors.SuccessSoft else TesEduColors.DangerSoft
+    )
+}
+
+/** 横向滚动的筛选 chips，「全部」= 取消该维度筛选。 */
+@Composable
+private fun ChipRow(
+    title: String,
+    options: List<String>,
+    selected: String?,
+    labelOf: (String) -> String,
+    onSelect: (String?) -> Unit
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelSmall,
+            color = TesEduColors.TextMuted
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            FilterChip("全部", selected == null) { onSelect(null) }
+            options.forEach { code ->
+                FilterChip(labelOf(code), selected == code) { onSelect(code) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(50)
+    val base = Modifier
+        .clip(shape)
+        .background(if (selected) TesEduColors.BrandSoft else TesEduColors.Bg)
+    val framed = if (selected) base.border(1.dp, TesEduColors.Brand, shape) else base
+    Box(
+        framed
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) TesEduColors.BrandDeep else TesEduColors.TextSecondary
+        )
+    }
+}
+
+/** 单条错题：错因 + 题干 + 我的作答 + 纠正，三个出口（重练 / 做成背诵卡 / 移出）。 */
 @Composable
 private fun WrongCard(
     q: WrongQuestion,
+    mastery: MasteryPoint?,
     onPractice: () -> Unit,
+    onMakeCard: () -> Unit,
     onRemove: () -> Unit
 ) {
     SoftCard {
@@ -1139,11 +1418,17 @@ private fun WrongCard(
 
         if (!q.errorType.isNullOrBlank()) {
             Spacer(Modifier.height(10.dp))
-            InfoPill(
-                "错因 · ${ERROR_TYPE_LABEL[q.errorType] ?: q.errorType}",
-                TesEduColors.Danger,
-                TesEduColors.DangerSoft
-            )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                InfoPill(
+                    "错因 · ${ERROR_TYPE_LABEL[q.errorType] ?: q.errorType}",
+                    TesEduColors.Danger,
+                    TesEduColors.DangerSoft
+                )
+            }
             q.firstWrongStep?.let {
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -1154,13 +1439,18 @@ private fun WrongCard(
             }
         }
 
+        if (mastery != null) {
+            Spacer(Modifier.height(10.dp))
+            MasteryPill(mastery)
+        }
+
         if (q.myAnswer.isNotBlank()) {
             Spacer(Modifier.height(10.dp))
             SoftQuote("我的作答", q.myAnswer, TesEduColors.Amber, TesEduColors.AmberSoft)
         }
         if (!q.correction.isNullOrBlank()) {
             Spacer(Modifier.height(8.dp))
-            SoftQuote("纠正", q.correction!!, TesEduColors.Success, TesEduColors.SuccessSoft)
+            SoftQuote("纠正", q.correction.orEmpty(), TesEduColors.Success, TesEduColors.SuccessSoft)
         } else if (q.correctAnswer.isNotBlank()) {
             Spacer(Modifier.height(8.dp))
             SoftQuote("参考答案", q.correctAnswer, TesEduColors.Success, TesEduColors.SuccessSoft)
@@ -1179,5 +1469,277 @@ private fun WrongCard(
                 modifier = Modifier.weight(1f)
             ) { onRemove() }
         }
+        Spacer(Modifier.height(10.dp))
+        SoftOutlinedButton(
+            text = "做成背诵卡",
+            icon = Icons.Rounded.AutoStories
+        ) { onMakeCard() }
     }
 }
+
+// ---------------------------------------------------------------- 背诵段
+
+@Composable
+private fun DrillSection(vm: DrillViewModel, focusKp: String?, focusTitle: String?) {
+    val ui by vm.ui.collectAsState()
+
+    if (focusKp != null) {
+        SoftCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Rounded.Bookmark,
+                    contentDescription = null,
+                    tint = TesEduColors.Brand,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "已选定背诵范围",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TesEduColors.TextMuted
+                    )
+                    Text(
+                        "${focusTitle ?: focusKp} · $focusKp",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = TesEduColors.TextPrimary
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "到期卡片按 SM-2 排程，背完自评即可；知识点会体现在卡面上。",
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
+        }
+        Spacer(Modifier.height(14.dp))
+    }
+
+    ui.error?.let { msg ->
+        SoftNotice(
+            text = msg,
+            icon = Icons.Rounded.CloudOff,
+            color = TesEduColors.Amber,
+            bg = TesEduColors.AmberSoft
+        )
+        Spacer(Modifier.height(12.dp))
+    }
+
+    ui.stats?.let { s ->
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            InfoPill("共 ${s.total} 张", TesEduColors.TextSecondary, TesEduColors.FieldBg)
+            InfoPill("今日到期 ${s.due}", TesEduColors.BrandDeep, TesEduColors.BrandSoft)
+            InfoPill("新增 ${s.newCount}", TesEduColors.Mint, TesEduColors.MintSoft)
+            InfoPill(
+                "留存 ${(s.retention * 100).toInt()}%",
+                TesEduColors.Amber,
+                TesEduColors.AmberSoft
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+    }
+
+    when {
+        ui.finished -> DrillDoneCard(reviewed = ui.reviewed, nextDueAt = ui.nextDueAt) {
+            vm.reset()
+        }
+
+        ui.started -> ui.current?.let { card ->
+            DrillReviewCard(
+                card = card,
+                index = ui.index,
+                total = ui.queue.size,
+                onGrade = { vm.grade(it) }
+            )
+        }
+
+        else -> DrillOverviewCard(dueCount = ui.dueCount, onStart = { vm.start() })
+    }
+}
+
+/** 概览：显示到期数量 + 开始按钮；没有到期卡就给空态引导。 */
+@Composable
+private fun DrillOverviewCard(dueCount: Int, onStart: () -> Unit) {
+    if (dueCount == 0) {
+        Spacer(Modifier.height(16.dp))
+        EmptyState(
+            icon = Icons.Rounded.AutoStories,
+            title = "今天没有到期的卡",
+            subtitle = "去「错题」页把错题点「做成背诵卡」，新卡当天就会到期"
+        )
+        return
+    }
+    SoftCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(TesEduColors.BrandSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.AutoStories,
+                    contentDescription = null,
+                    tint = TesEduColors.Brand,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "今日到期 $dueCount 张",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = TesEduColors.TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "先看正面想一遍，点一下翻背面再自评",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TesEduColors.TextMuted
+                )
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        GradientButton(
+            text = "开始复习（$dueCount 张）",
+            icon = Icons.Rounded.TipsAndUpdates
+        ) { onStart() }
+    }
+}
+
+/** 复习中：正面 → 点一下翻背面 → 四档自评。 */
+@Composable
+private fun DrillReviewCard(
+    card: DrillCard,
+    index: Int,
+    total: Int,
+    onGrade: (Int) -> Unit
+) {
+    // 换卡就回到正面：remember 的 key 是卡 id
+    var flipped by remember(card.id) { mutableStateOf(false) }
+
+    SoftCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            card.kp?.takeIf { it.isNotBlank() }?.let { kp ->
+                InfoPill(kp, TesEduColors.BrandDeep, TesEduColors.BrandSoft)
+                Spacer(Modifier.width(6.dp))
+            }
+            Spacer(Modifier.weight(1f))
+            Text(
+                "第 ${index + 1} / $total",
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Text(
+            if (flipped) "背面" else "正面",
+            style = MaterialTheme.typography.labelSmall,
+            color = TesEduColors.TextMuted
+        )
+        Spacer(Modifier.height(6.dp))
+        // 卡面常见 `x^2`、`\frac{1}{2}`，统一走公式渲染
+        MathText(
+            if (flipped) card.backText else card.frontText,
+            style = MaterialTheme.typography.bodyLarge,
+            color = TesEduColors.TextPrimary
+        )
+
+        Spacer(Modifier.height(16.dp))
+        if (!flipped) {
+            GradientButton(
+                text = "翻到背面",
+                icon = Icons.Rounded.Refresh
+            ) { flipped = true }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "先在心里答一遍，再翻面对答案——直接看背面等于没背。",
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
+        } else {
+            Text(
+                "刚才想得怎么样？",
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
+            Spacer(Modifier.height(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SoftOutlinedButton(
+                        text = "忘了",
+                        icon = Icons.Rounded.Cancel,
+                        modifier = Modifier.weight(1f)
+                    ) { onGrade(0) }
+                    SoftOutlinedButton(
+                        text = "模糊",
+                        icon = Icons.Rounded.ErrorOutline,
+                        modifier = Modifier.weight(1f)
+                    ) { onGrade(3) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SoftOutlinedButton(
+                        text = "会了",
+                        icon = Icons.Rounded.CheckCircle,
+                        modifier = Modifier.weight(1f)
+                    ) { onGrade(4) }
+                    SoftOutlinedButton(
+                        text = "太简单",
+                        icon = Icons.Rounded.AutoAwesome,
+                        modifier = Modifier.weight(1f)
+                    ) { onGrade(5) }
+                }
+            }
+        }
+    }
+}
+
+/** 完成态：今日复习 N 张 + 下次到期时间。 */
+@Composable
+private fun DrillDoneCard(reviewed: Int, nextDueAt: Long?, onBack: () -> Unit) {
+    SoftCard {
+        Box(
+            Modifier
+                .size(46.dp)
+                .clip(CircleShape)
+                .background(TesEduColors.SuccessSoft),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Rounded.CheckCircle,
+                contentDescription = null,
+                tint = TesEduColors.Success,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "今日复习 $reviewed 张",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = TesEduColors.TextPrimary
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            nextDueAt?.let { "下次到期：${formatDateTime(it)}" } ?: "暂时没有排到后面的卡了",
+            style = MaterialTheme.typography.bodySmall,
+            color = TesEduColors.TextSecondary
+        )
+        Spacer(Modifier.height(14.dp))
+        SoftOutlinedButton(
+            text = "回到背诵概览",
+            icon = Icons.Rounded.AutoStories
+        ) { onBack() }
+    }
+}
+
+private fun formatDateTime(millis: Long): String =
+    SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(millis))

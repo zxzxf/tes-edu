@@ -96,6 +96,57 @@ class WrongQuestion(Base):
     evidence = Column(Text)
     attribution_source = Column(String(8))
 
+    # ---- 学生端云同步（0004 迁移）----
+    client_id = Column(String(64))       # 客户端 UUID，upsert 幂等键
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+    deleted_at = Column(DateTime(timezone=True))   # 软删：同步下发 tombstone
+    first_wrong_step = Column(Integer)
+    comment = Column(Text)
+    correction = Column(Text)
+    source = Column(String(16), default="app")
+
+
+class DrillCard(Base):
+    """背诵卡（SM-2 间隔复习排程）。
+
+    front/back 是卡面正反；ease/interval_days/due_at 三件是排程状态。
+    客户端离线也会复习并本地改排程，联网后以 `DrillReview` 流水补传，
+    服务端按**服务端权威值**重算（客户端算错不会污染库里的排程）。
+    """
+
+    __tablename__ = "drill_cards"
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(String(64), nullable=False, index=True)
+    tenant_id = Column(String(64), index=True)
+    client_id = Column(String(64))       # 同步幂等键
+    kp = Column(String(128), index=True)
+    front = Column(Text, nullable=False)
+    back = Column(Text, nullable=False)
+    source = Column(String(16), default="app")   # app / wrong（由错题生成）
+    ease = Column(Float, default=2.5)
+    interval_days = Column(Float, default=0.0)
+    due_at = Column(DateTime(timezone=True))
+    reps = Column(Integer, default=0)
+    lapses = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+    deleted_at = Column(DateTime(timezone=True))
+
+
+class DrillReview(Base):
+    """复习流水：每次评分落一条，rated_at 用客户端复习时间（离线补传也要准）。"""
+
+    __tablename__ = "drill_reviews"
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(String(64), nullable=False, index=True)
+    card_id = Column(Integer, index=True)
+    client_id = Column(String(64))
+    rating = Column(SmallInteger, nullable=False)   # 0 忘了 / 3 模糊 / 4 会了 / 5 太简单
+    rated_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
 
 class Submission(Base):
     """学生作答与教师批改。"""

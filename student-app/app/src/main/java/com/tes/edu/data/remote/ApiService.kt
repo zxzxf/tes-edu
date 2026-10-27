@@ -199,16 +199,36 @@ object ApiClient {
     @Volatile
     private var cached: ApiService? = null
 
+    @Volatile
+    private var cachedLearning: LearningApi? = null
+
+    @Volatile
+    private var cachedRetrofit: Retrofit? = null
+
     /** 登录后调用一次，让后续请求带上新 token（进程内重建 Retrofit 实例）。 */
     fun rebuild() {
-        synchronized(this) { cached = null }
+        synchronized(this) {
+            cached = null
+            cachedLearning = null
+            cachedRetrofit = null
+        }
     }
 
     val instance: ApiService get() = cached ?: synchronized(this) {
-        cached ?: build().also { cached = it }
+        cached ?: retrofit().create(ApiService::class.java).also { cached = it }
     }
 
-    private fun build(): ApiService {
+    /** 学生端 learning/ 端点（错题同步 + 背诵卡），与 [instance] 共用同一个 Retrofit。 */
+    val learning: LearningApi get() = cachedLearning ?: synchronized(this) {
+        cachedLearning ?: retrofit().create(LearningApi::class.java).also { cachedLearning = it }
+    }
+
+    /** Retrofit 只建一次：两个接口共用同一个 OkHttp 连接池。 */
+    private fun retrofit(): Retrofit = cachedRetrofit ?: synchronized(this) {
+        cachedRetrofit ?: build().also { cachedRetrofit = it }
+    }
+
+    private fun build(): Retrofit {
         // SessionStore 需要 Context；用 applicationContext 兜底，避免持 Activity
         val ctx = AppContextProvider.context
         val session = SessionStore(ctx)
@@ -230,6 +250,5 @@ object ApiClient {
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(ApiService::class.java)
     }
 }

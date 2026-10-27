@@ -29,6 +29,7 @@ from app.api import (
     reports,
     rbac_api,
     student_features,
+    student_learning,
     vendor_api,
     byom as byom_api,
     wrong_questions,
@@ -198,6 +199,9 @@ app.include_router(student_features.admin_router, prefix="/api/admin")  # W3 功
 # /api/admin 双挂载保留：B 端管理面与本地直连行为不变。
 app.include_router(auth.router)
 app.include_router(learning.router)
+# 学生端学习资产（错题本云同步 + 背诵卡间隔复习）：同样根挂载，
+# student_learning.router 自带 prefix="/learning"，与 learning.router 并列不冲突。
+app.include_router(student_learning.router)
 
 
 if __name__ == "__main__":
