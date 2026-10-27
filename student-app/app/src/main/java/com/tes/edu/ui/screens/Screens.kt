@@ -168,7 +168,7 @@ fun InputScreen(
 
         SoftFieldCard(
             label = "题目",
-            hint = "次方写 e^x，分数写 1/2",
+            hint = "次方写 e^x，分数写 1/2，分母含多项必须加括号",
             value = question,
             onValueChange = { question = it },
             placeholder = "把题目放进来…",
