@@ -8,7 +8,17 @@
 
     <div class="field">
       <label>题目</label>
-      <textarea v-model="question" rows="3" placeholder="粘贴题干…" />
+      <textarea v-model="question" rows="3"
+        placeholder="粘贴题干，或直接输入：已知 f(x)=e^x+x^2 在 x=1 处取得最大值…" />
+      <p class="hint">
+        公式写法：次方用 <code>^</code>（<code>e^x</code>、<code>x^2</code>），多位数写 <code>x^{n+1}</code>；
+        下标用 <code>_</code>（<code>a_1</code>）；根号直接打 <code>√</code>；分数写 <code>1/2</code>。
+        也支持粘贴 LaTeX（<code>$e^x$</code>、<code>\frac{1}{2}</code>）。
+      </p>
+      <div v-if="hasMath(question)" class="preview">
+        <span class="pv-label">预览</span>
+        <div class="pv-body" v-html="renderMath(question)" />
+      </div>
     </div>
 
     <div class="field">
@@ -16,6 +26,10 @@
       <textarea v-model="process" rows="8"
         placeholder="例如：由 A+B+C=π 且 A+B=3C，得 4C=π，所以 C=π/4…" />
       <span class="counter">{{ process.trim().length }} 字</span>
+      <div v-if="hasMath(process)" class="preview">
+        <span class="pv-label">预览</span>
+        <div class="pv-body" v-html="renderMath(process)" />
+      </div>
     </div>
 
     <div class="actions">
@@ -37,9 +51,9 @@
     <div v-if="result" class="cards">
       <div class="card">
         <h3>参考答案</h3>
-        <p class="pre">{{ result.answer }}</p>
+        <p class="pre" v-html="renderMath(result.answer)" />
         <ol v-if="result.steps && result.steps.length">
-          <li v-for="(s, i) in result.steps" :key="i">{{ s }}</li>
+          <li v-for="(s, i) in result.steps" :key="i" v-html="renderMath(s)" />
         </ol>
       </div>
 
@@ -76,6 +90,7 @@
 <script setup>
 import { ref } from 'vue'
 import { solveWithProcess, solveImage } from '../api/agent'
+import { renderMath, hasMath } from '../utils/math'
 
 const ERROR_TYPE_LABEL = {
   concept: '概念理解',
@@ -145,6 +160,20 @@ h2 { margin: 0 0 8px; font-size: 20px; }
 textarea { width: 100%; padding: 10px 14px; border: 1.5px solid var(--line-strong); border-radius: 12px; font-size: 14px; }
 textarea:focus { outline: none; border-color: var(--brand-2); box-shadow: 0 0 0 4px rgba(255,61,129,.14); }
 .counter { font-size: 12px; color: var(--muted); }
+.hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; line-height: 1.8; }
+.hint code {
+  background: #f4f1f8; border-radius: 4px; padding: 1px 5px;
+  font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+.preview {
+  margin-top: 8px; display: flex; gap: 10px; align-items: flex-start;
+  background: #faf7fc; border: 1px dashed var(--line-strong);
+  border-radius: 10px; padding: 8px 12px;
+}
+.pv-label { flex: none; font-size: 11px; color: var(--muted); padding-top: 3px; letter-spacing: .5px; }
+.pv-body { font-size: 14px; line-height: 1.9; word-break: break-word; }
+.pv-body sup, .preview sup { font-size: 11px; vertical-align: super; }
+.pv-body sub { font-size: 11px; vertical-align: sub; }
 .actions { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
 select { padding: 8px 14px; border-radius: 12px; font-size: 14px; border: 1.5px solid var(--line-strong); background:#fff; }
 button {
