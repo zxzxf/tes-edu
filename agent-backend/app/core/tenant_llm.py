@@ -341,3 +341,27 @@ async def resolve_llm_config(
     except Exception as e:  # noqa: BLE001
         log.warning("byom cache set failed: %s", e)
     return cfg
+
+
+# ------------------------------------------------------------------- 调用方便捷封装
+
+async def resolve_for(
+    tenant_id: Optional[str] = None,
+    *,
+    llm_cfg: "LLMConfig | None" = None,
+) -> "LLMConfig":
+    """统一解析入口：已持有 ``llm_cfg`` 直接复用（避免重复查库/缓存）；否则按 tenant_id 解析。
+
+    供 llm / judge / intent / socratic 等调用点在拿到租户配置后向下游透传，
+    保证一次请求内只解析一次。
+    """
+    if llm_cfg is not None:
+        return llm_cfg
+    return await resolve_llm_config(tenant_id)
+
+
+def make_client(cfg: "LLMConfig"):
+    """按解析结果构造 OpenAI 兼容客户端（chat 段）。"""
+    from openai import AsyncOpenAI
+
+    return AsyncOpenAI(api_key=cfg.chat_api_key, base_url=cfg.chat_base_url)

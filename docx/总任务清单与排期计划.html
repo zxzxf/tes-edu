@@ -215,7 +215,7 @@
     <tbody>
       <tr><td class="mono">T-B1</td><td>套餐与订阅数据模型（4 张新表）+ 套餐种子</td><td>T-AM1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
       <tr><td class="mono">T-B2</td><td>有效期校验与过期失效（调用前拦截 + 定时扫描 + 提前 7 天预警）</td><td>T-B1</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
-      <tr><td class="mono">T-B3</td><td>续期下单：服务端定价 + 微信 Native/支付宝 precreate 取二维码 + 订单关闭</td><td>T-B1、<span class="chip block">商户资质</span></td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
+      <tr><td class="mono">T-B3</td><td>续期下单：服务端定价 + 微信 Native/支付宝 precreate 取二维码 + 订单关闭</td><td>T-B1</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
       <tr><td class="mono">T-B4</td><td>支付回调：网关 <code>/api/pay/notify/</code> 免鉴权路由 + 验签 + 幂等 + 延长有效期 + 主动查单补偿</td><td>T-B3</td><td class="num">2d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
       <tr><td class="mono">T-B5</td><td>管理台续期页（套餐选择、扫码、状态轮询、剩余天数）</td><td>T-B3/B4</td><td class="num">1d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
       <tr><td class="mono">T-B6</td><td>单测 + <b>沙箱</b>全链路联调 + 安全（篡改/伪造/重放/脱敏）</td><td>T-B2~5</td><td class="num">1.5d</td><td class="num"><span class="chip todo">⬜</span></td><td class="num"><span class="wave">W5</span></td></tr>
@@ -323,7 +323,7 @@
       <tr><td><span class="wave">W2 权限主干</span></td><td class="mono">T-AM1 → T-AM2 → T-AM3 ‖ T-AM4 → T-AM7</td><td class="num"><b>5d</b>（并行）／6d（串行）</td><td class="num">T-AM3‖T-AM4</td><td><b>关键路径</b>：所有 B 端能力的地基；跑通"菜单+角色+按钮级"</td></tr>
       <tr><td><span class="wave">W3 学生端</span></td><td class="mono">T-F1 → T-F2 → T-F3 ‖ T-F4 ‖ T-S1 → T-S2 → T-S3；T-A1 → T-A2 → T-A3</td><td class="num"><b>9.75d</b></td><td class="num">T-F/T-S/T-A 三组</td><td>开关是总闸，#1 项目与 #3 防疲劳受其管控</td></tr>
       <tr><td><span class="wave">W4 区域与厂商</span></td><td class="mono">T-AM5、T-AM6</td><td class="num">2.75d</td><td class="num">✅ 可并行</td><td>依赖 W2 的 T-AM1；MCP 厂商隔离（估点最高单项） <span class="chip done">✅ 已完成并上线 137（区域 CRUD + 厂商/实例/连通测试，凭证密文存储）</span></td></tr>
-      <tr><td><span class="wave">W5 MCP 商业化</span></td><td class="mono">T-B1 → T-B2 → T-B3 → T-B4 → T-B5 → T-B6</td><td class="num">8d</td><td class="num">基本串行</td><td><b>受商户资质外部阻塞</b>，建议先跑沙箱</td></tr>
+      <tr><td><span class="wave">W5 MCP 商业化</span></td><td class="mono">T-B1 → T-B2 → T-B3 → T-B4 → T-B5 → T-B6</td><td class="num">8d</td><td class="num">基本串行</td><td>建议先跑沙箱</td></tr>
       <tr><td><span class="wave">W6 BYOM</span></td><td class="mono">T-M1 → T-M2 → T-M3 → T-M4</td><td class="num">4.5d</td><td class="num">串行</td><td>与 RBAC/Billing 低耦合，可整体前移或并行</td></tr>
       <tr><td><span class="wave">W7 收尾</span></td><td class="mono">T-AM8</td><td class="num">1d</td><td class="num">—</td><td>全链路安全校验（越权/隔离/脱敏）</td></tr>
       <tr><td><span class="wave">W8 学生 Agent</span></td><td class="mono">T-SA1 → T-SA2 ‖ T-SA3 → T-SA4‖T-SA5‖T-SA6‖T-SA7‖T-SA8 → T-SA9 → <b>T-SA10 → T-SA11‖T-SA12‖T-SA13 → T-SA14</b>（多智能体层）</td><td class="num"><b>18.75d</b>（并行可压至 ≈13d）</td><td class="num">T-SA2‖T-SA3；T-SA4~8 可并行；T-SA12‖T-SA13 可并行</td><td>依赖 W4（MCP 厂商）、W5（有效期）、W6（BYOM 模型解析）产物；多智能体层须在单 Agent 底座（T-SA1~9）之后</td></tr>
@@ -344,7 +344,7 @@ T-SA1 → T-SA3 → T-SA6 → T-AP1 → T-AP8   （学生 Agent → App 全链�
   <div class="note">
     <ul>
       <li><b>权限主干</b>（T-AM0→…→T-AM7）是<b>最高优先级</b>：所有管理能力的地基。</li>
-      <li><b>MCP 商业化</b>（T-B）是最长且唯一带<b>外部商户资质</b>风险的链路，应尽早启动资质申请（与开发并行）。</li>
+      <li><b>MCP 商业化</b>（T-B）是最长链路，建议先跑沙箱再接真实支付。</li>
       <li><b>学生 Agent（W8）</b> 依赖 W4/W5/W6 三处产物（MCP 厂商、订阅有效期、BYOM 模型解析），故排在 W8；<b>W9（App）</b> 承接 Agent 会话，排在最后。</li>
     </ul>
   </div>
@@ -362,7 +362,7 @@ T-SA1 → T-SA3 → T-SA6 → T-AP1 → T-AP8   （学生 Agent → App 全链�
   <table>
     <thead><tr><th>阻塞项</th><th>影响任务</th><th>说明</th></tr></thead>
     <tbody>
-      <tr><td><b>微信/支付宝企业商户资质</b> + <code>sd12sd.icu</code> 配入 notify 白名单</td><td class="mono">T-B3 / T-B4 / T-B6</td><td>可能数周；<b>建议立即启动申请</b>，开发期先用沙箱</td></tr>
+
       <tr><td><b>主 LLM 端点 403 配额耗尽</b></td><td>全部 AI 能力价值闭环</td><td>非开发任务；需充值或换端点，否则所有 AI 辅导退化成模板</td></tr>
       <tr><td>试点流水（T-C5）</td><td class="mono">T-C5</td><td>依赖真实试点数据</td></tr>
       <tr><td>T-A2 素材（T-F2）</td><td class="mono">T-F2</td><td>依赖外部素材到货</td></tr>
@@ -376,7 +376,7 @@ T-SA1 → T-SA3 → T-SA6 → T-AP1 → T-AP8   （学生 Agent → App 全链�
     <thead><tr><th>风险</th><th class="num">等级</th><th>对策</th></tr></thead>
     <tbody>
       <tr><td>33 项新任务全部 0% 实现，仅完成规划</td><td class="num"><span class="chip block">高</span></td><td>按 W1→W7 波次推进；先跑通 W2 权限主干验证范式</td></tr>
-      <tr><td>MCP 支付资质未落地</td><td class="num"><span class="chip block">高</span></td><td>资质申请与开发并行；T-B6 先跑沙箱</td></tr>
+
       <tr><td>学生网页端不存在（T-S3/T-F4/T-A2 原悬空）</td><td class="num"><span class="chip pend">中</span></td><td>已补 <b>T-S0</b> 并前置到 W1</td></tr>
       <tr><td>LLM 配额 403 使 AI 能力无实感</td><td class="num"><span class="chip block">高</span></td><td>独立于开发解决（商务/运维）</td></tr>
       <tr><td>题库 213/3000 未达验收</td><td class="num"><span class="chip pend">中</span></td><td>属 P1 内容线，与本总表并行推进</td></tr>
