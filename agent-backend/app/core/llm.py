@@ -360,39 +360,31 @@ async def suggest_similar_detailed(
     让埋点与用量表能统计"变式降级率"——否则降级是隐形的。
 
     W6 BYOM T-M4：``tenant_id`` / ``llm_cfg`` 透传租户级模型配置。
+
+    T-D1 补位（2026-10-27）：此前变式**裸调 LLM 未接缓存**，同题每次都重烧 7~17s，
+    是解题链路最大的一块无谓开销。现与 ``solve`` 同口径走 ``cached_solve``
+    （``mode="similar"`` 独立命名空间，不与主解/引导档互串）；
+    ``_remote_similar`` 生成失败或没解析出变式时返回 ``None``——**不入缓存**，
+    下次重新尝试，避免把"没生成出来"固化成 7 天缓存。
     """
     if config.llm_ready():
         cfg = llm_cfg or await tenant_llm.resolve_llm_config(tenant_id)
-        t0 = time.monotonic()
-        route = model_router.route_model(
-            mode="similar", context=context, simple=cfg.model_simple, hard=cfg.model_hard
-        )
-        try:
-            client = tenant_llm.make_client(cfg)
-            resp = await client.chat.completions.create(
-                model=route["model"],
-                messages=_build_messages(question, context, "similar"),
-                temperature=0.7,
-            )
-            content = resp.choices[0].message.content or ""
-            data = _parse_json(content)
-            sims = data.get("similar")
-            if isinstance(sims, str):
-                sims = [sims]
-            if sims:
-                usage.record_usage_bg(
-                    model=route["model"], grade=route["grade"], mode="similar",
-                    latency_ms=int((time.monotonic() - t0) * 1000), **_tokens(resp),
-                )
-                return {"similar": [str(s) for s in sims][:3], "degraded": False}
-            # 模型未按要求返回 similar 字段时，不要回吐原始 JSON，交由下方检索结果兜底
-        except Exception as e:  # noqa: BLE001 变式是旁路能力：LLM 配额耗尽/超时不得
-            # 影响主链路（T-C2 实测：similar 的 403 曾把整轮 Hint 对话打成 500）
+
+        def _on_cache_hit() -> None:
+            # T-D3：缓存命中不烧 LLM，但仍计数（否则算不出缓存省了多少）
             usage.record_usage_bg(
-                model=route["model"], grade=route["grade"], mode="similar", degraded=True,
-                error_kind=usage.classify_error(e),
-                latency_ms=int((time.monotonic() - t0) * 1000),
+                mode="similar", cache_hit=True, grade="cache", model=cfg.chat_model,
             )
+
+        async def _call(q, ctx, _mode):
+            return await _remote_similar(q, ctx, llm_cfg=cfg)
+
+        cached = await llm_cache.cached_solve(
+            _call, question, context, "similar",
+            on_hit=_on_cache_hit, embed_cfg=cfg,
+        )
+        if cached is not None:
+            return cached
 
     chunks = (context or {}).get("chunks", [])
     return {
@@ -410,3 +402,43 @@ async def suggest_similar_detailed(
 async def suggest_similar(question: str, context: dict | None = None) -> list[str]:
     """兼容旧签名：只返回变式题列表（T-D3 起内部走 detailed 版本）。"""
     return (await suggest_similar_detailed(question, context))["similar"]
+
+
+async def _remote_similar(
+    question: str, context: dict | None, *, llm_cfg=None
+) -> dict | None:
+    """真实调用 LLM 生成变式题。成功返回 ``{"similar": [...], "degraded": False}``；
+    失败 / 模型没按格式返回时返回 ``None``（调用方据此回落检索片段，且**不进缓存**）。
+    """
+    cfg = llm_cfg or await tenant_llm.resolve_llm_config(None)
+    t0 = time.monotonic()
+    route = model_router.route_model(
+        mode="similar", context=context, simple=cfg.model_simple, hard=cfg.model_hard
+    )
+    try:
+        client = tenant_llm.make_client(cfg)
+        resp = await client.chat.completions.create(
+            model=route["model"],
+            messages=_build_messages(question, context, "similar"),
+            temperature=0.7,
+        )
+        content = resp.choices[0].message.content or ""
+        data = _parse_json(content)
+        sims = data.get("similar")
+        if isinstance(sims, str):
+            sims = [sims]
+        if sims:
+            usage.record_usage_bg(
+                model=route["model"], grade=route["grade"], mode="similar",
+                latency_ms=int((time.monotonic() - t0) * 1000), **_tokens(resp),
+            )
+            return {"similar": [str(s) for s in sims][:3], "degraded": False}
+        # 模型未按要求返回 similar 字段时，不要回吐原始 JSON，交由下方检索结果兜底
+    except Exception as e:  # noqa: BLE001 变式是旁路能力：LLM 配额耗尽/超时不得
+        # 影响主链路（T-C2 实测：similar 的 403 曾把整轮 Hint 对话打成 500）
+        usage.record_usage_bg(
+            model=route["model"], grade=route["grade"], mode="similar", degraded=True,
+            error_kind=usage.classify_error(e),
+            latency_ms=int((time.monotonic() - t0) * 1000),
+        )
+    return None
