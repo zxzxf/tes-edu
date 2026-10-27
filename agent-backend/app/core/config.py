@@ -46,6 +46,9 @@ LLM_MAX_TOKENS_EXPLAIN = int(_get("LLM_MAX_TOKENS_EXPLAIN", "800"))
 LLM_MAX_TOKENS_GUIDE = int(_get("LLM_MAX_TOKENS_GUIDE", "600"))
 LLM_MAX_TOKENS_SIMILAR = int(_get("LLM_MAX_TOKENS_SIMILAR", "400"))
 
+# ---- 触类旁通：是否随主解一起生成（关掉可省掉一次 LLM 调用，约一半耗时） ----
+SIMILAR_ON_SOLVE = _get("SIMILAR_ON_SOLVE", "1") not in ("0", "false", "False", "")
+
 MODE_TO_MAX_TOKENS = {
     "quick": LLM_MAX_TOKENS_QUICK,
     "explain": LLM_MAX_TOKENS_EXPLAIN,

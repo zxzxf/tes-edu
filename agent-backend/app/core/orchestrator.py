@@ -15,9 +15,10 @@ P2（T-C3）起增加题型路由（qtype.py）：记忆型直接讲解 / 中等
 """
 from __future__ import annotations
 
+import asyncio
 import time
 
-from app.core import intent, judge_v2, llm, ocr, qtype, rag, socratic, tenant_llm
+from app.core import config, intent, judge_v2, llm, ocr, qtype, rag, socratic, tenant_llm
 
 # ---------------------------------------------------------------- bundle 缓存
 
@@ -102,19 +103,39 @@ async def handle_question(
     # 5) LLM 解题 + 分步讲解（按档位生成）；T-D1 请求级缓存（键含学科/mode/hint_level）
     #    T-D2：题型档位与步骤数透传给模型路由（缓存未命中才真正进路由）
     _route_tier = qtype.route_question_tier(ctx)
-    result = await llm.solve(
-        question,
-        context=ctx,
-        mode=resolved_mode,
-        subject=subject,
-        hint_level=None,
-        content_hash=judge_v2._pick_content_hash(ctx),
-        tier=_route_tier.get("tier"),
-        steps=len(ctx.get("steps") or []),
-        llm_cfg=cfg,
-    )
     # 6) 触类旁通（T-D3：变式降级单独标记，不污染主解 degraded 语义）
-    sim = await llm.suggest_similar_detailed(question, context=ctx, llm_cfg=cfg)
+    #    ⚠️ 与主解**并行**：实测两次调用各约 18-20s，串行会让 P95 翻倍到 ~39s。
+    #    两者互不依赖（similar 只吃 question/ctx），gather 后总耗时取较慢的那个。
+    if config.SIMILAR_ON_SOLVE:
+        result, sim = await asyncio.gather(
+            llm.solve(
+                question,
+                context=ctx,
+                mode=resolved_mode,
+                subject=subject,
+                hint_level=None,
+                content_hash=judge_v2._pick_content_hash(ctx),
+                tier=_route_tier.get("tier"),
+                steps=len(ctx.get("steps") or []),
+                llm_cfg=cfg,
+            ),
+            llm.suggest_similar_detailed(question, context=ctx, llm_cfg=cfg),
+        )
+    else:
+        # 端点慢/预算紧时可整体关掉变式生成（环境变量 SIMILAR_ON_SOLVE=0），
+        # 主解照常返回，similar 置空——App 侧"触类旁通"为空即不展示。
+        result = await llm.solve(
+            question,
+            context=ctx,
+            mode=resolved_mode,
+            subject=subject,
+            hint_level=None,
+            content_hash=judge_v2._pick_content_hash(ctx),
+            tier=_route_tier.get("tier"),
+            steps=len(ctx.get("steps") or []),
+            llm_cfg=cfg,
+        )
+        sim = {"similar": [], "degraded": False}
     out = {
         **result,
         "similar": sim["similar"],

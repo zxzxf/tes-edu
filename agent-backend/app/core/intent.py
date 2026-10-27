@@ -90,6 +90,27 @@ _GUIDE_KEYWORDS = (
 _LLM_FALLBACK_MIN_LEN = 30
 
 
+# 短问句里"像求值/计算"的信号：含数字，且带运算符或"多少/等于/的值"。
+# 这类题（1+1、求某值）若落进引导档，会被拆成"用手指或画图数 1"式的机械引导，
+# 学生体感是"连 1+1 都答不上来"。短计算题一律直给。
+_COMPUTE_HINT = ("多少", "等于", "的值", "求值", "计算", "结果", "=?")
+_NO_COMPUTE_HINT = ("怎么做", "怎么解", "如何解", "为什么", "讲解", "思路", "原理")
+
+
+def _looks_like_compute(question: str) -> bool:
+    """极短问句是否是"一步可得的计算/求值题"（不触网，纯函数）。"""
+    import re
+
+    q = (question or "").strip()
+    if len(q) > 20 or not re.search(r"\d", q):
+        return False
+    if any(k in q for k in _NO_COMPUTE_HINT):
+        return False
+    if re.search(r"[+\-×÷*^=]|/\d", q):
+        return True
+    return any(k in q for k in _COMPUTE_HINT)
+
+
 def classify_intent(question: str, context: dict | None = None) -> str | None:
     """规则先行分类。返回 direct/explain/guide；规则未覆盖返回 None（走兜底链）。
 
@@ -178,6 +199,9 @@ async def resolve_response_mode(
 
     # 短问句直接默认引导档，不烧 LLM
     if not _needs_llm_classification(question):
+        # 短计算/求值题（1+1 等于多少）直给：引导档不给答案，简单题会答得像在敷衍
+        if _looks_like_compute(question):
+            return INTENT_DIRECT, TIER_TO_MODE[INTENT_DIRECT], "default"
         return INTENT_GUIDE, TIER_TO_MODE[INTENT_GUIDE], "default"
 
     # T-C5：LLM 分类走缓存（同题不再重烧，TTL 与解题缓存一致）

@@ -10,7 +10,7 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core import llm, orchestrator, rag, socratic
+from app.core import intent, llm, orchestrator, rag, socratic
 import main
 
 _CTX_MEDIUM = {
@@ -403,3 +403,14 @@ def test_slash_ambiguity_triggers_dual_parse_hint():
     body = msgs[-1]["content"]
     assert "歧义" in body
     assert "分别" in body
+
+
+def test_short_compute_question_goes_direct_not_guide():
+    """回归：1+1 这类短计算题必须直给，不能落引导档（否则答成『用手指或画图数 1』）。"""
+    assert intent._looks_like_compute("1+1等于多少")
+    assert intent._looks_like_compute("求 3x+5=14 中 x 的值")
+    assert not intent._looks_like_compute("这题怎么做")
+    assert not intent._looks_like_compute("为什么这样解")
+    assert not intent._looks_like_compute("帮我讲解一下导数")  # 无数字
+    i, m, src = asyncio.run(intent.resolve_response_mode("1+1等于多少"))
+    assert (i, m, src) == (intent.INTENT_DIRECT, "quick", "default")
