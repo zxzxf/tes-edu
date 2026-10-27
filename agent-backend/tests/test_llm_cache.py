@@ -192,8 +192,12 @@ def test_variant_disables_approx_and_separates_key():
 
 # ------------------------------------------------------------- 近似命中
 
-def test_approx_hit_calls_llm_once():
-    """近似同题（embedding 余弦 = 1.0 >= 0.98）应命中缓存，不再调 LLM。"""
+def test_approx_hit_only_when_question_equivalent():
+    """近似命中的硬门槛（2026-10-28 事故后收紧）：只有**题干归一化后等价**才复用。
+
+    旧契约是"语义相近就复用"，代价是 `(x+2)/e^x+a` 与 `x+2/e^x+a` 这类只差括号的
+    题被串成同一份答案（实测余弦 0.988）。宁可多烧一次 LLM，也不能串答案。
+    """
     store = MemoryStore()
     calls = []
 
@@ -203,11 +207,15 @@ def test_approx_hit_calls_llm_once():
 
     async def run():
         with _approx(True):  # 固定向量 → 余弦恒为 1.0
-            await cached_solve(fake_remote, "题A：求 f(x)=x^2 的导数", None, "explain", store=store)
-            await cached_solve(fake_remote, "题B：对 f(x)=x² 求导", None, "explain", store=store)
+            # 等价写法：只差空格与全角上标（NFKC 后 ² → 2）
+            await cached_solve(fake_remote, "求 f(x)=x^2 的导数", None, "explain", store=store)
+            await cached_solve(fake_remote, "求f(x)=x²的导数", None, "explain", store=store)
+            assert len(calls) == 1, "等价写法应命中缓存"
+            # 换说法：语义相同但字面不同 → 不再复用（新契约）
+            await cached_solve(fake_remote, "对 f(x)=x^2 求导", None, "explain", store=store)
+            assert len(calls) == 2, "换说法不再复用，避免数学题串答案"
 
     asyncio.run(run())
-    assert len(calls) == 1, "近似同题应走近似命中，不再烧 LLM"
 
 
 def test_approx_miss_when_dissimilar():

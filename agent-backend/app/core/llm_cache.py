@@ -3,8 +3,9 @@
 缓存键：``subject + mode + hint_level + (content_hash 或问题文本归一化哈希)``。
 ``hint_level`` 必入键——同题不同 Hint 级不得混用缓存（验收硬要求）。
 
-近似命中：对查询问题做 embedding，与 ``llm_cache`` 中已存向量做余弦相似度，
-阈值 ``>= 0.98`` 视为近似同题，复用其 LLM 结果（复用 T-A3 的 embedding 通道）。
+近似命中：对查询问题做 embedding，与 ``llm_cache`` 中已存向量做 cosine 相似度，
+超过阈值视为近似同题。**但仅靠相似度不够**——必须再过一道"题干归一化后等价"的
+硬门槛（见 [normalize_question]），否则数学题会被串答案（2026-10-28 事故）。
 
 存储分层（全部 best-effort，存储抖动不得拖垮主链路）：
 - ``Redis``（137 ``edu-redis``，agent 容器同网）TTL 7 天，主缓存；
@@ -23,6 +24,7 @@ import logging
 import math
 import re
 import time
+import unicodedata
 from typing import Awaitable, Callable, Optional
 
 from app.core import config, embeddings
@@ -30,8 +32,40 @@ from app.core import config, embeddings
 log = logging.getLogger("llm_cache")
 
 CACHE_TTL_SECONDS = 7 * 24 * 3600
-APPROX_THRESHOLD = 0.98
+# 2026-10-28 事故后上调：数学题干的语义对括号/符号位置极度敏感，但**文本**高度相似。
+# 实测 "f(x)=x+2/e^x+a" 与 "f(x)=(x+2)/e^x+a" 的 embedding 余弦高达 0.988，
+# 而两者的正确答案分别是"题目无解"与 a=1-e——0.98 阈值下后者会直接复用前者的答案，
+# 学生换一种写法就被喂了另一道题的解析，且会固化 7 天。故：
+#   1) 阈值提到 0.995；
+#   2) 命中必须再过一道"题干归一化后等价"的硬门槛（见 [normalize_question]）。
+APPROX_THRESHOLD = 0.995
 _PREFIX = "llm:v1:"
+
+# 归一化时**只**去掉空白与中文标点：斜杠 / 、指数 ^ 、括号 () 都承载数学含义，
+# 一律保留——否则 "2/e^x" 会被归一成 "2e^x"（这正是模型把题干读错的那一步）。
+_PUNCT_TO_DROP = "，。、；：？！“”‘’（）《》【】…—·\"'`"
+
+# Unicode 上/下标 → 线性写法。必须**先于** NFKC 处理：NFKC 会把 x² 直接拆成 x2，
+# 于是 "x²" 与 "x^2" 变成两个不同的题干（明明是同一道题），白烧一次 LLM。
+_SUP_MAP = str.maketrans({
+    "⁰": "^0", "¹": "^1", "²": "^2", "³": "^3", "⁴": "^4",
+    "⁵": "^5", "⁶": "^6", "⁷": "^7", "⁸": "^8", "⁹": "^9",
+    "⁺": "^+", "⁻": "^-", "ⁿ": "^n", "ⁱ": "^i",
+    "₀": "_0", "₁": "_1", "₂": "_2", "₃": "_3", "₄": "_4",
+    "₅": "_5", "₆": "_6", "₇": "_7", "₈": "_8", "₉": "_9",
+})
+
+
+def normalize_question(text: str) -> str:
+    """近似命中的等价性指纹：上/下标转线性、全角转半角、小写、去空白与中文标点。
+
+    刻意**保留** `/ ^ ( ) { } _ + - = *` 等数学符号：数学题差一个括号就是另一道题，
+    宁可缓存不命中（多花一次 LLM），也不能串答案。
+    """
+    s = (text or "").translate(_SUP_MAP)
+    s = unicodedata.normalize("NFKC", s)
+    s = "".join(ch for ch in s if not ch.isspace() and ch not in _PUNCT_TO_DROP)
+    return s.lower()
 
 
 # --------------------------------------------------------------------- 缓存键
@@ -49,12 +83,18 @@ def cache_key(
 
     ``variant`` 用于把"同题同级但上下文不同"的情况分开，例如 Hint 的对话历史与
     当前步骤（``history``/``step``）——它们会实质改变 LLM 输出，混键会造成串味。
+
+    **``content_hash`` 不再单独成键**（2026-10-28 事故主因）：它是 RAG 命中的
+    **知识库条目**哈希，不是题干哈希——两道不同的题只要检索到同一条例题就会
+    算出同一个键，于是共用一份答案（实测 `x+2/e^x+a` 与 `(x+2)/e^x+a` 就是这么
+    串的）。故题干指纹必须**无条件入键**，content_hash 只作为附加维度。
     """
     norm = re.sub(r"\s+", " ", (question or "").strip()).lower()
+    qhash = hashlib.sha256(norm.encode("utf-8")).hexdigest()[:16]
     if content_hash:
-        base = f"ch:{content_hash}"
+        base = f"ch:{content_hash}:q:{qhash}"
     else:
-        base = "q:" + hashlib.sha256(norm.encode("utf-8")).hexdigest()[:16]
+        base = "q:" + qhash
     if variant:
         base += ":v" + hashlib.sha256(
             re.sub(r"\s+", " ", variant).encode("utf-8")
@@ -79,6 +119,19 @@ def cache_namespace(
 
 # ------------------------------------------------------------------- 相似度工具
 
+def _same_question(stored: Optional[str], incoming: str) -> bool:
+    """近似命中的**硬门槛**：题干归一化后必须完全等价才允许复用。
+
+    数学题的语义对括号与符号位置极度敏感（`(x+2)/(e^x+a)` 与 `x+2/e^x+a`
+    是两道答案不同的题），仅凭向量相似度复用必然串答案。存侧没记题干
+    （老数据/自定义 store）时按"无法证明等价"处理，一律拒绝复用。
+    """
+    if not stored:
+        return False
+    want = normalize_question(incoming)
+    return bool(want) and stored == want
+
+
 def _cosine(a: list[float], b: list[float]) -> float:
     if not a or not b or len(a) != len(b):
         return 0.0
@@ -97,6 +150,8 @@ class MemoryStore:
         self._data: dict[str, tuple[float, dict]] = {}
         # key -> (namespace 三元组, 向量)：近似命中必须限定在同命名空间内
         self._vec: dict[str, tuple[tuple, list[float]]] = {}
+        # key -> 题干归一化指纹：近似命中还要再过一道"题干等价"门槛
+        self._q: dict[str, str] = {}
         self.ttl = ttl
 
     async def get(self, key: str) -> Optional[dict]:
@@ -110,13 +165,14 @@ class MemoryStore:
             return None
         return val
 
-    async def set(self, key, value, *, ttl=None, embedding=None, subject=None, mode=None, hint_level=None, **kw) -> None:
+    async def set(self, key, value, *, ttl=None, embedding=None, subject=None, mode=None, hint_level=None, question: str = "", **kw) -> None:
         self._data[key] = (time.time(), value)
         if embedding:
             self._vec[key] = (
                 cache_namespace(subject=subject, mode=mode, hint_level=hint_level),
                 list(embedding),
             )
+            self._q[key] = normalize_question(question)
 
     async def approx_get(
         self,
@@ -126,6 +182,7 @@ class MemoryStore:
         subject=None,
         mode=None,
         hint_level=None,
+        question: str = "",
     ) -> Optional[dict]:
         if not embedding:
             return None
@@ -142,7 +199,7 @@ class MemoryStore:
             if s > best_score:
                 best_score, best_key = s, k
         if best_key and best_score >= threshold:
-            return self._data[best_key][1]
+            return self._data[best_key][1] if _same_question(self._q.get(best_key), question) else None
         return None
 
 
@@ -243,9 +300,14 @@ class PgStore:
         subject=None,
         mode=None,
         hint_level=None,
+        question: str = "",
     ) -> Optional[dict]:
         """向量近似命中。**必须限定命名空间**（subject/mode/hint_level 三元组），
-        否则会跨 Hint 级 / 跨档位复用 LLM 输出，造成串味。"""
+        否则会跨 Hint 级 / 跨档位复用 LLM 输出，造成串味。
+
+        相似度达标只是必要条件：还要 [_same_question] 这道"题干等价"门槛——
+        数学题差一个括号就是另一道题（2026-10-28：0.988 相似度的两道题被复用成同一答案）。
+        """
         if not embedding:
             return None
         from app.db.pg import get_pool
@@ -255,7 +317,7 @@ class PgStore:
             pool = await get_pool()
             async with pool.acquire() as conn:
                 row = await conn.fetchrow(
-                    """SELECT result_json FROM llm_cache
+                    """SELECT result_json, question FROM llm_cache
                        WHERE embedding IS NOT NULL
                          AND 1 - (embedding <=> $1::vector) >= $2
                          AND subject IS NOT DISTINCT FROM $3
@@ -269,6 +331,9 @@ class PgStore:
                     hint_level,
                 )
                 if not row:
+                    return None
+                if not _same_question(row["question"], question):
+                    log.debug("cache APPROX REJECT: 题干不等价，拒绝复用")
                     return None
                 v = row["result_json"]
                 return json.loads(v) if isinstance(v, str) else v
@@ -394,6 +459,7 @@ async def cached_solve(
             emb = (await embeddings.embed([question], embed_cfg=embed_cfg))[0]
             approx = await store.approx_get(
                 emb, subject=subject, mode=mode, hint_level=hint_level,
+                question=question,
             )
             if approx is not None:
                 log.debug("cache APPROX HIT %s", key)
