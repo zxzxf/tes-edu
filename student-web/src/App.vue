@@ -7,7 +7,10 @@
       <div class="af-emoji">👀</div>
       <p class="af-msg">{{ feature.antiFatigue.message }}</p>
       <div class="af-sub">建议休息 {{ feature.antiFatigue.break_min }} 分钟，远眺放松眼睛</div>
-      <button class="af-btn" @click="af.dismiss">好的，休息一下</button>
+      <div class="af-actions">
+        <button class="af-btn" @click="af.dismiss">好的，休息一下</button>
+        <button class="af-link" @click="af.snooze">本次学习不再提醒</button>
+      </div>
     </div>
   </div>
 </template>
@@ -46,9 +49,15 @@ router.afterEach(() => {
 .af-emoji { font-size: 40px; }
 .af-msg { font-size: 17px; font-weight: 700; margin: 12px 0 6px; }
 .af-sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+.af-actions { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .af-btn {
   background: var(--brand-grad); color: #fff; border: none; border-radius: 10px;
   padding: 10px 18px; font-weight: 700; cursor: pointer;
 }
 .af-btn:hover { opacity: .92; }
+.af-link {
+  background: none; border: none; color: var(--muted); font-size: 13px;
+  cursor: pointer; text-decoration: underline;
+}
+.af-link:hover { color: var(--brand, #7c5cff); }
 </style>
