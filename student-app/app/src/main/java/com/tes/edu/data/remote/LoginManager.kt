@@ -4,9 +4,13 @@ package com.tes.edu.data.remote
  * 统一登录入口（占位账号换 JWT）。
  *
  * 坑（2026-10-27 修复）：此前只有图谱页（GraphViewModel.ensureLogin）会登录，
- * 输入/触类/拍照三个模块直接打 /api/app/*——网关 /api/app/ 是 jwt_c 模式，
+ * 输入/触类/拍照三个模块直接打 App 端点（网关 jwt_c 模式）——
  * 冷启动没有 token 就 401 "missing token"（输入模块报 401 的根因）。
  * 所有需要身份的请求都必须经 [withAuth] 先确保登录。
+ *
+ * ⚠️ 本文件注释里禁止出现「斜杠+星号」连写（例如把端点写成 /api/app 加通配星号）：
+ * Kotlin 块注释**支持嵌套**（与 Java 不同），注释体内的该序列会被当成再开一层注释，
+ * 导致外层 KDoc 永不闭合，编译报 "Unclosed comment"（2026-10-27 踩过）。
  */
 object LoginManager {
     /** 占位演示账号（P2 接真实用户库后替换为登录页输入）。 */
