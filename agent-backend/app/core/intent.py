@@ -18,7 +18,7 @@
 """
 from __future__ import annotations
 
-from app.core import config, tenant_llm
+from app.core import config, llm, tenant_llm
 
 INTENT_DIRECT = "direct"
 INTENT_EXPLAIN = "explain"
@@ -153,6 +153,7 @@ async def classify_intent_llm(question: str, context: dict | None = None, *, llm
             model=cfg.chat_model,
             temperature=0,
             max_tokens=8,
+            **llm.thinking_kwargs("intent"),
             messages=[
                 {
                     "role": "system",

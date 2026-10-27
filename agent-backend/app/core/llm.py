@@ -48,6 +48,21 @@ _SLASH_AMBIGUITY_HINT = (
 )
 
 
+def thinking_kwargs(mode: str | None = None) -> dict:
+    """给 ``chat.completions.create`` 补 ``extra_body``，按档位控制推理模型思维链。
+
+    推理模型（如 qwen3.6-flash）默认会先生成几千 token 的思维链再作答，
+    实测 33.8s vs 关掉后 5.5s（同题，答案质量不变）。思维链不进答案正文，
+    对学生而言纯粹是等待时间，故默认关闭，仅对指定档位开启。
+
+    非推理模型收到该参数会被忽略，不会报错，故可无条件携带。
+    """
+    on = config.LLM_THINKING or (mode in config.LLM_THINKING_MODES if mode else False)
+    if on:
+        return {}
+    return {"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}
+
+
 def _slash_ambiguous(question: str) -> bool:
     """题干是否含"斜杠歧义"（无 LaTeX 分式、斜杠后仍有加减/指数）。
 
@@ -194,6 +209,7 @@ async def _remote_solve(
             messages=_build_messages(question, context, mode),
             temperature=0.3,
             max_tokens=max_tokens,
+            **thinking_kwargs(mode),
         )
         content = resp.choices[0].message.content or ""
         data = _parse_json(content)
@@ -363,7 +379,8 @@ async def _remote_judge(question: str, student_answer: str, context: dict | None
     try:
         client = tenant_llm.make_client(cfg)
         resp = await client.chat.completions.create(
-            model=cfg.chat_model, messages=messages, temperature=0
+            model=cfg.chat_model, messages=messages, temperature=0,
+            **thinking_kwargs("judge"),
         )
         data = _parse_json(resp.choices[0].message.content or "")
         if isinstance(data.get("correct"), bool):
@@ -470,6 +487,7 @@ async def _remote_similar(
             messages=_build_messages(question, context, "similar"),
             temperature=0.7,
             max_tokens=max_tokens,
+            **thinking_kwargs("similar"),
         )
         content = resp.choices[0].message.content or ""
         data = _parse_json(content)

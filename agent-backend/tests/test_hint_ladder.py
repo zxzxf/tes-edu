@@ -431,3 +431,23 @@ def test_no_internal_retrieval_state_leaks_into_prompt():
     assert "无检索结果" not in body
     assert "请说明" not in body
     assert "（无参考材料，直接按学科通法作答）" in body  # 只约束行为，不要求汇报
+
+
+def test_thinking_disabled_by_default_can_be_enabled_per_mode():
+    """回归：推理模型思维链默认必须关掉。
+
+    实测 qwen3.6-flash 同一道导数含参题：开思考 33.8s/4299 tok（reasoning 3694），
+    关思考 5.5s/600 tok，推导仍正确。思维链不进答案正文，对学生是纯等待。
+    """
+    kw = llm.thinking_kwargs("quick")
+    assert kw["extra_body"]["chat_template_kwargs"]["enable_thinking"] is False
+
+    # 按档位单独开启时（LLM_THINKING_MODES 含该档）不再下发关闭参数
+    import app.core.config as cfg
+    old = cfg.LLM_THINKING_MODES
+    try:
+        cfg.LLM_THINKING_MODES = {"explain"}
+        assert llm.thinking_kwargs("explain") == {}
+        assert llm.thinking_kwargs("quick") != {}
+    finally:
+        cfg.LLM_THINKING_MODES = old

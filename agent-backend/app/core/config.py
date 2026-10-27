@@ -56,6 +56,19 @@ MODE_TO_MAX_TOKENS = {
     "similar": LLM_MAX_TOKENS_SIMILAR,
 }
 
+# ---- 推理模型思维链（reasoning）开关 ----
+# 实测（qwen3.6-flash，同一道导数含参题）：
+#   开思考 33.8s / 输出 4299 tok（其中 reasoning 3694）
+#   关思考  5.5s / 输出  600 tok —— 快 6 倍，推导仍正确。
+# 思维链对"学生等答案"是纯负担：它烧的是学生感知到的首字延迟，还不进答案正文。
+# 默认全关；确需深度推理的档位用 LLM_THINKING_MODES 单独开（如 "explain"）。
+LLM_THINKING = _get("LLM_THINKING", "0") not in ("0", "false", "False", "")
+LLM_THINKING_MODES = {
+    m.strip()
+    for m in (_get("LLM_THINKING_MODES", "") or "").split(",")
+    if m.strip()
+}
+
 # ---- 数据层（106 的 pgvector/pg16） ----
 DB_DSN = _get("DB_DSN")  # postgresql://user:pass@host:5432/dbname
 

@@ -25,7 +25,7 @@ import re
 import unicodedata
 from typing import Any
 
-from app.core import config, tenant_llm
+from app.core import config, llm, tenant_llm
 
 # taxonomy 七类 + unknown（见 步骤级归因标注Schema-v1）
 TAXONOMY = ("concept", "formula", "case", "calc", "read", "logic", "strategy")
@@ -371,6 +371,7 @@ async def judge_by_llm(bundle: dict, student_answer: str, *, llm_cfg=None) -> di
             ],
             temperature=0,
             timeout=JUDGE_TIMEOUT,
+            **llm.thinking_kwargs("judge"),
         )
         data = _j(resp.choices[0].message.content or "") or {}
         if not isinstance(data, dict) or "correct" not in data:
@@ -454,6 +455,7 @@ async def seed_steps_bg(content_hash: str, bundle: dict) -> None:
             ],
             temperature=0,
             timeout=JUDGE_TIMEOUT,
+            **llm.thinking_kwargs("seed"),
         )
         items = _j(resp.choices[0].message.content or "") or []
         if not isinstance(items, list) or not items:

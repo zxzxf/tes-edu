@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import time
 
-from app.core import config, llm_cache, model_router, qtype, tenant_llm, usage
+from app.core import config, llm, llm_cache, model_router, qtype, tenant_llm, usage
 
 # ---------------------------------------------------------------- 阶梯定义
 
@@ -630,6 +630,7 @@ async def _remote_hint_raw(
             model=route["model"],
             messages=_build_hint_messages(question, context, level, history, step),
             temperature=0.3,
+            **llm.thinking_kwargs("guide"),
         )
         content = resp.choices[0].message.content or ""
         text = content.strip()
