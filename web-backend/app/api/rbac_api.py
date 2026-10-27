@@ -34,6 +34,10 @@ from app.services import scope as scope_svc
 
 router = APIRouter(tags=["rbac"])
 
+# 平台超管内置账号：不在用户管理列表展示（种子见 rbac_seed.build_seed_admin_user）。
+# 仅对列表隐藏，按 user_id 的更新/重置接口不受影响；如需按名查询也一并排除。
+HIDDEN_LIST_USERNAMES = {"admin@tes.edu"}
+
 
 # ---------------- 请求/响应模型 ----------------
 class TenantIn(BaseModel):
@@ -571,6 +575,7 @@ async def list_users(
     返回不含 password_hash；附带每个用户的 role_ids 便于前端回显。
     """
     stmt = select(m.SysUser)
+    stmt = stmt.where(m.SysUser.username.notin_(HIDDEN_LIST_USERNAMES))
     if keyword:
         stmt = stmt.where(m.SysUser.username.ilike(f"%{keyword.strip()}%"))
     if status is not None:
