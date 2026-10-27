@@ -152,10 +152,17 @@
     <!-- 新增 / 编辑对话框 -->
     <div v-if="dialog" class="mask" @click.self="dialog = null">
       <div class="tes-card dialog" role="dialog" aria-modal="true">
-        <h3>{{ dialog.mode === 'create' ? '新增模型配置' : `编辑配置：${form.tenant_id}` }}</h3>
+        <h3>{{ dialogTitle }}</h3>
         <div class="form-grid">
           <label v-if="isAdmin">租户 ID
-            <input v-model.trim="form.tenant_id" placeholder="如 school_pilot_01（超管可代配）" />
+            <!-- 编辑态锁定回显（黑字必可见，防误改租户）；新增态可手输并下拉已有租户 -->
+            <input v-if="dialog.mode === 'edit'" :value="form.tenant_id" disabled title="编辑时租户不可修改" />
+            <input v-else v-model.trim="form.tenant_id" list="tenant-options"
+              placeholder="如 school_pilot_01（超管可代配）" />
+            <span v-if="dialog.mode === 'edit'" class="hint">编辑时租户不可修改；如需改租户请新建配置。</span>
+            <datalist id="tenant-options">
+              <option v-for="r in rows" :key="r.tenant_id" :value="r.tenant_id" />
+            </datalist>
           </label>
 
           <label>供应商（预设）
@@ -297,6 +304,14 @@ function blankForm() {
 const presetModels = computed(() => {
   const p = presets.value.find((x) => x.provider === selectedProvider.value)
   return p ? p.models || [] : []
+})
+
+// 弹窗标题：编辑态带租户与供应商，打开即知在改谁；新增态明示"新增"。
+const dialogTitle = computed(() => {
+  if (!dialog.value) return ''
+  if (dialog.value.mode === 'create') return '新增模型配置'
+  const p = presets.value.find((x) => x.provider === form.value.provider)
+  return `编辑配置：${form.value.tenant_id}${p ? `（${p.display_name}）` : ''}`
 })
 
 async function load() {
@@ -601,6 +616,8 @@ code.url {
   border: 1.5px solid var(--line-strong); border-radius: 8px; padding: 8px 10px; font: inherit;
 }
 .form-grid input:focus, .form-grid select:focus { outline: none; border-color: var(--brand-2, #ff7a7a); }
+/* 禁用态（编辑时锁定的租户 ID）也要看清内容：黑字，不做灰化 */
+.form-grid input:disabled { color: var(--ink, #1f1b2e); background: #fafafc; cursor: not-allowed; }
 .adv { margin-top: 16px; border-top: 1px dashed var(--line-strong); padding-top: 12px; }
 .adv summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
