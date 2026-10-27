@@ -588,6 +588,7 @@ async def _remote_hint(
         variant=variant or None,
         store=store,
         on_hit=_on_cache_hit,
+        embed_cfg=cfg,
     )
 
 

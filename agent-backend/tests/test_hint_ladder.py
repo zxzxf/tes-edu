@@ -262,7 +262,7 @@ def client(monkeypatch):
     async def _noop_warm():
         return None
 
-    async def _fake_retrieve(_q, subject=None):
+    async def _fake_retrieve(_q, subject=None, **kwargs):
         return {"chunks": list(_CTX_MEDIUM["chunks"]), "points": ["一元一次方程"]}
 
     async def _fake_similar(_q, context=None):

@@ -15,7 +15,7 @@ def client(monkeypatch):
     async def _noop_warm():
         return None
 
-    async def _fake_retrieve(_q, subject=None):
+    async def _fake_retrieve(_q, subject=None, **kwargs):
         return {"chunks": [], "points": []}
 
     async def _fake_solve(_q, context=None, mode="explain", **kwargs):

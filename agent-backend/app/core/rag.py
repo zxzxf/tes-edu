@@ -14,6 +14,7 @@ import math
 import os
 
 from app.core import config, embeddings
+from app.core.embeddings import EmbedConfig
 
 _DOCS: list[dict] = []
 _VEC: list[list[float]] = []
@@ -79,9 +80,23 @@ def _fmt(score: float, doc: dict) -> dict:
     }
 
 
-async def retrieve(query: str, subject: str | None = None) -> dict:
-    """检索与问题相关的知识点/例题。"""
-    q_vec = await embeddings.embed_one(query)
+async def retrieve(query: str, subject: str | None = None, *, llm_cfg=None) -> dict:
+    """检索与问题相关的知识点/例题。
+
+    ``llm_cfg`` 传入且租户配置了 embedding 模型时，按学校 BYOM 配置的 embedding 端点/
+    模型对查询向量化（与 KB 向量空间一致由学校侧保证）；否则回落全局 ``config.EMBED_*``。
+    """
+    embed_cfg: EmbedConfig | None = None
+    if llm_cfg is not None:
+        emb_model = getattr(llm_cfg, "embed_model", "") or ""
+        if emb_model:
+            embed_cfg = EmbedConfig(
+                base_url=getattr(llm_cfg, "embed_base_url", "") or config.EMBED_BASE_URL,
+                api_key=getattr(llm_cfg, "embed_api_key", "") or config.EMBED_API_KEY,
+                model=emb_model,
+                dim=int(getattr(llm_cfg, "embed_dim", 0) or config.EMBED_DIM),
+            )
+    q_vec = await embeddings.embed_one(query, embed_cfg=embed_cfg)
     if config.db_ready():
         chunks = await _search_pg(q_vec, subject)
     else:

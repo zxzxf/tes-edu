@@ -71,7 +71,8 @@ async def handle_question(
     #    一次请求内只解析一次，向下游所有 LLM 调用透传，避免重复查库/缓存。
     cfg = await tenant_llm.resolve_llm_config(tenant_id) if tenant_id else None
     # 1) RAG 检索上下文（知识点 / 例题 / 题型）
-    ctx = await rag.retrieve(question, subject=subject)
+    #    llm_cfg（租户级配置）透传：学校配置了独立 embedding 模型时按学校端点向量化
+    ctx = await rag.retrieve(question, subject=subject, llm_cfg=cfg)
     # 2) T-C3 "直接看解析"一等功能：mode=direct 直达 L4（等价 direct_reveal），
     #    App 常驻按钮走此入口；行为入埋点（solve.py）且不作为违规（R6）。
     if mode == "direct":

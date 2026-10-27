@@ -6,7 +6,8 @@
 1. 命中 ``tenant_model_config`` 且 ``enabled=true`` → 解密 key 返回（租户级覆盖）；
 2. 未命中 / 禁用 / 触发 SSRF 闸门 → **回落全局 env** （``config.LLM_*`` / ``EMBED_*``），
    行为与接入 BYOM 前完全一致；
-3. 命中结果按 ``tenant_id`` 短 TTL 缓存（Redis，无则进程内兜底），配置变更短窗口自愈。
+3. 命中结果按 ``tenant_id`` 短 TTL 缓存（本地 SQLite 文件，无则进程内兜底），
+   配置变更短窗口自愈。**缓存值刻意剔除 API Key**（方案 A），密钥每次从 DB 解密回填。
 
 返回 ``LLMConfig`` 的字段对齐现有 socratic / judge / embeddings 调用契约
 （base_url / api_key / model 等），后续可直接把租户配置接进真实调用链。
@@ -19,10 +20,12 @@
 """
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import json
 import logging
 import os
+import sqlite3
 import time
 from dataclasses import asdict, dataclass
 from typing import Awaitable, Callable, Optional
@@ -146,55 +149,139 @@ class _LocalCache:
         self._d.pop(key, None)
 
 
-class _RedisCache:
-    """Redis 缓存（与 llm_cache 同思路：存储抖动不拖垮主链路）。"""
+class _SqliteCache:
+    """本地 SQLite 缓存：把解析后的租户模型配置落本地文件，查询走本地磁盘（亚毫秒级），
 
-    def __init__(self, url: str, ttl: int = DEFAULT_TTL):
-        import redis.asyncio as aioredis
+    不再每次请求都打 Redis / Postgres，提升模型配置查询性能（T-VLM 后续需求：
+    所有面向学生端的模型变量都从学校 BYOM 配置取，配置查询必须够快）。
 
-        self._r = aioredis.from_url(url, socket_connect_timeout=2, socket_timeout=2)
+    - 单文件 + WAL + busy_timeout：轻量并发可读，写入冲突自动退避；
+    - 惰性建表 ``byom_cfg_cache(key, value, ts)``，过期由 TTL 在 get 时惰性清理；
+    - 打开/读写失败一律回落调用方（最终回落进程内缓存），绝不拖垮主链路；
+    - 用标准库 sqlite3 + 线程池（非 aiosqlite）：不与 event loop 绑定，
+      loop 关闭 / 进程重载时不会挂住收尾。
+    """
+
+    def __init__(self, db_path: str, ttl: int = DEFAULT_TTL):
+        self.db_path = db_path
         self.ttl = ttl
+        self._conn = None
+        self._lock = asyncio.Lock()
+
+    def _connect(self):
+        """同步建连（在 worker 线程内执行）。
+
+        用标准库 ``sqlite3`` 而非 aiosqlite：后者维护常驻后台线程，event loop
+        关闭时（测试收尾 / 进程重载）清理不掉会挂住解释器。这里把同步调用丢进
+        线程池，既保持 async 接口，又不与任何 event loop 绑定。
+        """
+        if self._conn is None:
+            d = os.path.dirname(self.db_path)
+            if d:
+                os.makedirs(d, exist_ok=True)
+            # check_same_thread=False：连接由线程池里的任意 worker 复用
+            conn = sqlite3.connect(self.db_path, timeout=5, check_same_thread=False)
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=5000")
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS byom_cfg_cache ("
+                "key TEXT PRIMARY KEY, value TEXT, ts REAL)"
+            )
+            conn.commit()
+            self._conn = conn
+        return self._conn
+
+    async def _op(self, fn):
+        """在 worker 线程里执行一次 DB 操作，串行化以避免写冲突。"""
+        async with self._lock:
+
+            def _go():
+                return fn(self._connect())
+
+            return await asyncio.to_thread(_go)
 
     async def get(self, key: str) -> Optional[dict]:
+        def _q(conn):
+            cur = conn.execute(
+                "SELECT value, ts FROM byom_cfg_cache WHERE key=?", (key,)
+            )
+            return cur.fetchone()
+
         try:
-            raw = await self._r.get(key)
+            row = await self._op(_q)
         except Exception as e:  # noqa: BLE001
-            log.warning("byom redis get failed: %s", e)
+            log.warning("byom sqlite get failed: %s", e)
             return None
-        if raw is None:
+        if not row:
+            return None
+        val, ts = row
+        if time.time() - ts > self.ttl:
+            await self.delete(key)
             return None
         try:
-            return json.loads(raw)
+            return json.loads(val)
         except (ValueError, TypeError):
             return None
 
     async def set(self, key: str, value: dict) -> None:
+        # 序列化在主线程完成，避免把不可序列化对象带进 worker 线程才炸
         try:
-            await self._r.set(key, json.dumps(value, ensure_ascii=False), ex=self.ttl)
+            payload = json.dumps(value, ensure_ascii=False)
+        except (TypeError, ValueError) as e:  # noqa: BLE001
+            log.warning("byom sqlite set skipped (unserializable): %s", e)
+            return
+
+        def _w(conn):
+            conn.execute(
+                "INSERT INTO byom_cfg_cache(key, value, ts) VALUES(?,?,?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value, ts=excluded.ts",
+                (key, payload, time.time()),
+            )
+            conn.commit()
+
+        try:
+            await self._op(_w)
         except Exception as e:  # noqa: BLE001
-            log.warning("byom redis set failed: %s", e)
+            log.warning("byom sqlite set failed: %s", e)
 
     async def delete(self, key: str) -> None:
+        def _d(conn):
+            conn.execute("DELETE FROM byom_cfg_cache WHERE key=?", (key,))
+            conn.commit()
+
         try:
-            await self._r.delete(key)
+            await self._op(_d)
         except Exception as e:  # noqa: BLE001
-            log.warning("byom redis delete failed: %s", e)
+            log.warning("byom sqlite delete failed: %s", e)
+
+    async def close(self) -> None:
+        """释放底层连接（进程退出 / 测试收尾用）。"""
+        conn = self._conn
+        self._conn = None
+        if conn is not None:
+            try:
+                await asyncio.to_thread(conn.close)
+            except Exception:  # noqa: BLE001
+                pass
 
 
 _cache_backend: object = None
 
 
 def get_cache():
-    """惰性挑选缓存后端：有 REDIS_URL → Redis；否则进程内。"""
+    """惰性挑选缓存后端：本地 SQLite 文件（BYOM_CACHE_DB，默认 /app/data/byom_cache.db）
+
+    为首选；打开失败则回落进程内缓存。配置解析结果走本地磁盘，查询远低于 Redis /
+    Postgres 网络往返，契合「所有面向学生端的模型变量都从学校 BYOM 配置取」的高频查询。
+    """
     global _cache_backend
     if _cache_backend is not None:
         return _cache_backend
-    if config.REDIS_URL:
-        try:
-            _cache_backend = _RedisCache(config.REDIS_URL, _ttl())
-        except Exception as e:  # noqa: BLE001
-            log.warning("byom redis init failed, fall back to local: %s", e)
-    if _cache_backend is None:
+    db = os.getenv("BYOM_CACHE_DB") or "/app/data/byom_cache.db"
+    try:
+        _cache_backend = _SqliteCache(db, _ttl())
+    except Exception as e:  # noqa: BLE001
+        log.warning("byom sqlite init failed, fall back to local: %s", e)
         _cache_backend = _LocalCache(_ttl())
     return _cache_backend
 
@@ -292,6 +379,42 @@ async def resolve_llm_config(
         log.debug("byom cache get failed: %s", e)
         cached = None
     if cached:
+        # 缓存命中：非敏感字段已缓存，但 **API Key 不落盘**，需从 DB 重新解密回填。
+        # 这是方案 A 的取舍——用一次查库+解密（~3ms）换「密钥绝不出现在本地文件里」。
+        load = loader or _fetch_tenant_row
+        row = await load(tenant_id)
+        if row and row.get("enabled"):
+            try:
+                chat_key = decrypt(bytes(row["api_key_enc"]))
+                cached["chat_api_key"] = chat_key
+                # embed key：租户单独配了就解密，否则复用 chat key
+                if row.get("embed_api_key_enc"):
+                    try:
+                        cached["embed_api_key"] = decrypt(bytes(row["embed_api_key_enc"]))
+                    except Exception:  # noqa: BLE001
+                        cached["embed_api_key"] = chat_key
+                else:
+                    cached["embed_api_key"] = chat_key
+            except Exception as e:  # noqa: BLE001
+                log.warning("byom cache key refill failed for %s: %s", tenant_id, e)
+                row = None
+        if not row or not row.get("enabled"):
+            # 租户已被删除/禁用：缓存失效，清掉后回落全局。
+            # 必须先删缓存，否则下次仍会命中这份「没有 key」的脏配置。
+            try:
+                await backend.delete(key)
+            except Exception:  # noqa: BLE001
+                pass
+            return _global_config()
+        # 缓存里存的 base_url 是上次校验过的，但缓存文件理论上可被篡改，
+        # 这里按同样闸门复检一遍（纯字符串判定，成本可忽略）。
+        for _u in (cached.get("chat_base_url"), cached.get("embed_base_url")):
+            if _u:
+                try:
+                    assert_safe_base_url(_u)
+                except SSRFRejected as e:
+                    log.warning("byom SSRF guard blocked cached url for %s: %s", tenant_id, e)
+                    return _global_config()
         return LLMConfig(**cached)
 
     load = loader or _fetch_tenant_row
@@ -351,7 +474,9 @@ async def resolve_llm_config(
         cfg.vlm_base_url = config.VLM_BASE_URL or cfg.vlm_base_url
         cfg.vlm_model = config.VLM_MODEL or ""
     try:
-        await backend.set(key, asdict(cfg))
+        # 安全：缓存时剔除 API Key，避免密钥落盘；下次读取时从 DB 重新解密
+        cache_val = {k: v for k, v in asdict(cfg).items() if "api_key" not in k}
+        await backend.set(key, cache_val)
     except Exception as e:  # noqa: BLE001
         log.warning("byom cache set failed: %s", e)
     return cfg

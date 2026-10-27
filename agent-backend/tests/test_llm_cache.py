@@ -35,9 +35,9 @@ class _approx:
         lc.config.embed_ready = (lambda: True) if self.on else (lambda: False)
         if self.on:
             if self.vectors is None:
-                emb_mod.embed = lambda texts: asyncio.sleep(0, result=[[0.6] * 64 for _ in texts])
+                emb_mod.embed = lambda texts, **kw: asyncio.sleep(0, result=[[0.6] * 64 for _ in texts])
             else:
-                emb_mod.embed = lambda texts: asyncio.sleep(0, result=[list(v) for v in self.vectors])
+                emb_mod.embed = lambda texts, **kw: asyncio.sleep(0, result=[list(v) for v in self.vectors])
         return self
 
     def __exit__(self, *exc):

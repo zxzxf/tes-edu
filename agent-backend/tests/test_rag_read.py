@@ -71,7 +71,7 @@ def _patch_pg(monkeypatch, rows):
 @pytest.fixture
 def fake_embed(monkeypatch):
     """屏蔽真实 embedding 调用，返回固定维度向量。"""
-    async def _embed_one(_text):
+    async def _embed_one(_text, *, embed_cfg=None):
         return [0.1] * config.EMBED_DIM
 
     monkeypatch.setattr(embeddings, "embed_one", _embed_one)

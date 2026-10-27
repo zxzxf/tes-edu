@@ -334,7 +334,7 @@ def _patch_common(monkeypatch, retrieve):
 def client_finale(monkeypatch):
     """压轴题链路：检索带 type=解答/难度4，bundle 缓存返回 4 步。"""
 
-    async def _fake_retrieve(_q, subject=None):
+    async def _fake_retrieve(_q, subject=None, **kwargs):
         return {"chunks": list(_CTX_FINALE["chunks"]), "points": ["二次函数综合"]}
 
     async def _fake_bundle(_h):
@@ -350,7 +350,7 @@ def client_finale(monkeypatch):
 def client_memory(monkeypatch):
     """记忆型链路：单选；bundle 缓存一旦被调用即失败（记忆型不查库）。"""
 
-    async def _fake_retrieve(_q, subject=None):
+    async def _fake_retrieve(_q, subject=None, **kwargs):
         return {"chunks": list(_CTX_CHOICE["chunks"]), "points": ["集合运算"]}
 
     async def _boom_bundle(_h):

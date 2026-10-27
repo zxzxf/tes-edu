@@ -97,6 +97,7 @@ async def solve(
             content_hash=content_hash,
             store=store,
             on_hit=_on_cache_hit,
+            embed_cfg=cfg,
         )
     return _dev_solve(question, context, mode)
 

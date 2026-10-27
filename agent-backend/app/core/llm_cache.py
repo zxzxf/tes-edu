@@ -346,6 +346,7 @@ async def cached_solve(
     variant: Optional[str] = None,
     store=None,
     on_hit: Callable[..., None] | None = None,
+    embed_cfg=None,
 ) -> dict:
     """带缓存的远程 LLM 调用包装。命中（精确或近似）则跳过 remote_fn，不烧 LLM。
 
@@ -384,11 +385,13 @@ async def cached_solve(
         _notify_hit()
         return hit
 
-    # 近似命中：对查询问题做 embedding，复用同命名空间下的近似同题结果
+    # 近似命中：对查询问题做 embedding，复用同命名空间下的近似同题结果。
+    # 租户配置了 embedding 模型时用其配置（与 RAG 检索同一向量空间），否则回落全局。
     emb = None
-    if config.embed_ready() and not variant:
+    _emb_ready = bool(getattr(embed_cfg, "embed_model", "")) or config.embed_ready()
+    if _emb_ready and not variant:
         try:
-            emb = (await embeddings.embed([question]))[0]
+            emb = (await embeddings.embed([question], embed_cfg=embed_cfg))[0]
             approx = await store.approx_get(
                 emb, subject=subject, mode=mode, hint_level=hint_level,
             )
