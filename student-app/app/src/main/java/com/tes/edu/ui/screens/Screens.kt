@@ -559,7 +559,7 @@ private fun JudgementCard(
                 ) { added ->
                     Toast.makeText(
                         ctx,
-                        if (added) "已收进错题本，去「背诵」页能翻到" else "这道题已经在错题本里了",
+                        if (added) "已收进错题本，去「错题」页能翻到" else "这道题已经在错题本里了",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
