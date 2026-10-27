@@ -387,3 +387,19 @@ def test_template_evidence_is_marked_as_other_question():
             assert "非本题" in ans
     # L4 必须额外给出显式告警句
     assert "当成本题答案" in socratic.template_hint("求 a 的值", ctx, socratic.LEVEL_L4)["answer"]
+
+
+def test_slash_ambiguity_triggers_dual_parse_hint():
+    """回归：斜杠歧义题干（x+2/e^x+a）必须触发『两种解读都给』的提示。
+
+    真机事故：OCR 把 \frac{x+2}{e^x+a} 压成 x+2/e^x+a，a 从分母跑到分子侧，
+    题目被换成另一道，答案从 a=1 变 a=2。
+    """
+    assert llm._slash_ambiguous("已知 f(x)=x+2/e^x+a 的最大值为 1，求 a")
+    assert not llm._slash_ambiguous("已知 f(x)=\\frac{x+2}{e^x+a} 的最大值为 1，求 a")
+    assert not llm._slash_ambiguous("求 x/2 的值")
+
+    msgs = llm._build_messages("已知 f(x)=x+2/e^x+a 的最大值为 1，求 a", None, "direct")
+    body = msgs[-1]["content"]
+    assert "歧义" in body
+    assert "分别" in body

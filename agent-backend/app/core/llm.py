@@ -32,6 +32,31 @@ _SYSTEM = (
 )
 
 
+_SLASH_AMBIGUITY_HINT = (
+    "\n\n【歧义防空·必读】题干里出现了不带括号的斜杠表达式（形如 A/B+C）。\n"
+    "它的分数线覆盖范围未知：既可能是 (A)/(B+C)，也可能是 (A/B)+C —— 这是两个不同的函数，"
+    "答案完全不同（例：\\frac{x+2}{e^x+a} 的 a 在分母，若误读成 x+2/e^x+a，a 就跑到分子侧）。\n"
+    "因此：① 先明确指出该处存在歧义；② 对两种解读**分别**推导并给出各自的答案；"
+    "③ 说明哪一种更可能是原题，并请学生对照原卷确认。\n"
+    "严禁只挑一种解读闷头算，也严禁因其中一种解读无解就判定题目出错。"
+)
+
+
+def _slash_ambiguous(question: str) -> bool:
+    """题干是否含"斜杠歧义"（无 LaTeX 分式、斜杠后仍有加减/指数）。
+
+    OCR 把分数线压成 `/` 且丢括号时命中，用于触发两种解读都给的提示。
+    """
+    import re
+
+    q = question or ""
+    if "/" not in q:
+        return False
+    if "frac" in q or "dfrac" in q:  # 已是规范 LaTeX，无歧义
+        return False
+    return bool(re.search(r"/\s*[A-Za-z0-9^()\\]+\s*[\+\-]", q))
+
+
 def _build_messages(question: str, context: dict | None, mode: str) -> list[dict]:
     chunks = (context or {}).get("chunks", [])
     if chunks:
@@ -42,6 +67,11 @@ def _build_messages(question: str, context: dict | None, mode: str) -> list[dict
     else:
         ctx_text = "（无检索结果，请说明并给出通用思路）"
     user = f"【检索到的知识点与例题】\n{ctx_text}\n\n【学生问题】\n{question}\n\n【模式】{mode}"
+    if _slash_ambiguous(question):
+        # 拍照 OCR 常把分数线压成斜杠并丢掉括号：
+        # (x+2)/(e^x+a) → x+2/e^x+a，a 从分母跑到分子侧，整道题被换掉。
+        # 这种题不能只按一种解读闷头算，必须两种都给，让学生对照原卷确认。
+        user += _SLASH_AMBIGUITY_HINT
     return [
         {"role": "system", "content": _SYSTEM},
         {"role": "user", "content": user},
