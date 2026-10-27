@@ -114,7 +114,11 @@ def decrypt_embed_api_key(blob) -> Optional[str]:
 # ---------- T-M3：脱敏序列化（出响应） ----------
 
 def serialize_config_masked(obj: TenantModelConfig) -> dict:
-    """把 TenantModelConfig 行脱敏序列化（api_key 只显末 4 位，明文不回传）。"""
+    """把 TenantModelConfig 行脱敏序列化（api_key 只显末 4 位，明文不回传）。
+
+    注：明文回显走独立接口 ``POST /byom/config/reveal``（需 system:byom:manage，
+    且留审计日志），本函数任何情况下都不带明文。
+    """
     api_key_masked = ""
     if obj.api_key_enc:
         try:
@@ -143,7 +147,26 @@ def serialize_config_masked(obj: TenantModelConfig) -> dict:
         "api_key_masked": api_key_masked,
         "has_embed_api_key": bool(obj.embed_api_key_enc),
         "embed_api_key_masked": embed_masked,
+        "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
     }
+
+
+# ---------- T-M5：明文回显（列表页「反显」按钮，需权限 + 审计） ----------
+
+def reveal_keys(obj: TenantModelConfig) -> dict:
+    """解密取出明文密钥（仅供后台显式「反显」操作调用）。
+
+    - 解密失败（主密钥轮换 / 密文损坏）抛 ValueError，由 API 层转 400，
+      绝不返回半截明文；
+    - 调用方必须已过 ``require_perm("system:byom:manage")`` 并记录审计日志。
+    """
+    api_key = ""
+    if obj.api_key_enc:
+        api_key = vc.decrypt(obj.api_key_enc)
+    embed_key = ""
+    if obj.embed_api_key_enc:
+        embed_key = vc.decrypt(obj.embed_api_key_enc)
+    return {"api_key": api_key, "embed_api_key": embed_key}
 
 
 # ---------- T-M3：连通性自检 ----------
