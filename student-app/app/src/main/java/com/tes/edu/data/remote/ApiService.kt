@@ -13,6 +13,7 @@ import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Query
+import java.util.concurrent.TimeUnit
 
 // 与 Agent 后端 (FastAPI) 的接口契约保持一致
 data class SolveRequest(
@@ -213,6 +214,16 @@ object ApiClient {
         val session = SessionStore(ctx)
         val client = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor(session))
+            // ⚠️ 必须显式放宽读超时：OkHttp 默认 read/write 各 10s，而解题要跑
+            // RAG 检索 + LLM 生成——线上实测简单题（guide 档）25.8s、复杂题
+            // （explain 档）62.6s，默认值下必然 SocketTimeoutException，
+            // 表现为「转圈半天然后失败」。写超时给 60s（上传图片体积大、
+            // 弱网慢），连接超时保持 10s（连不上就该快速失败，不必久等）。
+            // 链路上其余环节：nginx /api/app/ 单独放宽到 180s（见 deploy/nginx.conf），
+            // 网关 WriteTimeout=0 / ResponseHeaderTimeout=0（不截断长响应）。
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(180, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
             .build()
         return Retrofit.Builder()
             .baseUrl(BASE_URL)
