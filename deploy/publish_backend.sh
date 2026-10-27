@@ -2,7 +2,7 @@
 # 一键发版脚本（本机 → 137）：打包源码 → 上传 → 构建 :real 镜像 → 精确重建容器
 #
 # 用法：
-#   SSH_KEY=<本机私钥路径> SSH_HOST=<ssh 目标> bash deploy/publish_backend.sh web|agent|front|all
+#   SSH_KEY=<本机私钥路径> SSH_HOST=<ssh 目标> bash deploy/publish_backend.sh web|agent|front|student|all
 #   例：SSH_KEY=E:/137服务器/id_ed25519 SSH_HOST=137 bash deploy/publish_backend.sh all
 #   简写（读默认私钥）：bash deploy/publish_backend.sh all
 #
@@ -27,6 +27,10 @@
 #   6. 前端 edu-web-front 是 nginx 静态托管，base/router 均为 /admin/；BYOM 页面
 #      （ModelConfig.vue + api/byom.js）必须进构建，否则浏览器访问 model-config
 #      拿不到厂商列表（旧前端 404 → 前端 fallback “厂商id不存在”）。
+#   7. 学生端 edu-student-web（base/router 均为 /student/）与 edu-lb 的 /student/
+#      静态路由是一对：必须【先起容器、再 reload edu-lb】。顺序反了 nginx -t 会因
+#      proxy_pass http://student-web:80 解析不到主机名而失败，reload 直接报错。
+#      另：容器别名必须含 student-web（edu-lb 配置写死该上游名）。
 set -euo pipefail
 
 KEY="${SSH_KEY:-E:/137服务器/id_ed25519}"
@@ -77,6 +81,26 @@ build_front() {
        docker build -t ${img} ${dir} 2>&1 | tail -3"
 }
 
+build_student() {
+  local dir="/opt/tes-edu-student-web"
+  local img="edu-student-web:real"
+  local tgz="/tmp/student_rel.tgz"
+
+  echo "==> [student] 打包学生端源码（排除 node_modules/dist）"
+  tar --exclude='node_modules' --exclude='dist' -czf "${tgz}" -C "${LOCAL_ROOT}/student-web" .
+
+  echo "==> [student] 上传 + 解板 + 构建镜像（node:20 编译 → nginx 托管）"
+  scp -i "${KEY}" -o StrictHostKeyChecking=no "${tgz}" "${HOST}:/opt/student_rel.tgz"
+
+  ssh -i "${KEY}" -o StrictHostKeyChecking=no "${HOST}" \
+      "set -e; \
+       mkdir -p ${dir}; \
+       cd ${dir} && rm -rf src index.html vite.config.js package.json package-lock.json nginx.conf Dockerfile .dockerignore README.md; \
+       tar -xzf /opt/student_rel.tgz -C ${dir}; \
+       docker tag ${img} ${img%:*}:bak-${BAK} 2>/dev/null || true; \
+       docker build -t ${img} ${dir} 2>&1 | tail -3"
+}
+
 # ---------- 2. 精确重建容器（替换 ip/别名/CMD 用已核对的固定值） ----------
 recreate_web() {
   echo "==> [web] 重建 edu-web-backend（注入 JWT 私钥 + VENDOR 密钥）"
@@ -123,6 +147,33 @@ recreate_front() {
        echo 'started'"
 }
 
+# 学生端重建 + edu-lb 静态路由同步。
+# ⚠️ 顺序敏感：必须先起 student-web 容器（让 DNS 名 student-web 可解析），
+#    再覆盖 nginx.conf 并 reload；否则 nginx -t 会因 proxy_pass 主机名解析失败而报错。
+recreate_student() {
+  echo "==> [student] 重建 edu-student-web"
+  ssh -i "${KEY}" -o StrictHostKeyChecking=no "${HOST}" \
+      "set -e; \
+       docker stop edu-student-web >/dev/null 2>&1 || true; \
+       docker rm   edu-student-web >/dev/null 2>&1 || true; \
+       docker run -d --name edu-student-web \
+         --network ${NET} --network-alias student-web --network-alias edu-student-web \
+         --restart unless-stopped \
+         -p 127.0.0.1:8082:80 \
+         edu-student-web:real; \
+       echo 'started'"
+
+  echo "==> [student] 同步 edu-lb nginx.conf（/student/ 静态路由）并 reload"
+  scp -i "${KEY}" -o StrictHostKeyChecking=no "${LOCAL_ROOT}/deploy/nginx.conf" "${HOST}:/opt/nginx.conf.new" >/dev/null
+  ssh -i "${KEY}" -o StrictHostKeyChecking=no "${HOST}" \
+      "set -e; \
+       cp ${REMOTE_DIR}/nginx.conf ${REMOTE_DIR}/nginx.conf.bak-${BAK} 2>/dev/null || true; \
+       cp /opt/nginx.conf.new ${REMOTE_DIR}/nginx.conf; \
+       docker exec edu-lb nginx -t; \
+       docker kill -s HUP edu-lb; \
+       echo 'lb reloaded'"
+}
+
 # ---------- 3. 健康检查 + BYOM 关键路由自检 ----------
 healthcheck() {
   echo "==> 健康检查 + BYOM 自检"
@@ -149,7 +200,7 @@ PY
   ssh -i "${KEY}" -o StrictHostKeyChecking=no "${HOST}" \
       "set -e; \
        sleep 6; \
-       for c in edu-web-backend edu-agent-backend edu-web-front; do \
+       for c in edu-web-backend edu-agent-backend edu-web-front edu-student-web; do \
          echo \"-- \$c: \$(docker ps --filter name=\$c --format '{{.Status}}')\"; \
        done; \
        echo '-- web healthz'; \
@@ -158,17 +209,23 @@ PY
        docker cp /tmp/_hc_byom.py edu-web-backend:/tmp/_hc_byom.py 2>/dev/null; \
        docker exec edu-web-backend python /tmp/_hc_byom.py 2>&1 | grep -E 'LOGIN|OK|FAIL'; \
        echo '-- web-front BYOM bundle'; \
-       docker exec edu-web-front grep -rl 'byom-form' /usr/share/nginx/html/assets/*.js >/dev/null 2>&1 && echo 'BYOM JS BUNDLED OK' || echo 'BYOM JS MISSING (前端需含 ModelConfig.vue)'"
+       docker exec edu-web-front grep -rl 'byom-form' /usr/share/nginx/html/assets/*.js >/dev/null 2>&1 && echo 'BYOM JS BUNDLED OK' || echo 'BYOM JS MISSING (前端需含 ModelConfig.vue)'; \
+       echo '-- student-web 静态路由（经 edu-lb :80）'; \
+       if docker ps --filter name=edu-student-web --format '{{.Names}}' | grep -q edu-student-web; then \
+         curl -s -o /dev/null -w '/student/ -> HTTP %{http_code}\n' -m 8 http://127.0.0.1:80/student/; \
+         curl -s -o /dev/null -w '/student/projects (SPA深链) -> HTTP %{http_code}\n' -m 8 http://127.0.0.1:80/student/projects; \
+       else echo '(student-web 未部署则跳过)'; fi"
 }
 
 case "${1:-all}" in
-  web)    build_backend web;  recreate_web ;;
-  agent)  build_backend agent; recreate_agent ;;
-  front)  build_front;        recreate_front ;;
-  all)    build_backend web;  build_backend agent; build_front; \
-          recreate_web; recreate_agent; recreate_front ;;
-  *)      echo "用法: $0 web|agent|front|all"; exit 1 ;;
+  web)     build_backend web;  recreate_web ;;
+  agent)   build_backend agent; recreate_agent ;;
+  front)   build_front;        recreate_front ;;
+  student) build_student;      recreate_student ;;
+  all)     build_backend web;  build_backend agent; build_front; build_student; \
+           recreate_web; recreate_agent; recreate_front; recreate_student ;;
+  *)       echo "用法: $0 web|agent|front|student|all"; exit 1 ;;
 esac
 
 healthcheck
-echo "==> 发版完成（bak 标签 edu-*-backend:bak-${BAK} / edu-web-front:bak-${BAK}）"
+echo "==> 发版完成（bak 标签 edu-*-backend:bak-${BAK} / edu-web-front:bak-${BAK} / edu-student-web:bak-${BAK}）"
