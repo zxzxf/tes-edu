@@ -68,7 +68,13 @@ async def login(req: LoginRequest):
         if not u or u["password"] != req.password:
             raise HTTPException(status_code=401, detail="invalid credentials")
         token = create_token(user_id=req.username, role=u["role"], tenant_id=u.get("tenant_id"))
-        return TokenResponse(access_token=token, token_type="bearer", role=u["role"])
+        return TokenResponse(
+            access_token=token,
+            token_type="bearer",
+            role=u["role"],
+            user_id=req.username,
+            tenant_id=u.get("tenant_id"),
+        )
 
     # DB 用户：校验 bcrypt 哈希
     from passlib.context import CryptContext
@@ -87,7 +93,13 @@ async def login(req: LoginRequest):
         role=db_user["role"],
         tenant_id=db_user.get("tenant_id") or "platform",
     )
-    return TokenResponse(access_token=token, token_type="bearer", role=db_user["role"])
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        role=db_user["role"],
+        user_id=db_user["user_id"],
+        tenant_id=db_user.get("tenant_id") or "platform",
+    )
 
 
 @router.get("/me", response_model=UserInfo)

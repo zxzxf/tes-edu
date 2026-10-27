@@ -42,6 +42,28 @@ def test_login_mounted_at_root(client):
     assert body["access_token"]
 
 
+def test_login_returns_user_id_for_student_sync(client):
+    """T-WB1：登录必须回 user_id——App 端拿它当错题/背诵同步的 student_id。
+
+    服务端对 student 角色强制用网关注入的 X-User-Id 作 student_id，所以这里
+    回的流水号必须与 JWT 里的 sub 一致，否则客户端同步到的是另一份数据。
+    """
+    import base64
+    import json as _json
+
+    r = client.post("/login", json={"username": "student@tes.edu", "password": "demo1234"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["user_id"] == "student@tes.edu"
+    # JWT payload 第二段就是 claims，不必验签（这里只核对登录响应与令牌一致）。
+    # 签发用的是 uid 而不是标准 sub（见 jwt_utils.create_token）。
+    payload = body["access_token"].split(".")[1]
+    payload += "=" * (-len(payload) % 4)
+    claims = _json.loads(base64.urlsafe_b64decode(payload))
+    assert claims["uid"] == body["user_id"]
+    assert claims["tenant_id"] == body["tenant_id"] == "school_pilot_01"
+
+
 def test_login_still_mounted_under_admin_prefix(client):
     """/api/admin/login 兼容保留（B 端管理面行为不变）。"""
     r = client.post("/api/admin/login", json={"username": "teacher@tes.edu", "password": "demo1234"})

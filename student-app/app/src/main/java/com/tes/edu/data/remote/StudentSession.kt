@@ -3,15 +3,14 @@ package com.tes.edu.data.remote
 /**
  * 当前学生的会话信息：学生 id + 错题同步游标。
  *
- * 学生 id 怎么来的（读代码结论）：
- *  - `SessionStore` 只存 token / role，登录响应（web-backend `/login`）也只有
- *    access_token 与 role，**不带 student_id**——网关注入的 X-User-Id 是
- *    user_id 不是学生流水号；
- *  - 图谱页既有做法是常量 `DEFAULT_STUDENT_ID = "student_001"`（106 库真实流水）。
+ * 学生 id 怎么来的（T-WB1，2026-10-28 已接上）：
+ *  - 登录响应 `/login` 现在带 `user_id`，`LoginManager.ensureLogin` 把它写进
+ *    `SessionStore.studentId`——服务端对 student 角色强制用网关注入的 X-User-Id
+ *    作 student_id，所以 user_id 就是同步该用的流水号，两端口径天然一致；
+ *  - 老安装只有 token、没存流水号时，`ensureLogin` 会补一次登录把它换回来。
  *
- * 所以这里：未登录（无 token）→ null，调用方安全跳过同步；已登录 → 取
- * SessionStore 里落盘的 studentId（P2 登录返回真实 id 后写入即可），
- * 没有则回落到与图谱页一致的演示学生，保证同一账号前后端对得上。
+ * 所以这里：未登录（无 token）→ null，调用方安全跳过同步；已登录 → 取落盘的
+ * studentId；仍拿不到（老服务端不返回该字段）才回落到演示学生常量。
  */
 object StudentSession {
 

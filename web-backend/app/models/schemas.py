@@ -17,6 +17,10 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     role: str
+    # T-WB1（2026-10-28）：App 端错题/背诵同步要用真实流水号作 student_id。
+    # 兼容旧客户端设为可选——缺字段时 App 回落到占位学号，不会因解析失败崩。
+    user_id: str | None = None
+    tenant_id: str | None = None
 
 
 class UserInfo(BaseModel):

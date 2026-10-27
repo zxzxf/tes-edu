@@ -31,15 +31,21 @@ object LoginManager {
         } catch (e: Exception) {
             return true // JVM 单测环境：无 Context，放行给注入的 fake
         }
-        if (!session.token.isNullOrBlank()) return true
+        // token 与流水号都在才算登录态完备。老版本只落了 token（登录响应当年
+        // 不带 user_id），这种"半截登录态"要补一次登录把流水号换回来，
+        // 否则同步会静默落到写死的占位学号上——表面上一切正常，数据却是别人的。
+        if (!session.token.isNullOrBlank() && !session.studentId.isNullOrBlank()) return true
         return try {
             val res = ApiClient.instance.login(LoginRequest(DEV_USERNAME, DEV_PASSWORD))
             session.token = res.accessToken
             session.role = res.role
+            // T-WB1：把登录带回来的流水号存下来，错题/背诵同步就按这个 id 走。
+            session.studentId = res.userId
             ApiClient.rebuild() // 重建 Retrofit，让 AuthInterceptor 带上新 token
             true
         } catch (e: Exception) {
-            false
+            // 已有 token 时补登录失败，不该把登录态打掉：放行，同步回落占位学号
+            !session.token.isNullOrBlank()
         }
     }
 
