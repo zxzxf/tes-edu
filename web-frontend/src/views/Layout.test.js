@@ -80,4 +80,40 @@ describe('Layout 动态导航（T-AM7）', () => {
     expect(groupLabels(wrapper)).toEqual(['区域运营'])
     expect(navHrefs(wrapper)).toEqual(['/dashboard', '/reports'])
   })
+
+  // 侧栏溢出治理：菜单多时靠 .nav 独立滚动 + 省略号，故每项需带 title 供悬浮看全文
+  it('导航项与分组标题带 title（长文案截断后可悬浮查看全文）', async () => {
+    const wrapper = await mountLayout('teacher', TEACHER_MENUS)
+    const items = wrapper.findAll('a.nav-item')
+    expect(items.length).toBeGreaterThan(0)
+    for (const el of items) {
+      expect(el.attributes('title')).toBe(el.find('.nav-label').text())
+    }
+    // 分组标题同样带 title
+    for (const el of wrapper.findAll('.nav-group')) {
+      expect(el.attributes('title')).toBe(el.text())
+    }
+  })
+
+  it('菜单再多也只渲染一个滚动容器 .nav（溢出靠滚动而非裁切）', async () => {
+    // 用映射表里真实存在的不同 path 构造 10 项，模拟 admin 视角菜单过多
+    const OPS_PATHS = [
+      '/ops/tenant', '/ops/knowledge', '/ops/analytics', '/ops/error-distribution',
+      '/ops/wrong', '/ops/exam', '/ops/grading', '/ops/reports', '/ops/compliance', '/ops/practice',
+    ]
+    const many = [
+      { menu_id: 'm_ops', parent_id: null, menu_name: '区域运营', menu_type: 'DIR', path: '/ops', sort: 1 },
+      ...OPS_PATHS.map((p, i) => ({
+        menu_id: `m_ops_x${i}`, parent_id: 'm_ops', menu_name: `菜单${i}`,
+        menu_type: 'MENU', path: p, sort: i,
+      })),
+    ]
+    const wrapper = await mountLayout('admin', many)
+    expect(wrapper.findAll('.nav')).toHaveLength(1)
+    expect(wrapper.findAll('a.nav-item')).toHaveLength(11) // 概览 + 10 项
+    expect(wrapper.findAll('.nav-group')).toHaveLength(1)
+    // 每项 to 唯一（无重复 key）
+    const hrefs = navHrefs(wrapper)
+    expect(new Set(hrefs).size).toBe(hrefs.length)
+  })
 })
