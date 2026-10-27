@@ -149,11 +149,13 @@ async def _remote_solve(
 
     client = tenant_llm.make_client(cfg)
     t0 = time.monotonic()
+    max_tokens = config.MODE_TO_MAX_TOKENS.get(mode, 800)  # 默认 800
     try:
         resp = await client.chat.completions.create(
             model=route["model"],
             messages=_build_messages(question, context, mode),
             temperature=0.3,
+            max_tokens=max_tokens,
         )
         content = resp.choices[0].message.content or ""
         data = _parse_json(content)
@@ -423,10 +425,12 @@ async def _remote_similar(
     )
     try:
         client = tenant_llm.make_client(cfg)
+        max_tokens = config.MODE_TO_MAX_TOKENS.get("similar", 400)
         resp = await client.chat.completions.create(
             model=route["model"],
             messages=_build_messages(question, context, "similar"),
             temperature=0.7,
+            max_tokens=max_tokens,
         )
         content = resp.choices[0].message.content or ""
         data = _parse_json(content)

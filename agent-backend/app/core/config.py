@@ -38,6 +38,21 @@ EMBED_BATCH = int(_get("EMBED_BATCH", "10"))
 VLM_BASE_URL = _get("VLM_BASE_URL") or LLM_BASE_URL
 VLM_MODEL = _get("VLM_MODEL")
 
+# ---- 解题输出长度限制（按档位，单位 token） ----
+# quick/explain/guide/similar 四档分别给上限，避免简单题也烧大量 token。
+# 默认值：quick=300, explain=800, guide=600, similar=400
+LLM_MAX_TOKENS_QUICK = int(_get("LLM_MAX_TOKENS_QUICK", "300"))
+LLM_MAX_TOKENS_EXPLAIN = int(_get("LLM_MAX_TOKENS_EXPLAIN", "800"))
+LLM_MAX_TOKENS_GUIDE = int(_get("LLM_MAX_TOKENS_GUIDE", "600"))
+LLM_MAX_TOKENS_SIMILAR = int(_get("LLM_MAX_TOKENS_SIMILAR", "400"))
+
+MODE_TO_MAX_TOKENS = {
+    "quick": LLM_MAX_TOKENS_QUICK,
+    "explain": LLM_MAX_TOKENS_EXPLAIN,
+    "guide": LLM_MAX_TOKENS_GUIDE,
+    "similar": LLM_MAX_TOKENS_SIMILAR,
+}
+
 # ---- 数据层（106 的 pgvector/pg16） ----
 DB_DSN = _get("DB_DSN")  # postgresql://user:pass@host:5432/dbname
 
