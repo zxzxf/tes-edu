@@ -451,3 +451,23 @@ def test_thinking_disabled_by_default_can_be_enabled_per_mode():
         assert llm.thinking_kwargs("quick") != {}
     finally:
         cfg.LLM_THINKING_MODES = old
+
+
+def test_truncated_json_never_leaks_raw_to_student():
+    """回归：JSON 被 max_tokens 截断时不得把 {"answer": "... 原样吐给学生。
+
+    真机现象：关思考后引导档讲歧义题，输出 953 字符撞上 max_tokens=600，
+    半截 JSON 解析失败后原样回退，学生看到 {"answer": "这道题存在**歧义**...
+    """
+    raw = '{"answer": "这道题存在**歧义**，请对照原卷确认：\\n1. 解读一 f(x)=\\\\frac{x+2}{e^x+a}'
+    out = llm._salvage_text(raw)
+    assert not out.lstrip().startswith("{")
+    assert "这道题存在**歧义**" in out
+
+    # 非 JSON 文本原样返回，不要误伤
+    assert llm._salvage_text("直接一段话") == "直接一段话"
+
+    # 完整 JSON 仍走正常解析路径，不进 salvage
+    assert llm._parse_json('{"answer": "ok", "steps": ["a"]}') == {
+        "answer": "ok", "steps": ["a"],
+    }

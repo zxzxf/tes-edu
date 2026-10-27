@@ -40,11 +40,14 @@ VLM_MODEL = _get("VLM_MODEL")
 
 # ---- 解题输出长度限制（按档位，单位 token） ----
 # quick/explain/guide/similar 四档分别给上限，避免简单题也烧大量 token。
-# 默认值：quick=300, explain=800, guide=600, similar=400
-LLM_MAX_TOKENS_QUICK = int(_get("LLM_MAX_TOKENS_QUICK", "300"))
-LLM_MAX_TOKENS_EXPLAIN = int(_get("LLM_MAX_TOKENS_EXPLAIN", "800"))
-LLM_MAX_TOKENS_GUIDE = int(_get("LLM_MAX_TOKENS_GUIDE", "600"))
-LLM_MAX_TOKENS_SIMILAR = int(_get("LLM_MAX_TOKENS_SIMILAR", "400"))
+# 默认值：quick=400, explain=1200, guide=900, similar=600
+# 说明：这是"关思考"之后的预算。开思考时 reasoning 会独占几千 token 且不受
+# 该参数约束（实测 max_tokens=8 仍吐 5134 tok），故旧值 300/800 偏紧，
+# 引导档讲歧义题时会被截断成半截 JSON。关思考后同样耗时能出更多正文，故放宽。
+LLM_MAX_TOKENS_QUICK = int(_get("LLM_MAX_TOKENS_QUICK", "400"))
+LLM_MAX_TOKENS_EXPLAIN = int(_get("LLM_MAX_TOKENS_EXPLAIN", "1200"))
+LLM_MAX_TOKENS_GUIDE = int(_get("LLM_MAX_TOKENS_GUIDE", "900"))
+LLM_MAX_TOKENS_SIMILAR = int(_get("LLM_MAX_TOKENS_SIMILAR", "600"))
 
 # ---- 触类旁通：是否随主解一起生成（关掉可省掉一次 LLM 调用，约一半耗时） ----
 SIMILAR_ON_SOLVE = _get("SIMILAR_ON_SOLVE", "1") not in ("0", "false", "False", "")

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 
 from app.core import config, llm_cache, model_router, tenant_llm, usage
@@ -99,6 +100,29 @@ def _build_messages(question: str, context: dict | None, mode: str) -> list[dict
         {"role": "system", "content": _SYSTEM},
         {"role": "user", "content": user},
     ]
+
+
+def _salvage_text(text: str) -> str:
+    """JSON 解析失败时剥掉外壳，绝不把 ``{"answer": "...`` 原样吐给学生。
+
+    常见成因：输出被 max_tokens 截断（关思考后答案变长更容易撞上限），
+    或含未转义字符。此时退回裸文本比给一串 JSON 可读得多。
+    """
+    s = (text or "").strip()
+    if s.startswith("```"):
+        s = s.strip("`").replace("json", "", 1).strip()
+    if not s.startswith("{"):
+        return s
+    # 先试完整字段（非贪婪会漏，故取最长匹配到最后一个引号+分隔符）
+    m = re.search(r'"answer"\s*:\s*"(.*)"\s*[,}]', s, re.S)
+    if m:
+        try:
+            return json.loads('"' + m.group(1) + '"')
+        except Exception:  # noqa: BLE001
+            return m.group(1).replace('\\"', '"').replace("\\n", "\n")
+    # 退而求其次：去掉 JSON 外壳与大括号
+    s = re.sub(r'^\{\s*"answer"\s*:\s*"', "", s)
+    return s.rstrip('"}').replace('\\"', '"').replace("\\n", "\n")
 
 
 def _parse_json(text: str) -> dict:
@@ -213,7 +237,7 @@ async def _remote_solve(
         )
         content = resp.choices[0].message.content or ""
         data = _parse_json(content)
-        answer = data.get("answer") or content
+        answer = data.get("answer") or _salvage_text(content)
         steps = data.get("steps") or []
         # 不同模型返回形态不一：answer 可能是数字，steps 可能是单个字符串
         if isinstance(steps, str):
