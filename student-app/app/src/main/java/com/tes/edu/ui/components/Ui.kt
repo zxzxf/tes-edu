@@ -47,6 +47,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tes.edu.ui.theme.TesEduColors
+import com.tes.edu.util.MathPreview
+import com.tes.edu.util.MathText
 
 // ------------------------------------------------------------------ 卡片 / 容器
 
@@ -168,7 +170,10 @@ fun SoftFieldCard(
     placeholder: String? = null,
     minLines: Int = 3,
     leadingIcon: ImageVector? = null,
-    accent: Color = TesEduColors.Brand
+    accent: Color = TesEduColors.Brand,
+    // 公式预览：开启后，输入里出现 `e^x` 这类写法就在下方实时渲染出来。
+    // 只影响展示，`onValueChange` 抛出的仍是原始字符串。
+    mathPreview: Boolean = false
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
@@ -245,6 +250,10 @@ fun SoftFieldCard(
                 unfocusedPlaceholderColor = TesEduColors.TextMuted
             )
         )
+        if (mathPreview) {
+            Spacer(Modifier.height(8.dp))
+            MathPreview(value)
+        }
     }
 }
 
@@ -430,7 +439,8 @@ fun SoftQuote(
             fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(4.dp))
-        Text(
+        // 证据/点评/纠正里常带 `x^2`、`\frac` 这类写法，按公式渲染
+        MathText(
             text,
             style = MaterialTheme.typography.bodyMedium,
             color = TesEduColors.TextPrimary

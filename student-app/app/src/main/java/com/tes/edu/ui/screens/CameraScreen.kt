@@ -384,7 +384,9 @@ private fun ResultBlock(
             onValueChange = onTextChange,
             placeholder = "把题目放进来…",
             minLines = 4,
-            leadingIcon = Icons.Rounded.EditNote
+            leadingIcon = Icons.Rounded.EditNote,
+            // 识别结果里常有 `x^2`、`\frac` 这类线性写法，编辑时给个渲染预览
+            mathPreview = true
         )
         if (knowledgePoints.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))

@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tes.edu.data.remote.Judgement
 import com.tes.edu.state.AppBridge
+import com.tes.edu.util.MathText
 import com.tes.edu.ui.components.GradientButton
 import com.tes.edu.ui.components.InfoPill
 import com.tes.edu.ui.components.LabelValueRow
@@ -147,12 +148,13 @@ fun InputScreen(vm: SolveViewModel = viewModel()) {
 
         SoftFieldCard(
             label = "题目",
-            hint = "粘贴或手打都行",
+            hint = "次方写 e^x，分数写 1/2",
             value = question,
             onValueChange = { question = it },
             placeholder = "把题目放进来…",
             minLines = 3,
-            leadingIcon = Icons.Rounded.Quiz
+            leadingIcon = Icons.Rounded.Quiz,
+            mathPreview = true
         )
 
         Spacer(Modifier.height(16.dp))
@@ -165,7 +167,8 @@ fun InputScreen(vm: SolveViewModel = viewModel()) {
             placeholder = "例如：由 A+B+C=π 且 A+B=3C，得 4C=π，所以 C=π/4…",
             minLines = 5,
             leadingIcon = Icons.Rounded.EditNote,
-            accent = TesEduColors.Mint
+            accent = TesEduColors.Mint,
+            mathPreview = true
         )
 
         Spacer(Modifier.height(10.dp))
@@ -379,7 +382,8 @@ private fun AnswerCard(answer: String) {
             )
         }
         Spacer(Modifier.height(12.dp))
-        Text(
+        // 解析里常见 `e^x`、`x^2`、`\frac{1}{2}`，按公式渲染（上标/分数/π）
+        MathText(
             answer,
             style = MaterialTheme.typography.bodyMedium,
             color = TesEduColors.TextPrimary
@@ -588,7 +592,7 @@ private fun HintPanel(
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(Modifier.height(4.dp))
-                Text(
+                MathText(
                     text,
                     style = MaterialTheme.typography.bodyMedium,
                     color = TesEduColors.TextPrimary
@@ -714,7 +718,8 @@ fun SimilarScreen(
             },
             placeholder = "把要延伸的题目放进来…",
             minLines = 3,
-            leadingIcon = Icons.Rounded.Quiz
+            leadingIcon = Icons.Rounded.Quiz,
+            mathPreview = true
         )
 
         Spacer(Modifier.height(14.dp))
@@ -877,7 +882,7 @@ private fun VariantCard(
             )
         }
         Spacer(Modifier.height(12.dp))
-        Text(
+        MathText(
             text,
             style = MaterialTheme.typography.bodyMedium,
             color = TesEduColors.TextPrimary
