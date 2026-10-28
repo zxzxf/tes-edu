@@ -37,6 +37,51 @@ def normalize_question(question: str) -> str:
     """
     return _BAD_POWER.sub("^x", question or "")
 
+# ---------------------------------------------------------------- 点评数值护栏
+
+#: 点评里模型自造的"等价写法"，例如「正确答案为61/25（或3.04）」——61/25=2.44，
+#: 3.04 是纯幻觉。学生照着这条点评改答案反而会改错，必须就地校正。
+#: 只认「（或/即/等于 + 纯数字）」这一最易被编造的形态，避免误伤叙述性文字。
+_NUM_EQUIV = re.compile(r"([（(])(或|即|等于)\s*(-?\d+(?:\.\d+)?)\s*([)）])")
+
+
+def _ref_numeric(ref: str | None) -> float | None:
+    """把标准答案解析成可比较的数值；只认「a/b」「a.b」「a」三种，其它返回 None。"""
+    s = (ref or "").strip().replace(" ", "")
+    if not s:
+        return None
+    try:
+        m = re.fullmatch(r"(-?\d+(?:\.\d+)?)/(-?\d+(?:\.\d+)?)", s)
+        if m:
+            den = float(m.group(2))
+            return float(m.group(1)) / den if den else None
+        if re.fullmatch(r"-?\d+(?:\.\d+)?", s):
+            return float(s)
+    except (ValueError, ZeroDivisionError):
+        return None
+    return None
+
+
+def _sanitize_comment_numbers(comment: str, ref_answer: str | None) -> str:
+    """把点评中与标准答案数值不等价的「等价写法」替换成正确值。
+
+    没有可信标准答案（无 ref / 非纯数值）时原样返回——宁可不改，也不瞎改。
+    """
+    ref_v = _ref_numeric(ref_answer)
+    if ref_v is None or not comment:
+        return comment
+
+    def _repl(m: re.Match) -> str:
+        try:
+            v = float(m.group(3))
+        except ValueError:
+            return m.group(0)
+        if abs(v - ref_v) <= 1e-9:
+            return m.group(0)
+        return f"{m.group(1)}{m.group(2)}{ref_v:.10g}{m.group(4)}"
+
+    return _NUM_EQUIV.sub(_repl, comment)
+
 # ---------------------------------------------------------------- bundle 缓存
 
 #: 题目 bundle（type + steps）的进程内缓存：压轴题分步引导每轮都要 steps，
@@ -331,7 +376,7 @@ async def _judge_v2_with_fallback(
             # 结论时必须换成 v1 的说法，否则会回出「correct=false + 转人工复核」这种
             # 自相矛盾的包，学生看到的是"答错了"而不是"没判出来"。
             if v1.get("comment"):
-                j["comment"] = str(v1["comment"])
+                j["comment"] = _sanitize_comment_numbers(str(v1["comment"]), ref_answer)
             else:
                 # v1 没给点评也不能留 unknown 的"转人工复核"——结论已定，文案必须跟上
                 j["comment"] = "未匹配到标注题，已按题目本身判定对错"
