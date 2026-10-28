@@ -44,6 +44,7 @@
           {{ loading ? '登录中…' : '登 录' }}
         </button>
 
+        <p v-if="expired" class="error">登录已过期（有效期 24 小时），请重新登录</p>
         <p v-if="error" class="error">⚠️ {{ error }}</p>
         <p class="hint">演示账号：admin@tes.edu / demo1234</p>
       </div>
@@ -53,7 +54,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const username = ref('')
@@ -61,7 +62,19 @@ const password = ref('')
 const error = ref('')
 const loading = ref(false)
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
+
+// 由 client.js 的 401 兜底跳转带过来：明确告诉用户是登录过期，而不是"页面坏了"
+const expired = ref(route.query.expired === '1')
+
+/** 登录后回跳地址：只接受站内绝对路径，杜绝 ?redirect=//evil.com 开放重定向。 */
+function safeRedirect() {
+  const raw = route.query.redirect
+  if (typeof raw !== 'string') return '/dashboard'
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/dashboard'
+  return raw
+}
 
 async function onLogin() {
   error.value = ''
@@ -72,7 +85,8 @@ async function onLogin() {
   loading.value = true
   try {
     await auth.login(username.value, password.value)
-    router.push('/dashboard')
+    expired.value = false
+    router.push(safeRedirect())
   } catch (e) {
     error.value = '登录失败：' + (e.response?.data?.detail || e.message)
   } finally {
