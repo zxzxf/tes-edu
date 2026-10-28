@@ -666,3 +666,83 @@ def test_fallback_passes_ref_answer_and_tenant(monkeypatch):
     assert seen.get("tenant_id") == "school_pilot_01"
     # v1 没给点评时回落中性说明，同样不能出现"转人工复核"
     assert "转人工复核" not in r["comment"]
+
+
+# ------------------------------------------------- 填空题带变量名写法
+
+def test_blank_with_variable_prefix_hits_map(monkeypatch):
+    """学生写 'a=4' 与写 '4' 必须走同一条查表路径。
+
+    回归：题库标答存值（4），只比整体串时 'a=4' 一律查表不命中、绕道 LLM——
+    判分结果虽对，却白花一次调用，还放弃了标答的权威性。
+    """
+    monkeypatch.setattr(judge_v2, "judge_by_llm", _explode)
+    _patch_bundle(monkeypatch, blank_bundle())  # 标答 '1'
+    for stu in ("1", "a=1", "答案为1", "等于1"):
+        r = _run(judge_v2.judge("题", stu, context=_ctx("h_blank")))
+        assert r["correct"] is True, stu
+        assert r["attribution_source"] == "map", stu
+
+
+def test_blank_wrong_value_still_detected(monkeypatch):
+    """带前缀也不能绕过 wrong_value_map：'a=-1' 仍要按标注判错。"""
+    monkeypatch.setattr(judge_v2, "judge_by_llm", _explode)
+    _patch_bundle(monkeypatch, blank_bundle())  # 错值 -1 有映射
+    r = _run(judge_v2.judge("题", "a=-1", context=_ctx("h_blank")))
+    assert r["correct"] is False
+    assert r["attribution_source"] == "map"
+
+
+def test_blank_value_must_not_match_substring(monkeypatch):
+    """值不同绝不能因剥前缀而误判对：标答 1，学生答 12 / 11 都要交 LLM。"""
+    _patch_bundle(monkeypatch, blank_bundle())
+    for stu in ("12", "11", "a=2"):
+        assert judge_v2.judge_blank_by_map(blank_bundle(), stu) is None, stu
+    # 标答带变量名时，学生写裸值也要认
+    b = blank_bundle()
+    b["answer"] = "a=1"
+    assert judge_v2.judge_blank_by_map(b, "1") is not None
+
+
+def test_wrong_verdict_carries_standard_answer(monkeypatch):
+    """判错时必须带上题库标答——模型重算算出的"正确答案"可能是错的。
+
+    实测：切线题标答 4，模型重算给出 a=5 并写进点评，学生会记成 5。
+    """
+    async def fake_llm(bundle, student_answer, **_kw):
+        return {"correct": False, "partial": False, "comment": "正确解法应为：得 a=5",
+                "first_wrong_step": 1, "error_type": "calc", "evidence": "",
+                "correction": "", "attribution_source": "llm", "need_process": False}
+
+    monkeypatch.setattr(judge_v2, "judge_by_llm", fake_llm)
+    _patch_bundle(monkeypatch, blank_bundle())  # 标答 '1'
+    r = _run(judge_v2.judge("题", "3", context=_ctx("h_blank")))
+    assert r["correct"] is False
+    assert "本题标准答案：1" in r["comment"]
+
+
+def test_standard_answer_not_duplicated(monkeypatch):
+    """点评里已经写了标答就不要重复追加。"""
+    async def fake_llm(bundle, student_answer, **_kw):
+        return {"correct": False, "partial": False, "comment": "正确答案应为 1",
+                "first_wrong_step": 1, "error_type": "calc", "evidence": "",
+                "correction": "", "attribution_source": "llm", "need_process": False}
+
+    monkeypatch.setattr(judge_v2, "judge_by_llm", fake_llm)
+    _patch_bundle(monkeypatch, blank_bundle())
+    r = _run(judge_v2.judge("题", "3", context=_ctx("h_blank")))
+    assert r["comment"] == "正确答案应为 1"
+
+
+def test_standard_answer_not_appended_when_correct(monkeypatch):
+    """判对时无需多余文案。"""
+    async def fake_llm(bundle, student_answer, **_kw):
+        return {"correct": True, "partial": False, "comment": "思路正确",
+                "first_wrong_step": None, "error_type": None, "evidence": "",
+                "correction": "", "attribution_source": "llm", "need_process": False}
+
+    monkeypatch.setattr(judge_v2, "judge_by_llm", fake_llm)
+    # 解答题必走 LLM（填空会先查表命中，测不到这条分支）
+    _patch_bundle(monkeypatch, essay_bundle())
+    r = _run(judge_v2.judge("题", "先求 C 再求高，过程完整", context=_ctx("h_essay")))
+    assert r["comment"] == "思路正确"

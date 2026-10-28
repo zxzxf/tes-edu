@@ -387,17 +387,48 @@ def judge_objective_by_map(bundle: dict, student_answer: str) -> dict | None:
     return None
 
 
+def _blank_match(ans: str, student_answer: str) -> bool:
+    """填空答案等值判定（已归一化）。
+
+    全等之外还要认「带变量名/引导词」的写法：题库标答存的是值（``4``），
+    而学生最自然的作答是 ``a=4``、``答案为4``。此前只比整体串，这类写法一律
+    查表不命中、绕道 LLM——结果是判对的，但白花一次调用，还放弃了标答的权威性。
+    """
+    if not ans:
+        return False
+    ref = {ans, *_split_blanks(ans)}
+    stu = {_norm_value(student_answer)}
+    if stu & ref:
+        return True
+    # 多空题（标答形如「1;2」）不做前缀扩展：只写对一空不该整题判对，
+    # 交 LLM 按步骤/分空判定更稳。
+    if len(_split_blanks(ans)) > 1:
+        return False
+    # 单空：两侧各剥一次「a=」/「答案为」等前缀再求交集。
+    # ⚠️ 只能**学生侧候选 vs 标答侧值集合**求交，绝不能把标答自己的候选
+    # 也塞进 ref —— 那会变成标答自匹配，任何作答都判对（'1' 连 '12' 都认）。
+    ref |= {_norm_value(c) for c in _ans_candidates(ans)}
+    stu |= {_norm_value(c) for c in _ans_candidates(student_answer)}
+    ref.discard("")
+    stu.discard("")
+    return bool(stu & ref)
+
+
 def judge_blank_by_map(bundle: dict, student_answer: str) -> dict | None:
     """路径②：填空查 wrong_value_map。未命中返回 None 交 LLM 兜底。"""
     ans = _norm_value(bundle["answer"])
     stu = _norm_value(student_answer)
     if not stu:
         return None
-    if ans and (stu == ans or stu in _split_blanks(ans)):
+    if ans and _blank_match(ans, student_answer):
         return _ok("作答与标准答案一致（查表判定）")
+    # 错值映射同样要认带前缀的写法：'a=-1' 与 '-1' 是同一个错值，
+    # 否则学生加个变量名就绕开了已标注的典型错误，白白退化成 LLM 兜底。
+    stu_vals = {stu, *(_norm_value(c) for c in _ans_candidates(student_answer))}
+    stu_vals.discard("")
     for s in bundle["steps"]:
         for w in _as_list(s["wrong_value_map"]):
-            if _norm_value(str(w.get("value", ""))) == stu:
+            if _norm_value(str(w.get("value", ""))) in stu_vals:
                 return {
                     "correct": False,
                     "partial": False,
@@ -519,7 +550,27 @@ async def judge(
             return hit
 
     # 解答题 / 查表未命中 -> LLM
-    return await judge_by_llm(bundle, student_answer, llm_cfg=llm_cfg)
+    j = await judge_by_llm(bundle, student_answer, llm_cfg=llm_cfg)
+    if j.get("correct") is False:
+        _append_standard_answer(j, bundle.get("answer"))
+    return j
+
+
+def _append_standard_answer(verdict: dict, answer: str | None) -> None:
+    """判错时在点评后补上题库标答，防止模型重算的误差变成"系统给的错误答案"。
+
+    ⚠️ 实测（2026-10-29）：切线题 ``y=2x+5`` 切 ``y=e^x+x+a``，标答 4。学生答 3，
+    判分模型重算时把切点写成 ``(0,a)``（漏掉 e^0=1），点评里给出"正确值 a=5"——
+    结论（判错）没错，但学生被告知了一个**错误的正确答案**，比判错本身更误导。
+    有标注题就以标答为准；标答过长（解答题"略"）则不动，避免贴整段解析。
+    """
+    ans = (answer or "").strip()
+    if not ans or len(ans) > REF_ANSWER_MAX_LEN:
+        return
+    comment = str(verdict.get("comment") or "")
+    if ans in comment:
+        return
+    verdict["comment"] = f"{comment}（本题标准答案：{ans}）".strip()
 
 
 async def seed_steps_bg(
