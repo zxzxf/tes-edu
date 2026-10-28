@@ -159,7 +159,15 @@ async def handle_question(
     #    判据用 `is not None`：字段出现即表示"提交了作答"，
     #    空串是"交了白卷"，必须回 need_process 引导，而不是静默不判分。
     if student_answer is not None:
-        out["judgement"] = await _judge_v2_with_fallback(question, student_answer, ctx, llm_cfg=cfg)
+        out["judgement"] = await _judge_v2_with_fallback(
+            question,
+            student_answer,
+            ctx,
+            llm_cfg=cfg,
+            # 本轮 solve 已算出的答案作判据：歧义题（如 OCR 压掉分数线的
+            # "x+2/e^x+a"）若让判分模型换个解读重算，必然把答对的学生判错。
+            ref_answer=str(result.get("answer") or ""),
+        )
     return out
 
 
@@ -265,22 +273,35 @@ async def _handle_hint_round(
 
 
 async def _judge_v2_with_fallback(
-    question: str, student_answer: str, ctx: dict, *, llm_cfg=None
+    question: str,
+    student_answer: str,
+    ctx: dict,
+    *,
+    llm_cfg=None,
+    ref_answer: str | None = None,
 ) -> dict:
     """judge v2 主判；低置信（unknown）时退回 v1 的对错布尔，保住原有信号。
 
-    W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。"""
+    W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。
+
+    ``ref_answer`` 是本轮 solve 的答案，作为 v1 兜底判分的判据与红线校验依据。
+    """
     j = await judge_v2.judge(question, student_answer, context=ctx, llm_cfg=llm_cfg)
     # S4：被要求补过程时不要退回 v1 —— 那会白花一次 LLM 且可能把"没写过程"判成"做错"
     if j.get("need_process"):
         return j
     if j.get("attribution_source") == judge_v2.UNKNOWN:
-        v1 = await llm.judge(question, student_answer, context=ctx, llm_cfg=llm_cfg)
+        v1 = await llm.judge(
+            question, student_answer, context=ctx, llm_cfg=llm_cfg, ref_answer=ref_answer
+        )
         if isinstance(v1.get("correct"), bool):
             j["correct"] = v1["correct"]
             j["partial"] = bool(v1.get("partial", False))
-            if not j.get("comment"):
-                j["comment"] = str(v1.get("comment") or "")
+            # unknown 分支自带的 comment 是「未匹配到标注题，转人工复核」；v1 已判出
+            # 结论时必须换成 v1 的说法，否则会回出「correct=false + 转人工复核」这种
+            # 自相矛盾的包，学生看到的是"答错了"而不是"没判出来"。
+            if v1.get("comment"):
+                j["comment"] = str(v1["comment"])
     return j
 
 

@@ -365,14 +365,70 @@ _JUDGE_SYSTEM = (
     "1) **先自己独立算出这道题的正确答案**，再与学生作答比对——这是唯一判据。\n"
     "2) 若提供了【参考答案与解析】，可作交叉校验；但若它与题目明显不符"
     "（题目和参考答案讲的不是同一道题），**以你自己算出的结果为准**，不要被带偏。\n"
-    "3) 学生作答只要结论正确即算 correct，**不要因为没写过程就判错**——"
+    "2.1) 但若提供了【系统本轮给出的解答】，那是同一道题、同一题面下系统已经算过的结果，"
+    "**优先级高于你自己的重算**：不要因为你的解读与它不同就把学生判错。\n"
+    "3) **题面有歧义时（最高优先）**：纯文本题面里的 `A/B+C` 可能原意是分式 "
+    "`(A)/(B+C)`（分数线信息在排版中丢失）。若系统解答已列出多种解读"
+    "（形如「若为…则…；若为…则…」），**学生作答只要命中其中任意一种解读下的正确答案，"
+    "即判 correct=true**；不得只按你自己选的那一种解读去否定学生。\n"
+    "4) 学生作答只要结论正确即算 correct，**不要因为没写过程就判错**——"
     "只有题目本身明确要求写出推导/证明过程时才把过程纳入判定。\n"
-    "4) 表述差异不影响判定：「等于2」「2」「答案为2」「结果是2」视为同一作答。\n"
-    "5) 结论对但关键过程明显错误算 partial；结论错误才算 correct=false。\n"
-    "6) 学生作答与题目完全无关、或你无法确定对错时，correct 填 false 并在 comment 说明原因。\n"
+    "5) 表述差异不影响判定：「等于2」「2」「答案为2」「结果是2」视为同一作答。\n"
+    "6) 结论对但关键过程明显错误算 partial；结论错误才算 correct=false。\n"
+    "7) 学生作答与题目完全无关、或你无法确定对错时，correct 填 false 并在 comment 说明原因。\n"
     "只输出严格 JSON 且不要包裹 markdown："
     '{"correct": true/false, "partial": true/false, "comment": "一句话点评"}。'
 )
+
+
+_KV_RE = re.compile(
+    r"(?<![\w\\])([A-Za-z一-鿿][A-Za-z0-9_]{0,5}(?:\([^)]{1,12}\))?)\s*[=＝]\s*"
+    r"([^\s,，;；。、()（）]{1,24})"
+)
+
+
+def _kv_pairs(text: str) -> dict[str, str]:
+    """抽出答案里的「标识符=值」对，用于判分兜底比对。
+
+    例：``a=1``、``a_5=11``、``S_n=2n-1``、``f(x)=...``。学生的 ``a=1`` 与系统
+    解答里的 ``a=1`` 能精确对上，这是模型重算失败时最可靠的一道保险。
+    """
+    out: dict[str, str] = {}
+    for k, v in _KV_RE.findall(text or ""):
+        out[_norm(k)] = _norm(v.rstrip("。.，,"))
+    return out
+
+
+def _reconcile_with_ref(
+    verdict: dict, student_answer: str, ref_answer: str | None
+) -> dict:
+    """红线兜底：模型重算把**与系统解答一致**的作答判成错时，改判正确。
+
+    ⚠️ 为什么要这道闸（2026-10-29 线上事故）：题干 OCR 成 ``f(x)=x+2/e^x+a``，
+    原意实为分式 ``(x+2)/(e^x+a)``（答案 a=1）。系统 solve 侧已识别歧义、给出
+    「若为…则 a=1」的双解读；但判分让模型**自己重算一遍**，模型按字面解读算出
+    a=-ln2（且 comment 里自相矛盾地写了三个不同值），把学生正确的 a=1 判为错误。
+
+    模型重算在歧义题上不可靠，而「系统本轮给出的解答」是同源同题、且已做过歧义
+    处理的结果——两者的「标识符=值」精确一致时，学生的答案就是对的，不该被推翻。
+    只在模型判 False 时才介入（判 True 无需纠正），改判同时留痕说明。
+    """
+    if not ref_answer or verdict.get("correct") is not False:
+        return verdict
+    stu = _kv_pairs(student_answer)
+    if not stu:
+        return verdict
+    ref = _kv_pairs(ref_answer)
+    hit = {k: v for k, v in stu.items() if k in ref and ref[k] == v}
+    if not hit:
+        return verdict
+    verdict["correct"] = True
+    verdict["partial"] = False
+    verdict["comment"] = (
+        "作答与系统解答一致（" + "、".join(f"{k}={v}" for k, v in hit.items()) + "）；"
+        "本题题面存在排版歧义，已按系统给出的解读判定。"
+    )
+    return verdict
 
 
 def _norm(s: str) -> str:
@@ -390,17 +446,30 @@ async def judge(
     *,
     tenant_id: str | None = None,
     llm_cfg=None,
+    ref_answer: str | None = None,
 ) -> dict:
     """判定学生作答。真实模式交给 LLM；否则用检索到的参考答案做兜底比对。
 
     W6 BYOM T-M4：``tenant_id`` / ``llm_cfg`` 透传租户级模型配置。
+
+    ``ref_answer`` 是本轮 solve 已经算出的系统解答（可能含歧义题的多解读）。
+    判分时一并喂给模型并做一致性兜底，避免模型换个解读重算后冤枉学生。
     """
     if config.llm_ready():
-        return await _remote_judge(question, student_answer, context, llm_cfg=llm_cfg)
+        return await _remote_judge(
+            question, student_answer, context, llm_cfg=llm_cfg, ref_answer=ref_answer
+        )
     return _dev_judge(student_answer, context)
 
 
-async def _remote_judge(question: str, student_answer: str, context: dict | None, *, llm_cfg=None) -> dict:
+async def _remote_judge(
+    question: str,
+    student_answer: str,
+    context: dict | None,
+    *,
+    llm_cfg=None,
+    ref_answer: str | None = None,
+) -> dict:
     cfg = llm_cfg or await tenant_llm.resolve_llm_config(None)
 
     # ⚠️ 只取达到相似度门槛的可信 chunk（见 rag.reliable_chunks）：检索永远返回
@@ -414,11 +483,20 @@ async def _remote_judge(question: str, student_answer: str, context: dict | None
         "（题库未命中此题：请**只依据题目本身的数学/学科事实**判断作答对错，"
         "不要因为缺少参考答案就判错）"
     )
+    # 系统本轮已算出的解答：同源同题且做过歧义处理，模型不得换个解读把它推翻
+    sysref = (
+        f"\n\n【系统本轮给出的解答】（同一题面，优先级最高，含歧义题的多解读）\n{ref_answer}"
+        if ref_answer
+        else ""
+    )
     messages = [
         {"role": "system", "content": _JUDGE_SYSTEM},
         {
             "role": "user",
-            "content": f"【题目】\n{question}\n\n【参考答案与解析】\n{ref}\n\n【学生的作答】\n{student_answer}",
+            "content": (
+                f"【题目】\n{question}\n\n【参考答案与解析】\n{ref}"
+                f"{sysref}\n\n【学生的作答】\n{student_answer}"
+            ),
         },
     ]
     t0 = time.monotonic()
@@ -434,18 +512,22 @@ async def _remote_judge(question: str, student_answer: str, context: dict | None
                 model=cfg.chat_model, grade="single", mode="judge",
                 latency_ms=int((time.monotonic() - t0) * 1000), **_tokens(resp),
             )
-            return {
-                "correct": data["correct"],
-                "partial": bool(data.get("partial", False)),
-                "comment": str(data.get("comment") or ""),
-            }
+            return _reconcile_with_ref(
+                {
+                    "correct": data["correct"],
+                    "partial": bool(data.get("partial", False)),
+                    "comment": str(data.get("comment") or ""),
+                },
+                student_answer,
+                ref_answer,
+            )
     except Exception as e:  # noqa: BLE001 判分失败降级为兜底比对，不影响主链路
         usage.record_usage_bg(
             model=cfg.chat_model, grade="single", mode="judge", degraded=True,
             error_kind=usage.classify_error(e),
             latency_ms=int((time.monotonic() - t0) * 1000),
         )
-    return _dev_judge(student_answer, context)
+    return _reconcile_with_ref(_dev_judge(student_answer, context), student_answer, ref_answer)
 
 
 def _dev_judge(student_answer: str, context: dict | None) -> dict:
