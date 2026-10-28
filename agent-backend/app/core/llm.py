@@ -10,7 +10,7 @@ import logging
 import re
 import time
 
-from app.core import config, llm_cache, model_router, tenant_llm, usage
+from app.core import config, llm_cache, model_router, rag, tenant_llm, usage
 
 log = logging.getLogger("llm")
 
@@ -360,8 +360,16 @@ def _dev_answer(
 
 
 _JUDGE_SYSTEM = (
-    "你是一名高中数学阅卷老师。请依据【参考答案与解析】判断【学生的作答】是否正确。\n"
-    "判定标准：结论与关键过程都对才算 correct；结论对但过程明显错误算 partial；否则算错误。\n"
+    "你是一名严谨的阅卷老师。判断【学生的作答】对于【题目】是否正确。\n"
+    "判定规则（按顺序）：\n"
+    "1) **先自己独立算出这道题的正确答案**，再与学生作答比对——这是唯一判据。\n"
+    "2) 若提供了【参考答案与解析】，可作交叉校验；但若它与题目明显不符"
+    "（题目和参考答案讲的不是同一道题），**以你自己算出的结果为准**，不要被带偏。\n"
+    "3) 学生作答只要结论正确即算 correct，**不要因为没写过程就判错**——"
+    "只有题目本身明确要求写出推导/证明过程时才把过程纳入判定。\n"
+    "4) 表述差异不影响判定：「等于2」「2」「答案为2」「结果是2」视为同一作答。\n"
+    "5) 结论对但关键过程明显错误算 partial；结论错误才算 correct=false。\n"
+    "6) 学生作答与题目完全无关、或你无法确定对错时，correct 填 false 并在 comment 说明原因。\n"
     "只输出严格 JSON 且不要包裹 markdown："
     '{"correct": true/false, "partial": true/false, "comment": "一句话点评"}。'
 )
@@ -395,11 +403,17 @@ async def judge(
 async def _remote_judge(question: str, student_answer: str, context: dict | None, *, llm_cfg=None) -> dict:
     cfg = llm_cfg or await tenant_llm.resolve_llm_config(None)
 
-    chunks = (context or {}).get("chunks", [])
+    # ⚠️ 只取达到相似度门槛的可信 chunk（见 rag.reliable_chunks）：检索永远返回
+    # TOP_K 条，库外题（如「1+1等于」）会硬凑出复数方程真题当"参考答案"，
+    # 拿着错题的答案判分必然误判。过滤后无参考时，提示词明确要求按题目本身判。
+    chunks = rag.reliable_chunks(context)
     ref = "\n".join(
         f"[参考{i + 1}] 答案：{c.get('answer', '')} 解析：{c.get('text', '')[:120]}"
         for i, c in enumerate(chunks[:3])
-    ) or "（无参考答案，按通法判断）"
+    ) or (
+        "（题库未命中此题：请**只依据题目本身的数学/学科事实**判断作答对错，"
+        "不要因为缺少参考答案就判错）"
+    )
     messages = [
         {"role": "system", "content": _JUDGE_SYSTEM},
         {
@@ -435,11 +449,19 @@ async def _remote_judge(question: str, student_answer: str, context: dict | None
 
 
 def _dev_judge(student_answer: str, context: dict | None) -> dict:
-    """无 LLM 时的兜底：与检索到的参考答案做归一化字符串比对。"""
+    """无 LLM 时的兜底：与检索到的参考答案做归一化字符串比对。
+
+    同样只认可信 chunk（rag.reliable_chunks）——否则库外题会拿错题的答案比对。
+    且「没有任何可信参考」时返回 correct=None（无法判定），**不是 False**：
+    没依据就判错会污染掌握度、误记错题，宁可留空转人工。
+    """
     target = _norm(student_answer)
     if not target:
         return {"correct": False, "partial": False, "comment": "未提交作答"}
-    for c in (context or {}).get("chunks", []):
+    chunks = rag.reliable_chunks(context)
+    if not chunks:
+        return {"correct": None, "partial": False, "comment": "题库未命中，无参考答案可比对，转人工复核"}
+    for c in chunks:
         ref = _norm(c.get("answer", ""))
         if ref and (ref == target or ref in target or target in ref):
             return {"correct": True, "partial": False, "comment": "与参考答案一致（兜底比对）"}

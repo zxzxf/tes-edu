@@ -26,7 +26,7 @@ import re
 import unicodedata
 from typing import Any
 
-from app.core import config, llm, tenant_llm
+from app.core import config, llm, rag, tenant_llm
 
 log = logging.getLogger("judge_v2")
 
@@ -257,12 +257,17 @@ async def load_bundle(content_hash: str) -> dict | None:
 
 
 def _pick_content_hash(context: dict | None) -> str | None:
-    """从 RAG 上下文里取命中的题目 hash（取第一条带 hash 的 chunk）。"""
-    for c in (context or {}).get("chunks", []):
-        h = c.get("content_hash")
-        if h:
-            return h
-    return None
+    """从 RAG 上下文里取命中的题目 hash——**只认达到相似度门槛的可信命中**。
+
+    ⚠️ 原实现是「取第一条带 hash 的 chunk」，不看分数。但 ``rag.retrieve`` 按
+    余弦排序**永远返回 TOP_K 条**，库里没有这类题时也会硬凑：学生输入「1+1等于」
+    命中一道复数方程真题（score 仅 0.5347），于是判分拿着复数题的标准答案（C）
+    去判「等于2」，得出 correct=False——把正确答案判成错误。
+    现在低分一律返回 None，走「未匹配到标注题 -> unknown（correct=None）」分支，
+    宁可不判分转人工复核，也绝不用错题的答案判分。
+    """
+    top = rag.top_match(context)
+    return (top or {}).get("content_hash") or None
 
 
 # ---------------------------------------------------------------- 三路分流

@@ -83,6 +83,40 @@ def _fmt(score: float, doc: dict) -> dict:
     }
 
 
+def reliable_chunks(context: dict | None) -> list[dict]:
+    """只保留**可信匹配**的 chunk：相似度达到 ``MATCH_THRESHOLD`` 的才算命中。
+
+    ⚠️ 为什么必须有这道门槛（2026-10-28 线上误判事故）：``retrieve`` 是按余弦
+    排序取 TOP_K，**永远返回 K 条**，哪怕库里根本没有这类题。学生输入「1+1等于」
+    时最高分只有 0.5347（命中的是一道复数方程真题），下游若照单全收，就会把
+    复数题的标准答案（C）拿去判「等于2」，得出 correct=False 的荒谬结论——
+    返回的 comment 自己都写着「学生作答与题目复数方程求解完全无关」。
+
+    线上实测分数分布（106 生产库，2026-10-28）：
+      - 题库真题原文自命中：0.9245 ~ 0.9879（8 题）
+      - 库外题误配：        0.3579 ~ 0.5537（6 题）
+    两簇之间有大片空白，故 0.75 是安全分界线（默认值，可用 MATCH_THRESHOLD 覆盖）。
+
+    注意与 ``degraded`` 区分：degraded=True 表示 embedding 服务本身不可用
+    （拿不到向量）；本函数处理的是「检索成功但没匹配上」——两者语义不同。
+    """
+    out = []
+    for c in (context or {}).get("chunks") or []:
+        try:
+            s = float(c.get("score") or 0.0)
+        except (TypeError, ValueError):
+            s = 0.0
+        if s >= config.MATCH_THRESHOLD:
+            out.append(c)
+    return out
+
+
+def top_match(context: dict | None) -> dict | None:
+    """可信 chunk 里的第一名；全不可信则 None（调用方须走"无标注题"分支）。"""
+    chunks = reliable_chunks(context)
+    return chunks[0] if chunks else None
+
+
 async def retrieve(query: str, subject: str | None = None, *, llm_cfg=None) -> dict:
     """检索与问题相关的知识点/例题。
 

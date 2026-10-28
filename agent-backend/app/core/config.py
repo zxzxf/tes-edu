@@ -78,6 +78,10 @@ DB_DSN = _get("DB_DSN")  # postgresql://user:pass@host:5432/dbname
 # ---- 检索 ----
 TOP_K = int(_get("TOP_K", "4"))
 SEED_PATH = _get("SEED_PATH", "data/seed_questions.json")
+# 可信匹配的余弦相似度门槛：低于此值的 chunk 一律视为「没检索到」，不得用于
+# 判分/归因（否则会把库外题的作答拿错题的标准答案来判，见 rag.reliable_chunks）。
+# 线上实测：真题自命中 0.92~0.99，库外题误配 0.36~0.55，两簇之间空白很大。
+MATCH_THRESHOLD = float(_get("MATCH_THRESHOLD", "0.75"))
 
 # ---- Kafka 学情事件上报 ----
 # 137 的 kafka 已接入 edu-net，容器内用 kafka:9092 即可；留空则不上报（不影响解题）

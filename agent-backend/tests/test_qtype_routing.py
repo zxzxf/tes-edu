@@ -17,6 +17,10 @@ import main
 # ---------------------------------------------------------------- 构造数据
 
 # 记忆型：单选（线上 difficulty 是整数 1-5）
+# ⚠️ 夹具必须带 score：真实 rag._fmt 一定会写 score，而 judge_v2._pick_content_hash
+# 现在只认可信命中（score >= config.MATCH_THRESHOLD，默认 0.75）。缺 score 会被
+# 当成"没匹配上"→ 拿不到 content_hash → 压轴题查不到 bundle → tier 退化成 medium。
+# 线上真题自命中分数实测 0.92~0.99，故夹具统一用 0.9 模拟"检索确实命中"。
 _CTX_CHOICE = {
     "chunks": [
         {
@@ -25,6 +29,7 @@ _CTX_CHOICE = {
             "difficulty": "3",
             "content_hash": "h-choice",
             "type": "单选",
+            "score": 0.9,
         }
     ],
     "points": ["集合运算"],
@@ -39,6 +44,7 @@ _CTX_BLANK = {
             "difficulty": "2",
             "content_hash": "h-blank",
             "type": "填空",
+            "score": 0.9,
         }
     ],
     "points": ["函数定义域"],
@@ -53,6 +59,7 @@ _CTX_FINALE = {
             "difficulty": "4",
             "content_hash": "h-fin",
             "type": "解答",
+            "score": 0.9,
         }
     ],
     "points": ["二次函数综合"],
