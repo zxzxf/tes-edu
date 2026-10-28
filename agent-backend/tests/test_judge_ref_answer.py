@@ -153,7 +153,9 @@ def test_orchestrator_passes_ref_answer_to_judge(monkeypatch):
     async def fake_solve(q, **kw):
         return {"answer": REF_AMBIGUOUS, "steps": [], "degraded": False}
 
-    async def fake_judge_v2(question, student_answer, context=None, llm_cfg=None):
+    # 注意：judge_v2.judge 新增了 ref_answer 透传，测试桩必须一并接受
+    async def fake_judge_v2(question, student_answer, context=None, llm_cfg=None,
+                            ref_answer=None):
         return {
             "correct": None, "partial": False,
             "comment": "未匹配到标注题（无 content_hash），转人工复核",

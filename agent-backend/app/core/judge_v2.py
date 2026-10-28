@@ -33,6 +33,8 @@ log = logging.getLogger("judge_v2")
 # taxonomy 七类 + unknown（见 步骤级归因标注Schema-v1）
 TAXONOMY = ("concept", "formula", "case", "calc", "read", "logic", "strategy")
 UNKNOWN = "unknown"
+#: 归因来源：无标注题时以本次主解答案为判据（区别于 map/llm）
+REF_SOURCE = "ref_answer"
 
 # LLM 判定超时：本项目用的是推理型模型，思考会占 30s+，给足预算但别拖死请求
 JUDGE_TIMEOUT = int(config._get("JUDGE_TIMEOUT", "90"))
@@ -148,6 +150,73 @@ def _norm_error_type(v: Any) -> str:
         if any(w in s for w in words):
             return key
     return UNKNOWN
+
+
+#: 题面经 LLM 生成的"答案"超过这个长度基本是引导语/整段解析，不是可比对的值
+REF_ANSWER_MAX_LEN = 40
+
+
+def _norm_ans(s: str) -> str:
+    """答案归一化：去掉 LaTeX 噪声、空白、大小写与常见标点，便于等价比较。"""
+    s = (s or "").strip()
+    s = re.sub(r"\\(left|right|displaystyle|quad|qquad|,|;|:|!)\b", "", s)
+    s = s.replace("$", "").replace("\\ ", "").replace("\\,", "")
+    s = re.sub(r"\s+", "", s)
+    s = s.lower()
+    s = re.sub(r"[，,。.;；:：、()（）\[\]{}【】「」『』\"'“”‘’]+", "", s)
+    return s
+
+
+#: 作答常见的中文引导词：「等于1」「答案为2」「选 A」——剥掉后才是真正的答案值
+_ANS_LEAD = re.compile(
+    r"^(等于|答案为|答案|结果是|结果|答|是|应选|选了|选|填写|填|为|：|:)"
+)
+
+
+def _strip_lead(s: str) -> str:
+    """剥掉作答里的中文引导词（最多两轮，覆盖「答案为选 A」这类叠写）。"""
+    for _ in range(2):
+        s2 = _ANS_LEAD.sub("", s)
+        if s2 == s:
+            break
+        s = s2
+    return s
+
+
+def _ans_candidates(s: str) -> list[str]:
+    """答案候选值。含等号时**优先取最右段**：「a=1」的答案是 1，不是 a。
+
+    同时保留整体串，使 ref='a=1' 与 stu='a=1' 也能直接相等命中。
+    """
+    n = _norm_ans(s)
+    if not n:
+        return []
+    parts = [p for p in re.split(r"[=＝]", n) if p]
+    if len(parts) > 1:
+        return [_strip_lead(parts[-1]), _strip_lead(n)]
+    return [_strip_lead(n)]
+
+
+def judge_by_reference_answer(ref_answer: str | None, student_answer: str) -> dict | None:
+    """路径⓪：无标注题时，用**本次主解给出的答案**做确定性自洽校验。
+
+    为什么必须有这条：库里没有这道题时，判分只能靠 LLM 现推。而题面常带 OCR 乱码
+    （实测「f(x)=x+2/e×+a」被压掉指数与分式结构），判分模型读不懂就直接判错——
+    连系统自己刚生成的正确答案也一起判错，学生看到"系统答 1、判我 1 是错的"。
+    主解答案就是展示给学生的答案，与它一致即判对，先于任何 LLM 调用。
+
+    未命中（学生确实答了别的值）返回 None，交由 LLM 兜底。
+    """
+    ref = (ref_answer or "").strip()
+    # 太长/多行 = 引导档提示语或整段解析，不是"答案"，不能拿来做等价判定
+    if not ref or len(ref) > REF_ANSWER_MAX_LEN or "\n" in ref:
+        return None
+    rc, sc = _ans_candidates(ref), _ans_candidates(student_answer)
+    if not rc or not sc:
+        return None
+    if any(r == s for r in rc for s in sc):
+        return _ok(f"作答与本题参考答案一致（{ref}）", source=REF_SOURCE)
+    return None
 
 
 def _ok(comment: str, source: str = "map") -> dict:
@@ -402,13 +471,23 @@ async def judge_by_llm(bundle: dict, student_answer: str, *, llm_cfg=None) -> di
 
 # ---------------------------------------------------------------- 入口
 
-async def judge(question: str, student_answer: str, context: dict | None = None, *, llm_cfg=None) -> dict:
+async def judge(
+    question: str,
+    student_answer: str,
+    context: dict | None = None,
+    *,
+    llm_cfg=None,
+    ref_answer: str | None = None,
+) -> dict:
     """judge v2 统一入口：先查表，查不到再 LLM，都不行则 unknown。
 
     S4 提交协议：解答类题型必须先贴过程文本，否则返回 need_process=true 要求补过程，
     **不判分**（correct 保持 None，避免把"没写过程"记成"做错了"）。
 
     W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。
+
+    ``ref_answer``：本次主解给出的答案。仅在**无标注题**时用作确定性自洽判据
+    （见 :func:`judge_by_reference_answer`）；有标注题一律以标注为准。
     """
     answer = (student_answer or "").strip()
     if not answer:
@@ -417,7 +496,11 @@ async def judge(question: str, student_answer: str, context: dict | None = None,
     content_hash = _pick_content_hash(context)
     bundle = await load_bundle(content_hash) if content_hash else None
     if bundle is None:
-        # 无标注题：不在请求路径上现造步骤（见 AUTO_SEED_STEPS 说明）
+        # 无标注题：不在请求路径上现造步骤（见 AUTO_SEED_STEPS 说明）。
+        # 先用主解答案自洽校验，避免"系统答 1 却判学生 1 错"的自相矛盾。
+        hit = judge_by_reference_answer(ref_answer, answer)
+        if hit is not None:
+            return hit
         return _unknown("未匹配到标注题（无 content_hash），转人工复核")
 
     qtype = bundle["type"]

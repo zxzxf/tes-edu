@@ -549,3 +549,120 @@ def test_spawn_seed_steps_passes_tenant_and_cfg(monkeypatch):
     assert seen["ch"] == "h4"
     assert seen["tenant_id"] == "school_pilot_01"
     assert seen["llm_cfg"] == {"chat_model": "m"}
+
+
+# ------------------------------------------------- 主解答案自洽校验（ref_answer）
+
+def test_ref_answer_matches_student_without_llm(monkeypatch):
+    """无标注题 + 学生与主解答案一致 -> 直接判对，绝不调 LLM。
+
+    回归：题面乱码时判分模型读不懂题面，会把"与系统答案一致"的作答判成错，
+    学生看到「系统答 1、判我 1 是错的」。
+    """
+    monkeypatch.setattr(judge_v2, "load_bundle", lambda _h: None)
+    monkeypatch.setattr(judge_v2, "judge_by_llm", _explode)
+    r = _run(judge_v2.judge("题", "a=1", context={"chunks": []}, ref_answer="1"))
+    assert r["correct"] is True
+    assert r["attribution_source"] == "ref_answer"
+
+
+def test_ref_answer_equality_variants():
+    """等价表述都要命中；不同数值不能误命中。"""
+    for ref, stu in (("1", "a=1"), ("a=1", "1"), ("1", "1"), ("A", "选 A"), ("1", "等于1")):
+        assert judge_v2.judge_by_reference_answer(ref, stu) is not None, (ref, stu)
+    # 数值不同绝不能判对
+    for ref, stu in (("1", "12"), ("1", "2"), ("2", "a=1")):
+        assert judge_v2.judge_by_reference_answer(ref, stu) is None, (ref, stu)
+
+
+def test_ref_answer_does_not_match_partial_variable():
+    """ref='x=2' 时学生只答 'x' 不算对（等号左侧是变量名，不是答案）。"""
+    assert judge_v2.judge_by_reference_answer("x=2", "x") is None
+    assert judge_v2.judge_by_reference_answer("x=2", "2") is not None
+
+
+def test_ref_answer_long_text_skipped(monkeypatch):
+    """引导档的长提示语/整段解析不是"答案"，不能拿来做等价判定。"""
+    monkeypatch.setattr(judge_v2, "load_bundle", lambda _h: None)
+    guide = "我们先看看已知条件，你能说说第一步想怎么入手吗？把你的想法告诉我吧"
+    assert judge_v2.judge_by_reference_answer(guide, "1") is None
+    r = _run(judge_v2.judge("题", "1", context={"chunks": []}, ref_answer=guide + "，再多写一点"))
+    assert r["attribution_source"] == "unknown"
+
+
+def test_ref_answer_miss_still_unknown(monkeypatch):
+    """自洽没命中就退回 unknown（由上层决定是否回退 v1），不能硬判错。"""
+    monkeypatch.setattr(judge_v2, "load_bundle", lambda _h: None)
+    monkeypatch.setattr(judge_v2, "judge_by_llm", _explode)
+    r = _run(judge_v2.judge("题", "a=2", context={"chunks": []}, ref_answer="1"))
+    assert r["correct"] is None
+    assert r["attribution_source"] == "unknown"
+
+
+def test_bundle_answer_wins_over_ref_answer(monkeypatch):
+    """有标注题时以标注为准——ref_answer 只在无标注题时兜底。"""
+    _patch_bundle(monkeypatch, single_bundle())
+    monkeypatch.setattr(judge_v2, "judge_by_llm", _explode)
+    # 标注答案是 B；ref_answer 故意给个不一致的 A，仍须按标注判对
+    r = _run(judge_v2.judge("题", "B", context=_ctx("h_single"), ref_answer="A"))
+    assert r["attribution_source"] == "map"
+    assert r["correct"] is True
+
+
+# ------------------------------------------------- 题面清洗
+
+def test_normalize_question_repairs_eaten_exponent():
+    from app.core import orchestrator
+
+    assert orchestrator.normalize_question("f(x)=x+2/e×+a") == "f(x)=x+2/e^x+a"
+    # 真乘号不能被动
+    assert orchestrator.normalize_question("2×3") == "2×3"
+    assert orchestrator.normalize_question("a×b") == "a×b"
+    assert orchestrator.normalize_question("x×y") == "x×y"
+
+
+def test_fallback_comment_follows_v1_verdict(monkeypatch):
+    """回退 v1 后文案必须跟结论一致：不能"判对了"却写"转人工复核"。
+
+    回归：v2 unknown 的 comment 非空，v1 的点评被 `if not j['comment']` 挡掉，
+    学生看到「判分结果·正确 / 未匹配到标注题，转人工复核」的自相矛盾。
+    """
+    from app.core import orchestrator
+
+    async def fake_v2(_q, _a, context=None, **_kw):
+        return judge_v2._unknown("未匹配到标注题（无 content_hash），转人工复核")
+
+    async def fake_v1(_q, _a, context=None, **_kw):
+        return {"correct": True, "partial": False, "comment": "答案与系统参考答案一致"}
+
+    monkeypatch.setattr(orchestrator.judge_v2, "judge", fake_v2)
+    monkeypatch.setattr(orchestrator.llm, "judge", fake_v1)
+
+    r = _run(orchestrator._judge_v2_with_fallback("题", "a=1", {}))
+    assert r["correct"] is True
+    assert "转人工复核" not in r["comment"]
+    assert r["comment"] == "答案与系统参考答案一致"
+
+
+def test_fallback_passes_ref_answer_and_tenant(monkeypatch):
+    """回退 v1 时必须带上主解答案与租户——否则判分与主解两套模型各判各的。"""
+    from app.core import orchestrator
+    seen: dict = {}
+
+    async def fake_v2(_q, _a, context=None, **_kw):
+        return judge_v2._unknown("未匹配到标注题")
+
+    async def fake_v1(_q, _a, context=None, **kw):
+        seen.update(kw)
+        return {"correct": False, "partial": False, "comment": ""}
+
+    monkeypatch.setattr(orchestrator.judge_v2, "judge", fake_v2)
+    monkeypatch.setattr(orchestrator.llm, "judge", fake_v1)
+
+    r = _run(orchestrator._judge_v2_with_fallback(
+        "题", "a=2", {}, ref_answer="1", tenant_id="school_pilot_01"
+    ))
+    assert seen.get("ref_answer") == "1"
+    assert seen.get("tenant_id") == "school_pilot_01"
+    # v1 没给点评时回落中性说明，同样不能出现"转人工复核"
+    assert "转人工复核" not in r["comment"]

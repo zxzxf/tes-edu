@@ -457,7 +457,8 @@ async def judge(
     """
     if config.llm_ready():
         return await _remote_judge(
-            question, student_answer, context, llm_cfg=llm_cfg, ref_answer=ref_answer
+            question, student_answer, context, llm_cfg=llm_cfg,
+            ref_answer=ref_answer, tenant_id=tenant_id,
         )
     return _dev_judge(student_answer, context)
 
@@ -469,8 +470,12 @@ async def _remote_judge(
     *,
     llm_cfg=None,
     ref_answer: str | None = None,
+    tenant_id: str | None = None,
 ) -> dict:
-    cfg = llm_cfg or await tenant_llm.resolve_llm_config(None)
+    # ⚠️ 此前写死 resolve_llm_config(None)（平台全局），tenant_id 收了却不用：
+    # 主解走租户模型、判分走全局模型，同一份歧义题面两个模型解读不同，
+    # 就会出现"系统自己答 1、判分说 1 错"。判分必须与主解用同一套配置。
+    cfg = llm_cfg or await tenant_llm.resolve_llm_config(tenant_id)
 
     # ⚠️ 只取达到相似度门槛的可信 chunk（见 rag.reliable_chunks）：检索永远返回
     # TOP_K 条，库外题（如「1+1等于」）会硬凑出复数方程真题当"参考答案"，

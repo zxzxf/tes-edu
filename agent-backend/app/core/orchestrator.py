@@ -16,9 +16,26 @@ P2（T-C3）起增加题型路由（qtype.py）：记忆型直接讲解 / 中等
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 
 from app.core import config, intent, judge_v2, llm, ocr, qtype, rag, socratic, tenant_llm
+
+# ---------------------------------------------------------------- 题面清洗
+
+#: OCR/输入法常把指数符号吃掉：'e×' 实为 'e^x'（'×' 紧跟变量字母，右侧不是字母数字）。
+#: 不修的后果很硬——判分模型把「x+2/e×+a」读成 x+2/e^x+a（无最大值），于是任何作答都判错。
+#: 反向保护：'2×3'、'a×b'、'x×y' 右侧是数字/字母，是真乘号，不动。
+_BAD_POWER = re.compile(r"(?<=[A-Za-z])×(?![0-9A-Za-z])")
+
+
+def normalize_question(question: str) -> str:
+    """题面归一化：只修会让整道题失真的乱码，不动语义。
+
+    必须在 RAG 检索**之前**调用，使检索、主解、判分三处看到同一份文本
+    （此前三者各用各的，检索命中率与判分结论都受影响）。
+    """
+    return _BAD_POWER.sub("^x", question or "")
 
 # ---------------------------------------------------------------- bundle 缓存
 
@@ -71,6 +88,9 @@ async def handle_question(
     # 0) W6 BYOM T-M4：解析租户级模型配置（命中租户行且 enabled → 解密；否则回落全局 env）。
     #    一次请求内只解析一次，向下游所有 LLM 调用透传，避免重复查库/缓存。
     cfg = await tenant_llm.resolve_llm_config(tenant_id) if tenant_id else None
+    # 0.5) 题面清洗：修 'e×'->'e^x' 这类被吃掉的指数符号。检索/主解/判分必须共用
+    #      同一份可读文本，否则会出现"主解读得懂、判分读不懂"的错位。
+    question = normalize_question(question)
     # 1) RAG 检索上下文（知识点 / 例题 / 题型）
     #    llm_cfg（租户级配置）透传：学校配置了独立 embedding 模型时按学校端点向量化
     ctx = await rag.retrieve(question, subject=subject, llm_cfg=cfg)
@@ -167,6 +187,7 @@ async def handle_question(
             # 本轮 solve 已算出的答案作判据：歧义题（如 OCR 压掉分数线的
             # "x+2/e^x+a"）若让判分模型换个解读重算，必然把答对的学生判错。
             ref_answer=str(result.get("answer") or ""),
+            tenant_id=tenant_id,
         )
     return out
 
@@ -279,20 +300,29 @@ async def _judge_v2_with_fallback(
     *,
     llm_cfg=None,
     ref_answer: str | None = None,
+    tenant_id: str | None = None,
 ) -> dict:
     """judge v2 主判；低置信（unknown）时退回 v1 的对错布尔，保住原有信号。
 
     W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。
 
-    ``ref_answer`` 是本轮 solve 的答案，作为 v1 兜底判分的判据与红线校验依据。
+    ``ref_answer`` 是本轮 solve 的答案，作为 v1 兜底判分的判据与红线校验依据；
+    同时交给 judge_v2 做**确定性自洽校验**（无标注题时省掉一次 LLM 且不会自相矛盾）。
+    ``tenant_id`` 保证判分与主解用同一套模型配置。
     """
-    j = await judge_v2.judge(question, student_answer, context=ctx, llm_cfg=llm_cfg)
+    j = await judge_v2.judge(
+        question, student_answer, context=ctx, llm_cfg=llm_cfg, ref_answer=ref_answer
+    )
     # S4：被要求补过程时不要退回 v1 —— 那会白花一次 LLM 且可能把"没写过程"判成"做错"
     if j.get("need_process"):
         return j
+    # v2 已用主解答案定案（与主解一致即判对），无需再让 v1 重判一遍
+    if j.get("attribution_source") == judge_v2.REF_SOURCE:
+        return j
     if j.get("attribution_source") == judge_v2.UNKNOWN:
         v1 = await llm.judge(
-            question, student_answer, context=ctx, llm_cfg=llm_cfg, ref_answer=ref_answer
+            question, student_answer, context=ctx, llm_cfg=llm_cfg,
+            ref_answer=ref_answer, tenant_id=tenant_id,
         )
         if isinstance(v1.get("correct"), bool):
             j["correct"] = v1["correct"]
@@ -302,6 +332,9 @@ async def _judge_v2_with_fallback(
             # 自相矛盾的包，学生看到的是"答错了"而不是"没判出来"。
             if v1.get("comment"):
                 j["comment"] = str(v1["comment"])
+            else:
+                # v1 没给点评也不能留 unknown 的"转人工复核"——结论已定，文案必须跟上
+                j["comment"] = "未匹配到标注题，已按题目本身判定对错"
     return j
 
 
