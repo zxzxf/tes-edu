@@ -100,6 +100,48 @@ def _norm_value(s: str) -> str:
     return s.rstrip("。.")
 
 
+# ------------------------------------------------- 题干条件差异检测
+
+# 会**改变答案**的限定性条件。检索以余弦排序，只差一个从句时相似度仍可达 0.93，
+# 门槛挡不住；但多一个这类条件答案就变了，必须在题面级比对出来。
+_CONDITION_WORDS = (
+    "正数", "正整数", "负数", "负整数", "非负", "正实数", "不为零", "非零",
+    "不等于0", "不等于 0", "递增", "递减", "单调", "互不相同", "互异",
+    "整数", "实数", "有理数", "自然数", "锐角", "钝角", "直角",
+    "第一象限", "第二象限", "第三象限", "第四象限", "至少", "至多", "恒成立",
+)
+
+_COND_CLAUSE_SPLIT = re.compile(r"[，,。;；、]")
+
+
+def _cond_norm(s: str) -> str:
+    """条件比对归一化：去空白、标点与 LaTeX 定界符（``$4$`` 与 ``4`` 视作同义）。"""
+    return re.sub(r"[\s，,。.;；:：、()（）\[\]{}\$]+", "", (s or "").strip().lower())
+
+
+def extra_conditions(stem: str, question: str) -> list[str]:
+    """题库题干里**学生题面完全没有**的限定性条件子句。
+
+    ⚠️ 实测（2026-10-29）：学生问「等比数列前4项和为4，前8项和为68，公比=」，
+    检索以 **0.9352** 命中题库里带「各项均为正数」的另一个版本（标答 2）。
+    判分遂拿 2 当标准答案，把数学上正确的 **±2 判成错**——无该条件时 q=-2 同样成立
+    （a₁=-4/5 时 S₄=4、S₈=68）。相似度门槛挡不住这种差异（只差一个从句），
+    只能做条件级比对。
+
+    返回命中的原文子句（可能为空）。方向是**保守**：宁可误报（放弃用标答判错），
+    也绝不把"题面不同导致答案不同"的正确作答判成错误。
+    """
+    qn = _cond_norm(question)
+    out: list[str] = []
+    for clause in _COND_CLAUSE_SPLIT.split(stem or ""):
+        c = _cond_norm(clause)
+        if not c or c in qn:
+            continue
+        if any(w in c for w in _CONDITION_WORDS):
+            out.append(clause.strip())
+    return out
+
+
 def _labels(s: str) -> list[str]:
     """从作答中抽取选项字母（A/B/C/D，大小写不敏感，去重保序）。"""
     found = re.findall(r"[A-Da-d]", s or "")
@@ -197,6 +239,30 @@ def _ans_candidates(s: str) -> list[str]:
     return [_strip_lead(n)]
 
 
+# 多解分隔符：「2 或 -2」「2、-2」「2 和 -2」
+_MULTI_SPLIT = re.compile(r"[、,，;；]|\s*(?:或|和|与)\s*")
+
+
+def _ans_values(s: str) -> list[str]:
+    """把多解答案拆成值集合：「2 或 -2」→ ['2','-2']；「±2」→ ['2','-2']。
+
+    只用于**判对方向**：漏写其中一个解的学生不该被判错（尤其当题库标答属于
+    条件不同的另一道题时）。不用于判错方向，避免把"只答对一半"算成全对。
+    """
+    out: list[str] = []
+    for part in _MULTI_SPLIT.split(s or ""):
+        p = _norm_value(part)
+        if not p:
+            continue
+        if p.startswith("±") or p.startswith("+-") or p.startswith("∓"):
+            v = p[1:].lstrip("+-")
+            if v:
+                out += [v, "-" + v]
+        else:
+            out.append(p)
+    return out
+
+
 def judge_by_reference_answer(ref_answer: str | None, student_answer: str) -> dict | None:
     """路径⓪：无标注题时，用**本次主解给出的答案**做确定性自洽校验。
 
@@ -211,10 +277,12 @@ def judge_by_reference_answer(ref_answer: str | None, student_answer: str) -> di
     # 太长/多行 = 引导档提示语或整段解析，不是"答案"，不能拿来做等价判定
     if not ref or len(ref) > REF_ANSWER_MAX_LEN or "\n" in ref:
         return None
-    rc, sc = _ans_candidates(ref), _ans_candidates(student_answer)
+    # 多解展开：主解给「2 或 -2」时，学生写其中任一个都算对
+    rc = set(_ans_candidates(ref)) | set(_ans_values(ref))
+    sc = set(_ans_candidates(student_answer)) | set(_ans_values(student_answer))
     if not rc or not sc:
         return None
-    if any(r == s for r in rc for s in sc):
+    if rc & sc:
         return _ok(f"作答与本题参考答案一致（{ref}）", source=REF_SOURCE)
     return None
 
@@ -448,10 +516,23 @@ def _split_blanks(ans: str) -> list[str]:
     return [x for x in re.split(r"[;；,，/]", ans) if x]
 
 
-async def judge_by_llm(bundle: dict, student_answer: str, *, llm_cfg=None) -> dict:
+async def judge_by_llm(
+    bundle: dict,
+    student_answer: str,
+    *,
+    llm_cfg=None,
+    question: str | None = None,
+    answer_untrusted: bool = False,
+) -> dict:
     """路径③：LLM 对齐参考步骤（客观题兜底 / 解答题主路径）。
 
     W6 BYOM T-M4：``llm_cfg`` 透传租户级模型配置（回落全局）。
+
+    ``question``：学生**实际所问**的题面。此前只用 ``bundle['stem']``（题库题干），
+    两者不是同一道题时（题库题多一个限定条件）就会拿错题的标准答案判分。
+
+    ``answer_untrusted``：题干条件不一致时为 True，标答降级为"相似题参考"，
+    避免模型被一个错误的"标准答案"锚定（实测锚定极强，仅靠措辞提示救不回来）。
     """
     if not config.llm_ready():
         return _unknown("查表未命中且未配置 LLM，无法判定，转人工复核")
@@ -462,9 +543,22 @@ async def judge_by_llm(bundle: dict, student_answer: str, *, llm_cfg=None) -> di
         for s in bundle["steps"]
     ) or "（该题暂无参考步骤，请按通法判断）"
 
+    asked = (question or "").strip()
+    stem = bundle["stem"]
+    # 学生题面与题库题干不同才并列给出，避免绝大多数一致场景白白加长提示词
+    head = (
+        f"【学生所问题目】\n{asked[:1200]}\n\n【题库匹配到的题目】\n{stem[:1200]}\n\n"
+        if asked and _cond_norm(asked) != _cond_norm(stem)
+        else f"【题目】\n{stem[:1200]}\n\n"
+    )
+    if answer_untrusted:
+        ans_block = f"【相似题答案·仅供参考，可能与所问题不是同一道】{bundle['answer']}"
+    else:
+        ans_block = f"【标准答案】{bundle['answer']}"
+
     user = (
-        f"【题目】\n{bundle['stem'][:1200]}\n\n"
-        f"【标准答案】{bundle['answer']}\n\n"
+        f"{head}"
+        f"{ans_block}\n\n"
         f"【参考步骤】\n{ref[:2000]}\n\n"
         f"【学生作答】\n{student_answer[:1200]}"
     )
@@ -540,18 +634,43 @@ async def judge(
         return _need_process(
             f"解答题需写出解题过程（不少于 {MIN_PROCESS_LEN} 字），只写结论无法定位首错步骤"
         )
-    if any(t in qtype for t in OBJECTIVE_TYPES):
-        hit = judge_objective_by_map(bundle, student_answer)
-        if hit is not None:
-            return hit
-    elif any(t in qtype for t in BLANK_TYPES):
-        hit = judge_blank_by_map(bundle, student_answer)
+
+    # ⚠️ 标答可信性判定**必须在查表之前**：题库题与学生题条件不一致时，
+    # 库里的标答与 wrong_value_map 都属于另一道题，拿它们判错会把正确作答打成错误
+    # （实测：无「各项均为正数」时 q=-2 同样成立，却被错值映射判为"只取负根"）。
+    extra = extra_conditions(bundle["stem"], question)
+    if extra:
+        # 标答不可信 -> 改用本轮主解答案做自洽判据（多解展开后命中即判对）
+        hit = judge_by_reference_answer(ref_answer, answer)
         if hit is not None:
             return hit
 
-    # 解答题 / 查表未命中 -> LLM
-    j = await judge_by_llm(bundle, student_answer, llm_cfg=llm_cfg)
+    if any(t in qtype for t in OBJECTIVE_TYPES):
+        hit = judge_objective_by_map(bundle, student_answer)
+        if hit is not None and (hit["correct"] or not extra):
+            return hit
+    elif any(t in qtype for t in BLANK_TYPES):
+        hit = judge_blank_by_map(bundle, student_answer)
+        if hit is not None and (hit["correct"] or not extra):
+            return hit
+
+    # 解答题 / 查表未命中（或标答不可信故不采信其判错） -> LLM
+    j = await judge_by_llm(
+        bundle,
+        student_answer,
+        llm_cfg=llm_cfg,
+        question=question,
+        answer_untrusted=bool(extra),
+    )
     if j.get("correct") is False:
+        if extra:
+            # 标答属于**条件不同的另一道题**，不能拿来判错学生。
+            # 宁可转人工复核，也不把"题面不同导致答案不同"的正确作答判成错误。
+            cond = "、".join(f"「{c}」" for c in extra)
+            return _unknown(
+                f"所问题目与题库匹配题的条件不一致（题库题另有 {cond}），"
+                f"其标准答案不适用于本题，转人工复核"
+            )
         _append_standard_answer(j, bundle.get("answer"))
     return j
 

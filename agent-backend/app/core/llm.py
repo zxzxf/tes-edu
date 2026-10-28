@@ -41,7 +41,12 @@ _SYSTEM = (
     "   不得自行补括号、不得把 2/e^x 写成 2e^x；确有多种读法时，逐种说明各自的答案。\n"
     "7) **无解要说无解**：若按原文条件该函数在定义域内不存在最大值/最小值，或条件不足以\n"
     "   确定参数，必须明确指出「无解 / 条件不足」并说明原因；绝不允许凑出一个数值答案。\n"
-    "8) 含参反解类题目先判断极值的存在性与位置（单调性/定义域），确认存在后再代入列方程。"
+    "8) 含参反解类题目先判断极值的存在性与位置（单调性/定义域），确认存在后再代入列方程。\n"
+    "9) **多解必须全列**：解方程得到多个根（如 q⁴=16 得 q=±2、|x|=3 得 x=±3）时，\n"
+    "   answer 必须给出**全部**解（写「±2」「2 或 -2」均可），不得只挑一个；\n"
+    "   只有当题面条件明确排除掉某些解（如「各项均为正数」「x>0」）才可只留其一。\n"
+    "   ⚠️ 实测：等比数列「前4项和4、前8项和68 求公比」，模型默认只给 q=2，\n"
+    "   漏掉 q=-2（此时 a₁=-4/5，S₄=4、S₈=68 同样成立）——只给一个解就是错答。"
 )
 
 
@@ -189,6 +194,7 @@ async def solve(
             store=store,
             on_hit=_on_cache_hit,
             embed_cfg=cfg,
+            model=cfg.chat_model,
         )
     return _dev_solve(question, context, mode)
 
@@ -586,7 +592,7 @@ async def suggest_similar_detailed(
 
         cached = await llm_cache.cached_solve(
             _call, question, context, "similar",
-            on_hit=_on_cache_hit, embed_cfg=cfg,
+            on_hit=_on_cache_hit, embed_cfg=cfg, model=cfg.chat_model,
         )
         if cached is not None:
             return cached

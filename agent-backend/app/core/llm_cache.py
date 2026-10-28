@@ -78,6 +78,7 @@ def cache_key(
     question: str,
     content_hash: Optional[str] = None,
     variant: Optional[str] = None,
+    model: Optional[str] = None,
 ) -> str:
     """确定性缓存键。``hint_level`` 必入键——同题不同 Hint 级不得混用缓存。
 
@@ -100,7 +101,12 @@ def cache_key(
             re.sub(r"\s+", " ", variant).encode("utf-8")
         ).hexdigest()[:8]
     hl = "x" if hint_level is None else str(int(hint_level))
-    return f"{_PREFIX}{subject or 'na'}:{mode or 'explain'}:{hl}:{base}"
+    # ⚠️ 模型与提示词版本必须入键（2026-10-29 事故）：换模型或改提示词后，
+    # 旧缓存（TTL 7 天）会被继续复用，线上表现为"改了却没生效"。
+    # 实测：把租户模型从 qwen3.6-flash 换成 deepseek-v4-pro-0813，同一道题仍
+    # 0.2s 返回旧答案——答案来自缓存，根本没调新模型。
+    seg = f"{model or 'na'}@{config.PROMPT_VERSION}"
+    return f"{_PREFIX}{subject or 'na'}:{mode or 'explain'}:{hl}:{seg}:{base}"
 
 
 def cache_namespace(
@@ -412,6 +418,7 @@ async def cached_solve(
     store=None,
     on_hit: Callable[..., None] | None = None,
     embed_cfg=None,
+    model: Optional[str] = None,
 ) -> dict:
     """带缓存的远程 LLM 调用包装。命中（精确或近似）则跳过 remote_fn，不烧 LLM。
 
@@ -434,6 +441,7 @@ async def cached_solve(
     key = cache_key(
         subject=subject, mode=mode, hint_level=hint_level,
         question=question, content_hash=content_hash, variant=variant,
+        model=model,
     )
 
     def _notify_hit() -> None:

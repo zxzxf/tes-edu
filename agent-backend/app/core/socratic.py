@@ -602,6 +602,7 @@ async def _remote_hint(
         store=store,
         on_hit=_on_cache_hit,
         embed_cfg=cfg,
+        model=cfg.chat_model,
     )
 
 

@@ -746,3 +746,115 @@ def test_standard_answer_not_appended_when_correct(monkeypatch):
     _patch_bundle(monkeypatch, essay_bundle())
     r = _run(judge_v2.judge("题", "先求 C 再求高，过程完整", context=_ctx("h_essay")))
     assert r["comment"] == "思路正确"
+
+
+# ------------------------------------------------- 题干条件差异（标答不可信）
+
+def test_extra_conditions_detects_added_positive_constraint():
+    """题库题多出「各项均为正数」而学生题面没有 -> 必须检出。
+
+    回归：该差异下正确答案从 ±2 变成 2，检索相似度却高达 0.9352（只差一个从句），
+    相似度门槛挡不住，只能靠条件级比对。
+    """
+    stem = "若一个等比数列的各项均为正数，且前 $4$ 项的和等于 $4$，前 $8$ 项的和等于 $68$，则公比等于___。"
+    q = "等比数列前 4 项和为 4，前 8 项和为 68，则该等比数列的公比为 _____。"
+    extra = judge_v2.extra_conditions(stem, q)
+    assert extra, "题库多出的限定条件必须被检出"
+    assert any("正数" in c for c in extra)
+
+
+def test_extra_conditions_empty_when_same_conditions():
+    """条件一致（仅 LaTeX/空白差异）时不能误报。"""
+    stem = "等比数列前 $4$ 项和为 4，前 8 项和为 68，则公比等于___。"
+    q = "等比数列前 4 项和为 4，前 8 项和为 68，则该等比数列的公比为 _____。"
+    assert judge_v2.extra_conditions(stem, q) == []
+
+
+def test_extra_conditions_ignores_non_condition_clauses():
+    """非限定性子句（纯数值/描述）不算条件差异，避免大面积误伤。"""
+    stem = "已知数列 {an} 满足 a1=1，a_{n+1}=2a_n，求通项公式。"
+    q = "已知数列 {an} 满足 a1=1，a_{n+1}=2a_n，求通项公式"
+    assert judge_v2.extra_conditions(stem, q) == []
+
+
+def test_untrusted_answer_never_verdicts_wrong(monkeypatch):
+    """条件不一致时标答不可信：不得判错，转人工复核。
+
+    回归：学生答 ±2（无「正数」条件下数学正确）被判 correct=False，
+    点评还写着「（本题标准答案：2）」——学生被教了一个不属于本题的答案。
+    """
+    async def fake_llm(bundle, student_answer, **kw):
+        assert kw.get("answer_untrusted") is True, "标答应被标记为不可信"
+        assert kw.get("question"), "必须把学生实际题面透传给判分"
+        return {"correct": False, "partial": False, "comment": "未排除负公比",
+                "first_wrong_step": 1, "error_type": "concept", "evidence": "",
+                "correction": "", "attribution_source": "llm", "need_process": False}
+
+    monkeypatch.setattr(judge_v2, "judge_by_llm", fake_llm)
+    b = blank_bundle()
+    b["stem"] = "若一个等比数列的各项均为正数，且前 $4$ 项的和等于 $4$，则公比等于___。"
+    _patch_bundle(monkeypatch, b)
+    r = _run(judge_v2.judge(
+        "等比数列前 4 项和为 4，前 8 项和为 68，则该等比数列的公比为 _____。",
+        "±2", context=_ctx("h_blank")))
+    assert r["correct"] is None, "标答不可信时不得判错"
+    assert r["attribution_source"] == "unknown"
+    # 不得把不可信的标答当成"本题标准答案"教给学生
+    assert "（本题标准答案" not in r["comment"]
+
+
+def test_trusted_answer_still_judges_wrong(monkeypatch):
+    """条件一致时行为不变：该判错仍要判错并附标答。"""
+    async def fake_llm(bundle, student_answer, **kw):
+        assert kw.get("answer_untrusted") is False
+        return {"correct": False, "partial": False, "comment": "计算错误",
+                "first_wrong_step": 1, "error_type": "calc", "evidence": "",
+                "correction": "", "attribution_source": "llm", "need_process": False}
+
+    monkeypatch.setattr(judge_v2, "judge_by_llm", fake_llm)
+    _patch_bundle(monkeypatch, blank_bundle())
+    r = _run(judge_v2.judge("若 f 为偶函数，a = ___", "3", context=_ctx("h_blank")))
+    assert r["correct"] is False
+    assert "本题标准答案：1" in r["comment"]
+
+
+def test_untrusted_answer_ignores_map_wrong_verdict(monkeypatch):
+    """标答不可信时，查表的"判错"同样不能采信（wrong_value_map 属另一道题）。
+
+    回归：题库题带「各项均为正数」（标答 2），学生题面没有该条件。学生答 -2
+    ——该条件下 q=-2 完全成立——却被错值映射判为"只取负根"，点评还引用了
+    题库题才有的条件。
+    """
+    monkeypatch.setattr(judge_v2, "judge_by_llm", _explode)  # 查表路径不得触发 LLM
+    b = blank_bundle()
+    b["stem"] = "若一个等比数列的各项均为正数，且前 $4$ 项的和等于 $4$，则公比等于___。"
+    b["answer"] = "2"
+    _patch_bundle(monkeypatch, b)
+    r = _run(judge_v2.judge(
+        "等比数列前 4 项和为 4，前 8 项和为 68，则该等比数列的公比为 _____。",
+        "-2", context=_ctx("h_blank"), ref_answer="2 或 -2"))
+    assert r["correct"] is True, "标答不可信时应改用主解自洽判据判对"
+    assert r["attribution_source"] == "ref_answer"
+
+
+def test_trusted_answer_keeps_map_wrong_verdict(monkeypatch):
+    """条件一致时，查表判错照旧生效（不能因新逻辑漏判典型错误）。"""
+    monkeypatch.setattr(judge_v2, "judge_by_llm", _explode)
+    _patch_bundle(monkeypatch, blank_bundle())  # 错值 -1 有映射
+    r = _run(judge_v2.judge("若 f 为偶函数，a = ___", "-1", context=_ctx("h_blank")))
+    assert r["correct"] is False
+    assert r["attribution_source"] == "map"
+
+
+def test_multi_value_reference_matches_any_solution():
+    """主解给多解时，学生写其中任一个都算对；写别的值不算。"""
+    for stu in ("2", "-2", "±2", "q=2", "q=-2"):
+        assert judge_v2.judge_by_reference_answer("2 或 -2", stu) is not None, stu
+    for stu in ("4", "3", "0"):
+        assert judge_v2.judge_by_reference_answer("2 或 -2", stu) is None, stu
+
+
+def test_multi_value_does_not_match_substring():
+    """多解展开不能放宽成子串匹配：'1' 仍不得命中 '12'。"""
+    assert judge_v2.judge_by_reference_answer("1 或 2", "12") is None
+    assert judge_v2.judge_by_reference_answer("±2", "22") is None

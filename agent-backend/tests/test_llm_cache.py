@@ -280,3 +280,26 @@ def test_failed_remote_not_cached():
 
     asyncio.run(run())
     assert len(calls) == 2, "失败结果不应缓存，每次都应回源重试"
+
+
+# ------------------------------------------------- 换模型 / 改提示词必须换键
+
+def test_cache_key_differs_by_model():
+    """同一道题换模型必须换键。
+
+    回归（2026-10-29）：缓存键不含模型名，把租户模型从 qwen3.6-flash 换成
+    deepseek-v4-pro-0813 后，同一道题仍 0.2s 返回旧答案——根本没调新模型，
+    线上表现为"改了配置却没生效"（TTL 7 天）。
+    """
+    kw = dict(subject="数学", mode="direct", hint_level=None, question="求公比")
+    assert lc.cache_key(model="qwen3.6-flash", **kw) != lc.cache_key(
+        model="deepseek-v4-pro-0813", **kw)
+
+
+def test_cache_key_differs_by_prompt_version(monkeypatch):
+    """改提示词后 bump PROMPT_VERSION 即可让旧缓存整体失效。"""
+    kw = dict(subject="数学", mode="direct", hint_level=None, question="求公比",
+              model="qwen3.6-flash")
+    k1 = lc.cache_key(**kw)
+    monkeypatch.setattr(lc.config, "PROMPT_VERSION", "3")
+    assert lc.cache_key(**kw) != k1
