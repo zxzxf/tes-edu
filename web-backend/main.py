@@ -190,6 +190,7 @@ app.include_router(vendor_api.router, prefix="/api/admin")  # T-AM6 MCP 厂商�
 app.include_router(byom_api.router, prefix="/api/admin")  # W6 BYOM 学校配置大模型（T-M3）
 app.include_router(student_features.student_router, prefix="/api/student")  # W3 学生端能力（项目/功能开关/防疲劳）
 app.include_router(student_features.admin_router, prefix="/api/admin")  # W3 功能开关/防疲劳管理（require_perm system:feature:manage）
+app.include_router(exam.student_router, prefix="/api/student")  # 作业闭环：学生取卷/提交/判分
 
 # T-B5：C 端直连挂载（网关 /login 与 /learning/ 路由按原路径转发、不做前缀改写，
 # 2026-10-24 部署时发现单挂 /api/admin 会导致网关侧 404，故补根路径双挂载）。

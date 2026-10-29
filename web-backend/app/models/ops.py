@@ -292,3 +292,102 @@ class LlmUsage(Base):
     error_kind = Column(String(16))
     cost = Column(Numeric(14, 6), default=0)
     created_at = Column(DateTime(timezone=True), index=True)
+
+
+# ======================================================================
+# 学生 Agent『作业闭环』试卷域（MVP：高三·数学·纯选择题卷）
+# 表由 migrations/0005_exam_domain.sql 创建；ORM 仅做读写映射。
+# 判分唯一来源 = exam_paper_questions.answer（确定性 0-token，见 app/core/equiv.py）。
+# ======================================================================
+class ExamPaper(Base):
+    """试卷头：年级段 / 学科 / 题型 / 发布状态。"""
+
+    __tablename__ = "exam_papers"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64), index=True)
+    title = Column(String(255), nullable=False)
+    paper_type = Column(String(16), nullable=False, default="pure_choice")
+    grade = Column(String(32), nullable=False, default="高三")
+    subject = Column(String(32), nullable=False, default="数学")
+    difficulty_avg = Column(SmallInteger)
+    knowledge_points = Column(JSON, default=list)
+    created_by = Column(String(64))
+    published = Column(Boolean, nullable=False, default=False)
+    published_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class ExamPaperQuestion(Base):
+    """试卷内每题快照：题干 / 选项 / 本卷答案 / 解析。
+
+    answer 是判分唯一来源；multi 标记选择题是否多选。
+    """
+
+    __tablename__ = "exam_paper_questions"
+
+    id = Column(Integer, primary_key=True)
+    paper_id = Column(Integer, nullable=False, index=True)
+    seq = Column(Integer, nullable=False)
+    content_hash = Column(String(64), index=True)
+    qtype = Column(String(16), nullable=False)  # choice/blank/subjective
+    multi = Column(Boolean, nullable=False, default=False)
+    stem = Column(Text, nullable=False)
+    options = Column(JSON)                       # {label: content}
+    answer = Column(Text, nullable=False)
+    analysis = Column(Text)
+    difficulty = Column(SmallInteger)
+    knowledge_points = Column(JSON)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class ExamAssignment(Base):
+    """试卷下发：按年级段（grade）或指定学生（student）下发。"""
+
+    __tablename__ = "exam_assignments"
+
+    id = Column(Integer, primary_key=True)
+    paper_id = Column(Integer, nullable=False, index=True)
+    tenant_id = Column(String(64), index=True)
+    target_type = Column(String(16), nullable=False, default="grade")  # grade/student
+    target_grade = Column(String(32))
+    target_student = Column(String(64))
+    assigned_by = Column(String(64))
+    assigned_at = Column(DateTime(timezone=True), default=_utcnow)
+    due_at = Column(DateTime(timezone=True))
+
+
+class ExamSubmission(Base):
+    """学生整卷提交 + 自动判分结果。每学生每卷唯一一次提交。"""
+
+    __tablename__ = "exam_submissions"
+
+    id = Column(Integer, primary_key=True)
+    assignment_id = Column(Integer, nullable=False, index=True)
+    paper_id = Column(Integer, nullable=False)
+    student_id = Column(String(64), nullable=False, index=True)
+    tenant_id = Column(String(64), index=True)
+    client_id = Column(String(64))
+    status = Column(String(16), nullable=False, default="graded")  # graded/manual_pending
+    score = Column(Numeric(6, 2))            # 正确题数
+    correct_count = Column(Integer)
+    total_count = Column(Integer)
+    submitted_at = Column(DateTime(timezone=True), default=_utcnow)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class ExamSubmissionItem(Base):
+    """逐题判分结果。correct=全对；partial=多选漏选但所选皆正确（MVP 标记不计分）。"""
+
+    __tablename__ = "exam_submission_items"
+
+    id = Column(Integer, primary_key=True)
+    submission_id = Column(Integer, nullable=False, index=True)
+    paper_question_id = Column(Integer, nullable=False)
+    seq = Column(Integer, nullable=False)
+    qtype = Column(String(16), nullable=False)
+    student_answer = Column(Text)
+    correct = Column(Boolean)
+    partial = Column(Boolean, default=False)
+    status = Column(String(16), nullable=False, default="auto")  # auto/manual_pending
+    created_at = Column(DateTime(timezone=True), default=_utcnow)

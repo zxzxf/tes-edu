@@ -82,13 +82,124 @@ class WrongQuestionOut(WrongQuestion):
     advice: Optional[str] = None          # 该类错因的一句话建议
 
 
-# ---------- 模块4：自动组卷 ----------
-class ExamPaper(BaseModel):
-    id: Optional[int] = None
-    title: str
+# ---------- 作业闭环：试卷域（MVP 高三·数学·纯选择题卷） ----------
+class OptionItem(BaseModel):
+    label: str
+    content: str
+
+
+class ExamPaperQuestionOut(BaseModel):
+    seq: int
+    qtype: str
+    multi: bool = False
+    stem: str
+    options: List[dict] = []
+    answer: Optional[str] = None
+    analysis: Optional[str] = None
+    difficulty: Optional[int] = None
     knowledge_points: List[str] = []
-    difficulty: int = 3           # 1~5
-    questions: List[str] = []
+
+
+class ExamPaperCreate(BaseModel):
+    """规则组卷请求：按年级/学科/题型/题量/难度从 course_kb 抽题。"""
+    title: Optional[str] = None
+    grade: str = "高三"
+    subject: str = "数学"
+    paper_type: str = "pure_choice"          # MVP 仅 pure_choice
+    count: int = 20                          # 抽题数量
+    knowledge_points: List[str] = []         # 可选：限定知识点
+    difficulty_min: Optional[int] = None
+    difficulty_max: Optional[int] = None
+
+
+class ExamPaperOut(BaseModel):
+    id: int
+    title: str
+    paper_type: str
+    grade: str
+    subject: str
+    published: bool
+    question_count: int = 0
+    questions: List[ExamPaperQuestionOut] = []
+
+
+class AssignmentCreate(BaseModel):
+    target_type: str = "grade"               # grade / student
+    target_grade: Optional[str] = "高三"
+    target_student: Optional[str] = None
+    due_at: Optional[str] = None             # ISO 字符串
+
+
+class AssignmentOut(BaseModel):
+    assignment_id: int
+    paper_id: int
+    title: str
+    paper_type: str
+    grade: str
+    subject: str
+    target_type: str
+    target_grade: Optional[str] = None
+    target_student: Optional[str] = None
+    question_count: int = 0
+    due_at: Optional[str] = None
+
+
+# ---- 学生端契约 ----
+class StudentExamListItem(BaseModel):
+    assignment_id: int
+    paper_id: int
+    title: str
+    paper_type: str
+    grade: str
+    subject: str
+    question_count: int = 0
+    due_at: Optional[str] = None
+    submitted: bool = False
+
+
+class StudentQuestionView(BaseModel):
+    seq: int
+    qtype: str
+    multi: bool = False
+    stem: str
+    options: List[dict] = []
+    difficulty: Optional[int] = None
+    knowledge_points: List[str] = []
+
+
+class SubmitItem(BaseModel):
+    seq: int
+    student_answer: Optional[str] = None
+
+
+class SubmitExamRequest(BaseModel):
+    client_id: Optional[str] = None
+    answers: List[SubmitItem]
+
+
+class ExamResultItem(BaseModel):
+    seq: int
+    qtype: str
+    multi: bool = False
+    student_answer: Optional[str] = None
+    correct_answer: Optional[str] = None
+    correct: bool = False
+    partial: bool = False
+    status: str = "auto"
+    analysis: Optional[str] = None
+
+
+class ExamResult(BaseModel):
+    submission_id: int
+    assignment_id: int
+    paper_id: int
+    title: str
+    score: float = 0.0                       # 正确题数
+    correct_count: int = 0
+    total_count: int = 0
+    status: str = "graded"
+    submitted_at: Optional[str] = None
+    items: List[ExamResultItem] = []
 
 
 # ---------- 模块5：教师批改 ----------
