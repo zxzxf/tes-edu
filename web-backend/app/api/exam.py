@@ -409,11 +409,36 @@ async def _assignment_out(db: AsyncSession, a: ExamAssignment) -> AssignmentOut:
 
 
 # ============================================================== 学生端
+def _tenant_of(user: dict) -> str:
+    return user.get("tenant_id") or "school_pilot_01"
+
+
 def _visible_to(a: ExamAssignment, user: dict) -> bool:
-    """MVP：年级段下发仅『高三』（M0-3 student_profile 落地后用学生真实年级替换）。"""
+    """学生能否看到这份下发。
+
+    **租户隔离是第一道门**：年级段下发（target_type=grade）没有学生 id，
+    只按 `target_grade` 命中的话，别的学校的高三学生也会看到这份卷——
+    实测 demo 租户的教师卷和试点校学生的列表会互相串。
+    """
+    tenant = _tenant_of(user)
+    if (a.tenant_id or "") != tenant:
+        return False
+    # MVP：年级段下发仅『高三』（M0-3 student_profile 落地后用学生真实年级替换）
     if a.target_type == "student":
         return a.target_student == user["user_id"]
     return a.target_grade == "高三"
+
+
+async def _assignment_for_student(
+    db: AsyncSession, assignment_id: int, user: dict
+) -> ExamAssignment:
+    """按 (id, 本租户) 取下发；不可见一律 404，不区分"不存在"与"不是你校的"。"""
+    a = (
+        await db.execute(select(ExamAssignment).where(ExamAssignment.id == assignment_id))
+    ).scalar_one_or_none()
+    if not a or not _visible_to(a, user):
+        raise HTTPException(status_code=404, detail="assignment not found")
+    return a
 
 
 @student_router.get("", response_model=list[StudentExamListItem])
@@ -421,18 +446,22 @@ async def list_student_exams(
     user=Depends(require_role(Role.STUDENT)),
     db: AsyncSession = Depends(get_db),
 ):
-    """列出该学生可做的试卷（已发布 + 下发到本人/本年级段）。"""
+    """列出该学生可做的试卷（本租户 + 已发布 + 下发到本人/本年级段）。"""
     student_id = user["user_id"]
+    tenant_id = _tenant_of(user)
     grade_rows = (
         await db.execute(
-            select(ExamAssignment)
-            .where(ExamAssignment.target_type == "grade", ExamAssignment.target_grade == "高三")
-            .order_by(ExamAssignment.assigned_at.desc())
+            select(ExamAssignment).where(
+                ExamAssignment.tenant_id == tenant_id,
+                ExamAssignment.target_type == "grade",
+                ExamAssignment.target_grade == "高三",
+            ).order_by(ExamAssignment.assigned_at.desc())
         )
     ).scalars().all()
     stu_rows = (
         await db.execute(
             select(ExamAssignment).where(
+                ExamAssignment.tenant_id == tenant_id,
                 ExamAssignment.target_type == "student",
                 ExamAssignment.target_student == student_id,
             )
@@ -486,11 +515,7 @@ async def get_exam_for_student(
     db: AsyncSession = Depends(get_db),
 ):
     """取卷：只返回题干 + 选项（不含答案/解析）。"""
-    a = (
-        await db.execute(select(ExamAssignment).where(ExamAssignment.id == assignment_id))
-    ).scalar_one_or_none()
-    if not a or not _visible_to(a, user):
-        raise HTTPException(status_code=404, detail="assignment not found")
+    a = await _assignment_for_student(db, assignment_id, user)
     qs = (
         await db.execute(
             select(ExamPaperQuestion)
@@ -521,11 +546,7 @@ async def submit_exam(
 ):
     """提交并确定性判分（0 token）。每学生每卷一次提交，重复提交返回既有结果。"""
     student_id = user["user_id"]
-    a = (
-        await db.execute(select(ExamAssignment).where(ExamAssignment.id == assignment_id))
-    ).scalar_one_or_none()
-    if not a or not _visible_to(a, user):
-        raise HTTPException(status_code=404, detail="assignment not found")
+    a = await _assignment_for_student(db, assignment_id, user)
 
     # 幂等：已提交则直接返回历史结果
     existing = (
@@ -629,6 +650,8 @@ async def get_result(
     db: AsyncSession = Depends(get_db),
 ):
     """取回判分结果（已提交才有）。"""
+    # 先校验下发对本租户/本人可见：否则拿到别人学校的 assignment_id 就能翻成绩
+    await _assignment_for_student(db, assignment_id, user)
     sub = (
         await db.execute(
             select(ExamSubmission).where(

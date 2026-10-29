@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountTree
+import androidx.compose.material.icons.rounded.Assignment
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Bookmark
@@ -94,8 +95,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// 六大能力页定义（底部导航）
+// 七个能力页（底部导航）：作业闭环 + 解题六页
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
+    // 作业闭环（M1-6）：老师下发的卷子在这里作答，是这一版的主入口
+    object Exam : Screen("exam", "作业", Icons.Rounded.Assignment)
     object Input : Screen("input", "输入", Icons.Rounded.Edit)
     object Camera : Screen("camera", "拍照", Icons.Rounded.PhotoCamera)
     object Explain : Screen("explain", "讲解", Icons.Rounded.MenuBook)

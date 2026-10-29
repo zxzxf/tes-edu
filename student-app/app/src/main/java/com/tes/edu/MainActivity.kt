@@ -36,6 +36,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.tes.edu.data.remote.AppContextProvider
 import com.tes.edu.ui.screens.CameraScreen
+import com.tes.edu.ui.screens.ExamScreen
 import com.tes.edu.ui.screens.ExplainScreen
 import com.tes.edu.ui.screens.GraphScreen
 import com.tes.edu.ui.screens.InputScreen
@@ -61,6 +62,7 @@ class MainActivity : ComponentActivity() {
 fun AppRoot() {
     val navController: NavHostController = rememberNavController()
     val items = listOf(
+        Screen.Exam,
         Screen.Input, Screen.Camera, Screen.Explain,
         Screen.Similar, Screen.Graph, Screen.Review
     )
@@ -90,9 +92,12 @@ fun AppRoot() {
     ) { padding ->
         NavHost(
             navController,
-            startDestination = Screen.Input.route,
+            // 作业闭环是这一版的主链路：冷启动直接落在「作业」，
+            // 没有下发卷时该页给空态并引导去错题本。
+            startDestination = Screen.Exam.route,
             modifier = Modifier.padding(padding)
         ) {
+            composable(Screen.Exam.route) { ExamScreen() }
             composable(Screen.Input.route) { InputScreen() }
             composable(Screen.Camera.route) { CameraScreen(onNavigate = go) }
             composable(Screen.Explain.route) { ExplainScreen() }

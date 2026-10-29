@@ -203,6 +203,9 @@ object ApiClient {
     private var cachedLearning: LearningApi? = null
 
     @Volatile
+    private var cachedExam: ExamApi? = null
+
+    @Volatile
     private var cachedRetrofit: Retrofit? = null
 
     /** 登录后调用一次，让后续请求带上新 token（进程内重建 Retrofit 实例）。 */
@@ -210,6 +213,7 @@ object ApiClient {
         synchronized(this) {
             cached = null
             cachedLearning = null
+            cachedExam = null
             cachedRetrofit = null
         }
     }
@@ -221,6 +225,11 @@ object ApiClient {
     /** 学生端 learning/ 端点（错题同步 + 背诵卡），与 [instance] 共用同一个 Retrofit。 */
     val learning: LearningApi get() = cachedLearning ?: synchronized(this) {
         cachedLearning ?: retrofit().create(LearningApi::class.java).also { cachedLearning = it }
+    }
+
+    /** 学生端作业卷端点（/api/student/exams），同样共用 Retrofit 与连接池。 */
+    val exam: ExamApi get() = cachedExam ?: synchronized(this) {
+        cachedExam ?: retrofit().create(ExamApi::class.java).also { cachedExam = it }
     }
 
     /** Retrofit 只建一次：两个接口共用同一个 OkHttp 连接池。 */
