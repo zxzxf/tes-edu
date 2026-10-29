@@ -21,6 +21,7 @@ from app.core.exam_types import (
     QTYPE_SUBJECTIVE,
     check_choice_answer,
     course_types_for,
+    is_auto_gradeable,
     to_qtype,
     validate_paper,
 )
@@ -131,15 +132,44 @@ def test_pure_blank_with_choice_is_blocked():
     assert r.violations[0].seq == 2
 
 
-def test_pure_blank_ok_but_counts_manual():
-    """填空判定属 M2-3，当前一律人工——不拦，但必须如实标出人工量。"""
+def test_pure_blank_counts_auto_and_manual_per_answer_shape():
+    """M2-3：填空按**答案形态**逐题判定，不再按题型一刀切。
+
+    ``1`` 可数值化 -> 自动判；``3x+4y-5=0`` 是方程，只能字符串判对、
+    答错转人工（发布时就如实标出来，别等学生答完才发现判不了）。
+    """
     qs = [_q(1, QTYPE_BLANK, "1"), _q(2, QTYPE_BLANK, "3x+4y-5=0")]
     r = validate_paper(PAPER_TYPE_PURE_BLANK, qs)
     assert r.ok is True
-    assert r.auto_gradeable_count == 0
-    assert r.manual_required_count == 2
-    assert r.manual_breakdown == {QTYPE_BLANK: 2}
-    assert "需人工批改 2 道" in r.note
+    assert r.auto_gradeable_count == 1
+    assert r.manual_required_count == 1
+    assert r.manual_breakdown == {QTYPE_BLANK: 1}
+    assert "需人工批改 1 道" in r.note
+
+
+@pytest.mark.parametrize(
+    "answer,auto",
+    [
+        ("61/25", True),
+        ("-3/2", True),
+        ("[2,3)", True),
+        ("(-∞,-4)∪(0,+∞)", True),
+        (r"$\sqrt[3]{\dfrac32}$", True),
+        ("ln2", True),                      # ln2 -> ln(2)，可数值化
+        ("720 - 240(n+3)/2^n", False),      # 含变量 n，无法数值化
+        ("3x+4y-5=0", False),               # 方程
+        ("", False),                        # 缺答案
+    ],
+)
+def test_is_auto_gradeable_blank_by_answer_shape(answer, auto):
+    assert is_auto_gradeable(QTYPE_BLANK, answer) is auto
+
+
+def test_is_auto_gradeable_other_qtypes():
+    """选择题不看答案文本（答案合规由 check_choice_answer 单独拦）；解答题一律人工。"""
+    assert is_auto_gradeable(QTYPE_CHOICE) is True
+    assert is_auto_gradeable(QTYPE_CHOICE, "A") is True
+    assert is_auto_gradeable(QTYPE_SUBJECTIVE, "见解析") is False
 
 
 def test_mixed_with_subjective_is_allowed_but_marked():
@@ -151,10 +181,11 @@ def test_mixed_with_subjective_is_allowed_but_marked():
     r = validate_paper(PAPER_TYPE_MIXED, qs)
     assert r.ok is True
     assert r.qtype_counts == {QTYPE_CHOICE: 1, QTYPE_BLANK: 1, QTYPE_SUBJECTIVE: 1}
-    assert r.auto_gradeable_count == 1
-    assert r.manual_required_count == 2
-    assert r.manual_breakdown == {QTYPE_BLANK: 1, QTYPE_SUBJECTIVE: 1}
-    assert "解答题" in r.note and "填空题" in r.note
+    # 选择题 + 可数值化的填空都自动判；解答题必人工
+    assert r.auto_gradeable_count == 2
+    assert r.manual_required_count == 1
+    assert r.manual_breakdown == {QTYPE_SUBJECTIVE: 1}
+    assert "解答题" in r.note and "填空题" not in r.note
 
 
 def test_empty_paper_blocked():

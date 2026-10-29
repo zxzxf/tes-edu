@@ -384,6 +384,27 @@ private fun QuestionBlock(
             )
             Spacer(Modifier.height(10.dp))
         }
+    } else if (q.isMultiBlank) {
+        // 多空填空：一空一个输入框。学生不必猜分隔符，服务端按空逐题判分
+        // （存储时用全角「；」连接，提交时切成 blanks 数组，空串占位保留"漏答"事实）
+        val parts = answer.split('；')
+        repeat(q.blankCount) { i ->
+            SoftFieldCard(
+                label = "第 ${i + 1} 空 · 共 ${q.blankCount} 空",
+                value = parts.getOrElse(i) { "" },
+                onValueChange = { v ->
+                    val cur = answer.split('；').toMutableList()
+                    while (cur.size < q.blankCount) cur.add("")
+                    cur[i] = v
+                    onText(q.seq, cur.take(q.blankCount).joinToString("；").trimEnd('；'))
+                },
+                hint = if (i == 0) "按题面顺序逐空填写" else null,
+                placeholder = "第 ${i + 1} 空",
+                minLines = 1,
+                mathPreview = true
+            )
+            Spacer(Modifier.height(8.dp))
+        }
     } else {
         SoftFieldCard(
             label = if (q.isBlank) "填写答案" else "作答过程",
@@ -591,6 +612,16 @@ private fun ResultItemCard(item: com.tes.edu.data.remote.ExamResultItem) {
                     "正确答案：$it",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TesEduColors.TextPrimary
+                )
+            }
+        } else {
+            // 说明「不是判错，是判不了」，避免学生误以为自己被扣分
+            item.reason?.takeIf { it.isNotBlank() }?.let {
+                Spacer(Modifier.height(6.dp))
+                MathText(
+                    "待老师批改：$it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TesEduColors.TextSecondary
                 )
             }
         }

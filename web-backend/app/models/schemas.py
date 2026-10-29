@@ -194,11 +194,16 @@ class StudentQuestionView(BaseModel):
     options: List[dict] = []
     difficulty: Optional[int] = None
     knowledge_points: List[str] = []
+    # 填空题空数（多空题需逐空输入；由标答结构推出，不泄露答案内容）
+    blank_count: int = 0
 
 
 class SubmitItem(BaseModel):
     seq: int
     student_answer: Optional[str] = None
+    # 多空题逐空答案（按空序号）。有则优先于 student_answer 单串切分；
+    # 保留 student_answer 是为了向后兼容旧版 App 的单串提交。
+    blanks: Optional[List[str]] = None
 
 
 class SubmitExamRequest(BaseModel):
@@ -215,6 +220,9 @@ class ExamResultItem(BaseModel):
     correct: bool = False
     partial: bool = False
     status: str = "auto"
+    # 判分依据说明：转人工时写清原因（符号/表达式类答案、多空空数不符），
+    # 让学生与教师都知道「不是判错，是判不了」
+    reason: Optional[str] = None
     analysis: Optional[str] = None
 
 

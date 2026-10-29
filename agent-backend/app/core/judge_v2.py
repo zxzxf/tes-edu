@@ -283,7 +283,9 @@ def judge_by_reference_answer(ref_answer: str | None, student_answer: str) -> di
     # 太长/多行 = 引导档提示语或整段解析，不是"答案"，不能拿来做等价判定
     if not ref or len(ref) > REF_ANSWER_MAX_LEN or "\n" in ref:
         return None
-    if equiv.blank_equivalent(ref, student_answer):
+    # 签名是 blank_equivalent(student, ref)：学生答案在前、标答在后，
+    # 传反会让「多空题空数不符」的语义倒置（谁的空数为准）。
+    if equiv.blank_equivalent(student_answer, ref):
         return _ok(f"作答与本题参考答案一致（{ref}）", source=REF_SOURCE)
     return None
 
@@ -474,7 +476,7 @@ def judge_blank_by_map(bundle: dict, student_answer: str) -> dict | None:
     stu = _norm_value(student_answer)
     if not stu:
         return None
-    if ans and equiv.blank_equivalent(ans, student_answer):
+    if ans and equiv.blank_equivalent(student_answer, ans):
         return _ok("作答与标准答案一致（查表判定）")
     # 错值映射同样要认带前缀的写法：'a=-1' 与 '-1' 是同一个错值，
     # 否则学生加个变量名就绕开了已标注的典型错误，白白退化成 LLM 兜底。

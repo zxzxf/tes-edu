@@ -459,6 +459,44 @@ class ExamViewModelTest {
         assertTrue(q.isChoice)
     }
 
+    // ---------------------------------------------------------------- 多空提交（M2-3）
+
+    /** 多空填空逐空下发，且**空位补齐**：学生漏答某空要判错，不能变成"待人工"。 */
+    @Test
+    fun submit_multiBlank_sendsBlanksWithEmptyPlaceholders() {
+        api.exams = listOf(item())
+        api.questions = listOf(
+            ExamQuestionView(seq = 1, qtype = "blank", stem = "两空", blankCount = 2),
+            ExamQuestionView(seq = 2, qtype = "blank", stem = "一空", blankCount = 1)
+        )
+        vm.refresh()
+        vm.open(item())
+        vm.setAnswer(1, "5；")      // 只填第 1 空，第 2 空留空
+        vm.setAnswer(2, "[2,3)")
+        vm.submit()
+
+        val req = api.submitted.single().second
+        val q1 = req.answers.single { it.seq == 1 }
+        assertEquals(listOf("5", ""), q1.blanks)
+        val q2 = req.answers.single { it.seq == 2 }
+        assertNull("单空题不传 blanks，交服务端括号感知切分", q2.blanks)
+    }
+
+    /** 老版本单串作答（用逗号分隔）不在这里切——`[2,3)` 的逗号会被切坏。 */
+    @Test
+    fun submit_legacySingleString_leavesBlanksNull() {
+        api.exams = listOf(item())
+        api.questions = listOf(
+            ExamQuestionView(seq = 1, qtype = "blank", stem = "两空", blankCount = 2)
+        )
+        vm.refresh()
+        vm.open(item())
+        vm.setAnswer(1, "[2,3),[4,5)")
+        vm.submit()
+
+        assertNull(api.submitted.single().second.answers.single().blanks)
+    }
+
     /** 卷型枚举 -> 中文标签：服务端三值都要有对应文案。 */
     @Test
     fun dto_paperTypeLabels() {

@@ -53,7 +53,9 @@ data class ExamQuestionView(
     val stem: String = "",
     val options: List<ExamOption> = emptyList(),
     val difficulty: Int? = null,
-    @SerializedName("knowledge_points") val knowledgePoints: List<String> = emptyList()
+    @SerializedName("knowledge_points") val knowledgePoints: List<String> = emptyList(),
+    /** 填空题空数（服务端按标答结构下发，只给空数不给答案）。多空题需逐空输入。 */
+    @SerializedName("blank_count") val blankCount: Int = 0
 ) {
     val isChoice: Boolean get() = qtype == "choice"
     val isBlank: Boolean get() = qtype == "blank"
@@ -67,12 +69,43 @@ data class ExamQuestionView(
             "subjective" -> "解答"
             else -> qtype
         }
+
+    /** 是否多空填空（需要逐空输入）。 */
+    val isMultiBlank: Boolean get() = isBlank && blankCount > 1
+
+    /**
+     * 把存储串切成逐空答案；返回 null 表示交给服务端切分。
+     *
+     * UI 逐空输入时各空用全角「；」连接（学生不需要知道分隔符），这里按它切开并
+     * **补齐到 blankCount**：学生只填第 1 空时，缺的位留空串，服务端才能判
+     * 「第 2 空错」；否则空段被服务端过滤掉，会变成「空数不符 → 转人工」，
+     * 学生明明漏答却被挂成待批改。
+     *
+     * 只有一段说明是老版本单串作答（可能用 `,` 分隔），不在此切分——
+     * 交给服务端 `split_blanks` 做括号感知切分（`[2,3)` 的逗号不能切）。
+     */
+    fun blankParts(answer: String): List<String>? {
+        if (!isMultiBlank) return null
+        val parts = answer.split('；').map { it.trim() }.toMutableList()
+        if (parts.size <= 1) return null
+        while (parts.size < blankCount) parts.add("")
+        return parts.take(blankCount)
+    }
 }
 
 /** 提交时逐题作答。 */
 data class ExamSubmitItem(
     val seq: Int,
-    @SerializedName("student_answer") val studentAnswer: String
+    @SerializedName("student_answer") val studentAnswer: String,
+    /**
+     * 多空填空逐空答案（按空序号，**允许空串占位**）。
+     *
+     * 传了就优先于服务端按分隔符切分 `student_answer`——学生漏答某一空时，
+     * 空串占位能保留"第 2 空没写"这个事实，服务端据此判错；
+     * 若靠分隔符切分，空段会被过滤掉、变成「空数不符 → 转人工」，
+     * 学生明明漏答却被挂成待批改。
+     */
+    val blanks: List<String>? = null
 )
 
 /**
@@ -97,6 +130,8 @@ data class ExamResultItem(
     val correct: Boolean = false,
     val partial: Boolean = false,
     val status: String = "auto",
+    /** 转人工原因（「含无法确定性判定的空」等）。null 表示自动判分。 */
+    val reason: String? = null,
     val analysis: String? = null
 ) {
     val manualPending: Boolean get() = status == "manual_pending"

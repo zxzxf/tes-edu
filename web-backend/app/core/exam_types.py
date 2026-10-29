@@ -23,6 +23,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
+from app.core.equiv import blank_auto_gradeable
+
 # ---------------------------------------------------------------- 题型枚举
 QTYPE_CHOICE = "choice"
 QTYPE_BLANK = "blank"
@@ -57,8 +59,11 @@ PAPER_TYPE_ALLOWED_QTYPES: Dict[str, Set[str]] = {
     PAPER_TYPE_MIXED: {QTYPE_CHOICE, QTYPE_BLANK, QTYPE_SUBJECTIVE},
 }
 
-#: 当前可确定性自动判分的题型。填空判定（多解/区间/集合展开）属 M2-3，
-#: 落地前填空题一律走人工，故不计入此集合。
+#: 题型级默认：这些题型**只要答案合规**就能确定性判分。
+#: 填空（M2-3）不在此列 —— 它取决于**每道题的答案形态**：纯数值/区间/根式可自动判
+#: （``61/25`` / ``[2,3)`` / ``\\sqrt[3]{3/2}``），含变量或符号函数的
+#: （``720-240(n+3)/2^n`` / ``ln2`` / ``3x+4y-5=0``）只能字符串判对、答错转人工。
+#: 因此填空题必须逐题过 :func:`is_auto_gradeable` 动态判定。
 AUTO_GRADABLE_QTYPES: Set[str] = {QTYPE_CHOICE}
 
 #: 题库中文题型 -> (qtype, multi)。兼容带/不带「题」字的写法。
@@ -103,8 +108,22 @@ def course_types_for(paper_type: str) -> List[str]:
     return [ct for ct, (qt, _multi) in COURSE_TYPE_TO_QTYPE.items() if qt in allowed]
 
 
-def is_auto_gradeable(qtype: str) -> bool:
-    return qtype in AUTO_GRADABLE_QTYPES
+def is_auto_gradeable(qtype: str, answer: Optional[str] = None) -> bool:
+    """该题能否确定性判分。
+
+    **发布统计与提交判分共用此函数**，避免「发布时说自动判、提交时却转人工」的分叉。
+
+    - 选择题：纳入 ``AUTO_GRADABLE_QTYPES`` 即自动判（答案合规另由
+      :func:`check_choice_answer` 在发布时拦截）。
+    - 填空题（M2-3）：看**这道题的答案形态**，纯数值/区间/根式可自动判，
+      含变量或符号函数则只能字符串判对、答错转人工。
+    - 解答题：一律人工。
+    """
+    if qtype in AUTO_GRADABLE_QTYPES:
+        return True
+    if qtype == QTYPE_BLANK:
+        return blank_auto_gradeable(answer or "")
+    return False
 
 
 # ---------------------------------------------------------------- 单题校验
@@ -207,7 +226,9 @@ def validate_paper(paper_type: Optional[str], questions: Iterable[Any]) -> Valid
 
     拦截（``ok=False``）：未知卷型 / 空卷 / 题型越出白名单 / 选择题答案不合规 /
     选择题选项不足 / 填空题缺答案。
-    不拦只标：解答题与填空题计入 ``manual_required_count``。
+    不拦只标：解答题一律计入人工；填空题**按答案形态逐题判定** —— 纯数值/区间/
+    根式计入 ``auto_gradeable_count``，含变量或符号函数的计入 ``manual_required_count``
+    （这类题答对可字符串判对、答错转人工，见 M2-3）。
     """
     qs = list(questions)
     report = ValidationReport(paper_type=paper_type or "", question_count=len(qs))
@@ -236,8 +257,14 @@ def validate_paper(paper_type: Optional[str], questions: Iterable[Any]) -> Valid
         seq = int(_get(q, "seq", 0) or 0)
         qtype = str(_get(q, "qtype", "") or "").strip()
         multi = bool(_get(q, "multi", False))
+        answer = _get(q, "answer", "")
 
         report.qtype_counts[qtype] = report.qtype_counts.get(qtype, 0) + 1
+        # 逐题统计自动判分能力：blank 取决于答案形态，不能按题型一刀切
+        if is_auto_gradeable(qtype, answer):
+            report.auto_gradeable_count += 1
+        elif qtype in QTYPE_LABEL:
+            report.manual_breakdown[qtype] = report.manual_breakdown.get(qtype, 0) + 1
 
         if qtype not in allowed:
             report.violations.append(
@@ -253,7 +280,7 @@ def validate_paper(paper_type: Optional[str], questions: Iterable[Any]) -> Valid
             continue  # 题型都不对，不再追加答案类噪音
 
         if qtype == QTYPE_CHOICE:
-            reason = check_choice_answer(_get(q, "answer", ""), multi)
+            reason = check_choice_answer(answer, multi)
             if reason:
                 report.violations.append(
                     Violation(seq, qtype, "CHOICE_ANSWER_INVALID", f"第 {seq} 题：{reason}")
@@ -269,7 +296,7 @@ def validate_paper(paper_type: Optional[str], questions: Iterable[Any]) -> Valid
                     )
                 )
         elif qtype == QTYPE_BLANK:
-            if not str(_get(q, "answer", "") or "").strip():
+            if not str(answer or "").strip():
                 report.violations.append(
                     Violation(
                         seq,
@@ -279,12 +306,6 @@ def validate_paper(paper_type: Optional[str], questions: Iterable[Any]) -> Valid
                     )
                 )
 
-    report.auto_gradeable_count = sum(
-        c for t, c in report.qtype_counts.items() if is_auto_gradeable(t)
-    )
-    report.manual_breakdown = {
-        t: c for t, c in report.qtype_counts.items() if not is_auto_gradeable(t) and c
-    }
     report.manual_required_count = sum(report.manual_breakdown.values())
     report.ok = not report.violations
     return report

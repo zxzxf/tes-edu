@@ -18,7 +18,9 @@
 发布拦截；混合卷含解答题 → 不拦，标「需人工 N 道」。
 
 判分设计（ADR-A10）：答案随卷快照在 exam_paper_questions.answer，判分唯一来源就是它，
-绝不调 LLM / 不查外部检索；选择题走 app/core/equiv.py 的 choice_equivalent（确定性）。
+绝不调 LLM / 不查外部检索。选择题走 ``choice_equivalent``；填空题走 ``blank_judge``
+三态（M2-3）：能数值化/区间归一的直接判对错，含变量或符号函数的**转人工而不判错**
+（判错不可逆，转人工只是多一道手续）。
 """
 from __future__ import annotations
 
@@ -31,10 +33,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.equiv import choice_equivalent
+from app.core.equiv import blank_judge, choice_equivalent, split_blanks
 from app.core.exam_types import (
     PAPER_TYPE_LABEL,
+    QTYPE_BLANK,
     QTYPE_CHOICE,
+    QTYPE_SUBJECTIVE,
     check_choice_answer,
     course_types_for,
     is_known_paper_type,
@@ -532,6 +536,8 @@ async def get_exam_for_student(
             options=_options_to_list(q.options),
             difficulty=q.difficulty,
             knowledge_points=q.knowledge_points or [],
+            # 多空题让 App 能渲染逐空输入（只暴露空数，不暴露答案）
+            blank_count=len(split_blanks(q.answer or "")) if q.qtype == QTYPE_BLANK else 0,
         )
         for q in qs
     ]
@@ -567,14 +573,16 @@ async def submit_exam(
             .order_by(ExamPaperQuestion.seq)
         )
     ).scalars().all()
-    ans_by_seq = {it.seq: (it.student_answer or "") for it in body.answers}
+    ans_by_seq = {it.seq: it for it in body.answers}
 
     items = []
     correct_count = 0
     manual = False
     for q in qs:
-        stu = ans_by_seq.get(q.seq, "")
-        it = _grade_one(q, stu)
+        submitted = ans_by_seq.get(q.seq)
+        stu = (submitted.student_answer or "") if submitted else ""
+        blanks = submitted.blanks if submitted else None
+        it = _grade_one(q, stu, blanks)
         if it["status"] == "manual_pending":
             manual = True
         if it["correct"]:
@@ -613,11 +621,19 @@ async def submit_exam(
     return await _result_out(db, sub)
 
 
-def _grade_one(q: ExamPaperQuestion, student_answer: str) -> dict:
-    """对单题做确定性判分（M1-4 题型→判分路由）。
+def _grade_one(
+    q: ExamPaperQuestion,
+    student_answer: str,
+    blanks: Optional[list] = None,
+) -> dict:
+    """对单题做确定性判分（M1-4 题型→判分路由，M2-3 填空三态）。
 
-    choice 走确定性等价判定；blank/subjective 直落 manual_pending 且不调 LLM
-    （填空判定属 M2-3，解答题属 M3 人工工单）。
+    - ``choice``：``choice_equivalent``（0 token，单选/多选、连写答案均支持）
+    - ``blank``：``blank_judge`` **三态** —— ``auto`` 直接给对/错；``manual``
+      （含变量/符号函数、多空空数不符）转人工，**绝不硬判错**
+    - ``subjective``：直接人工工单，不调 LLM
+
+    红线：解析不了的结构一律转人工。成绩判错不可逆，转人工只是多一道手续。
     """
     if q.qtype == QTYPE_CHOICE:
         opt_map = _options_to_map(q.options)
@@ -627,11 +643,29 @@ def _grade_one(q: ExamPaperQuestion, student_answer: str) -> dict:
         if res == "partial":  # 多选漏选但所选皆正确（MVP 标记不计分）
             return _item(q, student_answer, correct=False, partial=True, status="auto")
         return _item(q, student_answer, correct=False, partial=False, status="auto")
-    # 填空/解答 MVP 不自动判 → 转人工工单
-    return _item(q, student_answer, correct=None, partial=False, status="manual_pending")
+
+    if q.qtype == QTYPE_BLANK:
+        # 逐空提交优先；未逐空提交时拼回可展示形态（结果页要能看懂学生答了什么）
+        parts = [str(x or "").strip() for x in (blanks or [])]
+        display = student_answer or ("；".join(parts) if parts else "")
+        v = blank_judge(display, q.answer or "", blanks=blanks or None)
+        if v["status"] == "manual":
+            return _item(
+                q, display, correct=None, partial=False,
+                status="manual_pending", reason=v["reason"],
+            )
+        return _item(
+            q, display, correct=bool(v["correct"]), partial=False,
+            status="auto", reason=v["reason"],
+        )
+
+    return _item(
+        q, student_answer, correct=None, partial=False,
+        status="manual_pending", reason="解答题需人工批改",
+    )
 
 
-def _item(q, student_answer, *, correct, partial, status) -> dict:
+def _item(q, student_answer, *, correct, partial, status, reason=None) -> dict:
     return {
         "paper_question_id": q.id,
         "seq": q.seq,
@@ -640,7 +674,23 @@ def _item(q, student_answer, *, correct, partial, status) -> dict:
         "correct": correct,
         "partial": partial,
         "status": status,
+        "reason": reason,
     }
+
+
+def _manual_reason(it, q) -> Optional[str]:
+    """转人工原因（结果回看用）。
+
+    ``reason`` 不落库（改表成本高于重算）：这里用同一套纯函数重算一次，
+    0 token、无副作用，保证「提交当下」与「事后回看」给出的原因一致。
+    """
+    if it.status != "manual_pending":
+        return None
+    if q is not None and q.qtype == QTYPE_BLANK:
+        return blank_judge(it.student_answer or "", q.answer or "")["reason"] or None
+    if q is not None and q.qtype == QTYPE_SUBJECTIVE:
+        return "解答题需人工批改"
+    return None
 
 
 @student_router.get("/{assignment_id}/result", response_model=ExamResult)
@@ -711,6 +761,7 @@ async def _result_out(db: AsyncSession, sub: ExamSubmission) -> ExamResult:
                 correct=it.correct or False,
                 partial=it.partial or False,
                 status=it.status,
+                reason=_manual_reason(it, q_by_id.get(it.paper_question_id)),
                 analysis=(
                     q_by_id[it.paper_question_id].analysis if it.paper_question_id in q_by_id else None
                 ),

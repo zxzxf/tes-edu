@@ -266,7 +266,9 @@ class ExamViewModel(
             val body = ExamSubmitRequest(
                 clientId = id,
                 answers = s.questions.map {
-                    ExamSubmitItem(it.seq, s.answers[it.seq].orEmpty())
+                    val raw = s.answers[it.seq].orEmpty()
+                    // 多空填空附带逐空数组（空串占位），服务端据此判「漏答某空」
+                    ExamSubmitItem(it.seq, raw, blanks = it.blankParts(raw))
                 }
             )
             val res = withAuth { api.submit(s.assignmentId, body) }
