@@ -98,6 +98,8 @@ class ExamPaperQuestionOut(BaseModel):
     analysis: Optional[str] = None
     difficulty: Optional[int] = None
     knowledge_points: List[str] = []
+    # M2-4：可接受答案值集合（标答预展开 + 教师批改时确认追加），教师校对用
+    answer_values: List[str] = []
 
 
 class ExamPaperCreate(BaseModel):
@@ -219,11 +221,14 @@ class ExamResultItem(BaseModel):
     correct_answer: Optional[str] = None
     correct: bool = False
     partial: bool = False
+    # auto=机器判；manual_pending=待人工；manual_reviewed=老师已判定
     status: str = "auto"
     # 判分依据说明：转人工时写清原因（符号/表达式类答案、多空空数不符），
     # 让学生与教师都知道「不是判错，是判不了」
     reason: Optional[str] = None
     analysis: Optional[str] = None
+    # 老师判定时写的评语（manual_reviewed 才有），学生端据此知道为什么算错
+    teacher_comment: Optional[str] = None
 
 
 class ExamResult(BaseModel):
@@ -237,12 +242,14 @@ class ExamResult(BaseModel):
     # 混合卷（含解答/填空）下 total 包含人工题，前端按这两个数渲染「已判 x/y · z 题待人工」
     auto_gradeable_count: int = 0
     manual_pending_count: int = 0
+    # 其中已由老师复核判定的题数（含改判），与人工判定结果一并回写
+    manual_reviewed_count: int = 0
     status: str = "graded"
     submitted_at: Optional[str] = None
     items: List[ExamResultItem] = []
 
 
-# ---------- 模块5：教师批改 ----------
+# ---------- 模块5：教师批改（人工评定工单，M2-5/M2-6） ----------
 class Submission(BaseModel):
     id: Optional[int] = None
     student_id: str
@@ -251,6 +258,90 @@ class Submission(BaseModel):
     comment: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+# 工单状态 / 判定枚举（字符串常量集中在此，避免前后端各写一套拼错的字面量）
+TICKET_PENDING = "pending"
+TICKET_CLAIMED = "claimed"
+TICKET_REVIEWED = "reviewed"
+VERDICT_CORRECT = "correct"
+VERDICT_PARTIAL = "partial"
+VERDICT_WRONG = "wrong"
+
+
+class GradingTicketOut(BaseModel):
+    """工单待办条目（列表页用，不含题干）。"""
+
+    ticket_id: int
+    status: str = TICKET_PENDING
+    qtype: str
+    seq: int
+    student_id: str
+    assignment_id: int
+    paper_id: int
+    paper_title: str = ""
+    student_answer: Optional[str] = None
+    reason: Optional[str] = None          # 为什么转人工（机器判不了的具体原因）
+    verdict: Optional[str] = None
+    comment: Optional[str] = None
+    assignee: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class GradingRevisionOut(BaseModel):
+    """改判留痕条目。"""
+
+    action: str
+    actor_id: Optional[str] = None
+    actor_role: Optional[str] = None
+    before_correct: Optional[bool] = None
+    after_correct: Optional[bool] = None
+    before_partial: Optional[bool] = None
+    after_partial: Optional[bool] = None
+    before_status: Optional[str] = None
+    after_status: Optional[str] = None
+    comment: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class GradingTicketDetail(GradingTicketOut):
+    """工单详情：题干/选项/标答/解析 + 已确认答案值 + 留痕，教师据此判定。"""
+
+    stem: str = ""
+    options: List[dict] = []
+    correct_answer: Optional[str] = None
+    analysis: Optional[str] = None
+    knowledge_points: List[str] = []
+    answer_values: List[str] = []
+    revisions: List[GradingRevisionOut] = []
+
+
+class GradingTicketPage(BaseModel):
+    """待办分页 + 各状态计数（前端顶部 tab 直接取用）。"""
+
+    total: int = 0
+    counts: Dict[str, int] = {}           # {pending, claimed, reviewed}
+    page: int = 1
+    page_size: int = 20
+    items: List[GradingTicketOut] = []
+
+
+class GradingJudgeRequest(BaseModel):
+    """教师判定请求。
+
+    ``accept_answer``：确认「学生这种写法也算对」—— 把学生答案追加进该题的
+    ``answer_values``，**后续同一道题直接自动判对**，不再反复转人工（M2-4 闭环）。
+    """
+
+    verdict: Literal["correct", "partial", "wrong"]
+    comment: Optional[str] = None
+    accept_answer: bool = False
+
+
+class GradingClaimRequest(BaseModel):
+    comment: Optional[str] = None
 
 
 # ---------- 模块6：家长周报 ----------

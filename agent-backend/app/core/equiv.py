@@ -24,6 +24,8 @@ M2-3 的三条红线
 - ``blank_equivalent(student, ref) -> bool``：兼容语义（只表达「是否判对」），
   agent judge_v2 与历史调用方使用；``manual`` 返回 False 交 LLM 兜底，不会误判错。
 - ``blank_auto_gradeable(ref) -> bool``：该标答能否确定性判定（发布时统计人工量用）。
+- ``expand_answer_values(ref) -> List[str]``：标答预展开成可接受答案值集合（M2-4），
+  组卷时落库、教师批改时可追加，判分时命中即判对。
 """
 from __future__ import annotations
 
@@ -530,12 +532,52 @@ def _judge_single(student: str, ref: str) -> str:
     return _single_value_judge(s, ref)
 
 
-def blank_judge(student: str, ref: str, blanks: Optional[List[str]] = None) -> dict:
-    """填空题三态判定（M2-3）。
+def expand_answer_values(ref: str) -> List[str]:
+    """把标答预展开成『可接受答案值』候选列表（M2-4）。
+
+    只做**等价展开**，不新增标答未蕴含的值：
+
+    - 多空题按空拆，多解题按 ``或`` / ``±`` 拆，各取原文；
+    - 每个候选再补上去引导词形态（``x=-3/2`` -> ``-3/2``）与变量右侧值。
+
+    因此 ``±2`` -> ``["2", "-2"]``，``x=-1 或 x=2`` -> ``["x=-1", "x=2", "-1", "2"]``。
+    **漏解补全不在这里做**（那属教师判断）：教师在批改工单里确认「这种写法也算对」后
+    才把该值追加进来，落库到 ``exam_paper_questions.answer_values``。
+    """
+    out: List[str] = []
+
+    def _add(v: str) -> None:
+        s = (v or "").strip()
+        if s and s not in out:
+            out.append(s)
+
+    for part in split_blanks(ref):
+        for c in split_multi(part):
+            _add(c)
+            _add(strip_lead(c))
+            for v in _var_candidates(c):
+                _add(v)
+    return out
+
+
+def blank_judge(
+    student: str,
+    ref: str,
+    blanks: Optional[List[str]] = None,
+    values: Optional[List[str]] = None,
+) -> dict:
+    """填空题三态判定（M2-3 + M2-4 答案值集合）。
 
     ``blanks``：学生逐空答案列表（对应 ``blank_index`` 顺序），有则优先于把
     ``student`` 单串按分隔符切分。多空题必须**逐空全对**才整题判对；任一空
     无法确定性判定则整题转人工（不猜）。
+
+    ``values``：该题已确认的可接受答案值集合（``expand_answer_values`` 预展开 +
+    教师批改时追加）。命中任一值即判对，**只救对不判错** —— 即便标答是
+    ``sqrt(66)/6`` 这类原先要转人工的符号形态，教师确认过 ``1.354`` 后也能自动判。
+
+    多空题**不使用** ``values``：扁平集合无法对应到具体某个空，拿整题集合去比
+    会造成「空1 填了空2 的答案」也判对（静默误判，红线）。
 
     返回 ``{"status": "auto"|"manual", "correct": bool|None, "reason": str}``。
     """
@@ -563,6 +605,11 @@ def blank_judge(student: str, ref: str, blanks: Optional[List[str]] = None) -> d
         verdicts = [_judge_single(a, b) for a, b in zip(stu_parts, ref_parts)]
     else:
         stu = str(blanks[0]) if blanks and len(blanks) == 1 else (student or "")
+        # M2-4：教师已确认的答案值优先命中（单空题才用，见 docstring 红线）
+        if values and stu.strip():
+            for v in values:
+                if (v or "").strip() and _judge_single(stu, v) == "correct":
+                    return _auto(True, "命中已确认答案值")
         verdicts = [_judge_single(stu, ref_parts[0])]
     if any(v == "manual" for v in verdicts):
         return _manual("这道题的答案含字母或符号表达式，机器判不了对错（老师会看）")

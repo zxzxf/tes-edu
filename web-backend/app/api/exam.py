@@ -33,7 +33,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.equiv import blank_judge, choice_equivalent, split_blanks
+from app.core.equiv import (
+    blank_judge,
+    choice_equivalent,
+    expand_answer_values,
+    split_blanks,
+)
 from app.core.exam_types import (
     PAPER_TYPE_LABEL,
     QTYPE_BLANK,
@@ -50,6 +55,7 @@ from app.core.security import require_role
 from app.models.course_kb import CourseQuestion
 from app.models.ops import (
     ExamAssignment,
+    ExamGradingTicket,
     ExamPaper,
     ExamPaperQuestion,
     ExamSubmission,
@@ -205,6 +211,7 @@ async def compose_paper(
 
     for seq, r in enumerate(picked, start=1):
         qtype, multi = _qtype_from_course(r.type)
+        answer = (r.answer or "").strip()
         db.add(
             ExamPaperQuestion(
                 paper_id=paper.id,
@@ -214,10 +221,12 @@ async def compose_paper(
                 multi=multi,
                 stem=r.stem,
                 options=r.options,
-                answer=(r.answer or "").strip(),
+                answer=answer,
                 analysis=r.analysis,
                 difficulty=r.difficulty,
                 knowledge_points=r.knowledge_points,
+                # M2-4：标答预展开成可接受答案值集合，判分时命中即判对
+                answer_values=expand_answer_values(answer) or None,
             )
         )
 
@@ -263,10 +272,18 @@ async def _paper_out(db: AsyncSession, paper: ExamPaper) -> ExamPaperOut:
                 analysis=q.analysis,
                 difficulty=q.difficulty,
                 knowledge_points=q.knowledge_points or [],
+                answer_values=_values_of(q),
             )
             for q in qs
         ],
     )
+
+
+def _values_of(q: ExamPaperQuestion) -> list:
+    """该题可接受答案值集合（M2-4）。老卷未落库时现算，不写库。"""
+    if q.answer_values:
+        return list(q.answer_values)
+    return expand_answer_values(q.answer or "")
 
 
 @router.get("/papers", response_model=list[ExamPaperOut])
@@ -603,19 +620,44 @@ async def submit_exam(
     )
     db.add(sub)
     await db.flush()
+    item_objs = []
     for it in items:
+        obj = ExamSubmissionItem(
+            submission_id=sub.id,
+            paper_question_id=it["paper_question_id"],
+            seq=it["seq"],
+            qtype=it["qtype"],
+            student_answer=it["student_answer"],
+            correct=it["correct"],
+            partial=it["partial"],
+            status=it["status"],
+        )
+        db.add(obj)
+        item_objs.append((it, obj))
+    await db.flush()  # 取 item.id 才能开单
+
+    # M2-5：转人工的题**提交时就地开一张工单**，教师端待办立刻可见。
+    # 不开单的话 teacher 只能靠翻 DB 找出 manual_pending，闭环缺最后一环。
+    for it, obj in item_objs:
+        if it["status"] != "manual_pending":
+            continue
         db.add(
-            ExamSubmissionItem(
+            ExamGradingTicket(
+                tenant_id=user.get("tenant_id") or a.tenant_id,
                 submission_id=sub.id,
+                submission_item_id=obj.id,
+                assignment_id=assignment_id,
+                paper_id=a.paper_id,
                 paper_question_id=it["paper_question_id"],
+                student_id=student_id,
                 seq=it["seq"],
                 qtype=it["qtype"],
-                student_answer=it["student_answer"],
-                correct=it["correct"],
-                partial=it["partial"],
-                status=it["status"],
+                student_answer=(it["student_answer"] or "")[:4000],
+                reason=(it["reason"] or "机器判不了，需人工评定")[:255],
+                status="pending",
             )
         )
+
     await db.commit()
     await db.refresh(sub)
     return await _result_out(db, sub)
@@ -648,7 +690,9 @@ def _grade_one(
         # 逐空提交优先；未逐空提交时拼回可展示形态（结果页要能看懂学生答了什么）
         parts = [str(x or "").strip() for x in (blanks or [])]
         display = student_answer or ("；".join(parts) if parts else "")
-        v = blank_judge(display, q.answer or "", blanks=blanks or None)
+        v = blank_judge(
+            display, q.answer or "", blanks=blanks or None, values=_values_of(q)
+        )
         if v["status"] == "manual":
             return _item(
                 q, display, correct=None, partial=False,
@@ -684,6 +728,8 @@ def _manual_reason(it, q) -> Optional[str]:
     ``reason`` 不落库（改表成本高于重算）：这里用同一套纯函数重算一次，
     0 token、无副作用，保证「提交当下」与「事后回看」给出的原因一致。
     """
+    if it.status == "manual_reviewed":
+        return "老师已复核判定"
     if it.status != "manual_pending":
         return None
     if q is not None and q.qtype == QTYPE_BLANK:
@@ -737,6 +783,21 @@ async def _result_out(db: AsyncSession, sub: ExamSubmission) -> ExamResult:
         ).scalars().all()
         q_by_id = {q.id: q for q in pqs}
     manual_pending = sum(1 for it in items if it.status == "manual_pending")
+    reviewed = sum(1 for it in items if it.status == "manual_reviewed")
+    # 老师评语随结果返回：学生要知道「为什么算错」，不然改判等于黑箱
+    comments = {}
+    if reviewed:
+        for tid, sid, cm in (
+            await db.execute(
+                select(
+                    ExamGradingTicket.submission_item_id,
+                    ExamGradingTicket.verdict,
+                    ExamGradingTicket.comment,
+                ).where(ExamGradingTicket.submission_id == sub.id)
+            )
+        ).all():
+            if cm:
+                comments[tid] = cm
     return ExamResult(
         submission_id=sub.id,
         assignment_id=sub.assignment_id,
@@ -747,6 +808,7 @@ async def _result_out(db: AsyncSession, sub: ExamSubmission) -> ExamResult:
         total_count=sub.total_count or 0,
         auto_gradeable_count=max(len(items) - manual_pending, 0),
         manual_pending_count=manual_pending,
+        manual_reviewed_count=reviewed,
         status=sub.status,
         submitted_at=_to_iso(sub.submitted_at),
         items=[
@@ -765,6 +827,7 @@ async def _result_out(db: AsyncSession, sub: ExamSubmission) -> ExamResult:
                 analysis=(
                     q_by_id[it.paper_question_id].analysis if it.paper_question_id in q_by_id else None
                 ),
+                teacher_comment=comments.get(it.id),
             )
             for it in items
         ],

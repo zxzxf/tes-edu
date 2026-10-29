@@ -338,6 +338,9 @@ class ExamPaperQuestion(Base):
     analysis = Column(Text)
     difficulty = Column(SmallInteger)
     knowledge_points = Column(JSON)
+    # M2-4：可接受答案值集合（标答预展开 + 教师确认追加），命中即判对。
+    # 为空时判分侧现算 expand_answer_values(answer)，老卷无需回填。
+    answer_values = Column(JSON)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -390,4 +393,62 @@ class ExamSubmissionItem(Base):
     correct = Column(Boolean)
     partial = Column(Boolean, default=False)
     status = Column(String(16), nullable=False, default="auto")  # auto/manual_pending
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class ExamGradingTicket(Base):
+    """人工评定工单（M2-5）：一道转人工的题一张待办。
+
+    提交时与 ``ExamSubmissionItem(status='manual_pending')`` 一一对应开单
+    （UNIQUE(submission_id, submission_item_id) 保证幂等）。教师判定后
+    **回写** item 的 correct/status 与 submission 汇总，学生端立即可见，
+    不维护第二份成绩。
+    """
+
+    __tablename__ = "exam_grading_tickets"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64), index=True)
+    submission_id = Column(Integer, nullable=False, index=True)
+    submission_item_id = Column(Integer, nullable=False, index=True)
+    assignment_id = Column(Integer, nullable=False, index=True)
+    paper_id = Column(Integer, nullable=False)
+    paper_question_id = Column(Integer, nullable=False)
+    student_id = Column(String(64), nullable=False, index=True)
+    seq = Column(Integer, nullable=False)
+    qtype = Column(String(16), nullable=False)      # blank/subjective
+    student_answer = Column(Text)
+    reason = Column(String(255))                    # 为什么转人工
+    status = Column(String(16), nullable=False, default="pending")  # pending/claimed/reviewed
+    assignee = Column(String(64))
+    claimed_at = Column(DateTime(timezone=True))
+    reviewed_by = Column(String(64))
+    reviewed_at = Column(DateTime(timezone=True))
+    verdict = Column(String(16))                    # correct/partial/wrong
+    comment = Column(Text)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class ExamGradingRevision(Base):
+    """批改留痕（M2-6 红线）：认领 / 判定 / 改判 / 追加答案值都要留痕。
+
+    成绩改动不可追溯就等于没有判分依据，故 before/after 全量记录。
+    """
+
+    __tablename__ = "exam_grading_revisions"
+
+    id = Column(Integer, primary_key=True)
+    ticket_id = Column(Integer, nullable=False, index=True)
+    submission_item_id = Column(Integer, nullable=False)
+    action = Column(String(16), nullable=False)     # claim/judge/rejudge/add_value
+    actor_id = Column(String(64))
+    actor_role = Column(String(16))
+    before_correct = Column(Boolean)
+    after_correct = Column(Boolean)
+    before_partial = Column(Boolean)
+    after_partial = Column(Boolean)
+    before_status = Column(String(16))
+    after_status = Column(String(16))
+    comment = Column(Text)
     created_at = Column(DateTime(timezone=True), default=_utcnow)

@@ -53,12 +53,42 @@ export function listWrongQuestions(studentId) {
   return client.get('/wrong-questions', { params: { student_id: studentId } })
 }
 
-// 模块4 自动组卷
-export function generateExam(data) {
-  return client.post('/exam/generate', data)
+// 模块4 自动组卷（作业闭环：真实落库，答案随卷快照）
+// 注意 paper_type 三值：pure_choice / pure_blank / mixed；题源不足后端返回 409。
+export function composePaper(data) {
+  return client.post('/exam/papers', data)
+}
+export function listPapers() {
+  return client.get('/exam/papers')
+}
+export function getPaper(paperId) {
+  return client.get(`/exam/papers/${paperId}`)
+}
+// 发布前 dry-run：返回 violations / 人工量，前端据此决定是否允许发布
+export function validatePaper(paperId) {
+  return client.get(`/exam/papers/${paperId}/validation`)
+}
+export function publishPaper(paperId) {
+  return client.post(`/exam/papers/${paperId}/publish`)
+}
+export function assignPaper(paperId, data) {
+  return client.post(`/exam/papers/${paperId}/assign`, data)
 }
 
-// 模块5 教师批改
+// 模块5 教师批改 —— 人工评定工单（M2-5/M2-6）
+// 学生提交时对「转人工」的题自动开单；判定结果回写学生端成绩并留痕。
+export function listGradingTickets(params) {
+  return client.get('/grading/tickets', { params })
+}
+export function getGradingTicket(ticketId) {
+  return client.get(`/grading/tickets/${ticketId}`)
+}
+export function claimGradingTicket(ticketId, data = {}) {
+  return client.post(`/grading/tickets/${ticketId}/claim`, data)
+}
+export function judgeGradingTicket(ticketId, data) {
+  return client.post(`/grading/tickets/${ticketId}/judge`, data)
+}
 export function submitGrading(data) {
   return client.post('/grading/submit', data)
 }
