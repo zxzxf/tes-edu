@@ -109,6 +109,15 @@ async def cleanup(conn):
         await conn.execute("DELETE FROM exam_assignments WHERE paper_id=$1", pid)
         await conn.execute("DELETE FROM exam_paper_questions WHERE paper_id=$1", pid)
         await conn.execute("DELETE FROM exam_papers WHERE id=$1", pid)
+    # 改判会顺手落护栏记录（本脚本只改判 2 次 → watching，不到阈值不告警）。
+    # 不清的话它会一直挂在试点租户的指标里（freezes.watching=1），
+    # 下次有人看面板会以为真有题在观察。
+    await conn.execute(
+        "DELETE FROM exam_grading_alerts WHERE content_hash LIKE 'e2e-metrics-%'"
+    )
+    await conn.execute(
+        "DELETE FROM exam_answer_freeze WHERE content_hash LIKE 'e2e-metrics-%'"
+    )
 
 
 def build_answers():
@@ -252,7 +261,9 @@ async def main():
     finally:
         await cleanup(conn)
         left = await conn.fetchval("SELECT count(*) FROM exam_papers WHERE title LIKE 'E2E-指标%'")
-        print(f"\n清理后残留 paper={left}")
+        left_f = await conn.fetchval(
+            "SELECT count(*) FROM exam_answer_freeze WHERE content_hash LIKE 'e2e-metrics-%'")
+        print(f"\n清理后残留 paper={left} freeze={left_f}")
         await conn.close()
 
     print(f"\n===== {len(PASS)} PASS / {len(FAIL)} FAIL =====")
