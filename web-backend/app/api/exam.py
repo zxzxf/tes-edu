@@ -50,6 +50,14 @@ from app.core.exam_types import (
     to_qtype,
     validate_paper,
 )
+# 判据来源编码（M2-7）：落库到 exam_submission_items.grading_source，指标面板按它出分布。
+# 别名带 M_ 前缀，避免与本模块已有的 SOURCE_* 语义混淆。
+from app.core.grading_metrics import (
+    SOURCE_CHOICE as M_SOURCE_CHOICE,
+    SOURCE_MANUAL_FROZEN as M_SOURCE_FROZEN,
+    SOURCE_MANUAL_SUBJECTIVE as M_SOURCE_SUBJECTIVE,
+    SOURCE_UNKNOWN as M_SOURCE_UNKNOWN,
+)
 from app.core.rbac import Role
 from app.core.security import require_role
 from app.models.course_kb import CourseQuestion
@@ -688,6 +696,7 @@ async def submit_exam(
             correct=it["correct"],
             partial=it["partial"],
             status=it["status"],
+            grading_source=it.get("source") or M_SOURCE_UNKNOWN,
         )
         db.add(obj)
         item_objs.append((it, obj))
@@ -749,16 +758,26 @@ def _grade_one(
         return _item(
             q, display, correct=None, partial=False,
             status="manual_pending", reason=frozen_reason,
+            source=M_SOURCE_FROZEN,
         )
 
     if q.qtype == QTYPE_CHOICE:
         opt_map = _options_to_map(q.options)
         res = choice_equivalent(student_answer, q.answer, multi=q.multi, options=opt_map)
         if res is True:
-            return _item(q, student_answer, correct=True, partial=False, status="auto")
+            return _item(
+                q, student_answer, correct=True, partial=False,
+                status="auto", source=M_SOURCE_CHOICE,
+            )
         if res == "partial":  # 多选漏选但所选皆正确（MVP 标记不计分）
-            return _item(q, student_answer, correct=False, partial=True, status="auto")
-        return _item(q, student_answer, correct=False, partial=False, status="auto")
+            return _item(
+                q, student_answer, correct=False, partial=True,
+                status="auto", source=M_SOURCE_CHOICE,
+            )
+        return _item(
+            q, student_answer, correct=False, partial=False,
+            status="auto", source=M_SOURCE_CHOICE,
+        )
 
     if q.qtype == QTYPE_BLANK:
         v = blank_judge(
@@ -768,19 +787,30 @@ def _grade_one(
             return _item(
                 q, display, correct=None, partial=False,
                 status="manual_pending", reason=v["reason"],
+                source=v.get("source") or M_SOURCE_UNKNOWN,
             )
         return _item(
             q, display, correct=bool(v["correct"]), partial=False,
             status="auto", reason=v["reason"],
+            source=v.get("source") or M_SOURCE_UNKNOWN,
         )
 
     return _item(
         q, student_answer, correct=None, partial=False,
         status="manual_pending", reason="解答题需人工批改",
+        source=M_SOURCE_SUBJECTIVE,
     )
 
 
-def _item(q, student_answer, *, correct, partial, status, reason=None) -> dict:
+def _item(
+    q, student_answer, *, correct, partial, status, reason=None, source=""
+) -> dict:
+    """逐题判分结果。
+
+    ``source``（M2-7）是判据编码，随 item 落库（``grading_source``），指标面板
+    据此出「判据覆盖率 / 来源分布」。它必须与结果同时产生——事后再算会把教师
+    之后的改动作（追加答案值、修正标答）算进「当时为什么这么判」。
+    """
     return {
         "paper_question_id": q.id,
         "seq": q.seq,
@@ -790,6 +820,7 @@ def _item(q, student_answer, *, correct, partial, status, reason=None) -> dict:
         "partial": partial,
         "status": status,
         "reason": reason,
+        "source": source,
     }
 
 

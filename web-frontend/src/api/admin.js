@@ -108,6 +108,12 @@ export function listGradingAlerts(params) {
   return client.get('/grading/alerts', { params })
 }
 
+// M2-7 判分指标看板：判据覆盖率 / 人工复核率 / 判据来源分布 / 时效 / 护栏
+// days=0 取全量口径（看长期趋势）；paper_id 用于按卷下钻
+export function getGradingMetrics(params) {
+  return client.get('/grading/metrics', { params })
+}
+
 // 模块6 家长周报（period_days 为统计周期；week 参数后端未使用，保留兼容）
 export function getWeeklyReport(studentId, week, periodDays = 7) {
   return client.get('/reports/weekly', { params: { student_id: studentId, week, period_days: periodDays } })

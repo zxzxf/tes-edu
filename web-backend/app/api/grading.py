@@ -53,6 +53,7 @@ from app.models.ops import (
 from app.models.schemas import (
     GradingAlertOut,
     GradingAlertPage,
+    GradingMetricsOut,
     GradingClaimRequest,
     GradingFreezeOut,
     GradingFreezePage,
@@ -65,6 +66,7 @@ from app.models.schemas import (
     Submission,
 )
 from app.services import grading_guard as guard
+from app.services import grading_metrics
 from app.services import ops
 
 router = APIRouter(prefix="/grading", tags=["grading"])
@@ -556,6 +558,38 @@ async def judge_ticket(
     await _recalc_submission(db, t.submission_id)
     await db.commit()
     return await _ticket_detail(db, t.id)
+
+
+# ======================================================== 判分指标看板（M2-7）
+@router.get("/metrics", response_model=GradingMetricsOut)
+async def get_metrics(
+    days: int = Query(
+        grading_metrics.DEFAULT_DAYS,
+        ge=0,
+        le=3650,
+        description="窗口天数，默认 30；0 = 全量（不限时间）",
+    ),
+    paper_id: Optional[int] = Query(None, description="只看某张卷"),
+    user=TeacherDep,
+    db: AsyncSession = Depends(get_db),
+):
+    """判分指标看板：判据覆盖率 / 人工复核率 / 判据来源分布 / 时效 / 护栏。
+
+    三个必须说清的口径（详见 ``app/core/grading_metrics.py``）：
+
+    - **判据覆盖率**分母只含 choice + blank。解答题本就该人判，算进去永远不达标。
+      因标答冻结而主动停判的题单列 ``frozen_manual`` —— 那是护栏在止损，
+      不是解析能力退化，混在一起看会误判。
+    - **人工复核率**用「曾经需要人判」（待人工 + 已复核），不用瞬时 pending 数：
+      否则越勤快批改、复核率越低，指标与行为方向相反。
+    - **判分准确率**当前 ``measurable=false``：机器判过的题还没有复核入口，
+      没有样本就不给百分比。抽样复核（M4-7）上线后这段代码自动出数。
+
+    ``days=0`` 取全量口径，用于看长期趋势（首月 vs 稳定期）。
+    """
+    return await grading_metrics.collect(
+        db, _tenant(user), days=days, paper_id=paper_id
+    )
 
 
 # ======================================================== 判分护栏（M2-10 / G3）

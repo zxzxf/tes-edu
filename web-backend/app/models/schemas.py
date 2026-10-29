@@ -462,3 +462,95 @@ class ComplianceItem(BaseModel):
     status: str = "pending"       # pending / reviewed / rejected
 
     model_config = {"from_attributes": True}
+
+
+# ---------- 模块5b：判分指标看板（M2-7） ----------
+# 口径在 app/core/grading_metrics.py，聚合在 app/services/grading_metrics.py。
+# 这里的模型只负责形状；不在这里做任何计算或默认值推导。
+class MetricValueOut(BaseModel):
+    """一个比率指标：值 + 分子分母 + 目标 + 达标状态。
+
+    ``denominator == 0`` 时 ``value`` 为 ``None``（无数据 ≠ 0%）。
+    """
+
+    value: Optional[float] = None
+    numerator: int = 0
+    denominator: int = 0
+    target: Optional[float] = None
+    status: str = "unknown"      # ok / watch / below / unknown
+    note: str = ""
+    # 只有 accuracy 会置 False：没有复核样本时如实说「不可测」，不伪造 100%
+    measurable: bool = True
+    # 覆盖率专用：其中因标答冻结而主动停判的题数（与「解析不了」分开看）
+    frozen_manual: int = 0
+
+
+class GradingSourceStatOut(BaseModel):
+    """判据来源分布（等价于方案书里的 attribution_source 分布）。"""
+
+    source: str
+    label: str
+    count: int = 0
+    ratio: Optional[float] = None
+    manual: bool = False         # True = 这类来源表示转人工
+
+
+class ItemStatsOut(BaseModel):
+    """逐题判分结果计数。"""
+
+    total: int = 0
+    by_status: Dict[str, int] = {}     # auto / manual_pending / manual_reviewed
+    by_qtype: Dict[str, int] = {}      # choice / blank / subjective
+    gradable_total: int = 0            # choice + blank（覆盖率分母）
+    auto_gradable: int = 0             # 其中机器给出结论的（覆盖率分子）
+
+
+class TicketStatsOut(BaseModel):
+    counts: Dict[str, int] = {}
+    oldest_pending_hours: Optional[float] = None
+    turnaround_minutes: Dict[str, Optional[float]] = {}   # {p50, p90, n}
+
+
+class RevisionStatsOut(BaseModel):
+    effective_flips: int = 0          # 有效改判（推翻已有判定且结论真的变了）
+    wrong_to_right: int = 0           # 冤枉数：错 → 对（目标 0）
+    right_to_wrong: int = 0
+    first_judged: int = 0             # 首次判定（不算改判）
+    added_values: int = 0             # 教师追加的可接受答案值条数（自动判分能力增长）
+    wrong_to_right_rate: Optional[float] = None
+
+
+class FreezeStatsOut(BaseModel):
+    frozen: int = 0
+    watching: int = 0
+    released: int = 0
+    refrozen: int = 0                 # 解冻后复发过的题数
+    alerts: Dict[str, int] = {}       # {freeze, refreeze, release}（窗口内）
+
+
+class GradingPaperMetricOut(BaseModel):
+    """按卷下钻：哪张卷在拖低覆盖率。"""
+
+    paper_id: int
+    title: str = ""
+    items: int = 0
+    gradable: int = 0
+    auto: int = 0
+    manual: int = 0
+    coverage: Optional[float] = None
+    manual_rate: Optional[float] = None
+    status: str = "unknown"
+
+
+class GradingMetricsOut(BaseModel):
+    tenant_id: str
+    window_days: Optional[int] = None      # None = 全量口径
+    generated_at: str = ""
+    items: ItemStatsOut = ItemStatsOut()
+    # 三个核心指标：coverage / manual_rate / accuracy
+    metrics: Dict[str, MetricValueOut] = {}
+    sources: List[GradingSourceStatOut] = []
+    tickets: TicketStatsOut = TicketStatsOut()
+    revisions: RevisionStatsOut = RevisionStatsOut()
+    freezes: FreezeStatsOut = FreezeStatsOut()
+    by_paper: List[GradingPaperMetricOut] = []

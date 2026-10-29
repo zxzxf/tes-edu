@@ -471,12 +471,15 @@ def choice_equivalent(student, ref, multi: bool = False, options: Mapping | None
 
 
 # ---------------------------------------------------------------- 填空（三态）
-def _auto(correct: bool, reason: str = "") -> dict:
-    return {"status": "auto", "correct": correct, "reason": reason}
+# ``source`` 是「这条结论由哪条判据给出」的机器可读编码（M2-7 指标看板用），
+# 与 ``reason`` 分家：reason 是给学生/老师看的话术，改措辞不该动指标；
+# source 是给聚合用的枚举，改口径必须改这里（编码见 app/core/grading_metrics.py）。
+def _auto(correct: bool, reason: str = "", source: str = "") -> dict:
+    return {"status": "auto", "correct": correct, "reason": reason, "source": source}
 
 
-def _manual(reason: str) -> dict:
-    return {"status": "manual", "correct": None, "reason": reason}
+def _manual(reason: str, source: str = "") -> dict:
+    return {"status": "manual", "correct": None, "reason": reason, "source": source}
 
 
 def _single_value_judge(student: str, ref: str) -> str:
@@ -579,16 +582,22 @@ def blank_judge(
     多空题**不使用** ``values``：扁平集合无法对应到具体某个空，拿整题集合去比
     会造成「空1 填了空2 的答案」也判对（静默误判，红线）。
 
-    返回 ``{"status": "auto"|"manual", "correct": bool|None, "reason": str}``。
+    返回 ``{"status": "auto"|"manual", "correct": bool|None, "reason": str,
+    "source": str}``。``source`` 是判据编码（M2-7 指标看板按它出分布），
+    与面向人的 ``reason`` 分开维护。
     """
     if not (ref or "").strip():
-        return _manual("标答为空，无法判分")
+        return _manual("标答为空，无法判分", "manual_no_answer")
     # 硬红线：系统给出的标答，学生照抄必须判对。无论标答结构多复杂（多解
     # 包裹、嵌套 LaTeX、区间并集），归一后完全一致即短路，绝不因解析不了
     # 而转人工或判错 —— 成绩错了不可逆，转人工只是多一道手续。
     s_all, r_all = norm_text(student or ""), norm_text(ref)
     if s_all and s_all == r_all:
-        return _auto(True, "与标答一致")
+        return _auto(True, "与标答一致", "blank_same")
+    # 整题空着：明确判错（不是「判不了」）。单列一个判据来源，指标面板才能把
+    # 「学生没写」和「机器解析不了」分开——后者才是指标下滑的信号。
+    if not s_all and not any(str(x or "").strip() for x in (blanks or [])):
+        return _auto(False, "未作答", "blank_empty")
     ref_parts = split_blanks(ref)
     if len(ref_parts) > 1:
         if blanks:
@@ -597,10 +606,11 @@ def blank_judge(
             stu_parts = split_blanks(student or "")
         if len(stu_parts) != len(ref_parts):
             if not any(x.strip() for x in stu_parts):
-                return _auto(False, "未作答")
+                return _auto(False, "未作答", "blank_empty")
             return _manual(
                 f"这道题有 {len(ref_parts)} 个空，你填写了 {len(stu_parts)} 个，"
-                f"机器无法自动比对（老师会看）"
+                f"机器无法自动比对（老师会看）",
+                "manual_blanks",
             )
         verdicts = [_judge_single(a, b) for a, b in zip(stu_parts, ref_parts)]
     else:
@@ -609,11 +619,14 @@ def blank_judge(
         if values and stu.strip():
             for v in values:
                 if (v or "").strip() and _judge_single(stu, v) == "correct":
-                    return _auto(True, "命中已确认答案值")
+                    return _auto(True, "命中已确认答案值", "blank_value")
         verdicts = [_judge_single(stu, ref_parts[0])]
     if any(v == "manual" for v in verdicts):
-        return _manual("这道题的答案含字母或符号表达式，机器判不了对错（老师会看）")
-    return _auto(all(v == "correct" for v in verdicts))
+        return _manual(
+            "这道题的答案含字母或符号表达式，机器判不了对错（老师会看）",
+            "manual_symbol",
+        )
+    return _auto(all(v == "correct" for v in verdicts), source="blank_equiv")
 
 
 def blank_equivalent(student: str, ref: str) -> bool:

@@ -393,6 +393,9 @@ class ExamSubmissionItem(Base):
     correct = Column(Boolean)
     partial = Column(Boolean, default=False)
     status = Column(String(16), nullable=False, default="auto")  # auto/manual_pending
+    # M2-7：这一题的结论是哪条判据给的（choice_map / blank_equiv / manual_symbol…）。
+    # 编码见 app/core/grading_metrics.py。加列前的老数据为 NULL（指标归 unknown）。
+    grading_source = Column(String(24), index=True)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
 
 

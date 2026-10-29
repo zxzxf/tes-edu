@@ -6,6 +6,24 @@
       这里逐题判定。判定结果立即回写学生端成绩，改判全程留痕。
     </p>
 
+    <!-- M2-7：批改与指标同页。指标面板放在这里而不是新开菜单，是因为它回答的
+         正是「我这批改得到底准不准」——离开批改现场去看另一个页面没有意义。 -->
+    <div class="view-switch">
+      <button class="tab" :class="{ on: view === 'grade' }" @click="switchView('grade')">
+        待办批改<b>{{ totalAll }}</b>
+      </button>
+      <button class="tab" :class="{ on: view === 'metrics' }" @click="switchView('metrics')">
+        指标看板
+      </button>
+      <span class="grow"></span>
+      <span v-if="view === 'metrics' && metrics" class="gen">
+        口径：{{ metrics.window_days ? '近 ' + metrics.window_days + ' 天' : '全量' }}
+        · 生成于 {{ shortTime(metrics.generated_at) }}
+      </span>
+    </div>
+
+    <template v-if="view === 'grade'">
+
     <!-- M2-10 判分告警：同一标答累计 K 次改判 → 冻结该题自动判分 -->
     <div v-if="freezeCount" class="tes-card alerts">
       <div class="a-head">
@@ -212,6 +230,156 @@
         </div>
       </div>
     </div>
+    </template>
+
+    <!-- ================= M2-7 判分指标看板 ================= -->
+    <template v-else>
+      <div class="tes-toolbar">
+        <button
+          v-for="r in ranges"
+          :key="r.key"
+          class="tab"
+          :class="{ on: days === r.key }"
+          @click="setDays(r.key)"
+        >
+          {{ r.label }}
+        </button>
+        <span class="grow"></span>
+        <button class="tes-btn-primary small" @click="loadMetrics()">刷新</button>
+      </div>
+
+      <p v-if="error" class="err">{{ error }}</p>
+      <p v-if="!metrics" class="tes-empty">加载中…</p>
+
+      <template v-else>
+        <div class="m-cards">
+          <div
+            v-for="c in CORE"
+            :key="c.key"
+            class="tes-card m-card"
+            :class="'st-' + (metric(c.key)?.status || 'unknown')"
+          >
+            <div class="m-head">
+              <b>{{ c.label }}</b>
+              <span class="m-target">目标 {{ c.target }}</span>
+            </div>
+            <div class="m-v">
+              <template v-if="metric(c.key)?.value !== null && metric(c.key)?.value !== undefined">
+                {{ pct(metric(c.key).value) }}
+              </template>
+              <span v-else class="m-na">
+                {{ metric(c.key)?.measurable === false ? '不可测' : '暂无数据' }}
+              </span>
+            </div>
+            <div class="m-sub">
+              <span class="m-frac">
+                {{ metric(c.key)?.numerator ?? 0 }} / {{ metric(c.key)?.denominator ?? 0 }}
+              </span>
+              <span class="tes-pill" :class="pillOf(metric(c.key)?.status)">
+                {{ statusText(metric(c.key)?.status) }}
+              </span>
+            </div>
+            <p class="m-note">{{ metric(c.key)?.note }}</p>
+          </div>
+        </div>
+
+        <div class="m-grid">
+          <!-- 判据来源分布 -->
+          <div class="tes-card">
+            <h4>判据来源分布</h4>
+            <p class="m-hint">
+              每题的结论是哪条判据给的。覆盖率掉了，看这里能分清是<b>解析能力退化</b>
+              （符号表达式变多）还是<b>护栏在止损</b>（标答冻结）。
+            </p>
+            <div v-for="s in metrics.sources" :key="s.source" class="src-row">
+              <span class="src-name" :class="{ manual: s.manual }">{{ s.label }}</span>
+              <span class="src-bar">
+                <i :style="{ width: barW(s.ratio) }" :class="{ manual: s.manual }"></i>
+              </span>
+              <span class="src-n">{{ s.count }} 题 · {{ pct(s.ratio) }}</span>
+            </div>
+            <p v-if="!metrics.sources.length" class="tes-empty">这段时间还没有提交</p>
+          </div>
+
+          <!-- 工单 / 改判 / 护栏 -->
+          <div class="tes-card">
+            <h4>工单、改判与护栏</h4>
+            <div class="stat-grid">
+              <div class="stat">
+                <em>待人工</em><b>{{ metrics.tickets.counts.pending || 0 }}</b>
+              </div>
+              <div class="stat">
+                <em>已认领</em><b>{{ metrics.tickets.counts.claimed || 0 }}</b>
+              </div>
+              <div class="stat">
+                <em>已复核</em><b>{{ metrics.tickets.counts.reviewed || 0 }}</b>
+              </div>
+              <div class="stat">
+                <em>最老待办</em>
+                <b>{{ metrics.tickets.oldest_pending_hours === null ? '—' : metrics.tickets.oldest_pending_hours + ' h' }}</b>
+              </div>
+              <div class="stat">
+                <em>判定时效 P50</em>
+                <b>{{ mins(metrics.tickets.turnaround_minutes.p50) }}</b>
+              </div>
+              <div class="stat">
+                <em>P90</em><b>{{ mins(metrics.tickets.turnaround_minutes.p90) }}</b>
+              </div>
+              <div class="stat">
+                <em>有效改判</em><b>{{ metrics.revisions.effective_flips }}</b>
+              </div>
+              <div class="stat" :class="{ bad: metrics.revisions.wrong_to_right > 0 }">
+                <em>冤枉（错改对）</em><b>{{ metrics.revisions.wrong_to_right }}</b>
+              </div>
+              <div class="stat">
+                <em>追加答案值</em><b>{{ metrics.revisions.added_values }}</b>
+              </div>
+              <div class="stat" :class="{ bad: metrics.freezes.frozen > 0 }">
+                <em>冻结中</em><b>{{ metrics.freezes.frozen }}</b>
+              </div>
+              <div class="stat">
+                <em>观察中</em><b>{{ metrics.freezes.watching }}</b>
+              </div>
+              <div class="stat">
+                <em>复发过</em><b>{{ metrics.freezes.refrozen }}</b>
+              </div>
+            </div>
+            <p class="m-hint">
+              首次判定 {{ metrics.revisions.first_judged }} 次（不算改判）；共
+              {{ metrics.items.total }} 道题。
+            </p>
+          </div>
+        </div>
+
+        <!-- 按卷下钻 -->
+        <div class="tes-card">
+          <h4>按卷下钻</h4>
+          <p class="m-hint">按题量取前 8 张卷：哪张卷在拖低覆盖率。</p>
+          <table v-if="metrics.by_paper.length" class="p-table">
+            <thead>
+              <tr>
+                <th>试卷</th><th>题量</th><th>可机判</th><th>已机判</th>
+                <th>需人工</th><th>覆盖率</th><th>人工率</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in metrics.by_paper" :key="p.paper_id">
+                <td class="t-name">{{ p.title }}</td>
+                <td>{{ p.items }}</td>
+                <td>{{ p.gradable }}</td>
+                <td>{{ p.auto }}</td>
+                <td>{{ p.manual }}</td>
+                <td>
+                  <span class="tes-pill" :class="pillOf(p.status)">{{ pct(p.coverage) }}</span>
+                </td>
+                <td>{{ pct(p.manual_rate) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-else class="tes-empty">这段时间还没有提交</p>
+        </div>
+      </template>
+    </template>
   </div>
 </template>
 
@@ -220,6 +388,7 @@ import { computed, ref, onMounted } from 'vue'
 import {
   ackGradingFreeze,
   claimGradingTicket,
+  getGradingMetrics,
   getGradingTicket,
   judgeGradingTicket,
   listGradingFreezes,
@@ -232,6 +401,23 @@ const tabs = [
   { key: 'pending', label: '待认领' },
   { key: 'claimed', label: '已认领' },
   { key: 'reviewed', label: '已判定' }
+]
+
+// M2-7 指标看板（与批改同页：指标回答的正是「我这批改得准不准」）
+const view = ref('grade')
+const metrics = ref(null)
+const days = ref(30)
+const ranges = [
+  { key: 7, label: '近 7 天' },
+  { key: 30, label: '近 30 天' },
+  { key: 90, label: '近 90 天' },
+  { key: 0, label: '全量' }
+]
+// 三个核心指标：key 与后端 metrics 字典一致；target 只用于展示文案
+const CORE = [
+  { key: 'coverage', label: '判据覆盖率', target: '≥99%' },
+  { key: 'manual_rate', label: '人工复核率', target: '≤3%' },
+  { key: 'accuracy', label: '判分准确率', target: '≥98%' }
 ]
 
 const status = ref('')
@@ -389,6 +575,59 @@ async function doRelease(f) {
   }
 }
 
+// ---------------------------------------------------------------- 指标看板
+function metric(key) {
+  return (metrics.value && metrics.value.metrics && metrics.value.metrics[key]) || null
+}
+
+function pct(v) {
+  return v === null || v === undefined ? '—' : (v * 100).toFixed(1) + '%'
+}
+
+function barW(r) {
+  // 最小 2%：0.4% 这类占比也要看得见，否则「有这一类但画不出来」
+  return Math.max(2, Math.round((r || 0) * 100)) + '%'
+}
+
+function mins(v) {
+  return v === null || v === undefined ? '—' : v + ' 分钟'
+}
+
+const STATUS_TEXT = {
+  ok: '达标',
+  watch: '过渡期可接受',
+  below: '未达标',
+  unknown: '待积累样本'
+}
+const statusText = (v) => STATUS_TEXT[v] || STATUS_TEXT.unknown
+
+function pillOf(v) {
+  if (v === 'ok') return 'success'
+  if (v === 'watch') return 'warn'
+  if (v === 'below') return 'danger'
+  return ''
+}
+
+async function loadMetrics() {
+  error.value = ''
+  try {
+    metrics.value = await getGradingMetrics({ days: days.value })
+  } catch (e) {
+    error.value = errText(e)
+  }
+}
+
+function setDays(d) {
+  days.value = d
+  loadMetrics()
+}
+
+function switchView(v) {
+  view.value = v
+  error.value = ''
+  if (v === 'metrics' && !metrics.value) loadMetrics()
+}
+
 const QTYPE = { choice: '选择题', blank: '填空题', subjective: '解答题' }
 const STATUS = { pending: '待认领', claimed: '已认领', reviewed: '已判定' }
 const VERDICT = { correct: '正确', partial: '部分分', wrong: '错误' }
@@ -520,4 +759,46 @@ textarea {
   background: #ffeef1; border: 1px solid var(--danger); border-radius: var(--r-sm);
   padding: 8px 10px; color: var(--danger);
 }
+/* ================= M2-7 判分指标看板 ================= */
+.view-switch { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.gen { font-size: 12px; color: var(--muted); }
+
+.m-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+@media (max-width: 900px) { .m-cards { grid-template-columns: 1fr; } }
+.m-card { border-left: 3px solid var(--line-strong); }
+.m-card.st-ok { border-left-color: var(--success); }
+.m-card.st-watch { border-left-color: var(--warning); }
+.m-card.st-below { border-left-color: var(--danger); }
+.m-head { display: flex; align-items: baseline; gap: 8px; }
+.m-head b { font-size: 13px; color: var(--ink-2); }
+.m-target { font-size: 11px; color: var(--muted); }
+.m-v { font-size: 30px; font-weight: 800; color: var(--ink); line-height: 1.3; letter-spacing: -0.5px; }
+.m-v .m-na { font-size: 18px; color: var(--muted); font-weight: 600; }
+.m-sub { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.m-note { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+.m-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+@media (max-width: 1000px) { .m-grid { grid-template-columns: 1fr; } }
+.m-grid h4, .tes-card h4 { margin: 0 0 8px; font-size: 13px; color: var(--ink-2); }
+.m-hint { font-size: 12px; color: var(--muted); margin: 0 0 10px; line-height: 1.6; }
+.m-hint b { color: var(--ink-2); }
+
+.src-row { display: grid; grid-template-columns: 150px 1fr 110px; gap: 10px; align-items: center; margin-bottom: 7px; font-size: 12px; }
+.src-name { color: var(--ink-2); }
+.src-name.manual { color: var(--warning); }
+.src-bar { height: 8px; background: var(--surface-2, #eef1f6); border-radius: 999px; overflow: hidden; }
+.src-bar i { display: block; height: 100%; background: var(--brand-grad, var(--brand)); border-radius: 999px; }
+.src-bar i.manual { background: var(--warning); }
+.src-n { color: var(--muted); text-align: right; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
+.stat { background: var(--surface-2, #f6f8fb); border-radius: var(--r-sm); padding: 8px 10px; }
+.stat em { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+.stat b { font-size: 16px; color: var(--ink); }
+.stat.bad b { color: var(--danger); }
+
+.p-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.p-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line-strong); }
+.p-table td { padding: 7px 8px; border-bottom: 1px dashed var(--line-strong); color: var(--ink-2); }
+.p-table .t-name { color: var(--ink); font-weight: 600; }
 </style>
