@@ -227,14 +227,21 @@ def values_equivalent(a: str, b: str) -> bool:
     return False
 
 
-def _var_candidates(s: str) -> List[str]:
-    """带简单变量名的答案取右侧值（``x = -3/2`` -> ['x = -3/2', '-3/2']）。
+_EQ_RHS = re.compile(
+    r"^([A-Za-z][A-Za-z0-9]*|[A-Za-z][A-Za-z0-9]*\s*\([^()]*\))\s*=\s*(.+)$"
+)
 
-    **只认左侧为单个变量名**；``3x+4y-5=0`` 这类方程不取右侧的 ``0``，
-    否则学生写 0 就会被误判为对（真实题库第 6 题正是这种形态）。
+
+def _var_candidates(s: str) -> List[str]:
+    """带等号时取右侧值作为候选（``x = -3/2`` -> ['x = -3/2', '-3/2']）。
+
+    **只认左侧是「单个变量名」或「函数记号」**（``E(X)=61/25`` / ``f(x)=x+2``）：
+
+    - ``3x+4y-5=0`` 这类方程不取右侧的 ``0`` —— 否则学生写 0 就判对（题库第 6 题）；
+    - ``x^2=4`` 也不取右侧 ``4`` —— 该方程的答案是 x=±2，不是 4。
     """
     s = (s or "").strip()
-    m = re.match(r"^([A-Za-z][A-Za-z0-9]*)\s*=\s*(.+)$", s)
+    m = _EQ_RHS.match(s)
     if m:
         return [s, m.group(2).strip()]
     return [s]
@@ -550,14 +557,15 @@ def blank_judge(student: str, ref: str, blanks: Optional[List[str]] = None) -> d
             if not any(x.strip() for x in stu_parts):
                 return _auto(False, "未作答")
             return _manual(
-                f"多空题作答空数不符（标答 {len(ref_parts)} 空 / 学生 {len(stu_parts)} 空）"
+                f"这道题有 {len(ref_parts)} 个空，你填写了 {len(stu_parts)} 个，"
+                f"机器无法自动比对（老师会看）"
             )
         verdicts = [_judge_single(a, b) for a, b in zip(stu_parts, ref_parts)]
     else:
         stu = str(blanks[0]) if blanks and len(blanks) == 1 else (student or "")
         verdicts = [_judge_single(stu, ref_parts[0])]
     if any(v == "manual" for v in verdicts):
-        return _manual("含无法确定性判定的空（符号/表达式类答案）")
+        return _manual("这道题的答案含字母或符号表达式，机器判不了对错（老师会看）")
     return _auto(all(v == "correct" for v in verdicts))
 
 

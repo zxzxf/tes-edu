@@ -93,6 +93,20 @@ def test_handwritten_rounding_is_accepted():
 def test_variable_prefixed_answer():
     assert blank_judge("-1.5", "x = -3/2")["correct"] is True
     assert blank_judge("x=-3/2", "x = -3/2")["correct"] is True
+    # 函数记号左侧也能取右侧（学生写 E(X)=61/25、标答 61/25）
+    assert blank_judge("E(X)=61/25", "61/25")["correct"] is True
+    assert blank_judge("E(X)=61/25", "2.44")["correct"] is True
+    assert blank_judge("f(x)=x+2", "x+2")["correct"] is True
+
+
+def test_equation_rhs_is_not_the_answer():
+    """方程右侧的常数不是答案，绝不能取。
+
+    ``3x+4y-5=0`` 的右侧 0、``x^2=4`` 的右侧 4 都只是方程的一部分；
+    学生写它们必须转人工（可能对也可能错），不能判对也不能判错。
+    """
+    assert blank_judge("0", "3x+4y-5=0")["status"] == "manual"
+    assert blank_judge("4", "x^2=4")["status"] == "manual"
 
 
 def test_interval_union_commutative():
@@ -130,7 +144,7 @@ def test_nested_latex_multi_solution_splits():
 def test_multi_blank_structure_not_split_by_inner_comma():
     """结构解析：区间/函数内部逗号不能被当空分隔符。"""
     assert split_blanks("[2,3)") == ["[2,3)"]
-    assert split_blanks("(-∞,-4)∪(0,+∞)") == ["(-inf,-4)|(0,inf)"]
+    assert split_blanks("(-∞,-4)∪(0,+∞)") == ["(-inf,-4)|(0,+inf)"]
     # 幂符号已归一（^ -> **），这里只校验切分位置：只在顶层「；」处断开
     assert split_blanks("5；720 - 240(n+3)/2^n") == ["5", "720 - 240(n+3)/2**n"]
     # 题 20：两个空分别是一个等式，内部括号里的逗号不能切
@@ -158,7 +172,8 @@ def test_blank_count_mismatch_goes_manual():
     """空数不符且学生有作答 -> 转人工（可能用了别的分隔符），不硬判错。"""
     v = blank_judge("1", "1；2")
     assert v["status"] == "manual"
-    assert "空数不符" in v["reason"]
+    # 文案面向学生：说清"几个空、你填了几个"，不要甩技术术语
+    assert "2 个空" in v["reason"] and "1 个" in v["reason"]
 
 
 # ---------------------------------------------------------------- 转人工红线
