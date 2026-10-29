@@ -100,6 +100,19 @@ def test_choice_multi_set_equiv_and_partial():
     assert choice_equivalent("A,C", "A,B", multi=True) is False
 
 
+def test_choice_multi_concatenated_labels():
+    # 题库多选答案常无分隔符存成 'ACD' / 'BD'，必须能正确展开成集合
+    assert choice_equivalent("ACD", "ACD", multi=True) is True
+    assert choice_equivalent("A,C,D", "ACD", multi=True) is True   # 逗号式与连写式等价
+    assert choice_equivalent("BD", "BD", multi=True) is True
+    assert choice_equivalent("BC", "BC", multi=True) is True
+    assert choice_equivalent("AC", "AC", multi=True) is True
+    # 连写漏选 -> partial
+    assert choice_equivalent("AC", "ACD", multi=True) == "partial"
+    # 连写错选 -> False
+    assert choice_equivalent("ABD", "ACD", multi=True) is False
+
+
 # ---------------------------------------------------------------- 填空
 def test_blank_value_and_lead_and_multi():
     assert blank_equivalent("a=1", "1") is True          # 带变量名

@@ -115,7 +115,17 @@ def _choice_labels(x) -> set:
         items = list(x)
     else:
         items = [p.strip() for p in re.split(r"[,，;；/]", str(x)) if p.strip()]
-    return {l for l in (norm_choice_label(i) for i in items) if l}
+    out = set()
+    for it in items:
+        s = norm_text(it)
+        # 多字母连写（如 'ACD' / 'a,c,d'）拆成 A C D —— 题库多选答案常无分隔符存成 'ACD'
+        if len(s) >= 2 and all(c in "abcd" for c in s):
+            out.update(c.upper() for c in s)
+            continue
+        lab = norm_choice_label(s)
+        if lab:
+            out.add(lab)
+    return out
 
 
 def choice_equivalent(student, ref, multi: bool = False, options: Mapping | None = None):
