@@ -44,7 +44,7 @@ def strip_lead(s: str) -> str:
         if s2 == s:
             break
         s = s2
-    return s
+    return s.strip()
 
 
 # ---------------------------------------------------------------- 数值等价
