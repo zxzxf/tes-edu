@@ -422,6 +422,11 @@ async def _run(args) -> None:
                 "preview": row["stem"][:24],
             })
             continue
+        # 租户与题源标记（方案书 v1.2/v1.3：course_kb 无 tenant_id 硬缺口，
+        # 旧 211 行统一归 school_pilot_01；新导入题 source_tag 区别于 gaokao_real，
+        # 便于脏题隔离与组卷按来源优先）。0005 迁移会先补这两列。
+        row["tenant_id"] = getattr(args, "tenant", "school_pilot_01")
+        row["source_tag"] = getattr(args, "source_tag", "import")
         row["content_hash"] = _hash(row)
         row["content"] = _content_for_embed(row)
         norm.append(row)
@@ -510,14 +515,16 @@ async def _run(args) -> None:
                     """
                     INSERT INTO course_kb
                         (subject, grade, chapter, type, stem, options, answer, analysis,
-                         difficulty, paper_type, source_province, knowledge_points, content_hash, embedding)
-                    VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12::jsonb,$13,$14::vector)
+                         difficulty, paper_type, source_province, knowledge_points, content_hash, embedding,
+                         tenant_id, source_tag)
+                    VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12::jsonb,$13,$14::vector,$15,$16)
                     ON CONFLICT (content_hash) DO NOTHING
                     """,
                     r["subject"], r["grade"], r["chapter"], r["type"], r["stem"],
                     json.dumps(r["options"] or []), r["answer"], r["analysis"],
                     r["difficulty"], r["paper_type"], r["source_province"],
                     json.dumps(r["knowledge_points"]), r["content_hash"], emb_lit,
+                    r["tenant_id"], r["source_tag"],
                 )
                 # 2) RAG 检索表 course_kb_embeddings
                 await conn.execute(
@@ -553,6 +560,10 @@ def main() -> None:
     ap.add_argument("--source", default=None, help="来源省份，如 河南/河北")
     ap.add_argument("--grade", default=None, help="如 高一/高二/高三")
     ap.add_argument("--dry-run", action="store_true", help="只解析校验，不写库")
+    ap.add_argument("--tenant", default="school_pilot_01",
+                    help="题目归属租户（试点校默认 school_pilot_01）")
+    ap.add_argument("--source-tag", dest="source_tag", default="import",
+                    help="题源标记，如 gaokao_real / import / teacher")
     ap.add_argument("--strict", action="store_true",
                     help="只要闸门拒收了任何一行就整体中止（默认仅拒收并报告）")
     args = ap.parse_args()
