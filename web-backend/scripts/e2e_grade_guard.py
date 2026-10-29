@@ -37,7 +37,8 @@ TITLE2 = "E2E-护栏发布拦截卷（脚本自动清理）"
 TITLE3 = "E2E-护栏选择题卷（脚本自动清理）"
 CH_BLANK = "e2e-guard-blank-1"
 CH_CHOICE = "e2e-guard-choice-1"
-ANS_BLANK = "2sqrt(6)/3"
+ANS_BLANK = "3x+4y-5=0"        # 含字母的方程 → 一定转人工（数值型标答会被直接算出来）
+STU_ANS = "3x+4y=5"           # 与标答不等价，必转人工
 
 PASS, FAIL = [], []
 
@@ -136,14 +137,14 @@ async def main():
         # ---------------- 造卷 ----------------
         pid = await new_paper(
             conn, TITLE,
-            [(1, "blank", "化简 √(8/3) 的结果为______", ANS_BLANK, CH_BLANK)],
+            [(1, "blank", "把直线方程化为 3x+4y=5 的形式：______", ANS_BLANK, CH_BLANK)],
             published=True,
         )
         aid = await assign(conn, pid)
         print(f"== 造卷 paper={pid} assignment={aid}\n")
 
         # ---------------- A. 首次判定不计改判 ----------------
-        answers = [{"seq": 1, "student_answer": "1.633"}]   # 数值 vs 符号标答 → 转人工
+        answers = [{"seq": 1, "student_answer": STU_ANS}]   # 方程型标答 → 必转人工
         st, r1 = call("POST", f"/api/student/exams/{aid}/submit", STU, "student", PILOT,
                       {"client_id": "g-1", "answers": answers})
         check("A1 学生提交成功", st == 200, f"{st} {r1}")
@@ -187,7 +188,7 @@ async def main():
 
         # ---------------- D. 冻结后新提交转人工 ----------------
         st, r2 = call("POST", f"/api/student/exams/{aid}/submit", STU2, "student", PILOT,
-                      {"client_id": "g-2", "answers": [{"seq": 1, "student_answer": "1.633"}]})
+                      {"client_id": "g-2", "answers": [{"seq": 1, "student_answer": STU_ANS}]})
         item = r2["items"][0]
         check("D1 冻结题新提交转人工", item["status"] == "manual_pending", item)
         check("D2 原因是「标答在复核」而非「判不了」",
@@ -199,7 +200,7 @@ async def main():
         # ---------------- E. 冻结题禁止发布 ----------------
         pid2 = await new_paper(
             conn, TITLE2,
-            [(1, "blank", "化简 √(8/3) 的结果为______", ANS_BLANK, CH_BLANK)],
+            [(1, "blank", "把直线方程化为 3x+4y=5 的形式：______", ANS_BLANK, CH_BLANK)],
         )
         st, v = call("GET", f"/api/admin/exam/papers/{pid2}/validation", T, "teacher", PILOT)
         codes = [x["code"] for x in (v.get("violations") or [])] if isinstance(v, dict) else []
@@ -242,7 +243,7 @@ async def main():
         st, p = call("POST", f"/api/admin/exam/papers/{pid2}/publish", T, "teacher", PILOT)
         check("H4 解冻后可发布", st == 200 and p.get("published") is True, (st, p))
         st, r3 = call("POST", f"/api/student/exams/{aid}/submit", STU3, "student", PILOT,
-                      {"client_id": "g-3", "answers": [{"seq": 1, "student_answer": "1.633"}]})
+                      {"client_id": "g-3", "answers": [{"seq": 1, "student_answer": STU_ANS}]})
         check("H5 解冻后仍按原判据（符号标答照旧转人工，不是全放行）",
               r3["items"][0]["status"] == "manual_pending"
               and "复核" not in (r3["items"][0].get("reason") or ""), r3["items"][0])
