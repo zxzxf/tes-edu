@@ -1,0 +1,6 @@
+# 仅测试/本地开发需要；运行时镜像只用 requirements.txt。
+-r requirements.txt
+
+pytest==8.2.0
+# 若干单测用 sqlite 内存库（sqlalchemy 的 async sqlite 方言），运行时不依赖
+aiosqlite==0.20.0

@@ -80,7 +80,7 @@ def test_course_types_for_unknown_paper_type_is_empty():
 
 
 # ---------------------------------------------------------------- 选择题答案
-@pytest.mark.parametrize("answer,multi", [("C", False), ("c", False), ("ACD", True), (" AC ", False)])
+@pytest.mark.parametrize("answer,multi", [("C", False), ("c", False), ("ACD", True), (" C ", False)])
 def test_choice_answer_ok(answer, multi):
     assert check_choice_answer(answer, multi) is None
 
