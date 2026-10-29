@@ -2,9 +2,9 @@
 
 P0/P2 阶段先定义契约，真实持久化在接入 PostgreSQL 后补齐。
 """
-from typing import List, Optional
+from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ---------- 认证 ----------
@@ -101,13 +101,17 @@ class ExamPaperQuestionOut(BaseModel):
 
 
 class ExamPaperCreate(BaseModel):
-    """规则组卷请求：按年级/学科/题型/题量/难度从 course_kb 抽题。"""
+    """规则组卷请求：按年级/学科/题型/题量/难度从 course_kb 抽题。
+
+    ``paper_type`` 三值（M1-3）：``pure_choice`` 纯选择题卷 / ``pure_blank`` 纯填空题卷 /
+    ``mixed`` 混合卷（含解答题，发布时标「需人工 N 道」）。
+    """
     title: Optional[str] = None
     grade: str = "高三"
     subject: str = "数学"
-    paper_type: str = "pure_choice"          # MVP 仅 pure_choice
-    count: int = 20                          # 抽题数量
-    knowledge_points: List[str] = []         # 可选：限定知识点
+    paper_type: Literal["pure_choice", "pure_blank", "mixed"] = "pure_choice"
+    count: int = Field(default=20, ge=1, le=100)      # 抽题数量
+    knowledge_points: List[str] = []                  # 可选：限定知识点
     difficulty_min: Optional[int] = None
     difficulty_max: Optional[int] = None
 
@@ -120,7 +124,32 @@ class ExamPaperOut(BaseModel):
     subject: str
     published: bool
     question_count: int = 0
+    auto_gradeable_count: int = 0
+    manual_required_count: int = 0
     questions: List[ExamPaperQuestionOut] = []
+
+
+# ---- 发布校验（M1-3）----
+class PaperViolationOut(BaseModel):
+    seq: int                     # 0 = 整卷级问题
+    qtype: str = ""
+    code: str
+    message: str
+
+
+class PaperValidationOut(BaseModel):
+    """发布前校验结果。``ok=false`` 时 ``violations`` 列出全部拦截原因。"""
+
+    ok: bool
+    paper_id: int
+    paper_type: str
+    question_count: int = 0
+    qtype_counts: Dict[str, int] = {}
+    auto_gradeable_count: int = 0
+    manual_required_count: int = 0
+    manual_breakdown: Dict[str, int] = {}
+    violations: List[PaperViolationOut] = []
+    note: str = ""
 
 
 class AssignmentCreate(BaseModel):
@@ -197,6 +226,9 @@ class ExamResult(BaseModel):
     score: float = 0.0                       # 正确题数
     correct_count: int = 0
     total_count: int = 0
+    # 混合卷（含解答/填空）下 total 包含人工题，前端按这两个数渲染「已判 x/y · z 题待人工」
+    auto_gradeable_count: int = 0
+    manual_pending_count: int = 0
     status: str = "graded"
     submitted_at: Optional[str] = None
     items: List[ExamResultItem] = []

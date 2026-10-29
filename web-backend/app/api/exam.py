@@ -1,11 +1,12 @@
-"""模块4：自动组卷 / 作业闭环 MVP（高三·数学·纯选择题卷）。
+"""模块4：自动组卷 / 作业闭环 MVP（高三·数学）。
 
 教师端（网关 /api/admin，本文件 ``router`` 挂在 /api/admin/exam）：
 - POST   /exam/papers                  规则组卷：从 course_kb 抽题生成试卷（答案随卷快照）
 - GET    /exam/papers                  列出本租户试卷
 - GET    /exam/papers/{paper_id}       试卷详情（含答案+解析，供教师校对）
-- POST   /exam/papers/{paper_id}/publish   发布
-- POST   /exam/papers/{paper_id}/assign    下发（按年级段 / 学生）
+- GET    /exam/papers/{paper_id}/validation 发布前校验（dry-run，不落库）
+- POST   /exam/papers/{paper_id}/publish   发布（先校验，不通过 409 拒绝）
+- POST   /exam/papers/{paper_id}/assign    下发（按年级段 / 学生；须已发布）
 
 学生端（网关 /api/student，本文件 ``student_router`` 挂在 /api/student/exams）：
 - GET    /exams                        列出可做的试卷（按年级段下发）
@@ -13,13 +14,15 @@
 - POST   /exams/{assignment_id}/submit 提交并确定性判分（0 token，判据仅本卷答案）
 - GET    /exams/{assignment_id}/result 取回判分结果
 
+卷型与题型白名单见 ``app/core/exam_types.py``（M1-3）：纯选择卷含填空/纯填空卷含选择 →
+发布拦截；混合卷含解答题 → 不拦，标「需人工 N 道」。
+
 判分设计（ADR-A10）：答案随卷快照在 exam_paper_questions.answer，判分唯一来源就是它，
 绝不调 LLM / 不查外部检索；选择题走 app/core/equiv.py 的 choice_equivalent（确定性）。
 """
 from __future__ import annotations
 
 import random
-import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -29,6 +32,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.equiv import choice_equivalent
+from app.core.exam_types import (
+    PAPER_TYPE_LABEL,
+    QTYPE_CHOICE,
+    check_choice_answer,
+    course_types_for,
+    is_known_paper_type,
+    to_qtype,
+    validate_paper,
+)
 from app.core.rbac import Role
 from app.core.security import require_role
 from app.models.course_kb import CourseQuestion
@@ -47,6 +59,7 @@ from app.models.schemas import (
     ExamPaperQuestionOut,
     ExamResult,
     ExamResultItem,
+    PaperValidationOut,
     StudentExamListItem,
     StudentQuestionView,
     SubmitExamRequest,
@@ -54,10 +67,6 @@ from app.models.schemas import (
 
 router = APIRouter(prefix="/exam", tags=["exam"])
 student_router = APIRouter(prefix="/exams", tags=["student-exam"])
-
-# course_kb.type 中文枚举（MVP 仅选择题）
-_CHOICE_TYPES = ["单选", "多选"]
-_ANSWER_OK = re.compile(r"^[A-Da-d]+$")  # 合法选择题答案：A-D 组合
 
 
 def _utcnow() -> datetime:
@@ -94,10 +103,20 @@ def _options_to_list(options) -> list:
 
 
 def _qtype_from_course(cq_type: str) -> tuple:
-    """course_kb.type -> (qtype, multi)。"""
-    if cq_type == "多选":
-        return "choice", True
-    return "choice", False  # MVP 仅选择题
+    """course_kb.type -> (qtype, multi)；未知题型按选择题兜底（组卷侧已按白名单过滤）。"""
+    return to_qtype(cq_type) or (QTYPE_CHOICE, False)
+
+
+def _answer_acceptable(cq: CourseQuestion) -> bool:
+    """抽题时的答案门槛：选择题须 A-D 合规；填空/解答须有非空答案。"""
+    ans = (cq.answer or "").strip()
+    if not ans:
+        return False
+    mapped = to_qtype(cq.type)
+    qtype, multi = mapped or (QTYPE_CHOICE, False)
+    if qtype == QTYPE_CHOICE:
+        return check_choice_answer(ans, multi) is None
+    return True
 
 
 # ============================================================== 教师端：组卷
@@ -109,15 +128,21 @@ async def compose_paper(
 ):
     """规则组卷：从 course_kb 抽题生成试卷（答案随卷快照）。
 
-    过滤：subject / grade / type∈{单选,多选} / tenant / 答案合规（A-D）/
-    有 embedding（已入库质检过）/ 非 quarantine。知识点可选；题源不足显式报错不静默凑卷。
+    过滤：subject / grade / 卷型白名单题型 / tenant / 答案合规 / 有 embedding（已入库质检过）/
+    非 quarantine。知识点可选；题源不足显式报错不静默凑卷。
     """
     tenant_id = user.get("tenant_id") or "school_pilot_01"
+    if not is_known_paper_type(body.paper_type):
+        raise HTTPException(status_code=400, detail=f"未知卷型 {body.paper_type!r}")
+
+    course_types = course_types_for(body.paper_type)
+    if not course_types:
+        raise HTTPException(status_code=400, detail=f"卷型 {body.paper_type!r} 无对应题型")
 
     stmt = select(CourseQuestion).where(
         CourseQuestion.subject == body.subject,
         CourseQuestion.grade == body.grade,
-        CourseQuestion.type.in_(_CHOICE_TYPES),
+        CourseQuestion.type.in_(course_types),
         CourseQuestion.tenant_id == tenant_id,
         CourseQuestion.answer.isnot(None),
         CourseQuestion.embedding.isnot(None),
@@ -129,8 +154,7 @@ async def compose_paper(
     wanted = set(body.knowledge_points)
     cand = []
     for r in rows:
-        ans = (r.answer or "").strip()
-        if not _ANSWER_OK.match(ans):
+        if not _answer_acceptable(r):
             continue
         if wanted and not wanted.intersection(set(r.knowledge_points or [])):
             continue
@@ -152,12 +176,15 @@ async def compose_paper(
         raise HTTPException(
             status_code=409,
             detail=(
-                f"题源不足：{body.grade}·{body.subject} 可组卷选择题仅 {len(picked)} 道"
-                f"（需 {body.count}）。请降低题量或放宽筛选。"
+                f"题源不足：{body.grade}·{body.subject} 可组"
+                f"{PAPER_TYPE_LABEL[body.paper_type]}的题目仅 {len(picked)} 道"
+                f"（需 {body.count}）。请降低题量、放宽知识点筛选或改用其他卷型。"
             ),
         )
 
-    title = body.title or f"{body.grade}·{body.subject}·选择题卷（{len(picked)}题）"
+    title = body.title or (
+        f"{body.grade}·{body.subject}·{PAPER_TYPE_LABEL[body.paper_type]}（{len(picked)}题）"
+    )
     paper = ExamPaper(
         tenant_id=tenant_id,
         title=title,
@@ -198,14 +225,19 @@ async def compose_paper(
     return await _paper_out(db, paper)
 
 
-async def _paper_out(db: AsyncSession, paper: ExamPaper) -> ExamPaperOut:
-    qs = (
+async def _load_questions(db: AsyncSession, paper_id: int) -> list:
+    return (
         await db.execute(
             select(ExamPaperQuestion)
-            .where(ExamPaperQuestion.paper_id == paper.id)
+            .where(ExamPaperQuestion.paper_id == paper_id)
             .order_by(ExamPaperQuestion.seq)
         )
     ).scalars().all()
+
+
+async def _paper_out(db: AsyncSession, paper: ExamPaper) -> ExamPaperOut:
+    qs = await _load_questions(db, paper.id)
+    report = validate_paper(paper.paper_type, qs)
     return ExamPaperOut(
         id=paper.id,
         title=paper.title,
@@ -214,6 +246,8 @@ async def _paper_out(db: AsyncSession, paper: ExamPaper) -> ExamPaperOut:
         subject=paper.subject,
         published=paper.published,
         question_count=len(qs),
+        auto_gradeable_count=report.auto_gradeable_count,
+        manual_required_count=report.manual_required_count,
         questions=[
             ExamPaperQuestionOut(
                 seq=q.seq,
@@ -261,17 +295,51 @@ async def get_paper(
     return await _paper_out(db, p)
 
 
+@router.get("/papers/{paper_id}/validation", response_model=PaperValidationOut)
+async def validate_paper_for_publish(
+    paper_id: int,
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    """发布前校验（dry-run，不落库）。前端在发布前调它展示拦截原因与人工量。"""
+    p = (
+        await db.execute(select(ExamPaper).where(ExamPaper.id == paper_id))
+    ).scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="paper not found")
+    report = validate_paper(p.paper_type, await _load_questions(db, paper_id))
+    return PaperValidationOut(paper_id=p.id, **report.as_dict())
+
+
 @router.post("/papers/{paper_id}/publish", response_model=ExamPaperOut)
 async def publish_paper(
     paper_id: int,
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
+    """发布。先跑卷型/题型/答案校验，不通过一律 409 拒绝（不发布半成品）。"""
     p = (
         await db.execute(select(ExamPaper).where(ExamPaper.id == paper_id))
     ).scalar_one_or_none()
     if not p:
         raise HTTPException(status_code=404, detail="paper not found")
+
+    if p.published:  # 幂等：已发布不再重复校验
+        return await _paper_out(db, p)
+
+    report = validate_paper(p.paper_type, await _load_questions(db, paper_id))
+    if not report.ok:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "PAPER_VALIDATION_FAILED",
+                "message": report.note,
+                "paper_id": p.id,
+                "paper_type": p.paper_type,
+                "violations": [v.as_dict() for v in report.violations],
+            },
+        )
+
     p.published = True
     p.published_at = _utcnow()
     await db.commit()
@@ -290,6 +358,13 @@ async def assign_paper(
     ).scalar_one_or_none()
     if not p:
         raise HTTPException(status_code=404, detail="paper not found")
+    if not p.published:
+        raise HTTPException(
+            status_code=409,
+            detail="试卷未发布，下发后学生端不会出现（请先 POST /papers/{id}/publish）",
+        )
+    if body.target_type not in ("grade", "student"):
+        raise HTTPException(status_code=400, detail="target_type must be grade or student")
     if body.target_type == "student" and not body.target_student:
         raise HTTPException(status_code=400, detail="target_student required for student assign")
     due = datetime.fromisoformat(body.due_at) if body.due_at else None
@@ -518,8 +593,12 @@ async def submit_exam(
 
 
 def _grade_one(q: ExamPaperQuestion, student_answer: str) -> dict:
-    """对单题做确定性判分（MVP 仅 choice；其余类型落 manual_pending）。"""
-    if q.qtype == "choice":
+    """对单题做确定性判分（M1-4 题型→判分路由）。
+
+    choice 走确定性等价判定；blank/subjective 直落 manual_pending 且不调 LLM
+    （填空判定属 M2-3，解答题属 M3 人工工单）。
+    """
+    if q.qtype == QTYPE_CHOICE:
         opt_map = _options_to_map(q.options)
         res = choice_equivalent(student_answer, q.answer, multi=q.multi, options=opt_map)
         if res is True:
@@ -584,6 +663,7 @@ async def _result_out(db: AsyncSession, sub: ExamSubmission) -> ExamResult:
             )
         ).scalars().all()
         q_by_id = {q.id: q for q in pqs}
+    manual_pending = sum(1 for it in items if it.status == "manual_pending")
     return ExamResult(
         submission_id=sub.id,
         assignment_id=sub.assignment_id,
@@ -592,6 +672,8 @@ async def _result_out(db: AsyncSession, sub: ExamSubmission) -> ExamResult:
         score=float(sub.score or 0),
         correct_count=sub.correct_count or 0,
         total_count=sub.total_count or 0,
+        auto_gradeable_count=max(len(items) - manual_pending, 0),
+        manual_pending_count=manual_pending,
         status=sub.status,
         submitted_at=_to_iso(sub.submitted_at),
         items=[
