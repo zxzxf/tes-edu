@@ -26,7 +26,7 @@ import re
 import unicodedata
 from typing import Any
 
-from app.core import config, llm, rag, tenant_llm
+from app.core import config, llm, rag, tenant_llm, equiv
 
 log = logging.getLogger("judge_v2")
 
@@ -271,18 +271,19 @@ def judge_by_reference_answer(ref_answer: str | None, student_answer: str) -> di
     连系统自己刚生成的正确答案也一起判错，学生看到"系统答 1、判我 1 是错的"。
     主解答案就是展示给学生的答案，与它一致即判对，先于任何 LLM 调用。
 
+    等价判定统一走 ``equiv.blank_equivalent``（M2-1/2，0 token）：
+    - 覆盖「分数≡小数」数值等价（``61/25`` ≡ ``2.44``，此前集合求交口径缺失）
+    - 覆盖「带变量名 / 引导词」前缀（``a=1`` / ``答案为4``）
+    - 覆盖「多解展开」求交（``2 或 -2``）
+    - 守住「标答不自匹配」红线（``'1'`` 与 ``'12'`` 永不误判等价）
+
     未命中（学生确实答了别的值）返回 None，交由 LLM 兜底。
     """
     ref = (ref_answer or "").strip()
     # 太长/多行 = 引导档提示语或整段解析，不是"答案"，不能拿来做等价判定
     if not ref or len(ref) > REF_ANSWER_MAX_LEN or "\n" in ref:
         return None
-    # 多解展开：主解给「2 或 -2」时，学生写其中任一个都算对
-    rc = set(_ans_candidates(ref)) | set(_ans_values(ref))
-    sc = set(_ans_candidates(student_answer)) | set(_ans_values(student_answer))
-    if not rc or not sc:
-        return None
-    if rc & sc:
+    if equiv.blank_equivalent(ref, student_answer):
         return _ok(f"作答与本题参考答案一致（{ref}）", source=REF_SOURCE)
     return None
 
@@ -411,6 +412,16 @@ def _pick_content_hash(context: dict | None) -> str | None:
 
 def judge_objective_by_map(bundle: dict, student_answer: str) -> dict | None:
     """路径①：客观题查 distractor_map。未命中返回 None 交 LLM 兜底。"""
+    # M2-1/2：优先用确定性等价判定（字母等价 / 多选集合 / 选项内容匹配），
+    # 覆盖「学生只写数值而非字母」等场景；全对即定案，不调 LLM。
+    options = bundle.get("options") or {}
+    ch = equiv.choice_equivalent(
+        student_answer, bundle["answer"],
+        multi=("多选" in (bundle.get("type") or "")), options=options,
+    )
+    if ch is True:
+        return _ok("作答与标准答案一致（查表判定）")
+    # ch 为 partial / False 时仍走下方 step 级归因流程（误选需定位首错步骤）
     correct_labels = _labels(bundle["answer"])
     sel = _labels(student_answer)
     if not correct_labels or not sel:
@@ -455,31 +466,6 @@ def judge_objective_by_map(bundle: dict, student_answer: str) -> dict | None:
     return None
 
 
-def _blank_match(ans: str, student_answer: str) -> bool:
-    """填空答案等值判定（已归一化）。
-
-    全等之外还要认「带变量名/引导词」的写法：题库标答存的是值（``4``），
-    而学生最自然的作答是 ``a=4``、``答案为4``。此前只比整体串，这类写法一律
-    查表不命中、绕道 LLM——结果是判对的，但白花一次调用，还放弃了标答的权威性。
-    """
-    if not ans:
-        return False
-    ref = {ans, *_split_blanks(ans)}
-    stu = {_norm_value(student_answer)}
-    if stu & ref:
-        return True
-    # 多空题（标答形如「1;2」）不做前缀扩展：只写对一空不该整题判对，
-    # 交 LLM 按步骤/分空判定更稳。
-    if len(_split_blanks(ans)) > 1:
-        return False
-    # 单空：两侧各剥一次「a=」/「答案为」等前缀再求交集。
-    # ⚠️ 只能**学生侧候选 vs 标答侧值集合**求交，绝不能把标答自己的候选
-    # 也塞进 ref —— 那会变成标答自匹配，任何作答都判对（'1' 连 '12' 都认）。
-    ref |= {_norm_value(c) for c in _ans_candidates(ans)}
-    stu |= {_norm_value(c) for c in _ans_candidates(student_answer)}
-    ref.discard("")
-    stu.discard("")
-    return bool(stu & ref)
 
 
 def judge_blank_by_map(bundle: dict, student_answer: str) -> dict | None:
@@ -488,7 +474,7 @@ def judge_blank_by_map(bundle: dict, student_answer: str) -> dict | None:
     stu = _norm_value(student_answer)
     if not stu:
         return None
-    if ans and _blank_match(ans, student_answer):
+    if ans and equiv.blank_equivalent(ans, student_answer):
         return _ok("作答与标准答案一致（查表判定）")
     # 错值映射同样要认带前缀的写法：'a=-1' 与 '-1' 是同一个错值，
     # 否则学生加个变量名就绕开了已标注的典型错误，白白退化成 LLM 兜底。
