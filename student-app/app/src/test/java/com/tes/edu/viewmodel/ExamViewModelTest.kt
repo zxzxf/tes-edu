@@ -438,10 +438,46 @@ class ExamViewModelTest {
         assertFalse(r.items[0].manualPending)
     }
 
+    /**
+     * 老师批改后的结果：`manual_reviewed` 要与 `auto` / `manual_pending` 区分开。
+     *
+     * 漏了这个状态，学生在 App 上就看不到「这题是老师判的」和评语——
+     * 成绩变了却不知道为什么，等于改判没闭环。
+     */
+    @Test
+    fun dto_parsesReviewedResult() {
+        val json = """
+            {
+              "submission_id": 13, "assignment_id": 7, "paper_id": 11,
+              "title": "高三·数学·混合卷（2题）",
+              "score": 1.0, "correct_count": 1, "total_count": 2,
+              "auto_gradeable_count": 2, "manual_pending_count": 0,
+              "manual_reviewed_count": 2, "status": "graded",
+              "items": [
+                {"seq":3,"qtype":"blank","student_answer":"y轴","correct_answer":"x=0",
+                 "correct":true,"partial":false,"status":"manual_reviewed",
+                 "reason":"老师已复核判定","analysis":null,
+                 "teacher_comment":"写「y轴」等价于 x=0，算对"},
+                {"seq":4,"qtype":"subjective","student_answer":"配方得 (x+1/2)^2+3/4>0",
+                 "correct_answer":"配方","correct":false,"partial":false,
+                 "status":"manual_reviewed","teacher_comment":"证明不完整，缺恒成立结论"}
+              ]
+            }
+        """.trimIndent()
+        val r = Gson().fromJson(json, ExamResultDto::class.java)
+        assertEquals(2, r.manualReviewedCount)
+        assertEquals(0, r.manualPendingCount)
+        assertFalse(r.hasManualPending)
+        assertTrue(r.items[0].reviewed)
+        assertFalse(r.items[0].manualPending)
+        assertEquals("写「y轴」等价于 x=0，算对", r.items[0].teacherComment)
+        assertEquals("正确", r.items[0].verdictLabel)
+        assertEquals("错误", r.items[1].verdictLabel)
+    }
+
     /** 取卷 DTO：选项是 [{label,content}]，且**不能**有 answer 字段（后端不下发）。 */
     @Test
-    fun dto_parsesQuestionJson_withoutAnswer() {
-        val json = """
+    fun dto_parsesQuestionJson_withoutAnswer() {        val json = """
             [{"seq":1,"qtype":"choice","multi":false,"stem":"已知集合 A={1,2}",
               "options":[{"label":"A","content":"1"},{"label":"B","content":"2"}],
               "difficulty":3,"knowledge_points":["MA-B4-C1-S2-K02"]}]

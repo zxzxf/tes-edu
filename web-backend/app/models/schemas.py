@@ -315,6 +315,8 @@ class GradingTicketDetail(GradingTicketOut):
     analysis: Optional[str] = None
     knowledge_points: List[str] = []
     answer_values: List[str] = []
+    # 多空题的 answer_values 不参与自动判分（避免空位错位误判），此标记如实告知教师
+    answer_values_effective: bool = True
     revisions: List[GradingRevisionOut] = []
 
 

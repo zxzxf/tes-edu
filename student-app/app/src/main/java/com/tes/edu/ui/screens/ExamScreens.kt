@@ -547,7 +547,7 @@ private fun ResultSummary(r: ExamResultDto, title: String) {
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                "题答对（已自动判分）",
+                if (r.manualReviewedCount > 0) "题答对（含老师批改）" else "题答对（已自动判分）",
                 style = MaterialTheme.typography.labelMedium,
                 color = TesEduColors.TextSecondary,
                 modifier = Modifier.padding(bottom = 6.dp)
@@ -562,6 +562,14 @@ private fun ResultSummary(r: ExamResultDto, title: String) {
                     "${r.manualPendingCount} 题待人工",
                     TesEduColors.Amber,
                     TesEduColors.AmberSoft
+                )
+            }
+            if (r.manualReviewedCount > 0) {
+                Spacer(Modifier.width(8.dp))
+                InfoPill(
+                    "${r.manualReviewedCount} 题老师已批改",
+                    TesEduColors.Success,
+                    TesEduColors.SuccessSoft
                 )
             }
         }
@@ -595,6 +603,11 @@ private fun ResultItemCard(item: com.tes.edu.data.remote.ExamResultItem) {
                 fontWeight = FontWeight.SemiBold,
                 color = TesEduColors.TextPrimary
             )
+            // 人工判定的题要能被区分出来（机器判 vs 老师判），否则学生不知道谁给的结论
+            if (item.reviewed) {
+                Spacer(Modifier.width(6.dp))
+                InfoPill("老师批改", TesEduColors.TextSecondary, TesEduColors.Surface)
+            }
             Spacer(Modifier.weight(1f))
             InfoPill(item.verdictLabel, pillColor, pillBg)
         }
@@ -622,6 +635,18 @@ private fun ResultItemCard(item: com.tes.edu.data.remote.ExamResultItem) {
                     "待老师批改：$it",
                     style = MaterialTheme.typography.bodySmall,
                     color = TesEduColors.TextSecondary
+                )
+            }
+        }
+        // 老师判定时写的评语：让改判/判错有解释，而不是只甩一个结论
+        if (item.reviewed) {
+            item.teacherComment?.takeIf { it.isNotBlank() }?.let {
+                Spacer(Modifier.height(10.dp))
+                SoftQuote(
+                    title = "老师评语",
+                    text = it,
+                    accent = TesEduColors.Success,
+                    bg = TesEduColors.SuccessSoft
                 )
             }
         }

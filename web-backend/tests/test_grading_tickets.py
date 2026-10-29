@@ -217,3 +217,18 @@ def test_judge_rejects_invalid_verdict():
         headers={"X-User-Id": "t1", "X-User-Role": "teacher", "X-Tenant-Id": PILOT},
     )
     assert resp.status_code == 422          # Literal 锁三值
+
+
+def test_ticket_detail_declares_fields_api_returns():
+    """防回归：schema 漏声明字段时 pydantic 会**静默丢弃**，前端拿不到还以为接口没实现。
+
+    真实踩过：``answer_values_effective`` 只在 API 里构造、schema 忘了声明，
+    结果教师端「多空题答案值不生效」的提示永远不出现。
+    """
+    from app.models.schemas import GradingTicketDetail
+
+    for f in (
+        "stem", "options", "correct_answer", "analysis", "knowledge_points",
+        "answer_values", "answer_values_effective", "revisions",
+    ):
+        assert f in GradingTicketDetail.model_fields, f"GradingTicketDetail 缺字段 {f}"

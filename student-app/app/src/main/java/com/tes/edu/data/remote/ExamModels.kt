@@ -132,9 +132,14 @@ data class ExamResultItem(
     val status: String = "auto",
     /** 转人工原因（「含无法确定性判定的空」等）。null 表示自动判分。 */
     val reason: String? = null,
-    val analysis: String? = null
+    val analysis: String? = null,
+    /** 老师判定时写的评语（manual_reviewed 才有）。 */
+    @SerializedName("teacher_comment") val teacherComment: String? = null
 ) {
     val manualPending: Boolean get() = status == "manual_pending"
+
+    /** 老师已人工判定：既不是机器 auto，也不是待人工。 */
+    val reviewed: Boolean get() = status == "manual_reviewed"
 
     /** 逐题结论：对 / 漏选 / 错 / 待人工。 */
     val verdictLabel: String
@@ -158,6 +163,8 @@ data class ExamResultDto(
     @SerializedName("total_count") val totalCount: Int = 0,
     @SerializedName("auto_gradeable_count") val autoGradeableCount: Int = 0,
     @SerializedName("manual_pending_count") val manualPendingCount: Int = 0,
+    /** 其中已由老师复核判定的题数（含改判）。 */
+    @SerializedName("manual_reviewed_count") val manualReviewedCount: Int = 0,
     val status: String = "graded",
     @SerializedName("submitted_at") val submittedAt: String? = null,
     val items: List<ExamResultItem> = emptyList()
