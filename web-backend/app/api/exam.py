@@ -32,6 +32,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.answer_verify import status_label as answer_status_label
 from app.core.db import get_db
 from app.core.equiv import (
     blank_judge,
@@ -70,6 +71,10 @@ from app.models.ops import (
     ExamSubmissionItem,
 )
 from app.models.schemas import (
+    AnswerCheckConfirmRequest,
+    AnswerCheckListOut,
+    AnswerCheckOut,
+    AnswerCheckSummaryOut,
     AssignmentCreate,
     AssignmentOut,
     ExamPaperCreate,
@@ -82,6 +87,7 @@ from app.models.schemas import (
     StudentQuestionView,
     SubmitExamRequest,
 )
+from app.services import answer_verify as verify
 from app.services import grading_guard as guard
 
 router = APIRouter(prefix="/exam", tags=["exam"])
@@ -350,13 +356,136 @@ async def _frozen_violations(db, tenant_id: str, questions) -> list:
     return out
 
 
+# ============================================================== M2-9 答案双源校验
+def _check_out(r) -> AnswerCheckOut:
+    return AnswerCheckOut(
+        seq=r.seq,
+        qtype=r.qtype or "",
+        answer=r.answer,
+        status=r.status,
+        status_label=answer_status_label(r.status),
+        secondary_source=r.secondary_source,
+        secondary_answer=r.secondary_answer,
+        mechanical_code=r.mechanical_code,
+        mechanical_detail=r.mechanical_detail,
+        suspect=bool(r.suspect),
+        detail=r.detail or "",
+        llm_model=r.llm_model,
+        llm_answer=r.llm_answer,
+        llm_agree=r.llm_agree,
+        confirmed_by=r.confirmed_by,
+        confirmed_at=_to_iso(r.confirmed_at),
+        confirmed_comment=r.confirmed_comment,
+        checked_at=_to_iso(r.checked_at),
+    )
+
+
+def _check_list(paper, rows, summary) -> AnswerCheckListOut:
+    return AnswerCheckListOut(
+        paper_id=paper.id,
+        published=bool(paper.published),
+        summary=AnswerCheckSummaryOut(**summary),
+        items=[_check_out(r) for r in rows],
+    )
+
+
+async def _paper_or_404(db: AsyncSession, paper_id: int, user: Optional[dict] = None) -> ExamPaper:
+    """取卷并做租户隔离：别校的卷一律 404（不区分「不存在」与「不是你校的」）。
+
+    ``tenant_id`` 为 NULL 的是迁移前的老卷，允许放行（否则它们连自己学校都读不到）。
+    """
+    p = (
+        await db.execute(select(ExamPaper).where(ExamPaper.id == paper_id))
+    ).scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="paper not found")
+    if user is not None:
+        tenant = user.get("tenant_id") or "school_pilot_01"
+        if p.tenant_id and p.tenant_id != tenant:
+            raise HTTPException(status_code=404, detail="paper not found")
+    return p
+
+
+@router.get("/papers/{paper_id}/answer-checks", response_model=AnswerCheckListOut)
+async def get_answer_checks(
+    paper_id: int,
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    """答案校验结果（M2-9 / G1）。
+
+    首次访问且尚无记录时会先跑一遍校验（幂等），教师不用先点按钮才看得到结论。
+    之后的读取不会覆盖已落库的教师确认——除非答案被改过。
+    """
+    p = await _paper_or_404(db, paper_id, user)
+    qs = await _load_questions(db, paper_id)
+    rows, summary = await verify.summary_of(db, p, qs)
+    return _check_list(p, rows, summary)
+
+
+@router.post("/papers/{paper_id}/answer-checks/run", response_model=AnswerCheckListOut)
+async def run_answer_checks(
+    paper_id: int,
+    llm: bool = False,
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    """重跑校验。``llm=true`` 时额外让租户模型独立求解一遍，**只作建议**。
+
+    建议写进 ``llm_*`` 字段供教师参考，不改变 status，也不自动改答案——
+    把模型当第二来源，等于让两个都会出错的模型互相背书。
+    """
+    p = await _paper_or_404(db, paper_id, user)
+    qs = await _load_questions(db, paper_id)
+    rows, summary = await verify.summary_of(db, p, qs, refresh=True, llm=llm)
+    return _check_list(p, rows, summary)
+
+
+@router.post("/papers/{paper_id}/answer-checks/confirm", response_model=AnswerCheckListOut)
+async def confirm_answer_checks(
+    paper_id: int,
+    body: AnswerCheckConfirmRequest,
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    """教师确认（可顺手修正答案）。
+
+    ``seqs`` 为空 = 本卷所有待确认/冲突题。修正答案仅在**未发布**时允许：
+    已下发的卷子改答案会让历史成绩的判据变化（学生结果页的「正确答案」也会变），
+    那是改分事故而不是修答案。
+    """
+    p = await _paper_or_404(db, paper_id, user)
+    qs = await _load_questions(db, paper_id)
+    if not qs:
+        raise HTTPException(status_code=409, detail="卷内没有题目，先组卷")
+    try:
+        rows = await verify.confirm(
+            db,
+            p,
+            qs,
+            seqs=body.seqs or None,
+            actor=user.get("user_id"),
+            comment=body.comment,
+            answers=body.answers or None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    summary = verify.summarize(rows)
+    return _check_list(p, rows, summary)
+
+
 @router.get("/papers/{paper_id}/validation", response_model=PaperValidationOut)
 async def validate_paper_for_publish(
     paper_id: int,
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    """发布前校验（dry-run，不落库）。前端在发布前调它展示拦截原因与人工量。"""
+    """发布前校验（dry-run：**不改试卷**；答案校验记录会顺手刷新落库）。
+
+    前端在发布前调它展示拦截原因与人工量。三层顺序固定：卷型/题型结构 →
+    标答冻结（M2-10）→ 答案双源校验（M2-9）。先讲「卷子本身不合法」，再讲
+    「这道题的答案正在复核」，最后才是「答案没人验证过」——教师修起来有先后。
+    """
     p = (
         await db.execute(select(ExamPaper).where(ExamPaper.id == paper_id))
     ).scalar_one_or_none()
@@ -365,11 +494,23 @@ async def validate_paper_for_publish(
     qs = await _load_questions(db, paper_id)
     report = validate_paper(p.paper_type, qs)
     data = report.as_dict()
+    problems = list(data["violations"])
     frozen = await _frozen_violations(db, p.tenant_id, qs)
     if frozen:
+        problems += frozen
+    _, unchecked = await verify.gate(db, p, qs)
+    if unchecked:
+        problems += unchecked
+    if problems:
         data["ok"] = False
-        data["violations"] = list(data["violations"]) + frozen
-        data["note"] = f"不可发布：{len(data['violations'])} 处问题待修复（含 {len(frozen)} 道冻结题）"
+        data["violations"] = problems
+        bits = []
+        if frozen:
+            bits.append(f"{len(frozen)} 道冻结题")
+        if unchecked:
+            bits.append(f"{len(unchecked)} 道答案未通过校验")
+        tail = f"（含 {'、'.join(bits)}）" if bits else ""
+        data["note"] = f"不可发布：{len(problems)} 处问题待修复{tail}"
     return PaperValidationOut(paper_id=p.id, **data)
 
 
@@ -416,6 +557,29 @@ async def publish_paper(
                 ),
                 "paper_id": p.id,
                 "violations": frozen,
+            },
+        )
+
+    # M2-9 / G1：最后一道闸 —— 答案是判分唯一依据，没验证过的答案不许发给学生。
+    # 顺序上必须排在结构校验和冻结之后：结构错、标答冻结都是更硬的错，先修那些。
+    rows, unchecked = await verify.gate(db, p, qs)
+    if unchecked:
+        summary = verify.summarize(rows)
+        # 有「双源冲突」时码用 ANSWER_CONFLICT：冲突是「两个来源打架」，
+        # 与「压根没人验证过」是两种不同的处理动作，前端要能分开提示。
+        code = "ANSWER_CONFLICT" if summary["conflict"] else "ANSWER_UNVERIFIED"
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": code,
+                "message": (
+                    f"{len(unchecked)} 道题的答案未通过双源校验（"
+                    f"冲突 {summary['conflict']} 道 / 待确认 {summary['unverified']} 道）。"
+                    "请在「答案校验」里逐题确认（可顺手修正答案）后再发布"
+                ),
+                "paper_id": p.id,
+                "violations": unchecked,
+                "summary": summary,
             },
         )
 

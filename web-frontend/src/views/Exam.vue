@@ -117,6 +117,60 @@
         </template>
       </div>
 
+      <!-- 答案校验（M2-9 / G1） -->
+      <div class="ac-box">
+        <div class="ac-head">
+          <b>答案校验</b>
+          <span class="ac-tip">答案是判分唯一依据：没通过校验的答案不许发布</span>
+          <span class="grow"></span>
+          <template v-if="checkSummary">
+            <span class="tes-pill success">通过 {{ checkSummary.passed }}/{{ checkSummary.total }}</span>
+            <span v-if="checkSummary.conflict" class="tes-pill danger">冲突 {{ checkSummary.conflict }}</span>
+            <span v-if="checkSummary.unverified" class="tes-pill warn">
+              待确认 {{ checkSummary.unverified }}
+            </span>
+          </template>
+          <button class="ghost sm" :disabled="busy" @click="refreshChecks(true)">重新校验</button>
+          <button
+            v-if="!paper.published && checkSummary && !checkSummary.ok"
+            class="ghost sm"
+            :disabled="busy"
+            @click="confirmChecks([])"
+          >
+            全部确认
+          </button>
+        </div>
+
+        <div v-if="checks.length" class="ac-list">
+          <div v-for="c in checks" :key="c.seq" class="ac-row" :class="acClass(c)">
+            <span class="ac-seq">{{ c.seq }}</span>
+            <span class="tes-pill" :class="acPill(c)">{{ c.status_label }}</span>
+            <div class="ac-body">
+              <p class="ac-detail">{{ c.detail }}</p>
+              <p v-if="c.secondary_answer" class="ac-src">
+                第二来源（{{ c.secondary_source }}）：{{ c.secondary_answer }}　·　
+                卷面答案：{{ c.answer }}
+              </p>
+              <p v-if="c.llm_answer" class="ac-llm">
+                模型建议（仅供参考，不作依据）：{{ c.llm_answer }}
+                <span v-if="c.llm_agree === false" class="ac-llm-bad">与卷面不一致</span>
+              </p>
+              <p v-if="c.confirmed_by" class="ac-ok">
+                已由 {{ c.confirmed_by }} 确认
+                <template v-if="c.confirmed_comment">：{{ c.confirmed_comment }}</template>
+              </p>
+            </div>
+            <div v-if="!paper.published && !acPassing(c)" class="ac-act">
+              <input v-model="fixValues[c.seq]" :placeholder="'修正答案（当前 ' + (c.answer || '—') + '）'" />
+              <button class="tes-btn-primary sm" :disabled="busy" @click="confirmChecks([c.seq])">
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+        <p v-else class="ac-empty">暂无校验记录，点「重新校验」。</p>
+      </div>
+
       <!-- 校验问题 -->
       <div v-if="violations.length" class="viol">
         <p class="viol-t">发布被拦截（{{ violations.length }} 项）：</p>
@@ -159,9 +213,12 @@ import { onMounted, ref } from 'vue'
 import {
   assignPaper,
   composePaper,
+  confirmAnswerChecks,
+  getAnswerChecks,
   getPaper,
   listPapers,
-  publishPaper
+  publishPaper,
+  runAnswerChecks
 } from '../api/admin'
 
 const form = ref({
@@ -175,10 +232,63 @@ const kps = ref('')
 const papers = ref([])
 const paper = ref(null)
 const violations = ref([])
+const checks = ref([])
+const checkSummary = ref(null)
+const fixValues = ref({})
 const busy = ref(false)
 const msg = ref('')
 const error = ref('')
 const assign = ref({ target_type: 'grade', target_grade: '高三', target_student: '', due_at: '' })
+
+const PASSING = ['verified', 'mechanical_pass', 'teacher_confirmed']
+const acPassing = (c) => PASSING.includes(c.status)
+const acPill = (c) =>
+  c.status === 'conflict' ? 'danger' : acPassing(c) ? 'success' : c.suspect ? 'warn' : 'info'
+const acClass = (c) => ({ bad: c.status === 'conflict', todo: !acPassing(c) && c.status !== 'conflict' })
+
+function applyChecks(data) {
+  checks.value = (data && data.items) || []
+  checkSummary.value = (data && data.summary) || null
+  fixValues.value = {}
+}
+
+async function refreshChecks(refresh = false) {
+  if (!paper.value) return
+  try {
+    const data = refresh
+      ? await runAnswerChecks(paper.value.id)
+      : await getAnswerChecks(paper.value.id)
+    applyChecks(data)
+  } catch (e) {
+    error.value = errText(e)
+  }
+}
+
+async function confirmChecks(seqs) {
+  if (!paper.value) return
+  busy.value = true
+  error.value = ''
+  try {
+    const answers = {}
+    for (const s of seqs) {
+      const v = (fixValues.value[s] || '').trim()
+      if (v) answers[String(s)] = v
+    }
+    const data = await confirmAnswerChecks(paper.value.id, {
+      seqs: seqs || [],
+      answers,
+      comment: ''
+    })
+    applyChecks(data)
+    if (data.summary && data.summary.ok) msg.value = '答案校验全部通过，可以发布'
+    else msg.value = `已确认 ${seqs.length || '全部'} 道；仍有 ${data.summary.unverified + data.summary.conflict} 道待处理`
+    if (answers && Object.keys(answers).length) paper.value = await getPaper(paper.value.id)
+  } catch (e) {
+    error.value = errText(e)
+  } finally {
+    busy.value = false
+  }
+}
 
 function errText(e) {
   const d = e && e.response && e.response.data && e.response.data.detail
@@ -209,6 +319,7 @@ async function compose() {
     paper.value = await composePaper(body)
     msg.value = `已生成「${paper.value.title}」`
     await loadPapers()
+    await refreshChecks()
   } catch (e) {
     error.value = errText(e)
   } finally {
@@ -220,8 +331,11 @@ async function selectPaper(id) {
   error.value = ''
   msg.value = ''
   violations.value = []
+  checks.value = []
+  checkSummary.value = null
   try {
     paper.value = await getPaper(id)
+    await refreshChecks()
   } catch (e) {
     error.value = errText(e)
   }
@@ -240,6 +354,8 @@ async function doPublish() {
     error.value = errText(e)
     const d = e && e.response && e.response.data && e.response.data.detail
     if (d && d.violations) violations.value = d.violations
+    // 被答案校验拦住时，问题明细在 checks 面板里，顺手刷新一下
+    if (d && (d.code === 'ANSWER_UNVERIFIED' || d.code === 'ANSWER_CONFLICT')) await refreshChecks()
   } finally {
     busy.value = false
   }
@@ -309,6 +425,36 @@ input, select {
 .s.warn { color: var(--warning); }
 .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
 .ok-tip { font-size: 13px; color: var(--success); font-weight: 700; }
+/* 答案校验（M2-9）：结论必须一眼可辨 —— 冲突红、待确认黄、通过绿 */
+.ac-box { margin: 0 0 14px; }
+.ac-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.ac-tip { font-size: 12px; color: var(--muted); }
+.ghost.sm, .tes-btn-primary.sm { padding: 5px 10px; font-size: 12px; }
+.ac-list { display: flex; flex-direction: column; gap: 6px; }
+.ac-row {
+  display: flex; gap: 10px; align-items: flex-start;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  padding: 8px 10px; background: var(--surface);
+}
+.ac-row.bad { border-color: #f3b7c5; background: #fff7f9; }
+.ac-row.todo { border-color: #f0d6a8; background: #fffdf5; }
+.ac-seq {
+  width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; flex: none;
+  background: var(--brand-grad-soft); color: var(--brand-2); font-weight: 800; font-size: 12px;
+}
+.ac-body { flex: 1; min-width: 0; }
+.ac-detail { margin: 0; font-size: 13px; color: var(--ink); line-height: 1.6; }
+.ac-src { margin: 3px 0 0; font-size: 12px; color: var(--muted); }
+.ac-llm { margin: 3px 0 0; font-size: 12px; color: var(--accent); }
+.ac-llm-bad { color: var(--danger); font-weight: 700; margin-left: 6px; }
+.ac-ok { margin: 3px 0 0; font-size: 12px; color: var(--success); }
+.ac-act { display: flex; gap: 6px; align-items: center; flex: none; }
+.ac-act input {
+  width: 150px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  padding: 5px 8px; font-size: 12px; font-family: var(--font); background: var(--surface);
+}
+.ac-empty { font-size: 12px; color: var(--muted); margin: 0; }
+
 .viol {
   background: #ffeef1; border-radius: var(--r-sm); padding: 10px 12px; margin-bottom: 12px;
   font-size: 13px; color: #b3243f;

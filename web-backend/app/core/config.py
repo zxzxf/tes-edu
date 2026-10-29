@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # 环境变量 GRADING_FREEZE_THRESHOLD 可覆盖。
     grading_freeze_threshold: int = 3
 
+    # M2-9 / G1：答案双源校验时是否调用租户 LLM 给出「独立求解建议」。
+    # **默认关**：LLM 只给建议、绝不作为发布依据，开着只是让教师多一条参考；
+    # 端点额度紧张（403/429）时它还会拖慢发布流程，所以按需开。
+    answer_verify_llm: bool = False
+
     @property
     def kafka_enabled(self) -> bool:
         """是否启用异步管道；未配置时降级为同步直写。"""

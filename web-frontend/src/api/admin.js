@@ -75,6 +75,22 @@ export function assignPaper(paperId, data) {
   return client.post(`/exam/papers/${paperId}/assign`, data)
 }
 
+// M2-9 / G1 答案双源交叉校验：答案是判分唯一依据，没验证过的答案不许发布
+// 结论分五档：verified（双源一致）/ mechanical_pass（代入检验通过）/
+// teacher_confirmed（教师确认）可发布；conflict / unverified 必须教师处理。
+export function getAnswerChecks(paperId) {
+  return client.get(`/exam/papers/${paperId}/answer-checks`)
+}
+export function runAnswerChecks(paperId, llm = false) {
+  return client.post(`/exam/papers/${paperId}/answer-checks/run`, null, {
+    params: llm ? { llm: true } : {}
+  })
+}
+// seqs 为空 = 本卷所有待确认题；answers 可顺手修正答案（已发布卷会 409）
+export function confirmAnswerChecks(paperId, data) {
+  return client.post(`/exam/papers/${paperId}/answer-checks/confirm`, data)
+}
+
 // 模块5 教师批改 —— 人工评定工单（M2-5/M2-6）
 // 学生提交时对「转人工」的题自动开单；判定结果回写学生端成绩并留痕。
 export function listGradingTickets(params) {

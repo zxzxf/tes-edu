@@ -505,6 +505,49 @@ class ExamAnswerFreeze(Base):
     )
 
 
+class ExamAnswerCheck(Base):
+    """答案双源交叉校验结果（M2-9 / G1）：一道卷题一行。
+
+    为什么**落库**而不是每次现算：教师确认这个动作本身就是数据（谁、何时、凭什么），
+    而且确认要能跨「刷新页面/重跑校验」存活。代价是答案一改必须让旧确认失效——
+    `run_checks` 里按「确认时的答案快照 vs 当前答案」比对，不一致即回落到待确认。
+
+    ``status``：``verified`` 双源一致 / ``mechanical_pass`` 代入检验通过 /
+    ``teacher_confirmed`` 教师确认 / ``conflict`` 双源冲突 / ``unverified`` 待确认。
+    只有前三种可以发布（``app/core/answer_verify.py::PASSING_STATUSES``）。
+    """
+
+    __tablename__ = "exam_answer_checks"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64), index=True)
+    paper_id = Column(Integer, nullable=False, index=True)
+    paper_question_id = Column(Integer, nullable=False, index=True)
+    seq = Column(Integer, nullable=False)
+    qtype = Column(String(16))
+    answer = Column(Text)                       # 校验时的卷面答案快照（确认有效性的锚点）
+    status = Column(String(24), nullable=False, default="unverified")
+    secondary_source = Column(String(16))       # kb（当前唯一自动第二来源）
+    secondary_answer = Column(Text)
+    mechanical_code = Column(String(24))        # subst_ok / subst_fail / subst_na
+    mechanical_detail = Column(Text)
+    suspect = Column(Boolean, default=False)    # 代入检验未通过（可疑，非硬冲突）
+    llm_model = Column(String(64))              # 只做建议，永不作为通过依据
+    llm_answer = Column(Text)
+    llm_agree = Column(Boolean)
+    detail = Column(Text)
+    confirmed_by = Column(String(64))
+    confirmed_at = Column(DateTime(timezone=True))
+    confirmed_comment = Column(Text)
+    checked_at = Column(DateTime(timezone=True), default=_utcnow)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("paper_question_id", name="uq_answer_check_question"),
+    )
+
+
 class ExamGradingAlert(Base):
     """判分告警流水（append-only）：冻结 / 复发 / 解冻各一条。
 

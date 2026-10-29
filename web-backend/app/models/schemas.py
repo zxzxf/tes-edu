@@ -554,3 +554,59 @@ class GradingMetricsOut(BaseModel):
     revisions: RevisionStatsOut = RevisionStatsOut()
     freezes: FreezeStatsOut = FreezeStatsOut()
     by_paper: List[GradingPaperMetricOut] = []
+
+
+# ---------- 模块5c：答案双源交叉校验（M2-9 / G1） ----------
+# 规则在 app/core/answer_verify.py，落库/流转在 app/services/answer_verify.py。
+# 这里的模型只负责形状：status 是机器码，status_label 是给人看的中文。
+class AnswerCheckOut(BaseModel):
+    """一道卷题的校验结论。"""
+
+    seq: int
+    qtype: str = ""
+    answer: Optional[str] = None
+    status: str = "unverified"          # verified / mechanical_pass / teacher_confirmed / conflict / unverified
+    status_label: str = ""
+    # 第二来源（当前只有题库现行答案；同源不算第二来源）
+    secondary_source: Optional[str] = None
+    secondary_answer: Optional[str] = None
+    mechanical_code: Optional[str] = None      # subst_ok / subst_fail / subst_na
+    mechanical_detail: Optional[str] = None
+    suspect: bool = False                      # 代入检验未通过（可疑，非硬冲突）
+    detail: str = ""
+    # LLM 只给建议：agreement 不参与判定，也不改答案
+    llm_model: Optional[str] = None
+    llm_answer: Optional[str] = None
+    llm_agree: Optional[bool] = None
+    confirmed_by: Optional[str] = None
+    confirmed_at: Optional[str] = None
+    confirmed_comment: Optional[str] = None
+    checked_at: Optional[str] = None
+
+
+class AnswerCheckSummaryOut(BaseModel):
+    total: int = 0
+    passed: int = 0
+    conflict: int = 0
+    unverified: int = 0
+    by_status: Dict[str, int] = {}
+    ok: bool = False
+
+
+class AnswerCheckListOut(BaseModel):
+    paper_id: int
+    published: bool = False
+    summary: AnswerCheckSummaryOut = AnswerCheckSummaryOut()
+    items: List[AnswerCheckOut] = []
+
+
+class AnswerCheckConfirmRequest(BaseModel):
+    """教师确认。
+
+    ``seqs`` 为空 = 本卷所有「待确认/冲突」的题；``answers`` 可顺手修正答案
+    （键是题号，值是修正后的答案；已发布试卷不允许改，接口返回 409）。
+    """
+
+    seqs: List[int] = []
+    comment: Optional[str] = None
+    answers: Dict[str, str] = {}

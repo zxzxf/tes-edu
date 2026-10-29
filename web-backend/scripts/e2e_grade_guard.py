@@ -113,6 +113,7 @@ async def cleanup(conn):
                  (SELECT id FROM exam_submissions WHERE paper_id=$1)""", pid)
         await conn.execute("DELETE FROM exam_submissions WHERE paper_id=$1", pid)
         await conn.execute("DELETE FROM exam_assignments WHERE paper_id=$1", pid)
+        await conn.execute("DELETE FROM exam_answer_checks WHERE paper_id=$1", pid)
         await conn.execute("DELETE FROM exam_paper_questions WHERE paper_id=$1", pid)
         await conn.execute("DELETE FROM exam_papers WHERE id=$1", pid)
     await conn.execute(
@@ -240,6 +241,12 @@ async def main():
         check("H1 解冻成功", st == 200 and rel["status"] == "released", (st, rel.get("status")))
         check("H2 解冻计数清零", rel["flips"] == 0, rel["flips"])
         check("H3 记录解冻次数", rel["release_count"] == 1, rel["release_count"])
+        # M2-9 / G1：解冻只是解除「标答争议」，答案本身仍要通过双源校验（无第二来源
+        # 的符号答案必须教师确认），否则发布闸门会以 ANSWER_UNVERIFIED 拦住。
+        st, ac = call("POST", f"/api/admin/exam/papers/{pid2}/answer-checks/confirm", T,
+                      "teacher", PILOT, {"seqs": [], "comment": "解冻复核：答案已核对"})
+        check("H3b 答案校验确认后整卷通过",
+              st == 200 and ac["summary"]["ok"] is True, (st, ac.get("summary") if ac else ac))
         st, p = call("POST", f"/api/admin/exam/papers/{pid2}/publish", T, "teacher", PILOT)
         check("H4 解冻后可发布", st == 200 and p.get("published") is True, (st, p))
         st, r3 = call("POST", f"/api/student/exams/{aid}/submit", STU3, "student", PILOT,
