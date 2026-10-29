@@ -93,6 +93,21 @@ export function submitGrading(data) {
   return client.post('/grading/submit', data)
 }
 
+// M2-10 判分护栏：同一标答累计 K 次改判 → 冻结该题自动判分并告警
+// freezes = 当前状态（默认只看已冻结）；alerts = 冻结/解冻流水（审计用）
+export function listGradingFreezes(params) {
+  return client.get('/grading/freezes', { params })
+}
+export function ackGradingFreeze(freezeId) {
+  return client.post(`/grading/freezes/${freezeId}/ack`)
+}
+export function releaseGradingFreeze(freezeId, data) {
+  return client.post(`/grading/freezes/${freezeId}/release`, data)
+}
+export function listGradingAlerts(params) {
+  return client.get('/grading/alerts', { params })
+}
+
 // 模块6 家长周报（period_days 为统计周期；week 参数后端未使用，保留兼容）
 export function getWeeklyReport(studentId, week, periodDays = 7) {
   return client.get('/reports/weekly', { params: { student_id: studentId, week, period_days: periodDays } })

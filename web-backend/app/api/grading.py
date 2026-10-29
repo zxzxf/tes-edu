@@ -28,10 +28,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.equiv import expand_answer_values, split_blanks
+from app.core.grade_guard import (
+    STATUS_FROZEN,
+    STATUS_RELEASED,
+    STATUS_WATCHING,
+    answer_fingerprint,
+    freeze_message,
+    impact_message,
+    watching_message,
+)
 from app.core.permission import require_perm
 from app.core.rbac import Role
 from app.core.security import require_role
 from app.models.ops import (
+    ExamAnswerFreeze,
+    ExamGradingAlert,
     ExamGradingRevision,
     ExamGradingTicket,
     ExamPaper,
@@ -40,7 +51,12 @@ from app.models.ops import (
     ExamSubmissionItem,
 )
 from app.models.schemas import (
+    GradingAlertOut,
+    GradingAlertPage,
     GradingClaimRequest,
+    GradingFreezeOut,
+    GradingFreezePage,
+    GradingFreezeReleaseRequest,
     GradingJudgeRequest,
     GradingRevisionOut,
     GradingTicketDetail,
@@ -48,6 +64,7 @@ from app.models.schemas import (
     GradingTicketPage,
     Submission,
 )
+from app.services import grading_guard as guard
 from app.services import ops
 
 router = APIRouter(prefix="/grading", tags=["grading"])
@@ -143,6 +160,44 @@ def _revision_out(r: ExamGradingRevision) -> GradingRevisionOut:
     )
 
 
+def _freeze_out(f: ExamAnswerFreeze, paper_title: str = "") -> GradingFreezeOut:
+    """护栏记录 → 对外结构。``message`` **现算**，不依赖流水表最后一条。"""
+    thr = f.threshold or 3
+    refreeze = (f.release_count or 0) > 0
+    if f.status == STATUS_FROZEN:
+        msg = (
+            f"{freeze_message(f.flips or 0, thr, refreeze=refreeze)}。"
+            f"{impact_message(f.affected_count or 0)}"
+        )
+    elif f.status == STATUS_WATCHING:
+        msg = watching_message(f.flips or 0, thr)
+    else:
+        msg = f"已解冻，恢复自动判分（{f.release_comment or '教师复核完成'}）"
+    return GradingFreezeOut(
+        freeze_id=f.id,
+        status=f.status,
+        content_hash=f.content_hash or "",
+        paper_id=f.paper_id,
+        paper_title=paper_title,
+        seq=f.seq,
+        qtype=f.qtype,
+        answer=f.answer,
+        flips=f.flips or 0,
+        threshold=thr,
+        affected_count=f.affected_count or 0,
+        release_count=f.release_count or 0,
+        actors=list(f.actors or []),
+        message=msg,
+        acked_by=f.acked_by,
+        acked_at=_iso(f.acked_at),
+        frozen_at=_iso(f.frozen_at),
+        released_at=_iso(f.released_at),
+        released_by=f.released_by,
+        release_comment=f.release_comment,
+        created_at=_iso(f.created_at),
+    )
+
+
 def _option_list(options) -> list:
     if isinstance(options, dict):
         return [{"label": str(k), "content": str(v)} for k, v in options.items()]
@@ -208,6 +263,13 @@ async def _ticket_detail(db: AsyncSession, ticket_id: int) -> GradingTicketDetai
     answer_values = list(q.answer_values or []) if q else []
     if not answer_values and ans:
         answer_values = expand_answer_values(ans)  # 老卷未落库时现算，只读展示
+    # M2-10：这道题的标答是否已被冻结 / 正在观察 —— 教师判这一题时就要知道，
+    # 否则会把「标答错了」当成「学生答错了」，改判一次只救一个学生
+    freeze_row = None
+    if q is not None and q.content_hash:
+        freeze_row = await guard.get_freeze(
+            db, t.tenant_id or "", q.content_hash, answer_fingerprint(ans)
+        )
     base = _ticket_out(t, titles.get(t.paper_id, ""))
     return GradingTicketDetail(
         **base.model_dump(),
@@ -220,6 +282,9 @@ async def _ticket_detail(db: AsyncSession, ticket_id: int) -> GradingTicketDetai
         # 多空题的 answer_values 不参与自动判分（见 equiv.blank_judge 红线），如实告知
         answer_values_effective=len(split_blanks(ans)) <= 1,
         revisions=[_revision_out(r) for r in revs],
+        freeze=(
+            _freeze_out(freeze_row, titles.get(t.paper_id, "")) if freeze_row else None
+        ),
     )
 
 
@@ -428,6 +493,13 @@ async def judge_ticket(
     ).scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="submission item not found")
+    q = (
+        await db.execute(
+            select(ExamPaperQuestion).where(
+                ExamPaperQuestion.id == t.paper_question_id
+            )
+        )
+    ).scalar_one_or_none()
 
     before = (item.correct, item.partial, item.status)
     correct, partial = _verdict_flags(body.verdict)
@@ -466,6 +538,186 @@ async def judge_ticket(
     if body.accept_answer:
         await _accept_answer(db, t, user)
 
+    # M2-10 判分护栏：**推翻已有判定**累计到阈值 K → 冻结该题自动判分，
+    # 之后同一标答的新提交一律转人工、且禁止再发布含该题的新卷。
+    # 两个不算：首次判定（was_reviewed=False）与判定没变（重复点保存）。
+    if q is not None:
+        await guard.register_flip(
+            db,
+            tenant_id=t.tenant_id or _tenant(user),
+            question=q,
+            before=(before[0], before[1]),
+            after=(correct, partial),
+            was_reviewed=already,
+            actor_id=user["user_id"],
+            paper_id=t.paper_id,
+        )
+
     await _recalc_submission(db, t.submission_id)
     await db.commit()
     return await _ticket_detail(db, t.id)
+
+
+# ======================================================== 判分护栏（M2-10 / G3）
+# 同一标答累计 K 次有效改判 → 冻结该题自动判分并告警。
+# 规则在 app/core/grade_guard.py，落库在 app/services/grading_guard.py，
+# 这里只做「给教师看 + 让教师处置」。
+_FREEZE_STATUSES = ("all", STATUS_FROZEN, STATUS_WATCHING, STATUS_RELEASED)
+
+
+async def _freeze_or_404(
+    db: AsyncSession, freeze_id: int, user: dict
+) -> ExamAnswerFreeze:
+    """按 (id, 本租户) 取护栏记录；跨租户统一 404。"""
+    f = (
+        await db.execute(
+            select(ExamAnswerFreeze).where(ExamAnswerFreeze.id == freeze_id)
+        )
+    ).scalar_one_or_none()
+    if not f or (f.tenant_id or "") != _tenant(user):
+        raise HTTPException(status_code=404, detail="freeze record not found")
+    return f
+
+
+@router.get("/freezes", response_model=GradingFreezePage)
+async def list_freezes(
+    status: Optional[str] = Query(
+        STATUS_FROZEN, description="frozen（默认，待处理告警）/ watching / released / all"
+    ),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+    user=TeacherDep,
+    db: AsyncSession = Depends(get_db),
+):
+    """判分护栏列表：默认只列**已冻结**的题（= 待处理告警）。
+
+    ``watching`` 是计数未到阈值的观察态，平时不打扰教师，可查但默认不展示；
+    ``released`` 保留已解冻记录，用于回答「这道题反复出过几次问题」。
+    """
+    if status not in _FREEZE_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail="status must be one of frozen/watching/released/all",
+        )
+    rows, counts, total = await guard.list_freezes(
+        db, _tenant(user), status, page, page_size
+    )
+    titles = await _titles(db, [f.paper_id for f in rows])
+    return GradingFreezePage(
+        total=total,
+        counts=counts,
+        page=page,
+        page_size=page_size,
+        items=[_freeze_out(f, titles.get(f.paper_id, "")) for f in rows],
+    )
+
+
+@router.post("/freezes/{freeze_id}/ack", response_model=GradingFreezeOut)
+async def ack_freeze(
+    freeze_id: int,
+    user=TeacherDep,
+    db: AsyncSession = Depends(get_db),
+):
+    """标记告警已读（幂等）。只是「我知道了」，**不解除冻结**——
+    解除必须走 release 并写清理由，否则等于用一次点击悄悄放开了判错。"""
+    f = await _freeze_or_404(db, freeze_id, user)
+    if f.status != STATUS_FROZEN:
+        raise HTTPException(status_code=409, detail="该记录当前不处于冻结状态")
+    f.acked_by = user["user_id"]
+    f.acked_at = _utcnow()
+    f.updated_at = _utcnow()
+    await db.commit()
+    titles = await _titles(db, [f.paper_id])
+    return _freeze_out(f, titles.get(f.paper_id, ""))
+
+
+@router.post("/freezes/{freeze_id}/release", response_model=GradingFreezeOut)
+async def release_freeze(
+    freeze_id: int,
+    body: GradingFreezeReleaseRequest,
+    user=TeacherDep,
+    db: AsyncSession = Depends(get_db),
+):
+    """解冻（复核完成）：恢复自动判分，改判计数清零。
+
+    只有「确认标答没问题」或「标答已修好」才能解冻；计数清零意味着**重新给 K 次
+    预算**，再次攒够还会再冻。解冻理由必填，写进告警流水。
+    """
+    f = await _freeze_or_404(db, freeze_id, user)
+    if f.status != STATUS_FROZEN:
+        raise HTTPException(status_code=409, detail="该记录当前不处于冻结状态，无需解冻")
+    await guard.release_freeze(db, f, user, body.comment.strip())
+    await db.commit()
+    titles = await _titles(db, [f.paper_id])
+    return _freeze_out(f, titles.get(f.paper_id, ""))
+
+
+@router.get("/alerts", response_model=GradingAlertPage)
+async def list_alerts(
+    kind: Optional[str] = Query(
+        None, description="freeze/refreeze/release；空=全部"
+    ),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+    user=TeacherDep,
+    db: AsyncSession = Depends(get_db),
+):
+    """告警流水（append-only）：谁在什么时候把哪道题冻了 / 解了。
+
+    与 ``/freezes`` 的分工：``freezes`` 答「现在有哪些题判不了」，
+    ``alerts`` 答「历史上出过几次事」——后者是判断判分质量有没有随时间变好的依据。
+    """
+    if kind and kind not in ("freeze", "refreeze", "release"):
+        raise HTTPException(
+            status_code=400, detail="kind must be freeze/refreeze/release"
+        )
+    base = [ExamGradingAlert.tenant_id == _tenant(user)]
+    cond = list(base)
+    if kind:
+        cond.append(ExamGradingAlert.kind == kind)
+    counts: dict = {}
+    for k, c in (
+        await db.execute(
+            select(ExamGradingAlert.kind, func.count())
+            .where(*base)
+            .group_by(ExamGradingAlert.kind)
+        )
+    ).all():
+        counts[k] = c
+    total = (
+        await db.execute(
+            select(func.count()).select_from(ExamGradingAlert).where(*cond)
+        )
+    ).scalar() or 0
+    rows = (
+        await db.execute(
+            select(ExamGradingAlert)
+            .where(*cond)
+            .order_by(ExamGradingAlert.created_at.desc(), ExamGradingAlert.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).scalars().all()
+    return GradingAlertPage(
+        total=total,
+        counts=counts,
+        page=page,
+        page_size=page_size,
+        items=[
+            GradingAlertOut(
+                alert_id=a.id,
+                kind=a.kind,
+                message=a.message,
+                content_hash=a.content_hash,
+                paper_id=a.paper_id,
+                seq=a.seq,
+                answer=a.answer,
+                flips=a.flips or 0,
+                threshold=a.threshold,
+                affected_count=a.affected_count or 0,
+                actor_id=a.actor_id,
+                created_at=_iso(a.created_at),
+            )
+            for a in rows
+        ],
+    )

@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     kafka_group: str = "course-kb-ingest"
     kafka_group_event: str = "student-event-consumer"
 
+    # M2-10 判分护栏：同一标答累计多少次**有效改判**就冻结该题自动判分。
+    # 调小 = 更保守（更容易转人工，老师更累）；调大 = 更容易被错答案批量判错。
+    # 环境变量 GRADING_FREEZE_THRESHOLD 可覆盖。
+    grading_freeze_threshold: int = 3
+
     @property
     def kafka_enabled(self) -> bool:
         """是否启用异步管道；未配置时降级为同步直写。"""

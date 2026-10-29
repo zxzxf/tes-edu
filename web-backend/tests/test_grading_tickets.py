@@ -229,6 +229,6 @@ def test_ticket_detail_declares_fields_api_returns():
 
     for f in (
         "stem", "options", "correct_answer", "analysis", "knowledge_points",
-        "answer_values", "answer_values_effective", "revisions",
+        "answer_values", "answer_values_effective", "revisions", "freeze",
     ):
         assert f in GradingTicketDetail.model_fields, f"GradingTicketDetail 缺字段 {f}"

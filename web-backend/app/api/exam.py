@@ -74,6 +74,7 @@ from app.models.schemas import (
     StudentQuestionView,
     SubmitExamRequest,
 )
+from app.services import grading_guard as guard
 
 router = APIRouter(prefix="/exam", tags=["exam"])
 student_router = APIRouter(prefix="/exams", tags=["student-exam"])
@@ -316,6 +317,31 @@ async def get_paper(
     return await _paper_out(db, p)
 
 
+async def _frozen_violations(db, tenant_id: str, questions) -> list:
+    """发布前拦「标答已被冻结」的题（M2-10 / G3）。
+
+    冻结的语义是「这道题的标答有问题，正在复核」。这种题**不该再发给学生**：
+    学生的成绩页会直接展示标答，错的答案会教出错的数学；而且它判不了分，
+    发下去只是把风险转给一线老师。
+    """
+    reasons = await guard.frozen_reasons(db, tenant_id or "", questions)
+    out = []
+    for q in questions:
+        if guard.reason_for(reasons, q):
+            out.append(
+                {
+                    "seq": q.seq,
+                    "qtype": q.qtype,
+                    "code": "QUESTION_FROZEN",
+                    "message": (
+                        "该题标答因反复改判被冻结（标答大概率有误）："
+                        "请先修正答案后解冻，或换一道题再发布"
+                    ),
+                }
+            )
+    return out
+
+
 @router.get("/papers/{paper_id}/validation", response_model=PaperValidationOut)
 async def validate_paper_for_publish(
     paper_id: int,
@@ -328,8 +354,15 @@ async def validate_paper_for_publish(
     ).scalar_one_or_none()
     if not p:
         raise HTTPException(status_code=404, detail="paper not found")
-    report = validate_paper(p.paper_type, await _load_questions(db, paper_id))
-    return PaperValidationOut(paper_id=p.id, **report.as_dict())
+    qs = await _load_questions(db, paper_id)
+    report = validate_paper(p.paper_type, qs)
+    data = report.as_dict()
+    frozen = await _frozen_violations(db, p.tenant_id, qs)
+    if frozen:
+        data["ok"] = False
+        data["violations"] = list(data["violations"]) + frozen
+        data["note"] = f"不可发布：{len(data['violations'])} 处问题待修复（含 {len(frozen)} 道冻结题）"
+    return PaperValidationOut(paper_id=p.id, **data)
 
 
 @router.post("/papers/{paper_id}/publish", response_model=ExamPaperOut)
@@ -348,7 +381,8 @@ async def publish_paper(
     if p.published:  # 幂等：已发布不再重复校验
         return await _paper_out(db, p)
 
-    report = validate_paper(p.paper_type, await _load_questions(db, paper_id))
+    qs = await _load_questions(db, paper_id)
+    report = validate_paper(p.paper_type, qs)
     if not report.ok:
         raise HTTPException(
             status_code=409,
@@ -358,6 +392,22 @@ async def publish_paper(
                 "paper_id": p.id,
                 "paper_type": p.paper_type,
                 "violations": [v.as_dict() for v in report.violations],
+            },
+        )
+
+    # M2-10：结构校验过完再查冻结 —— 先把「卷子本身有问题」说清楚，再谈标答争议
+    frozen = await _frozen_violations(db, p.tenant_id, qs)
+    if frozen:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "QUESTION_FROZEN",
+                "message": (
+                    f"{len(frozen)} 道题的标答因反复改判被冻结（标答大概率有误），"
+                    "修正答案并解冻后才能发布"
+                ),
+                "paper_id": p.id,
+                "violations": frozen,
             },
         )
 
@@ -592,6 +642,13 @@ async def submit_exam(
     ).scalars().all()
     ans_by_seq = {it.seq: it for it in body.answers}
 
+    # M2-10 判分护栏：这道题的标答若已因反复改判被冻结，**所有题一律转人工**，
+    # 不再自动判。一次批量查询覆盖整卷，不在循环里逐题查库。
+    # 租户口径与开单一致（工单 tenant_id 用同一个表达式），否则冻结记录查不到。
+    frozen = await guard.frozen_reasons(
+        db, user.get("tenant_id") or a.tenant_id or "", qs
+    )
+
     items = []
     correct_count = 0
     manual = False
@@ -599,7 +656,7 @@ async def submit_exam(
         submitted = ans_by_seq.get(q.seq)
         stu = (submitted.student_answer or "") if submitted else ""
         blanks = submitted.blanks if submitted else None
-        it = _grade_one(q, stu, blanks)
+        it = _grade_one(q, stu, blanks, frozen_reason=guard.reason_for(frozen, q))
         if it["status"] == "manual_pending":
             manual = True
         if it["correct"]:
@@ -667,6 +724,7 @@ def _grade_one(
     q: ExamPaperQuestion,
     student_answer: str,
     blanks: Optional[list] = None,
+    frozen_reason: Optional[str] = None,
 ) -> dict:
     """对单题做确定性判分（M1-4 题型→判分路由，M2-3 填空三态）。
 
@@ -676,7 +734,23 @@ def _grade_one(
     - ``subjective``：直接人工工单，不调 LLM
 
     红线：解析不了的结构一律转人工。成绩判错不可逆，转人工只是多一道手续。
+
+    ``frozen_reason``（M2-10）：该题标答已被判分护栏冻结时传入，**先于一切判分
+    直接转人工**。这是护栏唯一真正有用的地方——只发告警不拦住判分，等于继续
+    按已知有误的标答批量判错。
     """
+    # 逐空提交优先；未逐空提交时拼回可展示形态（结果页要能看懂学生答了什么）
+    display = student_answer
+    if q.qtype == QTYPE_BLANK:
+        parts = [str(x or "").strip() for x in (blanks or [])]
+        display = student_answer or ("；".join(parts) if parts else "")
+
+    if frozen_reason:
+        return _item(
+            q, display, correct=None, partial=False,
+            status="manual_pending", reason=frozen_reason,
+        )
+
     if q.qtype == QTYPE_CHOICE:
         opt_map = _options_to_map(q.options)
         res = choice_equivalent(student_answer, q.answer, multi=q.multi, options=opt_map)
@@ -687,9 +761,6 @@ def _grade_one(
         return _item(q, student_answer, correct=False, partial=False, status="auto")
 
     if q.qtype == QTYPE_BLANK:
-        # 逐空提交优先；未逐空提交时拼回可展示形态（结果页要能看懂学生答了什么）
-        parts = [str(x or "").strip() for x in (blanks or [])]
-        display = student_answer or ("；".join(parts) if parts else "")
         v = blank_judge(
             display, q.answer or "", blanks=blanks or None, values=_values_of(q)
         )
@@ -722,16 +793,21 @@ def _item(q, student_answer, *, correct, partial, status, reason=None) -> dict:
     }
 
 
-def _manual_reason(it, q) -> Optional[str]:
+def _manual_reason(it, q, frozen_reason: Optional[str] = None) -> Optional[str]:
     """转人工原因（结果回看用）。
 
     ``reason`` 不落库（改表成本高于重算）：这里用同一套纯函数重算一次，
     0 token、无副作用，保证「提交当下」与「事后回看」给出的原因一致。
+
+    ``frozen_reason``（M2-10）优先：题目标答被冻结时，真实原因不是「机器判不了
+    这道题」，而是「这道题的标答正在复核」——两者对学生是不同的话术。
     """
     if it.status == "manual_reviewed":
         return "老师已复核判定"
     if it.status != "manual_pending":
         return None
+    if frozen_reason:
+        return frozen_reason
     if q is not None and q.qtype == QTYPE_BLANK:
         return blank_judge(it.student_answer or "", q.answer or "")["reason"] or None
     if q is not None and q.qtype == QTYPE_SUBJECTIVE:
@@ -784,6 +860,15 @@ async def _result_out(db: AsyncSession, sub: ExamSubmission) -> ExamResult:
         q_by_id = {q.id: q for q in pqs}
     manual_pending = sum(1 for it in items if it.status == "manual_pending")
     reviewed = sum(1 for it in items if it.status == "manual_reviewed")
+    # M2-10：结果回看时也如实说明「这道题标答在复核」，否则学生只看到「待人工」
+    # 而不知道全班都待人工 —— 那是标答的问题，不是他的问题
+    frozen = (
+        await guard.frozen_reasons(
+            db, sub.tenant_id or "", list(q_by_id.values())
+        )
+        if q_by_id
+        else {}
+    )
     # 老师评语随结果返回：学生要知道「为什么算错」，不然改判等于黑箱
     comments = {}
     if reviewed:
@@ -823,7 +908,13 @@ async def _result_out(db: AsyncSession, sub: ExamSubmission) -> ExamResult:
                 correct=it.correct or False,
                 partial=it.partial or False,
                 status=it.status,
-                reason=_manual_reason(it, q_by_id.get(it.paper_question_id)),
+                reason=_manual_reason(
+                    it,
+                    q_by_id.get(it.paper_question_id),
+                    guard.reason_for(frozen, q_by_id[it.paper_question_id])
+                    if it.paper_question_id in q_by_id
+                    else None,
+                ),
                 analysis=(
                     q_by_id[it.paper_question_id].analysis if it.paper_question_id in q_by_id else None
                 ),

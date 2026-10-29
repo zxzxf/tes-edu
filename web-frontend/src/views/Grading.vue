@@ -6,6 +6,49 @@
       这里逐题判定。判定结果立即回写学生端成绩，改判全程留痕。
     </p>
 
+    <!-- M2-10 判分告警：同一标答累计 K 次改判 → 冻结该题自动判分 -->
+    <div v-if="freezeCount" class="tes-card alerts">
+      <div class="a-head">
+        <b>判分告警</b>
+        <span class="a-sub">
+          {{ freezeCount }} 道题的标答因反复改判被冻结，该题已停止自动判分（新提交转人工）
+        </span>
+        <span class="grow"></span>
+        <button class="ghost small" @click="loadFreezes()">刷新</button>
+      </div>
+      <div v-for="f in freezes" :key="f.freeze_id" class="a-row">
+        <div class="a-line">
+          <span class="seq">
+            {{ f.paper_title || '试卷 ' + f.paper_id }} · 第 {{ f.seq }} 题
+          </span>
+          <span class="tes-pill warn">改判 {{ f.flips }} 次</span>
+          <span class="tes-pill" :class="f.affected_count ? 'danger' : 'success'">
+            {{ f.affected_count ? '已误判 ' + f.affected_count + ' 份' : '尚未误判' }}
+          </span>
+          <span v-if="f.release_count" class="tes-pill warn">复发 {{ f.release_count }} 次</span>
+          <span class="grow"></span>
+          <button v-if="!f.acked_at" class="ghost small" @click="ackFreeze(f)">已知悉</button>
+          <button class="ghost small" @click="askRelease(f)">解冻…</button>
+        </div>
+        <p class="a-msg">{{ f.message }}</p>
+        <p class="a-ans">
+          标答：<b>{{ f.answer || '—' }}</b>
+          <span v-if="f.actors && f.actors.length"> · 改判人 {{ f.actors.join('、') }}</span>
+        </p>
+        <div v-if="releasing === f.freeze_id" class="a-release">
+          <input
+            v-model="releaseComment"
+            placeholder="解冻理由（必填，例如：标答已修正为 sqrt(6)/3）"
+            @keyup.enter="doRelease(f)"
+          />
+          <button class="tes-btn-primary small" :disabled="releaseComment.trim().length < 2" @click="doRelease(f)">
+            确认解冻
+          </button>
+          <button class="ghost small" @click="releasing = 0">取消</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 状态 tab + 筛选 -->
     <div class="tes-toolbar">
       <button
@@ -76,6 +119,15 @@
           </div>
 
           <p class="stem">{{ detail.stem }}</p>
+
+          <!-- 冻结告警：判这一题时就要知道「标答本身可能有误」 -->
+          <p v-if="detail.freeze && detail.freeze.status === 'frozen'" class="warn box-danger">
+            <b>该题标答已冻结：</b>{{ detail.freeze.message }}。
+            这道题现在<b>不会自动判分</b>，本卷所有学生的这题都会转人工。
+          </p>
+          <p v-else-if="detail.freeze && detail.freeze.flips" class="warn">
+            {{ detail.freeze.message }}
+          </p>
           <ul v-if="detail.options && detail.options.length" class="opts">
             <li v-for="o in detail.options" :key="o.label">
               <b>{{ o.label }}.</b> {{ o.content }}
@@ -166,10 +218,13 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import {
+  ackGradingFreeze,
   claimGradingTicket,
   getGradingTicket,
   judgeGradingTicket,
-  listGradingTickets
+  listGradingFreezes,
+  listGradingTickets,
+  releaseGradingFreeze
 } from '../api/admin'
 
 const tabs = [
@@ -194,6 +249,12 @@ const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
 const tip = ref('')
+
+// M2-10 判分护栏
+const freezes = ref([])
+const freezeCount = ref(0)
+const releasing = ref(0)
+const releaseComment = ref('')
 
 const totalAll = computed(
   () => (counts.value.pending || 0) + (counts.value.claimed || 0) + (counts.value.reviewed || 0)
@@ -271,13 +332,60 @@ async function submitVerdict() {
       comment: comment.value || null,
       accept_answer: acceptAnswer.value
     })
-    tip.value = '已判定，学生端成绩已更新'
+    const frozen = detail.value.freeze && detail.value.freeze.status === 'frozen'
+    tip.value = frozen
+      ? '已判定。这道题的标答已触发冻结：后续同题提交一律转人工'
+      : '已判定，学生端成绩已更新'
     acceptAnswer.value = false
     load()
+    loadFreezes()      // 这次改判可能就是压垮骆驼的第 K 次
   } catch (e) {
     error.value = errText(e)
   } finally {
     saving.value = false
+  }
+}
+
+// ---------------------------------------------------------------- 判分护栏
+async function loadFreezes() {
+  try {
+    const res = await listGradingFreezes({ status: 'frozen', page_size: 20 })
+    freezes.value = res.items || []
+    freezeCount.value = (res.counts && res.counts.frozen) || res.total || 0
+  } catch (e) {
+    // 告警区加载失败不挡住批改主流程（老师照样能判，只是看不到告警）
+    freezes.value = []
+    freezeCount.value = 0
+  }
+}
+
+async function ackFreeze(f) {
+  try {
+    await ackGradingFreeze(f.freeze_id)
+    tip.value = '已标记知悉；冻结仍然生效'
+    loadFreezes()
+  } catch (e) {
+    error.value = errText(e)
+  }
+}
+
+function askRelease(f) {
+  releasing.value = f.freeze_id
+  releaseComment.value = ''
+}
+
+async function doRelease(f) {
+  const reason = releaseComment.value.trim()
+  if (reason.length < 2) return
+  try {
+    await releaseGradingFreeze(f.freeze_id, { comment: reason })
+    releasing.value = 0
+    releaseComment.value = ''
+    tip.value = '已解冻：这道题恢复自动判分（改判计数已清零）'
+    loadFreezes()
+    if (detail.value && detail.value.ticket_id) open(detail.value.ticket_id)
+  } catch (e) {
+    error.value = errText(e)
   }
 }
 
@@ -303,7 +411,10 @@ function shortTime(s) {
   return String(s).replace('T', ' ').slice(5, 16)
 }
 
-onMounted(() => load())
+onMounted(() => {
+  load()
+  loadFreezes()
+})
 </script>
 
 <style scoped>
@@ -389,4 +500,24 @@ textarea {
 .revs em { color: var(--muted); font-style: normal; margin-left: 6px; }
 .revs .rc { color: var(--muted); }
 .empty-detail { min-height: 160px; display: grid; place-items: center; }
+
+/* M2-10 判分告警区 */
+.alerts { margin-bottom: 14px; border-left: 3px solid var(--danger); }
+.a-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.a-head b { color: var(--danger); font-size: 14px; }
+.a-sub { font-size: 12px; color: var(--muted); }
+.a-row { border-top: 1px dashed var(--line-strong); padding-top: 10px; margin-top: 10px; }
+.a-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.a-msg { margin: 6px 0 2px; font-size: 13px; color: var(--ink); }
+.a-ans { margin: 0; font-size: 12px; color: var(--muted); word-break: break-all; }
+.a-ans b { color: var(--ink-2); }
+.a-release { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.a-release input {
+  flex: 1; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  padding: 7px 10px; font-size: 13px; font-family: var(--font);
+}
+.box-danger {
+  background: #ffeef1; border: 1px solid var(--danger); border-radius: var(--r-sm);
+  padding: 8px 10px; color: var(--danger);
+}
 </style>

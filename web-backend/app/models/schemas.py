@@ -306,6 +306,88 @@ class GradingRevisionOut(BaseModel):
     created_at: Optional[str] = None
 
 
+# M2-10 判分护栏状态枚举（与 app/core/grade_guard.py 一致）
+FREEZE_WATCHING = "watching"
+FREEZE_FROZEN = "frozen"
+FREEZE_RELEASED = "released"
+
+
+class GradingFreezeOut(BaseModel):
+    """一道题上的判分护栏（M2-10）。
+
+    ``status=frozen`` 才是「已冻结自动判分」；``watching`` 是计数未到阈值的观察态
+    （教师看不到，只有护栏列表按需查）。``affected_count`` 是**已按该标答自动判错**
+    的提交数，用于判断要不要回头复核，系统**不会**自动改历史成绩。
+    """
+
+    freeze_id: int
+    status: str = FREEZE_WATCHING
+    content_hash: str = ""
+    paper_id: Optional[int] = None
+    paper_title: str = ""
+    seq: Optional[int] = None
+    qtype: Optional[str] = None
+    answer: Optional[str] = None            # 冻结时的标答快照
+    flips: int = 0                          # 有效改判次数
+    threshold: int = 3                      # 触发阈值 K
+    affected_count: int = 0                 # 已按该标答自动判错的提交数
+    release_count: int = 0                  # 解冻次数（>0 = 复发过）
+    actors: List[str] = []                  # 改判过这道题的教师
+    message: str = ""                       # 告警正文（现算，不依赖流水表）
+    acked_by: Optional[str] = None
+    acked_at: Optional[str] = None
+    frozen_at: Optional[str] = None
+    released_at: Optional[str] = None
+    released_by: Optional[str] = None
+    release_comment: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class GradingFreezePage(BaseModel):
+    """护栏/告警列表：默认只列 frozen，附各状态计数供顶部 tab 用。"""
+
+    total: int = 0
+    counts: Dict[str, int] = {}
+    page: int = 1
+    page_size: int = 20
+    items: List[GradingFreezeOut] = []
+
+
+class GradingFreezeReleaseRequest(BaseModel):
+    """解冻请求。
+
+    ``comment`` 必填：解冻意味着「确认这道题的标答没问题，可以继续机判」，
+    是无痕作业里最容易出事的动作，必须留一句人话。
+    """
+
+    comment: str = Field(min_length=2, max_length=500)
+
+
+class GradingAlertOut(BaseModel):
+    """告警流水条目（冻结 / 复发 / 解冻）。"""
+
+    alert_id: int
+    kind: str
+    message: Optional[str] = None
+    content_hash: Optional[str] = None
+    paper_id: Optional[int] = None
+    seq: Optional[int] = None
+    answer: Optional[str] = None
+    flips: int = 0
+    threshold: Optional[int] = None
+    affected_count: int = 0
+    actor_id: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class GradingAlertPage(BaseModel):
+    total: int = 0
+    counts: Dict[str, int] = {}
+    page: int = 1
+    page_size: int = 20
+    items: List[GradingAlertOut] = []
+
+
 class GradingTicketDetail(GradingTicketOut):
     """工单详情：题干/选项/标答/解析 + 已确认答案值 + 留痕，教师据此判定。"""
 
@@ -318,6 +400,9 @@ class GradingTicketDetail(GradingTicketOut):
     # 多空题的 answer_values 不参与自动判分（避免空位错位误判），此标记如实告知教师
     answer_values_effective: bool = True
     revisions: List[GradingRevisionOut] = []
+    # M2-10 判分护栏：这道题的标答已被冻结 / 正被观察时随详情返回，
+    # 让教师在判这一题时就知道「这道题的答案本身可能有问题」
+    freeze: Optional[GradingFreezeOut] = None
 
 
 class GradingTicketPage(BaseModel):

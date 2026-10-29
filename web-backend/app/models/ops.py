@@ -452,3 +452,79 @@ class ExamGradingRevision(Base):
     after_status = Column(String(16))
     comment = Column(Text)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class ExamAnswerFreeze(Base):
+    """判分护栏状态（M2-10 / G3）：同一标答累计 K 次改判 → 冻结该题。
+
+    **键是 (tenant_id, content_hash, answer_fingerprint)，不是 paper_question_id**：
+    ``exam_paper_questions`` 是随卷快照，同一道题每张卷一行；按行冻结只能护住
+    出问题的那一张卷，重新组卷又是新行、照样按错答案判。按题面身份 + 标答指纹
+    才能跨卷生效，且「答案改好之后」自然失效（新指纹从 0 观察）。
+
+    status：``watching`` 观察中 / ``frozen`` 已冻结（判分一律转人工）/
+    ``released`` 已解冻（计数清零，保留审计）。
+    """
+
+    __tablename__ = "exam_answer_freeze"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64), index=True)
+    content_hash = Column(String(64), nullable=False, index=True)
+    answer_fingerprint = Column(String(32), nullable=False, index=True)
+    answer = Column(Text)                            # 冻结时的标答快照（展示用）
+    paper_id = Column(Integer)
+    paper_question_id = Column(Integer)
+    seq = Column(Integer)
+    qtype = Column(String(16))
+    flips = Column(Integer, nullable=False, default=0)          # 有效改判次数
+    threshold = Column(Integer, nullable=False, default=3)
+    status = Column(String(16), nullable=False, default="watching")
+    actors = Column(JSON, default=list)              # 改判过这道题的教师（去重）
+    affected_count = Column(Integer, default=0)      # 已按该标答自动判错的提交数
+    release_count = Column(Integer, default=0)       # 被解冻过几次（复发判据）
+    acked_by = Column(String(64))                    # 告警已读
+    acked_at = Column(DateTime(timezone=True))
+    frozen_at = Column(DateTime(timezone=True))
+    released_at = Column(DateTime(timezone=True))
+    released_by = Column(String(64))
+    release_comment = Column(Text)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "content_hash",
+            "answer_fingerprint",
+            name="uq_answer_freeze_key",
+        ),
+    )
+
+
+class ExamGradingAlert(Base):
+    """判分告警流水（append-only）：冻结 / 复发 / 解冻各一条。
+
+    只做**事件记录**，不做状态机——当前是否冻结看 ``exam_answer_freeze.status``。
+    两处分开是因为「现在什么状态」与「历史上发生过什么」查询方式完全不同，
+    混在一张表里必然要写 WHERE 排掉历史行，容易漏。
+    """
+
+    __tablename__ = "exam_grading_alerts"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64), index=True)
+    kind = Column(String(16), nullable=False)        # freeze/refreeze/release
+    freeze_id = Column(Integer, index=True)
+    paper_id = Column(Integer)
+    paper_question_id = Column(Integer)
+    seq = Column(Integer)
+    content_hash = Column(String(64))
+    answer = Column(Text)
+    flips = Column(Integer, default=0)
+    threshold = Column(Integer)
+    affected_count = Column(Integer, default=0)
+    message = Column(Text)
+    detail = Column(JSON)
+    actor_id = Column(String(64))
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
