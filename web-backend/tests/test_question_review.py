@@ -108,3 +108,94 @@ def test_draft_question_blocks_publication_after_paper_was_composed():
         await engine.dispose()
 
     asyncio.run(scenario())
+
+
+def _make_engine():
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:", poolclass=StaticPool,
+        connect_args={"check_same_thread": False},
+    )
+    return engine
+
+
+def test_unknown_question_type_with_answer_can_be_published():
+    """未知题型（如「实验」）不得兜底成选择题，否则「见解析」类答案永远过不了审核。"""
+
+    async def scenario():
+        engine = _make_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            q = CourseQuestion(
+                subject="物理", grade="高三", type="实验", stem="测定电源电动势",
+                answer="(1) 见解析（证明射程与 q、m 无关）",
+                content_hash="exp-hash", tenant_id="school-1", status="draft",
+            )
+            db.add(q)
+            await db.commit()
+            out = await exam.review_question(
+                q.id, exam.QuestionReviewRequest(status="published"),
+                user={"user_id": "teacher-1", "tenant_id": "school-1"}, db=db,
+            )
+            assert out["status"] == "published"
+            assert out["reviewed_by"] == "teacher-1"
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_unknown_question_type_without_answer_is_rejected():
+    """未知题型放行只放宽题型判定，答案必须有内容。"""
+
+    async def scenario():
+        engine = _make_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            q = CourseQuestion(
+                subject="物理", grade="高三", type="实验", stem="空答案实验题",
+                answer="  ", content_hash="exp-empty-hash", tenant_id="school-1",
+                status="draft",
+            )
+            db.add(q)
+            await db.commit()
+            with pytest.raises(HTTPException) as exc:
+                await exam.review_question(
+                    q.id, exam.QuestionReviewRequest(status="published"),
+                    user={"user_id": "teacher-1", "tenant_id": "school-1"}, db=db,
+                )
+            assert exc.value.status_code == 409
+            assert q.status == "draft"
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_choice_question_with_non_option_answer_is_rejected():
+    """选择题仍须 A-D 合规：不能因为放宽未知题型而放过脏答案。"""
+
+    async def scenario():
+        engine = _make_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            q = CourseQuestion(
+                subject="数学", grade="高三", type="单选", stem="选项题脏答案",
+                answer="见解析", content_hash="choice-bad-hash", tenant_id="school-1",
+                status="draft",
+            )
+            db.add(q)
+            await db.commit()
+            with pytest.raises(HTTPException) as exc:
+                await exam.review_question(
+                    q.id, exam.QuestionReviewRequest(status="published"),
+                    user={"user_id": "teacher-1", "tenant_id": "school-1"}, db=db,
+                )
+            assert exc.value.status_code == 409
+            assert q.status == "draft"
+        await engine.dispose()
+
+    asyncio.run(scenario())

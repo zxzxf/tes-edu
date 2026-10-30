@@ -188,12 +188,19 @@ def _qtype_from_course(cq_type: str) -> tuple:
 
 
 def _answer_acceptable(cq: CourseQuestion) -> bool:
-    """抽题时的答案门槛：选择题须 A-D 合规；填空/解答须有非空答案。"""
+    """审核放行门槛：选择题须 A-D 合规；其余题型只要求答案非空。
+
+    未知题型（如「实验」「判断题」等不在 ``COURSE_TYPE_TO_QTYPE`` 内的）不能像
+    组卷侧那样兜底成选择题——否则 ``check_choice_answer`` 必然拒掉「见解析」这类
+    非选项答案，导致这些题**永远无法通过审核**（2026-10-30 线上冒烟发现）。
+    """
     ans = (cq.answer or "").strip()
     if not ans:
         return False
     mapped = to_qtype(cq.type)
-    qtype, multi = mapped or (QTYPE_CHOICE, False)
+    if mapped is None:
+        return True
+    qtype, multi = mapped
     if qtype == QTYPE_CHOICE:
         return check_choice_answer(ans, multi) is None
     return True
