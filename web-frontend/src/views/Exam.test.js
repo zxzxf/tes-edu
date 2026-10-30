@@ -10,7 +10,9 @@ vi.mock('../api/admin', () => ({
   assignPaper: vi.fn(),
   getAnswerChecks: vi.fn(),
   runAnswerChecks: vi.fn(),
-  confirmAnswerChecks: vi.fn()
+  confirmAnswerChecks: vi.fn(),
+  listReviewQuestions: vi.fn(),
+  reviewQuestion: vi.fn()
 }))
 
 import {
@@ -18,7 +20,9 @@ import {
   getPaper,
   getAnswerChecks,
   confirmAnswerChecks,
-  publishPaper
+  publishPaper,
+  listReviewQuestions,
+  reviewQuestion
 } from '../api/admin'
 
 const PAPERS = [
@@ -82,6 +86,29 @@ beforeEach(() => {
   getPaper.mockResolvedValue(PAPER)
   getAnswerChecks.mockResolvedValue(CHECKS)
   confirmAnswerChecks.mockResolvedValue({ ...CHECKS, summary: { ...CHECKS.summary, ok: true } })
+  listReviewQuestions.mockResolvedValue([
+    {
+      id: 12, stem: '待审核题干', answer: 'A', status: 'draft',
+      type: '单选', source_tag: 'import', options: [{ label: 'A', content: '一' }]
+    }
+  ])
+  reviewQuestion.mockResolvedValue({ id: 12, status: 'published' })
+})
+
+describe('Exam.vue 题库审核（M0-2）', () => {
+  it('教师能查看草稿题并审核通过', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+    const open = wrapper.findAll('button').find((b) => b.text() === '题库审核')
+    await open.trigger('click')
+    await flushPromises()
+    expect(listReviewQuestions).toHaveBeenCalledWith('draft')
+    expect(wrapper.text()).toContain('待审核题干')
+    expect(wrapper.text()).toContain('A. 一')
+    await wrapper.find('.review-row .approve').trigger('click')
+    await flushPromises()
+    expect(reviewQuestion).toHaveBeenCalledWith(12, 'published')
+  })
 })
 
 describe('Exam.vue 答案双源校验（M2-9 / G1）', () => {

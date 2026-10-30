@@ -70,6 +70,7 @@ class WrongQuestionOut(WrongQuestion):
     """错题本列表返回：原字段 + 步骤级增强（错因中文名 / 该步正确做法 / 知识点卡）。"""
 
     created_at: Optional[str] = None
+    source: Optional[str] = None
     error_type_label: Optional[str] = None
     step_text: Optional[str] = None
     step_label: Optional[str] = None

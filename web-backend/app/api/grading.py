@@ -68,6 +68,7 @@ from app.models.schemas import (
 from app.services import grading_guard as guard
 from app.services import grading_metrics
 from app.services import ops
+from app.services import wrongbook
 
 router = APIRouter(prefix="/grading", tags=["grading"])
 
@@ -554,6 +555,7 @@ async def judge_ticket(
             actor_id=user["user_id"],
             paper_id=t.paper_id,
         )
+        await wrongbook.sync_exam_wrong_question(db, t.student_id, item, q)
 
     await _recalc_submission(db, t.submission_id)
     await db.commit()

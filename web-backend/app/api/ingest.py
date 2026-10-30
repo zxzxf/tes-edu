@@ -43,6 +43,8 @@ async def import_json(
 ):
     # 过 parser 统一字段并生成 content_hash（去重指纹）
     rows = parse_records([p.model_dump() for p in payload])
+    for row in rows:
+        row.update(tenant_id=user.get("tenant_id"), source_tag="import", status="draft")
     result = await _dispatch(rows, db, force_sync=sync)
     return {"received": len(payload), "parsed": len(rows), **result}
 
@@ -57,5 +59,7 @@ async def import_upload(
     content = await file.read()
     raw = svc.parse_file(content, file.filename or "")
     rows = parse_records(raw)
+    for row in rows:
+        row.update(tenant_id=user.get("tenant_id"), source_tag="import", status="draft")
     result = await _dispatch(rows, db, force_sync=sync)
     return {"filename": file.filename, "received": len(raw), "parsed": len(rows), **result}

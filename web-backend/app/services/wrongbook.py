@@ -14,7 +14,7 @@ from typing import List, Optional, Sequence
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.ops import StudentMastery, WrongQuestion
+from app.models.ops import ExamPaperQuestion, ExamSubmissionItem, StudentMastery, WrongQuestion
 
 SYNC_LIMIT = 200
 
@@ -49,7 +49,45 @@ def wrong_out(w: WrongQuestion) -> dict:
         "created_at": _ms(w.created_at) or 0,
         "updated_at": _ms(w.updated_at) or _ms(w.created_at) or 0,
         "deleted_at": _ms(w.deleted_at),
+        "source": w.source,
     }
+
+
+async def sync_exam_wrong_question(
+    db: AsyncSession,
+    student_id: str,
+    item: ExamSubmissionItem,
+    question: ExamPaperQuestion,
+) -> None:
+    """Keep one server-owned wrongbook row per exam item in the caller's transaction."""
+    if item.correct is None:
+        return
+    client_id = f"exam:{item.id}"
+    row = (
+        await db.execute(select(WrongQuestion).where(
+            WrongQuestion.student_id == student_id,
+            WrongQuestion.client_id == client_id,
+        ))
+    ).scalars().first()
+    if row is None and item.correct:
+        return
+    now = _utcnow()
+    if row is None:
+        row = WrongQuestion(student_id=student_id, client_id=client_id, source="exam")
+        db.add(row)
+    if item.correct:
+        row.deleted_at = now
+        row.updated_at = now
+        return
+    row.question = question.stem
+    row.wrong_answer = item.student_answer or ""
+    row.correct_answer = question.answer or ""
+    row.content_hash = question.content_hash
+    kps = question.knowledge_points or []
+    row.knowledge_point = kps[0][:128] if kps and isinstance(kps[0], str) else ""
+    row.deleted_at = None
+    row.updated_at = now
+    row.source = "exam"
 
 
 async def list_sync(
@@ -105,6 +143,8 @@ async def upsert_sync(
     now = now or _utcnow()
     for it in items or []:
         cid = (it.get("client_id") or "").strip()
+        if cid.startswith("exam:"):
+            continue
         question = (it.get("question") or "").strip()
         if not question:
             continue
@@ -128,6 +168,9 @@ async def upsert_sync(
                     )
                 )
             ).scalars().first()
+
+        if row is not None and row.source == "exam":
+            continue
 
         incoming_ms = int(it.get("updated_at") or 0)
 

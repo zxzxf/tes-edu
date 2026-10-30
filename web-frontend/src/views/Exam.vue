@@ -6,6 +6,38 @@
       发布前会校验卷型与题型白名单；含解答题的混合卷要点「需人工 N 道」。
     </p>
 
+    <div class="review-head">
+      <button class="ghost" @click="toggleReview">题库审核</button>
+      <template v-if="reviewOpen">
+        <select v-model="reviewStatus" aria-label="审核状态" @change="loadReviewQuestions">
+          <option value="draft">待审核</option>
+          <option value="quarantine">已隔离</option>
+          <option value="published">已通过</option>
+        </select>
+        <button class="ghost" :disabled="reviewBusy" @click="loadReviewQuestions">刷新</button>
+      </template>
+    </div>
+    <section v-if="reviewOpen" class="review-queue">
+      <p v-if="reviewError" class="err">{{ reviewError }}</p>
+      <p v-if="!reviewBusy && !reviewRows.length" class="tes-empty">暂无题目</p>
+      <div v-for="q in reviewRows" :key="q.id" class="review-row">
+        <div class="review-main">
+          <div class="review-meta">{{ q.type }} · {{ q.source_tag || '未知来源' }} · #{{ q.id }}</div>
+          <p class="review-stem">{{ q.stem }}</p>
+          <div v-if="q.options" class="review-options">
+            <span v-for="option in q.options" :key="option.label">{{ option.label }}. {{ option.content }}</span>
+          </div>
+          <div class="review-answer">答案：{{ q.answer || '未填写' }}</div>
+          <p v-if="q.analysis" class="review-analysis">解析：{{ q.analysis }}</p>
+        </div>
+        <div class="review-actions">
+          <button v-if="q.status !== 'published'" class="tes-btn-primary approve" :disabled="reviewBusy" @click="setReview(q, 'published')">通过</button>
+          <button v-if="q.status !== 'quarantine'" class="ghost" :disabled="reviewBusy" @click="setReview(q, 'quarantine')">隔离</button>
+          <button v-if="q.status !== 'draft'" class="ghost" :disabled="reviewBusy" @click="setReview(q, 'draft')">退回</button>
+        </div>
+      </div>
+    </section>
+
     <!-- 组卷参数 -->
     <div class="tes-card form">
       <div class="row">
@@ -217,7 +249,9 @@ import {
   getAnswerChecks,
   getPaper,
   listPapers,
+  listReviewQuestions,
   publishPaper,
+  reviewQuestion,
   runAnswerChecks
 } from '../api/admin'
 
@@ -239,6 +273,41 @@ const busy = ref(false)
 const msg = ref('')
 const error = ref('')
 const assign = ref({ target_type: 'grade', target_grade: '高三', target_student: '', due_at: '' })
+const reviewOpen = ref(false)
+const reviewStatus = ref('draft')
+const reviewRows = ref([])
+const reviewBusy = ref(false)
+const reviewError = ref('')
+
+async function loadReviewQuestions() {
+  reviewBusy.value = true
+  reviewError.value = ''
+  try {
+    reviewRows.value = await listReviewQuestions(reviewStatus.value)
+  } catch (e) {
+    reviewError.value = errText(e)
+  } finally {
+    reviewBusy.value = false
+  }
+}
+
+async function toggleReview() {
+  reviewOpen.value = !reviewOpen.value
+  if (reviewOpen.value) await loadReviewQuestions()
+}
+
+async function setReview(question, status) {
+  reviewBusy.value = true
+  reviewError.value = ''
+  try {
+    await reviewQuestion(question.id, status)
+    reviewRows.value = await listReviewQuestions(reviewStatus.value)
+  } catch (e) {
+    reviewError.value = errText(e)
+  } finally {
+    reviewBusy.value = false
+  }
+}
 
 const PASSING = ['verified', 'mechanical_pass', 'teacher_confirmed']
 const acPassing = (c) => PASSING.includes(c.status)
@@ -391,6 +460,17 @@ onMounted(() => loadPapers())
 </script>
 
 <style scoped>
+.review-head { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.review-queue { border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); margin-bottom: 18px; }
+.review-row { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line-strong); }
+.review-row:last-child { border-bottom: 0; }
+.review-main { min-width: 0; flex: 1; }
+.review-meta, .review-answer, .review-analysis { color: var(--muted); font-size: 12px; }
+.review-stem { margin: 5px 0; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.review-options { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.review-analysis { margin: 4px 0 0; white-space: pre-wrap; }
+.review-actions { display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 640px) { .review-row { flex-direction: column; } }
 .hint { font-size: 13px; color: var(--muted); margin: -6px 0 16px; }
 .hint b { color: var(--brand-2); }
 .form { margin-bottom: 16px; }

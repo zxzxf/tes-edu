@@ -58,6 +58,12 @@ export function listWrongQuestions(studentId) {
 export function composePaper(data) {
   return client.post('/exam/papers', data)
 }
+export function listReviewQuestions(status) {
+  return client.get('/exam/questions', { params: { status } })
+}
+export function reviewQuestion(questionId, status) {
+  return client.post(`/exam/questions/${questionId}/review`, { status })
+}
 export function listPapers() {
   return client.get('/exam/papers')
 }

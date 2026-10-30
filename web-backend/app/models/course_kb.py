@@ -42,6 +42,9 @@ class CourseQuestion(Base):
     # 0005_tenant_source_tag 迁移补列（跨租户读取 / 隔离脏题用）；ORM 仅做映射，不重建表
     tenant_id = Column(String(64), index=True)
     source_tag = Column(String(32))
+    status = Column(String(16), nullable=False, default="draft", server_default="draft")
+    reviewed_by = Column(String(64))
+    reviewed_at = Column(DateTime(timezone=True))
     # 维度须与所用 embedding 模型一致：当前 qwen3.7-text-embedding / text-embedding-v4 均为 1024
     embedding = Column(Vector(1024))
     created_at = Column(

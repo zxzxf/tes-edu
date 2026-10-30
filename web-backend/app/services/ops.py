@@ -46,7 +46,10 @@ async def create_knowledge(db: AsyncSession, payload: dict) -> KnowledgePoint:
 async def list_wrong(
     db: AsyncSession, student_id: str, limit: int = 100
 ) -> List[WrongQuestion]:
-    stmt = select(WrongQuestion).where(WrongQuestion.student_id == student_id)
+    stmt = select(WrongQuestion).where(
+        WrongQuestion.student_id == student_id,
+        WrongQuestion.deleted_at.is_(None),
+    )
     res = await db.execute(stmt.limit(limit))
     return list(res.scalars().all())
 
@@ -123,6 +126,7 @@ async def enrich_wrong(db: AsyncSession, rows: Sequence[WrongQuestion]) -> List[
             "error_type": w.error_type,
             "evidence": w.evidence,
             "attribution_source": w.attribution_source,
+            "source": w.source,
         }
         step = steps.get((w.content_hash, w.wrong_step_no or 0))
         card = cards.get(step.kp_name) if (step is not None and step.kp_name) else None

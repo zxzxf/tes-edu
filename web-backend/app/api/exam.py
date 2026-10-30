@@ -26,9 +26,10 @@ from __future__ import annotations
 
 import random
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -89,9 +90,63 @@ from app.models.schemas import (
 )
 from app.services import answer_verify as verify
 from app.services import grading_guard as guard
+from app.services import wrongbook
 
 router = APIRouter(prefix="/exam", tags=["exam"])
 student_router = APIRouter(prefix="/exams", tags=["student-exam"])
+
+
+class QuestionReviewRequest(BaseModel):
+    status: Literal["draft", "published", "quarantine"]
+
+
+def _review_out(q: CourseQuestion) -> dict:
+    return {
+        "id": q.id, "subject": q.subject, "grade": q.grade, "type": q.type,
+        "stem": q.stem, "options": _options_to_list(q.options), "answer": q.answer,
+        "analysis": q.analysis, "knowledge_points": q.knowledge_points or [],
+        "source_tag": q.source_tag,
+        "status": q.status, "reviewed_by": q.reviewed_by,
+        "reviewed_at": _to_iso(q.reviewed_at),
+    }
+
+
+@router.get("/questions")
+async def list_review_questions(
+    status: Optional[Literal["draft", "published", "quarantine"]] = None,
+    limit: int = 50,
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(CourseQuestion).where(CourseQuestion.tenant_id == _tenant_of(user))
+    if status:
+        stmt = stmt.where(CourseQuestion.status == status)
+    rows = (await db.execute(stmt.order_by(CourseQuestion.id.desc()).limit(max(1, min(limit, 200))))).scalars().all()
+    return [_review_out(q) for q in rows]
+
+
+@router.post("/questions/{question_id}/review")
+async def review_question(
+    question_id: int,
+    body: QuestionReviewRequest,
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    q = (await db.execute(select(CourseQuestion).where(
+        CourseQuestion.id == question_id,
+        CourseQuestion.tenant_id == _tenant_of(user),
+    ))).scalar_one_or_none()
+    if q is None:
+        raise HTTPException(status_code=404, detail="question not found")
+    if body.status == "published" and not _answer_acceptable(q):
+        raise HTTPException(status_code=409, detail="题目答案缺失或不合规，不能通过审核")
+    q.status = body.status
+    if q.status == "published" and q.source_tag == "quarantine":
+        q.source_tag = "reviewed"
+    q.reviewed_by = user.get("user_id")
+    q.reviewed_at = _utcnow()
+    await db.commit()
+    return _review_out(q)
 
 
 def _utcnow() -> datetime:
@@ -171,6 +226,7 @@ async def compose_paper(
         CourseQuestion.tenant_id == tenant_id,
         CourseQuestion.answer.isnot(None),
         CourseQuestion.embedding.isnot(None),
+        CourseQuestion.status == "published",
         (CourseQuestion.source_tag.is_(None)) | (CourseQuestion.source_tag != "quarantine"),
     )
     rows = (await db.execute(stmt)).scalars().all()
@@ -329,6 +385,26 @@ async def get_paper(
     if not p:
         raise HTTPException(status_code=404, detail="paper not found")
     return await _paper_out(db, p)
+
+
+async def _unreviewed_violations(db, tenant_id: str, questions) -> list:
+    hashes = {q.content_hash for q in questions if q.content_hash}
+    if not hashes:
+        return []
+    rows = (await db.execute(select(CourseQuestion).where(
+        CourseQuestion.tenant_id == tenant_id,
+        CourseQuestion.content_hash.in_(hashes),
+    ))).scalars().all()
+    by_hash = {row.content_hash: row for row in rows}
+    return [
+        {
+            "seq": q.seq, "qtype": q.qtype, "code": "QUESTION_UNREVIEWED",
+            "message": "题库原题未通过审核或已隔离，请换题后发布",
+        }
+        for q in questions
+        if (source := by_hash.get(q.content_hash)) is not None
+        and (source.status != "published" or source.source_tag == "quarantine")
+    ]
 
 
 async def _frozen_violations(db, tenant_id: str, questions) -> list:
@@ -495,6 +571,9 @@ async def validate_paper_for_publish(
     report = validate_paper(p.paper_type, qs)
     data = report.as_dict()
     problems = list(data["violations"])
+    unreviewed = await _unreviewed_violations(db, p.tenant_id, qs)
+    if unreviewed:
+        problems += unreviewed
     frozen = await _frozen_violations(db, p.tenant_id, qs)
     if frozen:
         problems += frozen
@@ -543,6 +622,15 @@ async def publish_paper(
                 "violations": [v.as_dict() for v in report.violations],
             },
         )
+
+    unreviewed = await _unreviewed_violations(db, p.tenant_id, qs)
+    if unreviewed:
+        raise HTTPException(status_code=409, detail={
+            "code": "QUESTION_UNREVIEWED",
+            "message": "试卷含未审核或已隔离题目，请换题后发布",
+            "paper_id": p.id,
+            "violations": unreviewed,
+        })
 
     # M2-10：结构校验过完再查冻结 —— 先把「卷子本身有问题」说清楚，再谈标答争议
     frozen = await _frozen_violations(db, p.tenant_id, qs)
@@ -887,6 +975,13 @@ async def submit_exam(
                 status="pending",
             )
         )
+
+    questions_by_id = {q.id: q for q in qs}
+    for _, obj in item_objs:
+        if obj.correct is False:
+            await wrongbook.sync_exam_wrong_question(
+                db, student_id, obj, questions_by_id[obj.paper_question_id]
+            )
 
     await db.commit()
     await db.refresh(sub)
