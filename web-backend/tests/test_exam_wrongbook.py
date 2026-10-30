@@ -113,6 +113,57 @@ def test_pending_exam_answer_does_not_enter_wrongbook():
     asyncio.run(scenario())
 
 
+def test_sync_exam_wrong_questions_batch_matches_semantics():
+    async def scenario():
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:", poolclass=StaticPool,
+            connect_args={"check_same_thread": False},
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            questions = [
+                ExamPaperQuestion(
+                    id=n, paper_id=1, seq=n, content_hash=f"h{n}", qtype="choice",
+                    stem=f"题 {n}", answer="B", knowledge_points=[f"知识点{n}"],
+                ) for n in (1, 2, 3)
+            ]
+            items = [
+                ExamSubmissionItem(
+                    id=11, submission_id=1, paper_question_id=1, seq=1,
+                    qtype="choice", student_answer="A", correct=False, status="auto",
+                ),
+                ExamSubmissionItem(
+                    id=12, submission_id=1, paper_question_id=2, seq=2,
+                    qtype="choice", student_answer="B", correct=True, status="auto",
+                ),
+                ExamSubmissionItem(
+                    id=13, submission_id=1, paper_question_id=3, seq=3,
+                    qtype="choice", student_answer="C", correct=False, status="auto",
+                ),
+            ]
+            db.add_all([*questions, *items])
+            await db.commit()
+            q_by_id = {q.id: q for q in questions}
+            pairs = [(it, q_by_id[it.paper_question_id]) for it in items]
+            # 批量接口：判错的 11/13 入库，判对的 12 无历史行 → 不建行（与逐题版一致）
+            await wrongbook.sync_exam_wrong_questions(db, "student-1", pairs)
+            await db.commit()
+            rows = (await db.execute(select(WrongQuestion))).scalars().all()
+            assert len(rows) == 2
+            assert {r.client_id for r in rows} == {"exam:11", "exam:13"}
+            for r in rows:
+                assert r.deleted_at is None and r.source == "exam"
+            # 幂等：再跑一次行数不变
+            await wrongbook.sync_exam_wrong_questions(db, "student-1", pairs)
+            await db.commit()
+            assert len((await db.execute(select(WrongQuestion))).scalars().all()) == 2
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
 def test_exam_submission_writes_wrong_item_once():
     async def scenario():
         engine = create_async_engine(

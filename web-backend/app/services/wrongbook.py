@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,25 +53,24 @@ def wrong_out(w: WrongQuestion) -> dict:
     }
 
 
-async def sync_exam_wrong_question(
+async def _apply_exam_wrong(
     db: AsyncSession,
     student_id: str,
     item: ExamSubmissionItem,
     question: ExamPaperQuestion,
+    row: Optional[WrongQuestion],
+    now: datetime,
 ) -> None:
-    """Keep one server-owned wrongbook row per exam item in the caller's transaction."""
+    """Apply one exam submission item to its wrongbook row (in caller's transaction).
+
+    与单题版 `sync_exam_wrong_question` 完全同义，只是 `row` 由调用方预先查出、
+    `now` 由调用方统一传入，从而支持批量场景下一次取所有行、内存里逐个应用。
+    """
     if item.correct is None:
         return
     client_id = f"exam:{item.id}"
-    row = (
-        await db.execute(select(WrongQuestion).where(
-            WrongQuestion.student_id == student_id,
-            WrongQuestion.client_id == client_id,
-        ))
-    ).scalars().first()
     if row is None and item.correct:
         return
-    now = _utcnow()
     if row is None:
         row = WrongQuestion(student_id=student_id, client_id=client_id, source="exam")
         db.add(row)
@@ -88,6 +87,55 @@ async def sync_exam_wrong_question(
     row.deleted_at = None
     row.updated_at = now
     row.source = "exam"
+
+
+async def sync_exam_wrong_question(
+    db: AsyncSession,
+    student_id: str,
+    item: ExamSubmissionItem,
+    question: ExamPaperQuestion,
+) -> None:
+    """Keep one server-owned wrongbook row per exam item in the caller's transaction."""
+    if item.correct is None:
+        return
+    client_id = f"exam:{item.id}"
+    row = (
+        await db.execute(select(WrongQuestion).where(
+            WrongQuestion.student_id == student_id,
+            WrongQuestion.client_id == client_id,
+        ))
+    ).scalars().first()
+    await _apply_exam_wrong(db, student_id, item, question, row, _utcnow())
+
+
+async def sync_exam_wrong_questions(
+    db: AsyncSession,
+    student_id: str,
+    pairs: Sequence[Tuple[ExamSubmissionItem, ExamPaperQuestion]],
+) -> None:
+    """批量版：一次性 `IN` 查询取出所有既有行，内存里逐个应用。
+
+    用于考试提交接口——一份答卷可能一次带很多题，原逐题 `select` 会变成 N 次
+    往返；这里合并成 1 次查询 + 内存循环，语义与单题版逐题调用完全一致。
+    `pairs` 为 (item, question) 列表，通常只传判错的题（语义见单题版）。
+    """
+    if not pairs:
+        return
+    client_ids = [f"exam:{it.id}" for it, _ in pairs]
+    existing = (
+        await db.execute(
+            select(WrongQuestion).where(
+                WrongQuestion.student_id == student_id,
+                WrongQuestion.client_id.in_(client_ids),
+            )
+        )
+    ).scalars().all()
+    by_cid = {w.client_id: w for w in existing}
+    now = _utcnow()
+    for item, question in pairs:
+        await _apply_exam_wrong(
+            db, student_id, item, question, by_cid.get(f"exam:{item.id}"), now
+        )
 
 
 async def list_sync(

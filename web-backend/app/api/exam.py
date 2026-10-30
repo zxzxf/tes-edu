@@ -984,11 +984,13 @@ async def submit_exam(
         )
 
     questions_by_id = {q.id: q for q in qs}
-    for _, obj in item_objs:
-        if obj.correct is False:
-            await wrongbook.sync_exam_wrong_question(
-                db, student_id, obj, questions_by_id[obj.paper_question_id]
-            )
+    # 批量同步错题本：把判错的题一次性交给批量接口，避免逐题 select（N 次往返）。
+    wrong_pairs = [
+        (obj, questions_by_id[obj.paper_question_id])
+        for _, obj in item_objs
+        if obj.correct is False
+    ]
+    await wrongbook.sync_exam_wrong_questions(db, student_id, wrong_pairs)
 
     await db.commit()
     await db.refresh(sub)
