@@ -51,6 +51,31 @@ class MathTextTest {
         assertEquals(src, preprocessMath(src))
     }
 
+    // ---------------- 本次修复的回归用例 ----------------
+
+    @Test
+    fun latex_escape_braces_are_unescaped() {
+        // 集合/绝对值场景的 `\{` `\}` 必须还原成普通花括号
+        assertEquals("A={1,2}", preprocessMath("A=\\{1,2\\}"))
+        assertEquals("{-1/2,1}", preprocessMath("\\{-1/2,1\\}"))
+    }
+
+    @Test
+    fun bare_fraction_shorthand_is_flattened() {
+        // `\tfrac12` / `\frac12` 省略花括号的简写分数
+        assertEquals("-1/2", preprocessMath("-\\tfrac12"))
+        assertEquals("1/2", preprocessMath("\\tfrac12"))
+        assertEquals("3/4", preprocessMath("\\frac34"))
+    }
+
+    @Test
+    fun trig_function_names_drop_backslash() {
+        // 函数名保留名字、去掉反斜杠，与 `\pi`→π 风格一致
+        assertEquals("sin7π/6", preprocessMath("\\sin7π/6"))
+        assertEquals("cos", preprocessMath("\\cos"))
+        assertEquals("tan", preprocessMath("\\tan"))
+    }
+
     // ---------------- 上下标切分 ----------------
 
     private fun segs(src: String) = parseMathSegments(src)

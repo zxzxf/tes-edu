@@ -75,7 +75,18 @@ private val SYMBOLS: Map<String, String> = mapOf(
     "ldots" to "…", "cdots" to "⋯", "dots" to "…"
 )
 
+/** 常见数学函数名：保留名字、去掉反斜杠（与符号替换不同，函数名不是单个 unicode 字符）。 */
+private val FUNCTIONS: Set<String> = setOf(
+    "sin", "cos", "tan", "cot", "sec", "csc",
+    "arcsin", "arccos", "arctan", "arccot", "arcsec", "arccsc",
+    "sinh", "cosh", "tanh", "coth",
+    "log", "ln", "lg", "exp", "lim",
+    "max", "min", "sup", "inf", "det", "dim", "gcd", "lcm", "mod", "arg", "deg"
+)
+
 private val FRAC = Regex("""\\(?:d|t)?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}""")
+/** 无花括号简写分数，如 `\tfrac12`、`\frac34`（分子分母各一个字符）。 */
+private val FRAC_BARE = Regex("""\\(?:d|t)?frac\s*([A-Za-z0-9])\s*([A-Za-z0-9])""")
 private val SQRT_BRACE = Regex("""\\sqrt\s*\{([^{}]*)\}""")
 private val SQRT_BARE = Regex("""\\sqrt\s*([A-Za-z0-9])""")
 private val TEXT_MACRO = Regex("""\\(?:text|mathrm|mathbf|operatorname|mathbb)\s*\{([^{}]*)\}""")
@@ -98,10 +109,16 @@ fun preprocessMath(src: String): String {
     s = TEXT_MACRO.replace(s) { it.groupValues[1] }
     s = LEFT_RIGHT.replace(s, "")
     s = FRAC.replace(s) { wrapOperand(it.groupValues[1]) + "/" + wrapOperand(it.groupValues[2]) }
+    s = FRAC_BARE.replace(s) { wrapOperand(it.groupValues[1]) + "/" + wrapOperand(it.groupValues[2]) }
     s = SQRT_BRACE.replace(s) { "√" + wrapOperand(it.groupValues[1]) }
     s = SQRT_BARE.replace(s) { "√" + it.groupValues[1] }
     s = SPACER.replace(s, " ")
-    s = MACRO.replace(s) { SYMBOLS[it.groupValues[1]] ?: it.value }
+    s = MACRO.replace(s) {
+        val name = it.groupValues[1]
+        SYMBOLS[name] ?: if (FUNCTIONS.contains(name)) name else it.value
+    }
+    // 还原 LaTeX 转义花括号 `\{` `\}`（集合、绝对值等场景用转义表示花括号）
+    s = s.replace("\\{", "{").replace("\\}", "}")
     // 定界符：`$$..$$` / `$..$` / `\(..\)` 只去掉包裹符号，内容保留
     s = s.replace("$$", "").replace("$", "")
     s = s.replace("\\(", "").replace("\\)", "")
