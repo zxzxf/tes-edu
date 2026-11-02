@@ -122,3 +122,13 @@
 
 ③ AGE 常驻（依赖 ① 知识点 DAG，现已具备）→ ④ 剩余子任务（建议先做 #25 绑定隔离，再 #24 安全护栏）→ ⑤ P5；
 ① 已在远端大幅推进，重点转为"确认 / 完成灌库到 106 + 复测召回率"，可并行穿插。
+
+---
+
+## 运维动态（2026-11-02）
+
+> 非路线图主线，仅记录近期线上运维动作，与《总任务清单与排期计划》v5.2 §3.9 T-AP 运维记录一致。
+
+- **学生 App（Android）缺陷修复并推送**：`student-app` 修复两处——① 公式渲染 `MathText.preprocessMath` 转义花括号还原前移（作业选项露 LaTeX 源码 `·\dfrac{\sqrt{65}}{2}`）；② 作业卷题干本地 Room 缓存（`exam_paper_cache` 迁移 4→5，`ExamViewModel.open` 先缓存秒开、后台静默刷新，弱网/断网可开卷）。单测 20 / 126 passed。经 `137` 跳板 SOCKS 隧道推送 `b1e44d7..572133a` 至 `origin/main`。
+- **137 全量重新发布**：`SSH_KEY=<项目私钥> SSH_HOST=137 bash deploy/publish_backend.sh all` 重建 web/agent/front/student 五镜像 + gateway 双副本 + edu-lb reload；健康检查与 BYOM 端到端自检全绿。本轮仅动 student-app（客户端），后端源码与线上一致，重发实质为干净重启 + 镜像刷新。
+- **说明**：上述为运维/缺陷补丁，**不计入** T-AP1~8 功能估点（功能任务仍 ⬜）；真机缺失仍使 T-AP4/8 无法验收。

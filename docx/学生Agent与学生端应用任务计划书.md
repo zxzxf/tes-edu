@@ -9,7 +9,7 @@
 > **现状基线（已核实）**：
 > - `agent-backend` 仅有 `POST /api/app/solve`、`/solve_image`、`/similar` 三个**单次问答**接口；**无会话、无记忆、无画像、无工具调用**；无 `services/` 目录。
 > - 内容安全在**网关侧**（`gateway/config.yaml` 的 `content_safety.keywords`，Redis 热更新），agent-backend 自身无过滤模块。
-> - `student-app`：已有 Kotlin + Compose 暖色主题 UI、`/solve` 调用、知识图谱页（T-B5 ✅）、真机编译门禁（T-E3 ✅）；debug APK 16MB 已连生产域名 `https://sd12sd.icu/`。
+> - `student-app`：已有 Kotlin + Compose 暖色主题 UI、`/solve` 调用、知识图谱页（T-B5 ✅）、真机编译门禁（T-E3 ✅）；debug APK 19MB（2026-11-02 含公式渲染 + 题干本地缓存修复）已连生产域名 `https://sd12sd.icu/`。
 > - P2 已完成能力可复用：意图识别三档路由（T-C1 ✅）、Hint 阶梯 L0–L4（T-C2 ✅）、题型路由+分步拆解（T-C3 ✅）、缓存/分级/降级（T-D1~D3 ✅）、mastery 键对齐（T-F1 ✅）。
 >
 > **关联文档**：`后台权限与系统集成任务计划书.md`（RBAC/§十 MCP）、`学校配置大模型BYOM能力任务计划书.md`（模型来源）、`学生端能力扩展计划书.md`（T-S0 网页端/T-F 功能开关/T-A 防疲劳）、`P2引导式对话与横向收尾任务计划书.md`、`总任务清单与排期计划.md`
@@ -217,6 +217,13 @@ CREATE INDEX ix_task_session ON student_agent_task(session_id);
 | **T-AP6** | UI 规范与多机型回归：暖色组件库固化、深色/大字体/小屏适配、启动性能 | — | 中 |
 | **T-AP7** | 弱网与离线：请求重试、草稿暂存、失败提示可理解 | T-AP1 | 小–中 |
 | **T-AP8** | 真机全链路联调：登录 → 会话 → 解题 → 判分 → 图谱 → 周报（T-E3 只做了编译门禁，真机全链路为增强项） | T-AP1~7 | 中 |
+
+> **B.3 运维/缺陷修复记录（2026-11-02，不计入 T-AP1~8 估点，属运营维护补丁）**
+> - **公式渲染修复（commit `bd2276f`）**：`util/MathText.kt` 的 `preprocessMath` 把**转义花括号还原**前移到 FRAC/SQRT 正则之前，修复作业选项露 LaTeX 源码 `·\dfrac{\sqrt{65}}{2}` 的 bug。单测 **20 passed**（原 14）。
+> - **作业卷本地缓存（commit `572133a`）**：新增 Room `exam_paper_cache`（迁移 4→5，`assignment_id` 主键），`ExamViewModel.open()` 改为**先读缓存秒开、再后台静默刷新**；弱网/断网可开卷、遇修订卷跟随新题集。单测 **126 passed**。APK 19MB 含两修复。
+> - **推送 GitHub**：经 `137` SOCKS 隧道推送 `b1e44d7..572133a` 至 `origin/main`。
+> - **137 全量重新发布**：`deploy/publish_backend.sh all` 重建五镜像 + gateway 双副本 + lb reload，健康检查全绿（本轮仅动 student-app，后端源码与线上一致，重发为干净重启 + 镜像刷新）。
+> - **遗留**：T-AP1~8 功能任务仍 ⬜（连续会话 UI / 功能开关接入 / 防疲劳 Dialog / S4 埋点 / release 发布 / UI 规范 / 弱网离线 / 真机联调）；真机缺失仍使 T-AP4/8 无法验收。本轮修复不替代上述功能任务。
 
 ---
 
