@@ -2,6 +2,7 @@ package com.tes.edu.viewmodel
 
 import com.google.gson.Gson
 import com.tes.edu.data.local.ExamDraftStore
+import com.tes.edu.data.local.ExamPaperCacheStore
 import com.tes.edu.data.local.entities.ExamDraft
 import com.tes.edu.data.remote.ExamApi
 import com.tes.edu.data.remote.ExamOption
@@ -87,8 +88,21 @@ class ExamViewModelTest {
         }
     }
 
+    /** 内存版卷题干缓存：saved 存的是"是否已写入"，questions 存实际题干。 */
+    private class FakePaperCacheStore : ExamPaperCacheStore {
+        val questions = mutableMapOf<Long, List<ExamQuestionView>>()
+
+        override suspend fun load(assignmentId: Long): List<ExamQuestionView>? =
+            questions[assignmentId]
+
+        override suspend fun save(assignmentId: Long, paperId: Long, qs: List<ExamQuestionView>) {
+            questions[assignmentId] = qs
+        }
+    }
+
     private lateinit var api: FakeExamApi
     private lateinit var store: FakeDraftStore
+    private lateinit var cache: FakePaperCacheStore
     private lateinit var vm: ExamViewModel
 
     private val assignmentId = 7L
@@ -98,7 +112,8 @@ class ExamViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         api = FakeExamApi()
         store = FakeDraftStore()
-        vm = ExamViewModel(api, store)
+        cache = FakePaperCacheStore()
+        vm = ExamViewModel(api, store, cache)
     }
 
     @After
@@ -232,6 +247,50 @@ class ExamViewModelTest {
         assertEquals(ExamStage.ANSWERING, ui.stage)
         assertEquals(EXAM_OFFLINE_HINT, ui.error)
         assertEquals(0, ui.total)
+    }
+
+    // ---------------------------------------------------------------- 缓存（弱网秒开）
+    @Test
+    fun open_cacheHit_showsInstantlyAndToleratesNetworkFailure() {
+        // 缓存里已有这道题，网络即便拉不到也该秒开、且不报联网错误
+        cache.questions[assignmentId] = listOf(choice(1), choice(2), blank(3))
+        api.questionsError = IOException("offline")
+        vm.open(item())
+        val ui = vm.ui.value
+        assertEquals(3, ui.total)
+        assertFalse("命中缓存不该再转圈", ui.loading)
+        assertNull("有缓存时网络失败要静默保留，不报错", ui.error)
+    }
+
+    @Test
+    fun open_cacheMiss_fetchesNetworkAndWritesCache() {
+        api.questions = listOf(choice(1), choice(2, multi = true), blank(3))
+        vm.open(item())
+        // 网络取到后必须写回缓存，下次再开就能秒开
+        assertEquals(3, cache.questions[assignmentId]?.size)
+        assertEquals(3, vm.ui.value.total)
+    }
+
+    @Test
+    fun open_cacheHit_thenRevisedPaper_reflectsNewSeqs() {
+        // 缓存是旧版 3 题，服务端已修订成 4 题 → 题集变了，UI 必须重排到新版本
+        cache.questions[assignmentId] = listOf(choice(1), choice(2), blank(3))
+        api.questions = listOf(choice(1), choice(2), blank(3), subjective(4))
+        vm.open(item())
+        assertEquals("卷被修订后题集要跟随服务端", 4, vm.ui.value.total)
+    }
+
+    @Test
+    fun open_cacheHit_sameSeqs_doesNotClobberInProgressState() {
+        // 缓存命中且题集一致：即使后台网络返回同样内容，也不该重置用户已选/光标
+        cache.questions[assignmentId] = listOf(choice(1), choice(2), blank(3))
+        api.questions = listOf(choice(1), choice(2), blank(3))
+        vm.open(item())
+        vm.selectOption(1, "A")
+        assertEquals("A", vm.ui.value.answers[1])
+        // 再次 open 模拟"从列表回来"——命中缓存、题集一致，已选答案必须保留
+        vm.open(item())
+        assertEquals("缓存命中重开不能吞掉已选答案", "A", vm.ui.value.answers[1])
     }
 
     // ---------------------------------------------------------------- 作答

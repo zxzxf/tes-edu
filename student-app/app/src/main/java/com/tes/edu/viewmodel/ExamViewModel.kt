@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tes.edu.data.local.ExamAnswerCodec
 import com.tes.edu.data.local.ExamDraftStore
+import com.tes.edu.data.local.ExamPaperCacheStore
 import com.tes.edu.data.local.RoomExamDraftStore
+import com.tes.edu.data.local.RoomExamPaperCacheStore
 import com.tes.edu.data.local.entities.ExamDraft
 import com.tes.edu.data.remote.ApiClient
 import com.tes.edu.data.remote.ExamApi
@@ -69,7 +71,8 @@ data class ExamUiState(
  */
 class ExamViewModel(
     private val api: ExamApi = ApiClient.exam,
-    private val drafts: ExamDraftStore = RoomExamDraftStore()
+    private val drafts: ExamDraftStore = RoomExamDraftStore(),
+    private val cache: ExamPaperCacheStore = RoomExamPaperCacheStore()
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(ExamUiState())
@@ -109,48 +112,73 @@ class ExamViewModel(
             return
         }
         viewModelScope.launch {
-            _ui.value = _ui.value.copy(
-                stage = ExamStage.ANSWERING,
-                loading = true,
-                error = null,
-                offline = false,
-                assignmentId = item.assignmentId,
-                paperId = item.paperId,
-                title = item.title,
-                paperType = item.paperType,
-                questions = emptyList(),
-                answers = emptyMap(),
-                index = 0,
-                result = null,
-                draftRestored = false
-            )
-            val loaded = withAuth { api.questions(item.assignmentId) }
-            loaded.onFailure { e ->
+            // 1) 先出缓存：命中即秒开，弱网下不再转圈（卷题干是发布时冻结的快照，可安全缓存）
+            val cached = runCatching { cache.load(item.assignmentId) }.getOrNull()
+            val hadCache = !cached.isNullOrEmpty()
+            if (hadCache) {
+                applyQuestions(item, cached!!)
+            } else {
                 _ui.value = _ui.value.copy(
-                    loading = false,
-                    error = messageOf(e),
-                    offline = isNetwork(e)
+                    stage = ExamStage.ANSWERING,
+                    loading = true,
+                    error = null,
+                    offline = false,
+                    assignmentId = item.assignmentId,
+                    paperId = item.paperId,
+                    title = item.title,
+                    paperType = item.paperType,
+                    questions = emptyList(),
+                    answers = emptyMap(),
+                    index = 0,
+                    result = null,
+                    draftRestored = false
                 )
             }
-            val questions = loaded.getOrNull() ?: return@launch
-            val questionsAsc = questions.sortedBy { it.seq }
 
-            // 草稿恢复：只保留仍然存在于本卷的题号，避免卷子换版后脏答案复活
-            val draft = runCatching { drafts.load(item.assignmentId) }.getOrNull()
-            val validSeqs = questionsAsc.map { it.seq }.toSet()
-            val restored = ExamAnswerCodec.decode(draft?.answers).filterKeys { it in validSeqs }
-            clientId = draft?.clientId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
-
-            _ui.value = _ui.value.copy(
-                loading = false,
-                questions = questionsAsc,
-                answers = restored,
-                index = firstUnansweredIndex(questionsAsc, restored),
-                draftRestored = restored.isNotEmpty(),
-                error = null,
-                offline = false
-            )
+            // 2) 后台拉最新（首次/缓存过期/卷被修订）：成功覆盖缓存；题集一致则不动 UI，
+            //    只静默刷新缓存（避免覆盖用户正在输入、且草稿还没落盘的答案）。
+            val loaded = withAuth { api.questions(item.assignmentId) }
+            if (loaded.isSuccess) {
+                val fresh = loaded.getOrNull()!!.sortedBy { it.seq }
+                runCatching { cache.save(item.assignmentId, item.paperId, fresh) }
+                val freshSeqs = fresh.map { it.seq }.toSet()
+                // 仅当没有缓存、或卷子被修订（题号集合变了）才整体重排，否则保留当前作答与光标
+                if (!hadCache || _ui.value.questions.map { it.seq }.toSet() != freshSeqs) {
+                    applyQuestions(item, fresh)
+                }
+            } else if (!hadCache) {
+                // 没缓存又拉失败 → 报错（题目都进不来，谈不上作答）
+                val e = loaded.exceptionOrNull()!!
+                _ui.value = _ui.value.copy(loading = false, error = messageOf(e), offline = isNetwork(e))
+            }
+            // 有缓存且拉失败：已展示缓存内容，静默保留，不覆盖报错
         }
+    }
+
+    /** 把题干套进当前 UI 状态（含草稿恢复、光标定位、client_id 取用）。 */
+    private suspend fun applyQuestions(item: StudentExamItem, questions: List<ExamQuestionView>) {
+        val questionsAsc = questions.sortedBy { it.seq }
+        // 草稿恢复：只保留仍然存在于本卷的题号，避免卷子换版后脏答案复活
+        val draft = runCatching { drafts.load(item.assignmentId) }.getOrNull()
+        val validSeqs = questionsAsc.map { it.seq }.toSet()
+        val restored = ExamAnswerCodec.decode(draft?.answers).filterKeys { it in validSeqs }
+        clientId = draft?.clientId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+
+        _ui.value = _ui.value.copy(
+            stage = ExamStage.ANSWERING,
+            loading = false,
+            error = null,
+            offline = false,
+            assignmentId = item.assignmentId,
+            paperId = item.paperId,
+            title = item.title,
+            paperType = item.paperType,
+            questions = questionsAsc,
+            answers = restored,
+            index = firstUnansweredIndex(questionsAsc, restored),
+            draftRestored = restored.isNotEmpty(),
+            result = null
+        )
     }
 
     /** 直接看结果（列表里已提交的卷）。 */

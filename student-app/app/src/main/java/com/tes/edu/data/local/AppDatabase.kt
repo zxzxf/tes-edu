@@ -13,6 +13,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.tes.edu.data.local.entities.DrillCard
 import com.tes.edu.data.local.entities.DrillReviewLog
 import com.tes.edu.data.local.entities.ExamDraft
+import com.tes.edu.data.local.entities.ExamPaperCache
 import com.tes.edu.data.local.entities.WrongQuestion
 import kotlinx.coroutines.flow.Flow
 
@@ -103,16 +104,29 @@ interface ExamDraftDao {
     @Query("SELECT COUNT(*) FROM exam_drafts") suspend fun count(): Int
 }
 
-// 本地库：背诵卡 + 错题本 + 复习队列 + 作业草稿（无网可背可复习可答题，联网再对账）
+/** 作业卷题干缓存：一份卷一行，按 assignmentId 命中即秒开（见 [com.tes.edu.viewmodel.ExamViewModel]）。 */
+@Dao
+interface ExamPaperCacheDao {
+    @Query("SELECT * FROM exam_paper_cache WHERE assignment_id = :assignmentId LIMIT 1")
+    suspend fun get(assignmentId: Long): ExamPaperCache?
+
+    @Upsert suspend fun upsert(cache: ExamPaperCache)
+
+    @Query("DELETE FROM exam_paper_cache WHERE assignment_id = :assignmentId")
+    suspend fun delete(assignmentId: Long)
+}
+
+// 本地库：背诵卡 + 错题本 + 复习队列 + 作业草稿 + 卷题干缓存（无网可背可复习可答题，联网再对账）
 @Database(
-    entities = [DrillCard::class, WrongQuestion::class, DrillReviewLog::class, ExamDraft::class],
-    version = 4
+    entities = [DrillCard::class, WrongQuestion::class, DrillReviewLog::class, ExamDraft::class, ExamPaperCache::class],
+    version = 5
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun drillCardDao(): DrillCardDao
     abstract fun drillReviewDao(): DrillReviewDao
     abstract fun wrongQuestionDao(): WrongQuestionDao
     abstract fun examDraftDao(): ExamDraftDao
+    abstract fun paperCacheDao(): ExamPaperCacheDao
 
     companion object {
         @Volatile
@@ -125,7 +139,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "tes_edu.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }
@@ -204,6 +218,25 @@ abstract class AppDatabase : RoomDatabase() {
                         "`paper_id` INTEGER NOT NULL, " +
                         "`answers` TEXT NOT NULL, " +
                         "`client_id` TEXT NOT NULL, " +
+                        "`updated_at` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`assignment_id`))"
+                )
+            }
+        }
+
+        /**
+         * v4 → v5：作业卷题干缓存（弱网秒开，按 assignmentId 命中）。
+         *
+         * 只 CREATE TABLE，老数据一条不动。列类型/非空与 [ExamPaperCache] 实体逐字对齐，
+         * 否则 Room 的迁移后 schema 校验会抛 "Migration didn't properly handle"。
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `exam_paper_cache` (" +
+                        "`assignment_id` INTEGER NOT NULL, " +
+                        "`paper_id` INTEGER NOT NULL, " +
+                        "`questions_json` TEXT NOT NULL, " +
                         "`updated_at` INTEGER NOT NULL, " +
                         "PRIMARY KEY(`assignment_id`))"
                 )
