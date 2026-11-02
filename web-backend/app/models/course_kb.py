@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from pgvector.sqlalchemy import Vector
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -74,11 +74,22 @@ class QuestionIn(BaseModel):
     source_province: Optional[str] = None
     knowledge_points: List[str] = []
 
+    @field_validator("knowledge_points", mode="before")
+    @classmethod
+    def _null_kp_to_empty(cls, v):
+        """存量/导入行 knowledge_points 可能是 NULL，归一为空列表。
+
+        不加这条会让**一条老数据**把整页列表拖成 500（与 created_at=NULL 同类事故）。
+        """
+        return v or []
+
 
 class QuestionOut(QuestionIn):
     id: int
     content_hash: str
-    created_at: datetime
+    # 历史导入行 created_at 可能为 NULL（存量 211 行里有则无值）。
+    # 这里放宽容错：列表是展示用途，不该因为一条老数据整页 500。
+    created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

@@ -67,13 +67,18 @@ async def search_questions(
     if knowledge_point:
         # JSONB 包含查询（知识点标签）
         stmt = stmt.where(CourseQuestion.knowledge_points.contains([knowledge_point]))
-    stmt = stmt.limit(limit)
+    stmt = stmt.order_by(CourseQuestion.id.desc()).limit(limit)
     res = await db.execute(stmt)
     return list(res.scalars().all())
 
 
 async def list_questions(db, limit: int = 50) -> List[CourseQuestion]:
-    res = await db.execute(select(CourseQuestion).limit(limit))
+    """最近录入优先：录题页要在首屏看到刚进来的题，按 id 倒序。
+
+    存量导入行 id 小、created_at 可能为 NULL，用 id 排序比时间更稳。
+    """
+    stmt = select(CourseQuestion).order_by(CourseQuestion.id.desc()).limit(limit)
+    res = await db.execute(stmt)
     return list(res.scalars().all())
 
 

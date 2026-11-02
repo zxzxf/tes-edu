@@ -10,7 +10,7 @@ import asyncio
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -288,3 +288,45 @@ def test_english_qtype_maps_to_chinese_bank_types():
     for raw, expected in (("blank", "填空"), ("subjective", "解答"), ("choice", "选择")):
         out = normalize_question({"subject": "数学", "stem": "题干", "qtype": raw})
         assert out["type"] == expected, raw
+
+
+def test_list_questions_tolerates_legacy_null_created_at_and_sorts_newest_first():
+    """存量导入行 created_at 为 NULL，列表不得整页 500；且「最近录入」按 id 倒序。
+
+    线上真实事故：GET /api/admin/questions 因 4 条老数据 created_at=NULL 触发
+    ResponseValidationError → 500，录题页看不到刚录的题。
+    """
+    from app.models.course_kb import QuestionOut
+    from app.services import course_kb as kb_svc
+
+    async def scenario(db):
+        # 模拟历史导入行：ORM 会补默认时间，这里用原生 UPDATE 抹成 NULL，
+        # 复刻线上「早期 Excel 直灌、列无默认值」的真实数据形态。
+        db.add(CourseQuestion(
+            subject="数学", grade="高三", type="单选", stem="存量老题", answer="A",
+            content_hash="legacy_hash_1", tenant_id=TENANT, status="draft",
+        ))
+        await db.flush()
+        await db.execute(
+            text("UPDATE course_kb SET created_at = NULL, knowledge_points = NULL "
+                 "WHERE content_hash = 'legacy_hash_1'")
+        )
+        db.expire_all()
+        # 新录一题走正常服务路径
+        res = await question_entry.create_questions(
+            db, [_payload(stem="新录的题")], TEACHER, transport=_ok_transport(), embed_config=FAKE_CFG
+        )
+        new_id = res["items"][0]["id"]
+
+        rows = await kb_svc.list_questions(db, limit=10)
+        assert rows, "列表不应为空"
+        # 顺序：新录的（id 大）必须排在存量行之前
+        assert rows[0].id == new_id, f"期望最新在前，实际首行 id={rows[0].id}"
+
+        # 逐行过一遍响应模型：老数据 created_at/knowledge_points 为 NULL 也必须能序列化
+        outs = [QuestionOut.model_validate(r) for r in rows]
+        assert [o.id for o in outs] == [r.id for r in rows]
+        assert any(o.created_at is None for o in outs), "应存在 created_at 为 NULL 的老数据"
+        assert all(o.knowledge_points is not None for o in outs), "NULL 知识点应归一为空列表"
+
+    asyncio.run(_run(scenario))

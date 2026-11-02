@@ -228,7 +228,9 @@ async def _dual_write_embeddings(
     """给新入库的题目写向量；失败只标记降级，题目仍是 draft。"""
     base = {"ok": False, "model": "", "source": "none", "reason": "", "written": 0}
     if not rows:
-        return {**base, "ok": True}
+        # 全部命中幂等去重（重复录同一批题）：没有新行要向量化，
+        # 这不是「没配端点」，reason 要写清楚，否则前端会误报配置缺失。
+        return {**base, "ok": True, "reason": "无新增题目，跳过向量化"}
 
     contents = [embed_svc.build_content(r.stem, r.analysis) for r in rows]
     outcome = await embed_svc.embed_texts(
