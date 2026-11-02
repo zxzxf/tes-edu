@@ -76,6 +76,20 @@ class MathTextTest {
         assertEquals("tan", preprocessMath("\\tan"))
     }
 
+    @Test
+    fun double_backslash_is_normalized() {
+        // 数据源双重转义：`\\dfrac` 应等价于 `\dfrac`，否则整段露源码
+        assertEquals("√65/2", preprocessMath("${'$'}\\\\dfrac{\\\\sqrt{65}}{2}${'$'}"))
+        assertEquals("D. √65/2", preprocessMath("D. ${'$'}\\\\dfrac{\\\\sqrt{65}}{2}${'$'}"))
+    }
+
+    @Test
+    fun stray_backslash_is_removed() {
+        // 残留的孤立反斜杠（如 LaTeX 的 `\ ` 空格命令）必须清掉，绝不露源码
+        assertEquals("C_1:y^2=2p_1x (p_1>0)", preprocessMath("${'$'}C_1:y^2=2p_1x\\ (p_1>0)${'$'}"))
+        assertEquals("a/b", preprocessMath("\\frac{a}{b}"))
+    }
+
     // ---------------- 上下标切分 ----------------
 
     private fun segs(src: String) = parseMathSegments(src)

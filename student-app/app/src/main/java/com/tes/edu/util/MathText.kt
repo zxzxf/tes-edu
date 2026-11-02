@@ -84,7 +84,8 @@ private val FUNCTIONS: Set<String> = setOf(
     "max", "min", "sup", "inf", "det", "dim", "gcd", "lcm", "mod", "arg", "deg"
 )
 
-private val FRAC = Regex("""\\(?:d|t)?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}""")
+/** 分数：`\frac`/`\dfrac`/`\tfrac` 后跟两对花括号；组内允许再嵌一层 `\{...\}`（如 `\dfrac{\sqrt{65}}{2}`）。 */
+private val FRAC = Regex("""\\(?:d|t)?frac\s*\{([^{}]*\{[^{}]*\}[^{}]*|[^{}]*)\}\s*\{([^{}]*\{[^{}]*\}[^{}]*|[^{}]*)\}""")
 /** 无花括号简写分数，如 `\tfrac12`、`\frac34`（分子分母各一个字符）。 */
 private val FRAC_BARE = Regex("""\\(?:d|t)?frac\s*([A-Za-z0-9])\s*([A-Za-z0-9])""")
 private val SQRT_BRACE = Regex("""\\sqrt\s*\{([^{}]*)\}""")
@@ -106,6 +107,9 @@ private fun wrapOperand(s: String): String {
 /** LaTeX → 可读文本（不做上下标，那是 `parseMathSegments` 的活）。 */
 fun preprocessMath(src: String): String {
     var s = src
+    // 数据源偶尔出现双重转义（`\\dfrac` 而非 `\dfrac`），先归一化成单反斜杠，
+    // 否则后续单反斜杠正则匹配不上，公式会整段露源码。
+    s = s.replace("\\\\", "\\")
     s = TEXT_MACRO.replace(s) { it.groupValues[1] }
     s = LEFT_RIGHT.replace(s, "")
     s = FRAC.replace(s) { wrapOperand(it.groupValues[1]) + "/" + wrapOperand(it.groupValues[2]) }
@@ -123,6 +127,10 @@ fun preprocessMath(src: String): String {
     s = s.replace("$$", "").replace("$", "")
     s = s.replace("\\(", "").replace("\\)", "")
     s = s.replace("{}", "")
+    // 兜底：删除"反斜杠后跟非字母/非花括号"的孤立反斜杠（如 LaTeX 的 `\ ` 空格命令、
+    // `\%` 等噪声），但保留未知宏（如 `\whatsup`），已知的 `\{` `\}` 已还原成花括号。
+    // 确保绝不把 `\xxx` 源码露给学生。
+    s = Regex("""\\(?![A-Za-z{}])""").replace(s, "")
     return s
 }
 
