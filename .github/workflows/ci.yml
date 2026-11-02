@@ -20,6 +20,15 @@ jobs:
         run: pip install pytest
       - name: Run import-pipeline tests (no DB required)
         run: pytest tests/ -q
+      # M2-8 聚合口径门禁：把 gold set 判分准确率量化并设阈值。
+      # 阈值按方案书口径 —— 首月 0.95（观察期）/ 稳定期 0.98；可用仓库变量覆盖。
+      # 红线仍由上面的 pytest 逐例强约束，本步是「聚合准确率 + 失败清单可见」的第二层。
+      # if: always() 保证 pytest 变红时这一步仍执行，从而把准确率与失败清单写进 Summary。
+      - name: Gold set accuracy gate (M2-8)
+        if: always()
+        env:
+          GOLD_SET_MIN_ACCURACY: "0.98"
+        run: python tests/gold_set_gate.py
 
   test-web:
     runs-on: ubuntu-latest
