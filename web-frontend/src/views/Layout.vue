@@ -1,18 +1,6 @@
 <template>
   <div class="tes-layout">
-    <aside class="tes-side" :class="{ collapsed }">
-      <!-- 折叠手柄：贴在侧栏右沿，展开/收起都可见，纯图标态下靠 nav-item 的 title 提示 -->
-      <button
-        class="side-toggle"
-        type="button"
-        :title="collapsed ? '展开导航' : '收起导航'"
-        :aria-label="collapsed ? '展开导航' : '收起导航'"
-        :aria-expanded="collapsed ? 'false' : 'true'"
-        @click="toggleSide"
-      >
-        <span aria-hidden="true">{{ collapsed ? '›' : '‹' }}</span>
-      </button>
-
+    <aside class="tes-side">
       <div class="brand">
         <span class="brand-mark">T</span>
         <span class="brand-text">
@@ -182,25 +170,6 @@ watch(() => route.path, () => {
   nextTick(revealActive)
 })
 
-// 侧栏折叠（纯图标态）：只记视觉偏好，不进 store；localStorage 不可用（隐私模式）时静默降级为不持久化
-const SIDE_KEY = 'tes_side_collapsed'
-const collapsed = ref(false)
-try {
-  collapsed.value = localStorage.getItem(SIDE_KEY) === '1'
-} catch (e) {
-  collapsed.value = false
-}
-function toggleSide() {
-  collapsed.value = !collapsed.value
-  try {
-    localStorage.setItem(SIDE_KEY, collapsed.value ? '1' : '0')
-  } catch (e) {
-    /* 隐私模式/配额满：仅当次生效，不阻塞交互 */
-  }
-}
-// 折叠后可视区变窄、行高变化，激活项位置会偏，重新校准一次滚动
-watch(collapsed, () => nextTick(revealActive))
-
 function onLogout() {
   auth.logout()
   router.push('/login')
@@ -220,32 +189,8 @@ function onLogout() {
   flex-direction: column;
   padding: 22px 16px;
   position: relative;
-  z-index: 3;              /* 折叠手柄探出右沿，需压在主体之上 */
   min-height: 0; /* 关键：允许内部 nav 收缩出滚动区，防止菜单过多被 100vh+overflow:hidden 裁掉 */
-  transition: width .18s ease, padding .18s ease;
 }
-.tes-side.collapsed { width: 72px; padding: 22px 10px; }
-
-/* 折叠手柄：贴在右沿的半圆条，两种状态都在，避免收起后无从恢复 */
-.side-toggle {
-  position: absolute;
-  top: 86px;
-  right: -11px;
-  width: 22px; height: 46px;
-  display: grid; place-items: center;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, .22);
-  border-left: none;
-  border-radius: 0 10px 10px 0;
-  background: linear-gradient(180deg, #3a1e5c, #5b2a8c);
-  color: rgba(255, 255, 255, .88);
-  font-size: 13px; line-height: 1;
-  cursor: pointer;
-  box-shadow: 3px 0 10px rgba(36, 27, 58, .28);
-  transition: background .18s, color .18s;
-}
-.side-toggle:hover { background: var(--brand-grad); color: #fff; }
-.side-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 .tes-side::after {
   content: "";
   position: absolute;
@@ -361,29 +306,6 @@ function onLogout() {
   margin-top: 10px; text-align: center;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-
-/* ---------- 折叠态：只留图标，文字与分组标题让位 ---------- */
-.tes-side.collapsed .brand { justify-content: center; gap: 0; margin-bottom: 20px; }
-.tes-side.collapsed .brand-text { display: none; }
-.tes-side.collapsed .nav { margin: 0; padding: 0; }
-.tes-side.collapsed .nav-item { justify-content: center; padding: 11px 0; gap: 0; }
-.tes-side.collapsed .nav-label { display: none; }
-.tes-side.collapsed .nav-ico { width: auto; font-size: 18px; }
-/* 分组标题退化成一条分隔线（文字用 font-size:0 + overflow 隐去，无需额外 DOM） */
-.tes-side.collapsed .nav-group {
-  height: 1px;
-  padding: 0;
-  margin: 9px 8px;
-  font-size: 0;
-  border-radius: 1px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, .14);
-  pointer-events: none;   /* 纯图标态下不可点：折叠组会让图标整体消失，易误触 */
-}
-.tes-side.collapsed .nav-group::after { content: none; }
-.tes-side.collapsed .nav-group-label { display: none; }
-.tes-side.collapsed .nav > .nav-group:first-of-type { margin-top: 4px; }
-.tes-side.collapsed .side-foot { display: none; }
 
 /* ---------- 主区 ---------- */
 .tes-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }

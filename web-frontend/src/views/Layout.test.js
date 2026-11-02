@@ -120,51 +120,6 @@ describe('Layout 动态导航（T-AM7）', () => {
   })
 })
 
-describe('Layout 侧栏折叠', () => {
-  beforeEach(() => {
-    localStorage.removeItem('tes_side_collapsed')
-  })
-
-  it('默认展开，点手柄切到折叠态并落 localStorage，再点恢复', async () => {
-    const wrapper = await mountLayout('teacher', TEACHER_MENUS)
-    const side = wrapper.find('.tes-side')
-    const btn = wrapper.find('.side-toggle')
-
-    expect(side.classes()).not.toContain('collapsed')
-    expect(btn.attributes('aria-expanded')).toBe('true')
-
-    await btn.trigger('click')
-    expect(side.classes()).toContain('collapsed')
-    expect(btn.attributes('aria-expanded')).toBe('false')
-    expect(btn.attributes('title')).toBe('展开导航')
-    expect(localStorage.getItem('tes_side_collapsed')).toBe('1')
-
-    await btn.trigger('click')
-    expect(side.classes()).not.toContain('collapsed')
-    expect(localStorage.getItem('tes_side_collapsed')).toBe('0')
-  })
-
-  it('刷新后沿用上次折叠状态', async () => {
-    localStorage.setItem('tes_side_collapsed', '1')
-    const wrapper = await mountLayout('teacher', TEACHER_MENUS)
-    expect(wrapper.find('.tes-side').classes()).toContain('collapsed')
-    expect(wrapper.find('.side-toggle').attributes('title')).toBe('展开导航')
-  })
-
-  it('折叠只做视觉隐藏：导航项、href 与 title 全部保留，图标态仍可辨识可直达', async () => {
-    localStorage.setItem('tes_side_collapsed', '1')
-    const wrapper = await mountLayout('teacher', TEACHER_MENUS)
-
-    // 纯图标态没有文字，靠 title 悬浮提示，故 title 必须与展开态一致
-    expect(navHrefs(wrapper)).toEqual([
-      '/dashboard', '/system/menu', '/system/region', '/system/vendor', '/tenant', '/knowledge', '/analytics',
-    ])
-    for (const el of wrapper.findAll('a.nav-item')) {
-      expect(el.attributes('title')).toBe(el.find('.nav-label').text())
-    }
-  })
-})
-
 describe('Layout 分组折叠', () => {
   const groupOf = (wrapper, label) => wrapper.findAll('.nav-group').find((el) => el.text() === label)
 
