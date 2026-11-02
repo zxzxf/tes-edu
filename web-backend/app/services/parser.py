@@ -28,12 +28,20 @@ _ALIASES = {
 _TYPE_NORM = {
     "单选": "单选", "single": "单选", "single_choice": "单选",
     "多选": "多选", "multi": "多选", "multiple": "多选", "multiple_choice": "多选",
+    "multi_choice": "多选", "多选题": "多选",
     "选择": "选择", "choice": "选择",        # 来源未区分时的兜底
     "实验": "实验", "experiment": "实验",
-    "填空": "填空", "completion": "填空", "fill": "填空",
+    # M0-1 教师录题页用 choice|blank|subjective 的英文枚举，必须与中文口径对齐，
+    # 否则 subjective 会落成「解答」以外的值、blank 会兜底成「解答」。
+    "填空": "填空", "completion": "填空", "fill": "填空", "blank": "填空", "fill_blank": "填空",
     "解答": "解答", "计算": "解答", "解答题": "解答", "solve": "解答", "essay": "解答",
+    "subjective": "解答", "open": "解答",
     "压轴": "压轴", "压轴题": "压轴",
 }
+
+#: 知识点分隔符：教研表里出现过全角顿号/分号、斜杠、竖线、中英文逗号混用，
+#: 少拆一种就会把「函数；导数」当成一个知识点标签（M0-1 卡面明确要求全覆盖）。
+_KP_SEPARATORS = re.compile(r"[、，,；;|/]+")
 
 
 def _build_lookup(raw: Dict) -> Dict[str, str]:
@@ -60,7 +68,7 @@ def _as_list(v) -> List[str]:
     if isinstance(v, list):
         return [str(x).strip() for x in v if str(x).strip()]
     if isinstance(v, str):
-        return [p.strip() for p in v.replace("、", ",").replace("，", ",").split(",") if p.strip()]
+        return [p.strip() for p in _KP_SEPARATORS.split(v) if p.strip()]
     return [str(v)]
 
 

@@ -10,12 +10,14 @@ from pgvector.sqlalchemy import Vector
 from pydantic import BaseModel
 from sqlalchemy import (
     JSON,
+    Boolean,
     Column,
     DateTime,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import declarative_base
 
@@ -45,6 +47,10 @@ class CourseQuestion(Base):
     status = Column(String(16), nullable=False, default="draft", server_default="draft")
     reviewed_by = Column(String(64))
     reviewed_at = Column(DateTime(timezone=True))
+    # M0-1 教师录题新增列（迁移 0012；create_all 只建缺失表、不加列，线上须手工 ALTER）
+    answer_values = Column(JSON)                                    # 标答预展开（M2-4 判分口径）
+    choice_type = Column(String(16))                                # single / multi（仅选择题）
+    blank_count = Column(Integer)                                   # 填空题空位数
     # 维度须与所用 embedding 模型一致：当前 qwen3.7-text-embedding / text-embedding-v4 均为 1024
     embedding = Column(Vector(1024))
     created_at = Column(
@@ -75,3 +81,64 @@ class QuestionOut(QuestionIn):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class CourseKbEmbedding(Base):
+    """Agent 侧 RAG 检索表（M0-1 双写目标）。
+
+    与 ``course_kb`` 按 ``content_hash`` 一对一关联，**维度锁死 1024**
+    （列类型 ``VECTOR(1024)``，与 qwen3.7-text-embedding 一致）。
+
+    为什么单独建表而不是只写 ``course_kb.embedding``：agent-backend 的
+    ``rag.py`` 检索的就是这张表（带 is_demo / source_tag 隔离谓词），
+    只写 course_kb.embedding 等于「入库了但检索不到」。
+
+    线上既有表由 ``agent-backend/sql/embeddings.sql`` 建成，本 ORM 仅做映射，
+    字段名/类型必须与之逐字对齐；``create_all`` 对已存在的表不改结构。
+    """
+
+    __tablename__ = "course_kb_embeddings"
+
+    id = Column(Integer, primary_key=True)
+    subject = Column(Text, nullable=False, server_default="math")
+    knowledge_point = Column(Text, nullable=False, server_default="")
+    # 注意：本表 difficulty 是 TEXT，而 course_kb.difficulty 是 INTEGER，写入须转 str
+    difficulty = Column(Text, nullable=False, server_default="")
+    question = Column(Text, nullable=False)
+    answer = Column(Text, nullable=False, server_default="")
+    content = Column(Text, nullable=False)                 # 送检索的文本（题干 + 解析）
+    embedding = Column(Vector(1024))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    content_hash = Column(Text, unique=True, index=True)   # 关联 course_kb 唯一键
+    kp_code = Column(String(32))
+    is_demo = Column(Boolean, nullable=False, default=False, server_default="false")
+    source_tag = Column(Text)
+    type = Column(Text, nullable=False, server_default="")
+
+
+class QuestionCreate(QuestionIn):
+    """教师录题请求（M0-1）。
+
+    - ``qtype`` 是前端/方案书用词，与 ``type`` 二选一，``qtype`` 优先；
+    - ``choice_type`` 只在选择题上有意义，用于把「选择」细分到「单选/多选」
+      （组卷要控题型配比，混成「选择」两件事都做不了）；
+    - **不接受 ``status``**：录题一律落 ``draft``，必须走审核接口
+      （``POST /exam/questions/{id}/review``）才能发布，审核隔离是红线。
+    """
+
+    qtype: Optional[str] = None
+    choice_type: Optional[str] = None
+    answer_values: Optional[List[str]] = None
+
+    model_config = {"extra": "ignore"}
+
+
+class QuestionCreateResult(BaseModel):
+    """录题结果：单题与批量共用同一形状。"""
+
+    received: int
+    created: int
+    duplicated: int
+    items: List[dict]
+    embedding: dict
+

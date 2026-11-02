@@ -65,6 +65,8 @@ MENUS = [
     ("m_ops_grading_submit", "m_ops_grading", "提交批改", "BUTTON", "", "", "", 1, "grading:submit"),
     ("m_ops_grading_review", "m_ops_grading", "评分批改", "BUTTON", "", "", "", 2, "grading:review"),
     ("m_ops_reports", "m_ops", "家长周报", "MENU", "/ops/reports", "Reports", "report", 7, None),
+    # M0-1 教师录题页：放在「合规审核」之后，避免挪动既有 sort 影响线上已调整的排序
+    ("m_ops_questions", "m_ops", "题库录题", "MENU", "/ops/questions", "Questions", "book", 9, None),
     ("m_ops_compliance", "m_ops", "合规审核", "MENU", "/ops/compliance", "Compliance", "shield", 8, None),
     # T-AM7：前端已有页面补入菜单树（此前仅有静态导航，DB 无节点 → 动态菜单渲染不出）。
     # 班级错因分布（S5 老师端）；在线练习（过程采集）。
@@ -93,14 +95,14 @@ ROLE_MENU_MAP = {
     "role_school": [
         "m_ops", "m_ops_tenant", "m_ops_knowledge", "m_ops_analytics",
         "m_ops_wrong", "m_ops_exam", "m_ops_grading", "m_ops_reports", "m_ops_compliance",
-        "m_ops_errordist", "m_ops_practice",
+        "m_ops_errordist", "m_ops_practice", "m_ops_questions",  # 学校：可给本校题库录题
         "m_sys_feature", "m_sys_feature_manage",  # 学校：可管控本校功能显隐
         "m_sys_byom", "m_sys_byom_manage",  # 学校：可配本租户大模型（BYOM）
     ],
     "role_teacher": [
         "m_ops", "m_ops_knowledge", "m_ops_analytics", "m_ops_wrong",
         "m_ops_exam", "m_ops_grading", "m_ops_reports",
-        "m_ops_errordist", "m_ops_practice",
+        "m_ops_errordist", "m_ops_practice", "m_ops_questions",  # 教师：录题（M0-1）
         "m_ops_exam_gen", "m_ops_grading_submit", "m_ops_grading_review",
         "m_sys_feature", "m_sys_feature_manage",  # 教师：可管控本班功能显隐
     ],

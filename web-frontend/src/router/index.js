@@ -5,6 +5,7 @@ import Login from '../views/Login.vue'
 import Layout from '../views/Layout.vue'
 import Dashboard from '../views/Dashboard.vue'
 import Knowledge from '../views/Knowledge.vue'
+import Questions from '../views/Questions.vue'
 import Analytics from '../views/Analytics.vue'
 import WrongQuestions from '../views/WrongQuestions.vue'
 import Exam from '../views/Exam.vue'
@@ -35,6 +36,8 @@ const routes = [
     children: [
       { path: 'dashboard', name: 'dashboard', component: Dashboard, meta: { title: '概览' } },
       { path: 'knowledge', name: 'knowledge', component: Knowledge, meta: { title: '教研内容管理' } },
+      // M0-1 教师录题页：菜单节点 /ops/questions（rbac_seed m_ops_questions）
+      { path: 'questions', name: 'questions', component: Questions, meta: { title: '题库录题' } },
       { path: 'analytics', name: 'analytics', component: Analytics, meta: { title: '学情看板' } },
       { path: 'error-distribution', name: 'error-distribution', component: ErrorDistribution, meta: { title: '班级错因分布' } },
       { path: 'wrong-questions', name: 'wrong-questions', component: WrongQuestions, meta: { title: '错题本' } },

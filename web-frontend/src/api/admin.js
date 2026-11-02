@@ -22,6 +22,18 @@ export function createKnowledge(data) {
   return client.post('/knowledge', data)
 }
 
+// M0-1 题库录题：单题 / 批量 / 最近列表
+// 落库恒为 draft，发布走审核接口（POST /exam/questions/:id/review）
+export function createQuestion(data) {
+  return client.post('/questions', data)
+}
+export function createQuestionsBatch(list) {
+  return client.post('/questions/batch', list)
+}
+export function listQuestions(limit = 20) {
+  return client.get('/questions', { params: { limit } })
+}
+
 // 模块2 学情看板
 export function getAnalytics(studentId) {
   return client.get('/analytics/summary', { params: { student_id: studentId } })

@@ -29,6 +29,7 @@ export const ICON_MAP = {
 export const MENU_ROUTE_MAP = {
   '/ops/tenant': '/tenant', // 学校管理页（T-AM9 前端，2026-10-27 建；挂在区域运营下）
   '/ops/knowledge': '/knowledge',
+  '/ops/questions': '/questions', // 题库录题页（M0-1，2026-11-03 建）
   '/ops/analytics': '/analytics',
   '/ops/error-distribution': '/error-distribution',
   '/ops/wrong': '/wrong-questions',
