@@ -80,6 +80,20 @@ CASES = [
     ("连写_wrong_AC_vs_AB", "choice", "A,B", "AC", OPTS, False, True),
     ("连写_wrong_AD_vs_AB", "choice", "A,B", "AD", OPTS, False, True),
     ("连写_single_should_not_match", "choice", "C", "AC", OPTS, False, True),
+
+    # ===== 11. 根式符号化（M2-1 收口：√ / \sqrt / n 次根 记法归一 + 全精度小数桥接）=====
+    # 记法归一：√ 与 \sqrt{} 归一后字符串相等即判对
+    ("根式_sqrt_vs_√", "blank", "\\sqrt{2}", "√2", None, True, False),
+    ("根式_√_vs_sqrt", "blank", "√2", "\\sqrt{2}", None, True, False),
+    ("根式_nrt3_8_vs_2", "blank", "\\sqrt[3]{8}", "2", None, True, False),
+    # 全精度小数桥接（1e-6 容差内；注意 4 位截断小数不在此列，超出容差属精度取舍非符号化）
+    ("根式_sqrt2_vs_full", "blank", "√2", "1.414213562373", None, True, False),
+    ("根式_2sqrt3_vs_full", "blank", "2√3", "3.464101615", None, True, False),
+    ("根式_sqrt8_vs_2sqrt2", "blank", "\\sqrt{8}", "2\\sqrt{2}", None, True, False),
+    ("根式_sqrt65_over2_vs_full", "blank", "\\sqrt{65}/2", "4.031128874", None, True, False),
+    # 负例：明显不等
+    ("根式_sqrt2_vs_1.5", "blank", "√2", "1.5", None, False, False),
+    ("根式_sqrt3_vs_2", "blank", "√3", "2", None, False, False),
 ]
 
 
