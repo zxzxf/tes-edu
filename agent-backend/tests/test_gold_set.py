@@ -69,6 +69,17 @@ CASES = [
     # 9. 多选：错选 -> False（非 partial）
     ("多选_wrong_AC", "choice", "A,B", "A,C", OPTS, False, True),
     ("多选_wrong_AD", "choice", "A,B", "A,D", OPTS, False, True),
+
+    # 10. 连写多选（红线：曾只取首字母致多选全错）—— 卡面 M2-2 要求"单测覆盖字母/值/连写三种"
+    # 正确集合必须与 ref 完全一致：ref 正确答案为 A,C,D 时学生写 ACD 才判对；写 AC（漏 B）才是 partial。
+    ("连写_集合_ACD", "choice", "A,C,D", "ACD", OPTS, True, True),
+    ("连写_集合_acd_lower", "choice", "A,C,D", "acd", OPTS, True, True),
+    ("连写_集合_ABC", "choice", "A,B,C", "ABC", OPTS, True, True),
+    ("连写_partial_AC", "choice", "A,B,C", "AC", OPTS, "partial", True),
+    ("连写_partial_AB", "choice", "A,B,C", "AB", OPTS, "partial", True),
+    ("连写_wrong_AC_vs_AB", "choice", "A,B", "AC", OPTS, False, True),
+    ("连写_wrong_AD_vs_AB", "choice", "A,B", "AD", OPTS, False, True),
+    ("连写_single_should_not_match", "choice", "C", "AC", OPTS, False, True),
 ]
 
 
