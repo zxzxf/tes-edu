@@ -270,6 +270,32 @@ class StudentMastery(Base):
     )
 
 
+class StudentProfile(Base):
+    """学生年级归属（M0-3）。
+
+    方案书 A11 定案：**不建班级、不并入 sys_user**。学生身份继续沿用裸字符串
+    ``student_id``，这里只补一张轻量表承载年级（高一/高二/高三），供按年级段
+    下发试卷时过滤。
+
+    未配置档案的学生由 ``services/student_profile.get_grade`` 按租户默认年级
+    兜底——那条路径是只读的，不会把兜底值写进库（否则配置漏了会被掩盖成
+    "这个学生本来就高三"）。
+    """
+
+    __tablename__ = "student_profile"
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(String(64), nullable=False, index=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    grade = Column(String(32), nullable=False, index=True)  # 高一/高二/高三
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("student_id", "tenant_id", name="uq_student_profile"),
+    )
+
+
 class LlmUsage(Base):
     """T-D3 LLM 用量流水（agent-backend 写入，B 端只读聚合）。
 

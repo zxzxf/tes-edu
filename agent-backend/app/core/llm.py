@@ -10,7 +10,7 @@ import logging
 import re
 import time
 
-from app.core import config, llm_cache, model_router, rag, tenant_llm, usage
+from app.core import config, llm_cache, model_router, numeric_guard, prompts, rag, tenant_llm, usage
 
 log = logging.getLogger("llm")
 
@@ -46,7 +46,8 @@ _SYSTEM = (
     "   answer 必须给出**全部**解（写「±2」「2 或 -2」均可），不得只挑一个；\n"
     "   只有当题面条件明确排除掉某些解（如「各项均为正数」「x>0」）才可只留其一。\n"
     "   ⚠️ 实测：等比数列「前4项和4、前8项和68 求公比」，模型默认只给 q=2，\n"
-    "   漏掉 q=-2（此时 a₁=-4/5，S₄=4、S₈=68 同样成立）——只给一个解就是错答。"
+    "   漏掉 q=-2（此时 a₁=-4/5，S₄=4、S₈=68 同样成立）——只给一个解就是错答。\n"
+    + prompts.ANALYSIS_RULES
 )
 
 
@@ -101,7 +102,13 @@ def _build_messages(question: str, context: dict | None, mode: str) -> list[dict
         # 不要写"请说明检索无结果"——模型会把内部状态复述进答案，
         # 学生看到的就是"检索无结果。依基础运算通法：1+1=2"这种怪话。
         ctx_text = "（无参考材料，直接按学科通法作答）"
-    user = f"【检索到的知识点与例题】\n{ctx_text}\n\n【学生问题】\n{question}\n\n【模式】{mode}"
+    # M2-11：可信标答放进 user 侧（system 侧是通用规范），模型据此收敛结论数值
+    ref = (context or {}).get("reference_answer")
+    ref_block = f"\n\n【标准答案（唯一结论，数值不得与之冲突）】{ref}" if ref else ""
+    user = (
+        f"【检索到的知识点与例题】\n{ctx_text}\n\n【学生问题】\n{question}\n\n【模式】{mode}"
+        f"{ref_block}"
+    )
     if _slash_ambiguous(question):
         # 拍照 OCR 常把分数线压成斜杠并丢掉括号：
         # (x+2)/(e^x+a) → x+2/e^x+a，a 从分母跑到分子侧，整道题被换掉。
@@ -161,6 +168,7 @@ async def solve(
     store=None,
     tenant_id: str | None = None,
     llm_cfg=None,
+    reference_answer: str | None = None,
 ) -> dict:
     """解题入口。真实模式经 T-D1 请求级缓存（同题/近似题命中则跳过 LLM）。
 
@@ -169,12 +177,24 @@ async def solve(
 
     W6 BYOM T-M4：``tenant_id`` / ``llm_cfg`` 透传租户级模型配置（解析一次后向下游复用）；
     无租户配置时回落全局 env，行为等同接入 BYOM 前。
+
+    M2-11：``reference_answer`` 是**可信标准答案**（本卷答案 / 题库标注答案）。给了它，
+    解析回包前会过 ``numeric_guard``：与标答冲突的结论数值就地纠正，纠正不了则标记
+    ``numeric_conflict`` 交人工核对。没给就完全不动——没有判据时改字只会改出新错。
     """
     if config.llm_ready():
         cfg = llm_cfg or await tenant_llm.resolve_llm_config(tenant_id)
 
         async def _call(q, c, m):
-            return await _remote_solve(q, c, m, tier=tier, steps=steps, llm_cfg=cfg)
+            # 标答只用于提示词与护栏，不写进缓存键所属的上下文对象（不污染调用方 dict）
+            ctx = dict(c or {})
+            if reference_answer:
+                ctx["reference_answer"] = reference_answer
+            out = await _remote_solve(
+                q, ctx, m, tier=tier, steps=steps, llm_cfg=cfg,
+                reference_answer=reference_answer,
+            )
+            return numeric_guard.guard_analysis(out, reference_answer)
 
         def _on_cache_hit() -> None:
             # T-D3：缓存命中不烧 LLM，但仍要计数（否则算不出缓存省了多少）
@@ -207,6 +227,7 @@ async def _remote_solve(
     tier: str | None = None,
     steps: int | None = None,
     llm_cfg=None,
+    reference_answer: str | None = None,
 ) -> dict:
     # W6 BYOM T-M4：租户级配置（chat 段）驱动客户端与模型路由
     cfg = llm_cfg or await tenant_llm.resolve_llm_config(None)
@@ -261,7 +282,9 @@ async def _remote_solve(
             latency_ms=int((time.monotonic() - t0) * 1000),
             **_tokens(resp),
         )
-        return {"answer": str(answer), "steps": [str(s) for s in steps]}
+        out = {"answer": str(answer), "steps": [str(s) for s in steps]}
+        # 开发态/单测直接调 _remote_solve 时也保底过一遍护栏（缓存层另有一层）
+        return numeric_guard.guard_analysis(out, reference_answer)
     except Exception as e:  # noqa: BLE001 端点配额耗尽(403)/超时等：降级为基于检索的
         # 通法拼装，不让主链路 500——引导对话宁可给通法，也不能整体失败
         usage.record_usage_bg(

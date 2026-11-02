@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Assignment
 import androidx.compose.material.icons.rounded.CenterFocusWeak
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.PhotoCamera
@@ -274,7 +275,8 @@ fun CameraScreen(
                 onPick = { openGallery(null) },
                 onRecognize = { vm.recognize() },
                 onRetake = { vm.reset() },
-                onUseText = { onNavigate(Screen.Input.route) }
+                onUseText = { onNavigate(Screen.Input.route) },
+                onBackToExam = { onNavigate(Screen.Exam.route) }
             )
 
             CameraStage.Recognizing -> {
@@ -300,6 +302,7 @@ fun CameraScreen(
             CameraStage.Recognized -> ResultBlock(
                 text = ui.recognizedText,
                 knowledgePoints = ui.knowledgePoints,
+                gradingAllowed = ui.gradingAllowed,
                 onTextChange = { vm.updateText(it) },
                 onSolve = {
                     AppBridge.postQuestion(ui.recognizedText)
@@ -391,29 +394,44 @@ private fun IdleBlock(
     onPick: () -> Unit,
     onRecognize: () -> Unit,
     onRetake: () -> Unit,
-    onUseText: () -> Unit
+    onUseText: () -> Unit,
+    onBackToExam: () -> Unit
 ) {
     if (error != null) {
         SoftNotice(
             text = error,
             icon = Icons.Rounded.CenterFocusWeak,
             color = when (errorKind) {
-                CameraErrorKind.VlmDisabled -> TesEduColors.Amber
+                CameraErrorKind.VlmDisabled,
+                CameraErrorKind.NotInAssignment -> TesEduColors.Amber
                 else -> TesEduColors.Danger
             },
             bg = when (errorKind) {
-                CameraErrorKind.VlmDisabled -> TesEduColors.AmberSoft
+                CameraErrorKind.VlmDisabled,
+                CameraErrorKind.NotInAssignment -> TesEduColors.AmberSoft
                 else -> TesEduColors.DangerSoft
             }
         )
         Spacer(Modifier.height(12.dp))
-        // 未启用视觉模型时重拍没有意义，直接引导回文字输入
-        if (errorKind == CameraErrorKind.VlmDisabled) {
-            GradientButton(text = "改用文字输入", icon = Icons.Rounded.EditNote) { onUseText() }
-            Spacer(Modifier.height(10.dp))
-        } else {
-            SoftOutlinedButton(text = "换一张图", icon = Icons.Rounded.RestartAlt) { onRetake() }
-            Spacer(Modifier.height(10.dp))
+        // 这两种失败重拍都不会变好：一个是没有视觉模型，一个是题目本来就不在作业里。
+        when (errorKind) {
+            CameraErrorKind.VlmDisabled -> {
+                GradientButton(text = "改用文字输入", icon = Icons.Rounded.EditNote) { onUseText() }
+                Spacer(Modifier.height(10.dp))
+            }
+            // M1-8：拍照解题只服务已下发作业，不在作业里的题给两条正经出口
+            CameraErrorKind.NotInAssignment -> {
+                GradientButton(text = "回作业列表", icon = Icons.Rounded.Assignment) { onBackToExam() }
+                Spacer(Modifier.height(10.dp))
+                SoftOutlinedButton(text = "改用文字输入（只求讲解）", icon = Icons.Rounded.EditNote) {
+                    onUseText()
+                }
+                Spacer(Modifier.height(10.dp))
+            }
+            else -> {
+                SoftOutlinedButton(text = "换一张图", icon = Icons.Rounded.RestartAlt) { onRetake() }
+                Spacer(Modifier.height(10.dp))
+            }
         }
     }
 
@@ -494,10 +512,13 @@ private fun PreviewImage(bytes: ByteArray?) {
 private fun ResultBlock(
     text: String,
     knowledgePoints: List<String>,
+    gradingAllowed: Boolean?,
     onTextChange: (String) -> Unit,
     onSolve: () -> Unit,
     onRetake: () -> Unit
 ) {
+    // 只有后端明确说"不判分"才降级；null 是旧版本回包，按原行为处理
+    val onlyExplain = gradingAllowed == false
     SoftCard {
         Text(
             "识别到的题面",
@@ -506,9 +527,13 @@ private fun ResultBlock(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            "认错了直接改，改完照样能解",
+            if (onlyExplain) {
+                "认错了直接改；这道题没有绑定作业，只能讲解、不判分"
+            } else {
+                "认错了直接改，改完照样能解"
+            },
             style = MaterialTheme.typography.labelSmall,
-            color = TesEduColors.TextMuted
+            color = if (onlyExplain) TesEduColors.Amber else TesEduColors.TextMuted
         )
         Spacer(Modifier.height(12.dp))
         SoftFieldCard(
@@ -532,7 +557,7 @@ private fun ResultBlock(
         }
         Spacer(Modifier.height(16.dp))
         GradientButton(
-            text = "就用这道题去解",
+            text = if (onlyExplain) "看这道题的讲解" else "就用这道题去解",
             icon = Icons.Rounded.CenterFocusWeak,
             enabled = text.isNotBlank()
         ) { onSolve() }

@@ -26,7 +26,7 @@ import re
 import unicodedata
 from typing import Any
 
-from app.core import config, llm, rag, tenant_llm, equiv
+from app.core import config, llm, numeric_guard, prompts, rag, tenant_llm, equiv
 
 log = logging.getLogger("judge_v2")
 
@@ -49,20 +49,10 @@ PROCESS_TYPES = ("解答", "实验", "证明")
 # 解答类题型的过程文本下限：短于此视为"只写了个结论"（如"略""不会"），不判分
 MIN_PROCESS_LEN = int(config._get("MIN_PROCESS_LEN", "12"))
 
-_JUDGE_V2_SYSTEM = (
-    "你是一名高中数学阅卷老师，做【步骤级归因】判分。\n"
-    "依据【参考步骤】逐条比对【学生作答】，找出学生**第一个出错的步骤**。\n"
-    "规则：\n"
-    "1) first_wrong_step 填参考步骤的 step_no（整数）；全对填 null。\n"
-    "2) error_type 只能取这些英文值之一：concept(概念理解) / formula(公式误用) / "
-    "case(分类讨论遗漏) / calc(计算运算) / read(审题漏条件) / logic(逻辑跳步) / "
-    "strategy(方法策略) / unknown(无法判断)。**必须输出英文原值，不要输出中文**。\n"
-    "3) evidence 摘录学生作答中支撑该判断的原文片段（≤80 字）。\n"
-    "4) 证据不足或对不齐时，error_type 填 unknown，**不要硬猜**。\n"
-    "5) 只输出严格 JSON，不要包裹 markdown："
-    '{"correct":true/false,"first_wrong_step":<int|null>,'
-    '"error_type":"<七类|unknown>","evidence":"...","comment":"一句话点评"}'
-)
+#: M2-11：错因归因提示词收口到 ``prompts``（改它必须 bump PROMPT_VERSION）。
+#: 归因只判"错在哪一步、属于哪类错因"，**不得复述/改写标答数值**——这边写错一个
+#: 数字，学生照着改就会改错。
+_JUDGE_V2_SYSTEM = prompts.ATTRIBUTION_SYSTEM
 
 _SEED_SYSTEM = (
     "你把一道题的解析拆成有序的参考步骤，用于后续的作答比对。\n"
@@ -567,7 +557,7 @@ async def judge_by_llm(
         if not isinstance(data, dict) or "correct" not in data:
             return _unknown("LLM 未按格式返回，转人工复核")
         step = data.get("first_wrong_step")
-        return {
+        out = {
             "correct": bool(data.get("correct")),
             "partial": False,
             "comment": str(data.get("comment") or "")[:200],
@@ -578,6 +568,17 @@ async def judge_by_llm(
             "attribution_source": "llm",
             "need_process": False,
         }
+        # M2-11：归因文字不得与卷面标答数值冲突（模型常顺手写「正确答案是 3.04」）
+        if not answer_untrusted and bundle.get("answer"):
+            guarded = numeric_guard.guard_analysis(
+                {"answer": out["comment"], "steps": [out["evidence"]]},
+                bundle["answer"],
+            )
+            out["comment"] = guarded.get("answer") or out["comment"]
+            ev = (guarded.get("steps") or [""])[0]
+            out["evidence"] = ev or out["evidence"]
+            out["numeric_conflict"] = bool(guarded.get("numeric_conflict"))
+        return out
     except Exception as e:  # noqa: BLE001 判分失败不得拖垮主链路
         return _unknown(f"LLM 判定失败（{type(e).__name__}），转人工复核")
 

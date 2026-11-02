@@ -90,7 +90,9 @@ from app.models.schemas import (
 )
 from app.services import answer_verify as verify
 from app.services import grading_guard as guard
+from app.services import student_profile
 from app.services import wrongbook
+from app.services.student_profile import DEFAULT_GRADE, grade_matches
 
 router = APIRouter(prefix="/exam", tags=["exam"])
 student_router = APIRouter(prefix="/exams", tags=["student-exam"])
@@ -751,20 +753,23 @@ def _tenant_of(user: dict) -> str:
     return user.get("tenant_id") or "school_pilot_01"
 
 
-def _visible_to(a: ExamAssignment, user: dict) -> bool:
+def _visible_to(a: ExamAssignment, user: dict, grade: Optional[str] = None) -> bool:
     """学生能否看到这份下发。
 
     **租户隔离是第一道门**：年级段下发（target_type=grade）没有学生 id，
     只按 `target_grade` 命中的话，别的学校的高三学生也会看到这份卷——
     实测 demo 租户的教师卷和试点校学生的列表会互相串。
+
+    ``grade`` 是学生自己的年级（M0-3 ``student_profile``），为空时按租户默认
+    年级兜底。此前这里写死「高三」，高一/高二学生永远看不到卷，而高三学生
+    又会收到本租户其它年级的卷——两个方向都是错的。
     """
     tenant = _tenant_of(user)
     if (a.tenant_id or "") != tenant:
         return False
-    # MVP：年级段下发仅『高三』（M0-3 student_profile 落地后用学生真实年级替换）
     if a.target_type == "student":
         return a.target_student == user["user_id"]
-    return a.target_grade == "高三"
+    return grade_matches(a.target_grade, grade or DEFAULT_GRADE)
 
 
 async def _assignment_for_student(
@@ -774,7 +779,10 @@ async def _assignment_for_student(
     a = (
         await db.execute(select(ExamAssignment).where(ExamAssignment.id == assignment_id))
     ).scalar_one_or_none()
-    if not a or not _visible_to(a, user):
+    grade = await student_profile.get_grade(
+        db, user["user_id"], _tenant_of(user)
+    )
+    if not a or not _visible_to(a, user, grade):
         raise HTTPException(status_code=404, detail="assignment not found")
     return a
 
@@ -787,12 +795,13 @@ async def list_student_exams(
     """列出该学生可做的试卷（本租户 + 已发布 + 下发到本人/本年级段）。"""
     student_id = user["user_id"]
     tenant_id = _tenant_of(user)
+    # M0-3：按学生真实年级取卷；没配档案时用租户默认年级兜底（只读，不落库）
+    grade = await student_profile.get_grade(db, student_id, tenant_id)
     grade_rows = (
         await db.execute(
             select(ExamAssignment).where(
                 ExamAssignment.tenant_id == tenant_id,
                 ExamAssignment.target_type == "grade",
-                ExamAssignment.target_grade == "高三",
             ).order_by(ExamAssignment.assigned_at.desc())
         )
     ).scalars().all()
@@ -808,7 +817,7 @@ async def list_student_exams(
 
     out = []
     for a in list(grade_rows) + list(stu_rows):
-        if not _visible_to(a, user):
+        if not _visible_to(a, user, grade):
             continue
         p = (
             await db.execute(select(ExamPaper).where(ExamPaper.id == a.paper_id))

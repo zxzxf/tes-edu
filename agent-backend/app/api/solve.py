@@ -134,9 +134,22 @@ async def solve(req: SolveRequest, request: Request):
 
 @router.post("/solve_image")
 async def solve_image(file: UploadFile = File(...), request: Request = None):
-    """拍照题：OCR 识别 -> 解题"""
+    """拍照题：OCR 识别 -> 校验是否在作业中 -> 解题。
+
+    M1-8 收敛：默认 ``require_assignment=True``，识别结果必须匹配到该学生已下发的
+    作业题才继续解题/判分；匹配不到直接返回 ``not_in_assignment=True``，由 App
+    引导回作业列表或改用文字输入（讲解/图谱/错题集不受影响）。
+    灰度关闭时用 ``?require_assignment=false`` 回退到旧的自由解题行为。
+    """
     data = await file.read()
-    result = await orchestrator.handle_image(data, tenant_id=_identity(request).get("tenant_id") or "")
+    ident = _identity(request)
+    result = await orchestrator.handle_image(
+        data,
+        tenant_id=ident.get("tenant_id") or "",
+        student_id=ident.get("student_id") or "",
+        require_assignment=request.query_params.get("require_assignment", "true").lower()
+        not in ("0", "false", "no"),
+    )
     events.emit_student_event_bg(
         {
             "event_type": "solve_image",

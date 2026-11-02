@@ -27,6 +27,14 @@ enum class CameraErrorKind {
     /** 图上传了但没识别出文字（拍糊了/空白页）——重拍即可。 */
     EmptyText,
 
+    /**
+     * M1-8：识别出的题**不在已下发的作业里**。
+     *
+     * 与其它三类不同，这不是"这张图的问题"——重拍多少次结果都一样。
+     * UI 必须给两条出口：回作业列表、或改用文字输入只求讲解（不判分）。
+     */
+    NotInAssignment,
+
     /** 网络或后端异常——可重试。 */
     Network
 }
@@ -45,7 +53,11 @@ data class CameraUiState(
     val knowledgePoints: List<String> = emptyList(),
     val loading: Boolean = false,
     val error: String? = null,
-    val errorKind: CameraErrorKind? = null
+    val errorKind: CameraErrorKind? = null,
+    /** M1-8：本次识别的题是否落在已下发作业里（null=旧后端未返回该字段）。 */
+    val gradingAllowed: Boolean? = null,
+    /** 命中的作业题序号（排障/日志用）。 */
+    val assignmentSeq: Int? = null
 )
 
 /**
@@ -82,7 +94,9 @@ class CameraViewModel(
                 recognizedText = "",
                 knowledgePoints = emptyList(),
                 error = null,
-                errorKind = null
+                errorKind = null,
+                gradingAllowed = null,
+                assignmentSeq = null
             )
         }
     }
@@ -132,12 +146,17 @@ class CameraViewModel(
     private fun applyResult(res: SolveResponse) {
         val text = res.recognizedText.orEmpty().trim()
         val kind = when {
+            // M1-8：不在作业中优先判定——后端已经短路，不会返回题干答案
+            res.notInAssignment == true -> CameraErrorKind.NotInAssignment
             // 后端已配视觉模型但没认出文字 / 压根没配 —— 区分对待
             res.vlmEnabled == false -> CameraErrorKind.VlmDisabled
             text.isBlank() -> CameraErrorKind.EmptyText
             else -> null
         }
         val message = when (kind) {
+            CameraErrorKind.NotInAssignment ->
+                res.message?.takeIf { it.isNotBlank() }
+                    ?: "本题不在你的作业中，拍照解题只用于老师已下发的作业。"
             CameraErrorKind.VlmDisabled ->
                 res.message?.takeIf { it.isNotBlank() }
                     ?: "拍照识题暂未启用（未配置视觉模型），请先用文字输入。"
@@ -152,7 +171,9 @@ class CameraViewModel(
             recognizedText = text,
             knowledgePoints = res.knowledgePoints,
             error = message,
-            errorKind = kind
+            errorKind = kind,
+            gradingAllowed = res.gradingAllowed,
+            assignmentSeq = res.assignmentSeq
         )
     }
 }

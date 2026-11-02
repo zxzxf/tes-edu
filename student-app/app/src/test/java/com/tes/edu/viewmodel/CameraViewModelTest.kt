@@ -153,6 +153,52 @@ class CameraViewModelTest {
         assertTrue(vm.ui.value.error!!.contains("没从这张图里识别出文字"))
     }
 
+    /**
+     * M1-8：识别出的题不在已下发作业里时，后端已经短路（不判分）。
+     * 这必须是一个**独立的失败类型**——它不是"拍糊了重拍"，重拍多少次都一样，
+     * 学生要做的是回作业列表或改用文字输入。
+     */
+    @Test
+    fun recognize_notInAssignment_flagsDedicatedKind_andStaysIdle() {
+        api.next = SolveResponse(
+            answer = "",
+            recognizedText = "1+1 等于几",
+            vlmEnabled = true,
+            degraded = true,
+            notInAssignment = true,
+            gradingAllowed = false,
+            message = "本题不在你的作业中。"
+        )
+        vm.prepare(photo())
+        vm.recognize()
+
+        val ui = vm.ui.value
+        assertEquals(CameraErrorKind.NotInAssignment, ui.errorKind)
+        assertEquals("不在作业中不能跳到结果页", CameraStage.Idle, ui.stage)
+        assertTrue(ui.error!!.contains("不在你的作业中"))
+        assertTrue("必须明确告知不会判分", ui.gradingAllowed == false)
+    }
+
+    @Test
+    fun recognize_matchedAssignment_allowsGrading() {
+        api.next = SolveResponse(
+            answer = "x=2",
+            recognizedText = "求 2x=4 的解",
+            vlmEnabled = true,
+            notInAssignment = false,
+            gradingAllowed = true,
+            assignmentSeq = 3
+        )
+        vm.prepare(photo())
+        vm.recognize()
+
+        val ui = vm.ui.value
+        assertEquals(CameraStage.Recognized, ui.stage)
+        assertEquals(true, ui.gradingAllowed)
+        assertEquals(3, ui.assignmentSeq)
+        assertNull(ui.errorKind)
+    }
+
     @Test
     fun recognize_networkError_flagsNetwork_andKeepsPreview() {
         api.fail = RuntimeException("timeout")

@@ -19,7 +19,18 @@ import asyncio
 import re
 import time
 
-from app.core import config, intent, judge_v2, llm, ocr, qtype, rag, socratic, tenant_llm
+from app.core import (
+    assignment_match,
+    config,
+    intent,
+    judge_v2,
+    llm,
+    ocr,
+    qtype,
+    rag,
+    socratic,
+    tenant_llm,
+)
 
 # ---------------------------------------------------------------- 题面清洗
 
@@ -129,6 +140,7 @@ async def handle_question(
     direct_reveal: bool = False,
     student_id: str | None = None,
     tenant_id: str | None = None,
+    reference_answer: str | None = None,
 ) -> dict:
     # 0) W6 BYOM T-M4：解析租户级模型配置（命中租户行且 enabled → 解密；否则回落全局 env）。
     #    一次请求内只解析一次，向下游所有 LLM 调用透传，避免重复查库/缓存。
@@ -183,6 +195,7 @@ async def handle_question(
                 tier=_route_tier.get("tier"),
                 steps=len(ctx.get("steps") or []),
                 llm_cfg=cfg,
+                reference_answer=reference_answer,
             ),
             llm.suggest_similar_detailed(question, context=ctx, llm_cfg=cfg),
         )
@@ -199,6 +212,7 @@ async def handle_question(
             tier=_route_tier.get("tier"),
             steps=len(ctx.get("steps") or []),
             llm_cfg=cfg,
+            reference_answer=reference_answer,
         )
         sim = {"similar": [], "degraded": False}
     out = {
@@ -383,7 +397,13 @@ async def _judge_v2_with_fallback(
     return j
 
 
-async def handle_image(image_bytes: bytes, *, tenant_id: str | None = None) -> dict:
+async def handle_image(
+    image_bytes: bytes,
+    *,
+    tenant_id: str | None = None,
+    student_id: str | None = None,
+    require_assignment: bool = True,
+) -> dict:
     """拍照：OCR 抽题面 -> 文本题链路。
 
     与 `similar_degraded` 同口径：不可用时**显式回 degraded/vlm_enabled**，
@@ -393,6 +413,11 @@ async def handle_image(image_bytes: bytes, *, tenant_id: str | None = None) -> d
          回落平台全局 VLM；两者皆无则直接短路，不消耗 LLM 配额，也不把降级文案
          当题面送进 handle_question（早期实现会因此生成牛头不对马嘴的"解析"）。
       2. OCR 返回空白 —— 图片没拍到题目/全白，同样不值得进 LLM。
+
+    **M1-8 拍照入口收敛**：``require_assignment=True``（默认）时，识别出的题面必须
+    能匹配到该学生**已下发的作业题**，否则直接拒绝并提示「本题不在你的作业中」，
+    **不进解题/判分**——自由拍照不是作业闭环的一部分（A9）。要回退到旧的自由解题
+    行为，把 ``require_assignment`` 置 False（或关灰度开关）。
     """
     cfg = await tenant_llm.resolve_llm_config(tenant_id) if tenant_id else tenant_llm._global_config()
     if not tenant_llm.vlm_enabled(cfg):
@@ -428,9 +453,46 @@ async def handle_image(image_bytes: bytes, *, tenant_id: str | None = None) -> d
             "message": "没从这张图里识别出文字，换一张拍清楚些的，或改用文字输入。",
         }
 
-    result = await handle_question(text, tenant_id=tenant_id)
+    matched_seq = None
+    reference_answer = None
+    if require_assignment and student_id:
+        questions = await assignment_match.load_assignment_questions(
+            tenant_id=tenant_id or "", student_id=student_id
+        )
+        matched_seq = assignment_match.best_match(text, questions)
+        if matched_seq is None:
+            return {
+                "answer": "",
+                "steps": [],
+                "similar": [],
+                "knowledge_points": [],
+                "recognized_text": text,
+                "vlm_enabled": True,
+                "degraded": True,
+                "not_in_assignment": True,
+                "grading_allowed": False,
+                "message": (
+                    "本题不在你的作业中。拍照解题只用于老师已下发的作业："
+                    "请回到「作业」里打开对应卷子作答；如果只是想弄懂这道题，"
+                    "可以改用文字输入并选择「只求讲解」（不判分）。"
+                ),
+            }
+        for q in questions:
+            if int(q.get("seq") or -1) == matched_seq:
+                reference_answer = q.get("answer") or None
+                break
+
+    result = await handle_question(
+        text,
+        tenant_id=tenant_id,
+        reference_answer=reference_answer,
+    )
     # 回传识别文本，供学情上报与前端核对（文本题链路不返回该字段）
     result["recognized_text"] = text
     result["vlm_enabled"] = True
     result["degraded"] = False
+    result["not_in_assignment"] = False
+    result["grading_allowed"] = matched_seq is not None or not require_assignment
+    if matched_seq is not None:
+        result["assignment_seq"] = matched_seq
     return result

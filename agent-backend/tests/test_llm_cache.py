@@ -301,5 +301,7 @@ def test_cache_key_differs_by_prompt_version(monkeypatch):
     kw = dict(subject="数学", mode="direct", hint_level=None, question="求公比",
               model="qwen3.6-flash")
     k1 = lc.cache_key(**kw)
-    monkeypatch.setattr(lc.config, "PROMPT_VERSION", "3")
+    # 相对当前版本 +1：避免以后再 bump 时这条断言变成"自己跟自己比"
+    bumped = str(int(lc.config.PROMPT_VERSION) + 1)
+    monkeypatch.setattr(lc.config, "PROMPT_VERSION", bumped)
     assert lc.cache_key(**kw) != k1

@@ -132,7 +132,19 @@ data class SolveResponse(
     /** 拍照链路降级标记（未配 VLM / 未识别到文字）。 */
     val degraded: Boolean? = null,
     /** 降级或失败时后端给出的可直接展示的说明。 */
-    val message: String? = null
+    val message: String? = null,
+    // —— M1-8 拍照入口收敛 ——
+    /**
+     * 识别出的题不在该学生**已下发的作业**里。
+     *
+     * true 时后端已短路：`answer` 为空、**没有判分**。App 必须给出两条出口
+     * （回作业列表 / 改用文字输入），不能把它当成普通网络失败让学生重拍。
+     */
+    @SerializedName("not_in_assignment") val notInAssignment: Boolean? = null,
+    /** 本次拍照是否允许进入判分（false 时只可讲解，不可判分）。 */
+    @SerializedName("grading_allowed") val gradingAllowed: Boolean? = null,
+    /** 命中的作业题序号（仅匹配成功时有值，便于日志/排障）。 */
+    @SerializedName("assignment_seq") val assignmentSeq: Int? = null
 )
 
 interface ApiService {

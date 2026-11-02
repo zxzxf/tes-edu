@@ -85,7 +85,8 @@ MATCH_THRESHOLD = float(_get("MATCH_THRESHOLD", "0.75"))
 
 # 提示词版本号，**改解题/判分提示词时必须 +1**。它进 llm_cache 的缓存键，
 # 使旧缓存整体失效——否则改完提示词线上仍返回 7 天内的旧答案（表现为"改了没生效"）。
-PROMPT_VERSION = _get("PROMPT_VERSION", "2")
+# M2-11：解析/归因提示词规范落地（数值不得与卷面答案冲突），版本 +1。
+PROMPT_VERSION = _get("PROMPT_VERSION", "3")
 
 # ---- Kafka 学情事件上报 ----
 # 137 的 kafka 已接入 edu-net，容器内用 kafka:9092 即可；留空则不上报（不影响解题）

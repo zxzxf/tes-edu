@@ -30,6 +30,7 @@ from app.api import (
     rbac_api,
     student_features,
     student_learning,
+    student_profile,
     vendor_api,
     byom as byom_api,
     wrong_questions,
@@ -191,6 +192,8 @@ app.include_router(byom_api.router, prefix="/api/admin")  # W6 BYOM 学校配置
 app.include_router(student_features.student_router, prefix="/api/student")  # W3 学生端能力（项目/功能开关/防疲劳）
 app.include_router(student_features.admin_router, prefix="/api/admin")  # W3 功能开关/防疲劳管理（require_perm system:feature:manage）
 app.include_router(exam.student_router, prefix="/api/student")  # 作业闭环：学生取卷/提交/判分
+app.include_router(student_profile.router, prefix="/api/admin")  # M0-3 学生年级归属（教师维护 + 批量导入）
+app.include_router(student_profile.student_router, prefix="/api/student")  # M0-3 学生查自己的年级（/profile/me）
 
 # T-B5：C 端直连挂载（网关 /login 与 /learning/ 路由按原路径转发、不做前缀改写，
 # 2026-10-24 部署时发现单挂 /api/admin 会导致网关侧 404，故补根路径双挂载）。
