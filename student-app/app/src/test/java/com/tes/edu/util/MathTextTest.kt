@@ -84,6 +84,25 @@ class MathTextTest {
     }
 
     @Test
+    fun escaped_braces_are_unescaped_before_frac() {
+        // 题库标准 LaTeX 常把花括号写成转义形式 `\{` `\}`（`\dfrac\{\sqrt\{65\}\}\{2\}`），
+        // 还原必须发生在 FRAC/SQRT 之前，否则 `\dfrac` 整段露源码（选项 D 现网故障）。
+        assertEquals("√65/2", preprocessMath("\\dfrac{\\sqrt{65}}{2}"))
+        assertEquals("·√65/2", preprocessMath("·\\dfrac{\\sqrt{65}}{2}"))
+        assertEquals("D. ·√65/2", preprocessMath("D. ·\\dfrac{\\sqrt{65}}{2}"))
+        // 简写分数 + 转义花括号也要能展平
+        assertEquals("1/2", preprocessMath("\\frac{1}{2}"))
+        assertEquals("{-1/2,1}", preprocessMath("\\{-1/2,1\\}"))
+    }
+
+    @Test
+    fun double_backslash_with_escaped_braces() {
+        // 双重转义 + 转义花括号同时出现：`\\dfrac\{\\sqrt\{65\}\}\{2\}`
+        assertEquals("√65/2", preprocessMath("\\\\dfrac{\\sqrt{65}}{2}"))
+        assertEquals("·√65/2", preprocessMath("·\\\\dfrac{\\sqrt{65}}{2}"))
+    }
+
+    @Test
     fun stray_backslash_is_removed() {
         // 残留的孤立反斜杠（如 LaTeX 的 `\ ` 空格命令）必须清掉，绝不露源码
         assertEquals("C_1:y^2=2p_1x (p_1>0)", preprocessMath("${'$'}C_1:y^2=2p_1x\\ (p_1>0)${'$'}"))

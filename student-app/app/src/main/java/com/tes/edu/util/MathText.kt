@@ -110,6 +110,10 @@ fun preprocessMath(src: String): String {
     // 数据源偶尔出现双重转义（`\\dfrac` 而非 `\dfrac`），先归一化成单反斜杠，
     // 否则后续单反斜杠正则匹配不上，公式会整段露源码。
     s = s.replace("\\\\", "\\")
+    // 还原 LaTeX 转义花括号 `\{` `\}`（集合、绝对值、题库标准 LaTeX 里常写成转义花括号）。
+    // 必须放在 FRAC/SQRT 之前：它们靠字面的 `{` `}` 定位分子分母，撞上 `\{` 会整段匹配不上，
+    // 而原先放在函数末尾的还原太晚，导致 `\dfrac{\sqrt{65}}{2}` 这类直接露源码。
+    s = s.replace("\\{", "{").replace("\\}", "}")
     s = TEXT_MACRO.replace(s) { it.groupValues[1] }
     s = LEFT_RIGHT.replace(s, "")
     s = FRAC.replace(s) { wrapOperand(it.groupValues[1]) + "/" + wrapOperand(it.groupValues[2]) }
@@ -121,8 +125,6 @@ fun preprocessMath(src: String): String {
         val name = it.groupValues[1]
         SYMBOLS[name] ?: if (FUNCTIONS.contains(name)) name else it.value
     }
-    // 还原 LaTeX 转义花括号 `\{` `\}`（集合、绝对值等场景用转义表示花括号）
-    s = s.replace("\\{", "{").replace("\\}", "}")
     // 定界符：`$$..$$` / `$..$` / `\(..\)` 只去掉包裹符号，内容保留
     s = s.replace("$$", "").replace("$", "")
     s = s.replace("\\(", "").replace("\\)", "")
