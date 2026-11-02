@@ -18,7 +18,7 @@ const TEACHER_MENUS = [
   { menu_id: 'm_ops_exam_gen', parent_id: 'm_ops_exam', menu_name: '生成组卷', menu_type: 'BUTTON', path: '', sort: 1, permission_code: 'exam:generate' },
 ]
 
-async function mountLayout(role, menus) {
+async function mountLayout(role, menus, initialPath = '/dashboard') {
   const pinia = createPinia()
   setActivePinia(pinia)
   const auth = useAuthStore()
@@ -29,9 +29,11 @@ async function mountLayout(role, menus) {
     routes: [
       { path: '/', redirect: '/dashboard' },
       { path: '/dashboard', name: 'dashboard', component: { template: '<div>dash</div>' }, meta: { title: '概览' } },
+      // 兜底：深链测试用（真实应用里这些都有具体页面，测试只关心导航态）
+      { path: '/:pathMatch(.*)*', component: { template: '<div>page</div>' } },
     ],
   })
-  router.push('/dashboard')
+  router.push(initialPath)
   await router.isReady()
 
   const wrapper = mount(Layout, { global: { plugins: [pinia, router] } })
@@ -160,5 +162,57 @@ describe('Layout 侧栏折叠', () => {
     for (const el of wrapper.findAll('a.nav-item')) {
       expect(el.attributes('title')).toBe(el.find('.nav-label').text())
     }
+  })
+})
+
+describe('Layout 分组折叠', () => {
+  const groupOf = (wrapper, label) => wrapper.findAll('.nav-group').find((el) => el.text() === label)
+
+  beforeEach(() => {
+    localStorage.removeItem('tes_nav_closed_groups')
+  })
+
+  it('默认全展开；点分组标题只收起该组，其他组与标题本身不受影响', async () => {
+    const wrapper = await mountLayout('teacher', TEACHER_MENUS)
+    expect(navLabels(wrapper)).toContain('菜单管理')
+
+    const g = groupOf(wrapper, '系统设置')
+    expect(g.classes()).not.toContain('closed')
+    expect(g.attributes('aria-expanded')).toBe('true')
+
+    await g.trigger('click')
+
+    expect(groupOf(wrapper, '系统设置').classes()).toContain('closed')
+    expect(groupOf(wrapper, '系统设置').attributes('aria-expanded')).toBe('false')
+    // 只收起本组：系统设置下 4 项消失，区域运营 3 项仍在，两个标题都还在
+    expect(navLabels(wrapper)).toEqual(['概览', '学校管理', '教研内容管理', '学情看板'])
+    expect(groupLabels(wrapper)).toEqual(['系统设置', '区域运营'])
+    expect(JSON.parse(localStorage.getItem('tes_nav_closed_groups'))).toEqual(['m_sys'])
+
+    // 再点一次恢复
+    await groupOf(wrapper, '系统设置').trigger('click')
+    expect(navLabels(wrapper)).toContain('菜单管理')
+    expect(JSON.parse(localStorage.getItem('tes_nav_closed_groups'))).toEqual([])
+  })
+
+  it('两组都收起时只剩常驻的概览', async () => {
+    const wrapper = await mountLayout('teacher', TEACHER_MENUS)
+    await groupOf(wrapper, '系统设置').trigger('click')
+    await groupOf(wrapper, '区域运营').trigger('click')
+    expect(navLabels(wrapper)).toEqual(['概览'])
+    expect(JSON.parse(localStorage.getItem('tes_nav_closed_groups'))).toEqual(['m_sys', 'm_ops'])
+  })
+
+  it('刷新沿用折叠状态；深链进入被收起的分组时自动展开该组', async () => {
+    localStorage.setItem('tes_nav_closed_groups', JSON.stringify(['m_sys', 'm_ops']))
+
+    const w1 = await mountLayout('teacher', TEACHER_MENUS)
+    expect(navLabels(w1)).toEqual(['概览'])
+
+    // /knowledge 属于“区域运营”：进来要能看见自己在哪，该组自动展开，另一组保持收起
+    const w2 = await mountLayout('teacher', TEACHER_MENUS, '/knowledge')
+    expect(navLabels(w2)).toEqual(['概览', '学校管理', '教研内容管理', '学情看板'])
+    expect(groupOf(w2, '系统设置').attributes('aria-expanded')).toBe('false')
+    expect(groupOf(w2, '区域运营').attributes('aria-expanded')).toBe('true')
   })
 })

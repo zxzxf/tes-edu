@@ -30,17 +30,29 @@
         <!-- T-AM7：其余导航按 /menu/my 授权动态渲染；无前端页面的菜单
              （如 /system/* 管理页）经映射表过滤，不出死链 -->
         <template v-for="g in navGroups" :key="g.key">
-          <div class="nav-group" :title="g.label">{{ g.label }}</div>
-          <router-link
-            v-for="item in g.items"
-            :key="item.to"
-            :to="item.to"
-            class="nav-item"
-            :title="item.label"
+          <!-- 分组标题可点：收起/展开本组菜单（caret 用 ::after，保持 text 仍是纯标题） -->
+          <button
+            type="button"
+            class="nav-group"
+            :class="{ closed: isClosed(g.key) }"
+            :title="g.label"
+            :aria-expanded="isClosed(g.key) ? 'false' : 'true'"
+            @click="toggleGroup(g.key)"
           >
-            <span class="nav-ico">{{ item.icon }}</span>
-            <span class="nav-label">{{ item.label }}</span>
-          </router-link>
+            <span class="nav-group-label">{{ g.label }}</span>
+          </button>
+          <template v-if="!isClosed(g.key)">
+            <router-link
+              v-for="item in g.items"
+              :key="item.to"
+              :to="item.to"
+              class="nav-item"
+              :title="item.label"
+            >
+              <span class="nav-ico">{{ item.icon }}</span>
+              <span class="nav-label">{{ item.label }}</span>
+            </router-link>
+          </template>
         </template>
       </nav>
 
@@ -117,9 +129,58 @@ function revealActive() {
     nav.scrollTop = itemBottom - nav.clientHeight + 8
   }
 }
-onMounted(() => nextTick(revealActive))
-watch(() => route.path, () => nextTick(revealActive))
-watch(() => auth.menuTree, () => nextTick(revealActive))
+
+// 分组折叠：点标题收起本组菜单（默认全展开）。key 用后端 menu_id，换角色/换租户
+// 不会串组；只记视觉偏好，不进 store。localStorage 不可用时静默降级为不持久化。
+const GROUPS_KEY = 'tes_nav_closed_groups'
+const closedGroups = ref([])
+try {
+  const raw = JSON.parse(localStorage.getItem(GROUPS_KEY) || '[]')
+  closedGroups.value = Array.isArray(raw) ? raw.filter((k) => typeof k === 'string') : []
+} catch (e) {
+  closedGroups.value = []
+}
+function isClosed(key) {
+  return closedGroups.value.includes(key)
+}
+function persistGroups() {
+  try {
+    localStorage.setItem(GROUPS_KEY, JSON.stringify(closedGroups.value))
+  } catch (e) {
+    /* 隐私模式/配额满：仅当次生效 */
+  }
+}
+function toggleGroup(key) {
+  closedGroups.value = isClosed(key)
+    ? closedGroups.value.filter((k) => k !== key)
+    : [...closedGroups.value, key]
+  persistGroups()
+}
+// 深链/程序跳转进来时，若目标项所在分组正好被收起，自动展开该组，
+// 否则「看不到自己在哪」；用户手动收起的分组不受影响（只在命中当前路由时开）
+function openActiveGroup() {
+  const path = route.path
+  const hit = navGroups.value.find((g) =>
+    g.items.some((it) => path === it.to || path.startsWith(`${it.to}/`))
+  )
+  if (hit && isClosed(hit.key)) {
+    closedGroups.value = closedGroups.value.filter((k) => k !== hit.key)
+    persistGroups()
+  }
+}
+// 首屏（深链直达）/ 菜单加载完 / 路由变化：先确保目标项所在分组是展开的，再校准滚动
+onMounted(() => {
+  openActiveGroup()
+  nextTick(revealActive)
+})
+watch(() => auth.menuTree, () => {
+  openActiveGroup()
+  nextTick(revealActive)
+})
+watch(() => route.path, () => {
+  openActiveGroup()
+  nextTick(revealActive)
+})
 
 // 侧栏折叠（纯图标态）：只记视觉偏好，不进 store；localStorage 不可用（隐私模式）时静默降级为不持久化
 const SIDE_KEY = 'tes_side_collapsed'
@@ -230,12 +291,34 @@ function onLogout() {
 .nav:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,.38); }
 
 .nav-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  font: inherit;              /* 覆盖 button 默认字体，保持 11px 全大写感 */
   font-size: 11px; font-weight: 700; letter-spacing: 1px;
   color: rgba(255, 255, 255, .45);
+  background: transparent;
+  border: 0;
   padding: 14px 14px 6px;
+  text-align: left;
+  cursor: pointer;
   flex-shrink: 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: color .18s;
 }
+.nav-group:hover { color: rgba(255, 255, 255, .8); }
+.nav-group:focus-visible { outline: 2px solid rgba(255, 255, 255, .6); outline-offset: -2px; border-radius: 8px; }
+.nav-group-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* caret 用伪元素，保证 .nav-group 的 text 仍是纯标题（title 提示与测试口径一致） */
+.nav-group::after {
+  content: "▾";
+  flex-shrink: 0;
+  font-size: 9px;
+  opacity: .75;
+  transition: transform .18s;
+}
+.nav-group.closed::after { transform: rotate(-90deg); }
 /* 首个分组标题无需上方大间距，避免滚动时顶部空洞 */
 .nav > .nav-group:first-of-type { padding-top: 4px; }
 .nav-item {
@@ -293,8 +376,12 @@ function onLogout() {
   margin: 9px 8px;
   font-size: 0;
   border-radius: 1px;
+  overflow: hidden;
   background: rgba(255, 255, 255, .14);
+  pointer-events: none;   /* 纯图标态下不可点：折叠组会让图标整体消失，易误触 */
 }
+.tes-side.collapsed .nav-group::after { content: none; }
+.tes-side.collapsed .nav-group-label { display: none; }
 .tes-side.collapsed .nav > .nav-group:first-of-type { margin-top: 4px; }
 .tes-side.collapsed .side-foot { display: none; }
 
