@@ -36,6 +36,14 @@
   - 批量导入 10 题，成功落库且 embedding 维度=1024。
 - **涉及**：`course_kb`、`course_kb_embeddings`、`ingest.py`、教师端录题页；迁移见 M0-4。
 - **波次/估点**：W10 / ≈5d
+- **进度（2026-11-03，起手完成）**：
+  - 后端 `POST /api/admin/questions` + `/batch`（`app/api/questions.py`）→ `app/services/question_entry.py`；
+    写入恒 `draft`、`source_tag=teacher`、`tenant_id` 只取登录态；`content_hash` 与 Excel 导入同一指纹（`parser.normalize_question`），跨渠道不重复。
+  - 向量双写 `app/services/embed.py`：租户 BYOM `embed_*` 优先、密钥/端点复用 chat 段，否则回落全局 `EMBED_*`；
+    写 `course_kb_embeddings` 前校验 1024 维。**任何失败只降级不阻塞**：未配置/401/403/404/429/超时/维度不符 → 题目仍入库为 `draft`，响应带 `embedding.reason`。
+  - 教师端 `web-frontend/src/views/Questions.vue`（菜单 `/ops/questions`，教师+学校角色授权），含单题表单、批量 JSON 粘贴、最近录入与向量状态提示。
+  - 迁移 `migrations/0012_course_kb_entry_fields.sql`（`answer_values` / `choice_type` / `blank_count` + `(tenant_id,status)` 索引），**已在 137 线上库执行**（211 行不受影响）。
+  - 未做：`kp_codes`（DAG code 归口 M3-3 / `resolve_kp_codes`，本轮只落 `knowledge_points` 标签）、生产环境实测（待发版）。
 
 ## 卡 M0-3｜学生年级归属（按年级段下发的前置）
 - **归口**：web-backend（`student_profile` 表 + 接口）+ web-frontend（维护/批量导入页）+ student-app（读取自身 grade）
