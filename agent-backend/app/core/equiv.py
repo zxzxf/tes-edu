@@ -64,6 +64,9 @@ _SQRT_N_PLAIN = re.compile(r"\\sqrt\s*\[\s*(\d+)\s*\]\s*(\d+(?:\.\d+)?)")
 _SQRT = re.compile(r"\\sqrt\s*\{([^{}]*)\}")
 _SQRT_PLAIN = re.compile(r"\\sqrt\s*(\d+(?:\.\d+)?)")
 _OR_OPEN = re.compile(r"\(\s*(?:或|和|与)")
+# LaTeX \pm / \mp 归一（含 2\pm3 位移写法）
+_LATEX_PM = re.compile(r"\\(pm|mp)\s*")
+_LATEX_PM_MAP = {"pm": "\u00b1", "mp": "\u2213"}
 
 
 def norm_text(s: str) -> str:
@@ -77,6 +80,7 @@ def norm_text(s: str) -> str:
     for k, v in _TRANS.items():
         text = text.replace(k, v)
     text = text.replace("$", "").replace("\\left", "").replace("\\right", "")
+    text = _LATEX_PM.sub(lambda m: _LATEX_PM_MAP[m.group(1)], text)
     # LaTeX 间距命令（\! \, \; \ 等）不影响值
     text = re.sub(r"\\[,;:! ]", "", text)
     # 嵌套结构逐层剥开：frac 与 sqrt 可能互相包裹，循环到不再变化
@@ -347,6 +351,43 @@ def _unwrap_or(s: str) -> str:
     return s
 
 
+_PM_PREFIX = ("±", "∓", "+-")
+_PLAIN_NUM = re.compile(r"^-?\d+(?:\.\d+)?$")
+
+
+def _fmt_num(x: float) -> str:
+    """数值回写：5.0 -> "5"，2.5 -> "2.5"。"""
+    if abs(x - round(x)) < _NUM_ABS_TOL:
+        return str(int(round(x)))
+    return repr(round(x, 12))
+
+
+def _expand_pm(p: str):
+    """展开 ±多解记号（含前缀与位移写法）。
+
+    - ``±2`` / ``+ -2`` -> [2, -2]
+    - ``x=±2`` -> [x=2, x=-2]（前缀原样保留，不能丢变量名）
+    - ``2±3`` -> [5, -1]（两侧都是纯数字时直接算出精确值）
+    """
+    idx, sign = -1, ""
+    for token in _PM_PREFIX:
+        i = p.find(token)
+        if i >= 0 and (idx < 0 or i < idx):
+            idx, sign = i, token
+    if idx < 0:
+        return None
+    lhs = p[:idx]
+    rhs = p[idx + len(sign):].strip()
+    if not rhs:
+        return None
+    if not lhs:
+        return [rhs, "-" + rhs]
+    if _PLAIN_NUM.match(lhs) and _PLAIN_NUM.match(rhs):
+        lv, rv = float(lhs), float(rhs)
+        return [_fmt_num(lv + rv), _fmt_num(lv - rv)]
+    return [lhs + rhs, lhs + "-" + rhs]
+
+
 def split_multi(s: str) -> List[str]:
     """把多解答案拆成值列表：``2 或 -2`` -> ['2','-2']；``±2`` -> ['2','-2']。
 
@@ -360,10 +401,9 @@ def split_multi(s: str) -> List[str]:
         p = _keep_interval(part.strip(), _trim_wrap)
         if not p:
             continue
-        if p.startswith("±") or p.startswith("+-"):
-            v = p[1:].lstrip("+-")
-            if v:
-                out += [v, "-" + v]
+        expanded = _expand_pm(p)
+        if expanded:
+            out += expanded
         else:
             out.append(p)
     return out or [s]
@@ -482,6 +522,28 @@ def _manual(reason: str, source: str = "") -> dict:
     return {"status": "manual", "correct": None, "reason": reason, "source": source}
 
 
+def _string_candidates(s: str) -> List[str]:
+    """展开一个作答/标答串的全部等价书写形态（供等价求交用）。
+
+    先按多解拆（`x=±2` -> `x=2` / `x=-2`），再逐项补上去引导词形态
+    与「等号右侧值」（`x=2` -> `2`），这样学生写单纯数值也能命中。
+    """
+    out: List[str] = []
+
+    def _add(v: str) -> None:
+        v = (v or "").strip()
+        if v and v not in out:
+            out.append(v)
+
+    for item in split_multi(s):
+        _add(item)
+        _add(strip_lead(item))
+        for v in _var_candidates(item):
+            _add(v)
+            _add(strip_lead(v))
+    return out
+
+
 def _single_value_judge(student: str, ref: str) -> str:
     """单值比较：'correct' / 'wrong' / 'manual'。"""
     s, r = norm_text(student), norm_text(ref)
@@ -498,8 +560,8 @@ def _single_value_judge(student: str, ref: str) -> str:
     if values_equivalent(s, r):
         return "correct"
     # 引导词 / 多解前缀候选求交（纯字符串，不引入外部值）
-    for sv in [strip_lead(c) for c in split_multi(s)] + _var_candidates(s):
-        for rv in [strip_lead(c) for c in split_multi(r)] + _var_candidates(r):
+    for sv in _string_candidates(s):
+        for rv in _string_candidates(r):
             if values_equivalent(sv, rv):
                 return "correct"
     # 一方能数值化、另一方不能 => 可能等价（如 '2.44' vs '61/25' 已覆盖，

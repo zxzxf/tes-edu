@@ -106,6 +106,18 @@ CASES = [
     ("多解_集合任一_写4", "blank", "1 或 2 或 3", "4", None, False, False),
     # 防"有解即对"过宽：±2={2,-2} 与 {1,-1} 无交集，不得判对。
     ("多解_±2_vs_交集空", "blank", "1 或 -1", "±2", None, False, False),
+    # ===== 13. LaTeX \pm / \mp 归一（M2-1 收口：题库真实存量写法）=====
+    # 标答写成 $\pm 2$ / x=\pm 2 时必须能拆多解，否则学生答对也只能转人工。
+    ("latex_pm_标答写法_写2", "blank", r"\pm 2", "2", None, True, False),
+    ("latex_pm_标答写法_写-2", "blank", r"\pm 2", "-2", None, True, False),
+    ("latex_pm_学生写法", "blank", "2", r"\pm 2", None, True, False),
+    ("latex_pm_带变量名", "blank", r"x=\pm 2", "2", None, True, False),
+    ("latex_pm_带变量名_neg", "blank", r"x=\pm 2", "-2", None, True, False),
+    ("latex_pm_错答", "blank", r"\pm 2", "3", None, False, False),
+    # 位移写法：2\pm3 = {5, -1}
+    ("latex_pm_位移_5", "blank", r"2\pm 3", "5", None, True, False),
+    ("latex_pm_位移_-1", "blank", r"2\pm 3", "-1", None, True, False),
+    ("latex_pm_位移_错答", "blank", r"2\pm 3", "1", None, False, False),
 ]
 
 

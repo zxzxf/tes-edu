@@ -6,6 +6,7 @@ import pytest
 from app.core.equiv import (
     blank_equivalent,
     choice_equivalent,
+    expand_answer_values,
     norm_choice_label,
     norm_text,
     split_multi,
@@ -112,6 +113,43 @@ def test_choice_multi_concatenated_labels():
     # 连写错选 -> False
     assert choice_equivalent("ABD", "ACD", multi=True) is False
 
+
+# ---------------------------------------------------------------- LaTeX \pm
+def test_norm_text_latex_pm_becomes_plus_minus():
+    r"""LaTeX ``\pm`` 必须归一成 ``±``，否则会被当成普通符号转人工。
+
+    线上真实坑：题库标答写成 ``$\pm 2$`` / ``x=\pm 2`` 时，
+    ``norm_text`` 只去掉反斜杠留下 ``pm 2``，既不等价也拆不开多解。
+    """
+    assert norm_text(r"\pm 2") == "±2"
+    assert norm_text(r"$\pm 2$") == "±2"
+    assert norm_text(r"x=\pm 2") == "x=±2"
+    assert norm_text(r"\mp 2") == "∓2"
+
+
+def test_split_multi_latex_pm_expands():
+    assert split_multi(r"\pm 2") == ["2", "-2"]
+    assert split_multi(r"$\pm 2$") == ["2", "-2"]
+    assert split_multi(r"x=\pm 2") == ["x=2", "x=-2"]
+    assert split_multi(r"\mp 2") == ["2", "-2"]
+
+
+def test_blank_equivalent_latex_pm():
+    assert blank_equivalent(r"\pm 2", "2") is True
+    assert blank_equivalent(r"\pm 2", "-2") is True
+    assert blank_equivalent("2", r"\pm 2") is True
+    assert blank_equivalent(r"x=\pm 2", "2") is True
+    assert blank_equivalent(r"x=\pm 2", "-2") is True
+    assert blank_equivalent(r"\pm 2", "3") is False
+    # 位移写法：2±3 = {5, -1}
+    assert blank_equivalent(r"2\pm 3", "5") is True
+    assert blank_equivalent(r"2\pm 3", "-1") is True
+    assert blank_equivalent(r"2\pm 3", "1") is False
+
+
+def test_expand_answer_values_latex_pm():
+    assert expand_answer_values(r"\pm 2") == ["2", "-2"]
+    assert set(expand_answer_values(r"x=\pm 2")) == {"x=2", "x=-2", "2", "-2"}
 
 # ---------------------------------------------------------------- 填空
 def test_blank_value_and_lead_and_multi():
