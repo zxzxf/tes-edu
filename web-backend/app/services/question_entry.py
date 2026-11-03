@@ -273,6 +273,8 @@ async def _dual_write_embeddings(
                 embedding=vec,
                 content_hash=row.content_hash,
                 source_tag=row.source_tag,
+                # M0-4：RAG 检索表必须带租户，否则别校题会被当成本校标答召回
+                tenant_id=row.tenant_id,
                 type=row.type or "",
             )
         )

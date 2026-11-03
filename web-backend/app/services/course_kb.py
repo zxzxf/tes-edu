@@ -53,8 +53,16 @@ async def search_questions(
     qtype: Optional[str] = None,
     knowledge_point: Optional[str] = None,
     limit: int = 50,
+    tenant_id: Optional[str] = None,
 ) -> List[CourseQuestion]:
+    """按条件检索题目。
+
+    ``tenant_id`` 非空时**只返回本租户题目**（M0-4 隔离验收）：教师端检索
+    绝不能捞到别校的题，包括别校草稿。传 None 保持旧行为，供一次性运维/脚本调用。
+    """
     stmt = select(CourseQuestion)
+    if tenant_id is not None:
+        stmt = stmt.where(CourseQuestion.tenant_id == tenant_id)
     if q:
         like = f"%{q}%"
         stmt = stmt.where(
@@ -72,12 +80,19 @@ async def search_questions(
     return list(res.scalars().all())
 
 
-async def list_questions(db, limit: int = 50) -> List[CourseQuestion]:
+async def list_questions(
+    db, limit: int = 50, tenant_id: Optional[str] = None
+) -> List[CourseQuestion]:
     """最近录入优先：录题页要在首屏看到刚进来的题，按 id 倒序。
+
+    ``tenant_id`` 非空时只返回本租户题目（M0-4 隔离验收）；传 None 保持旧行为。
 
     存量导入行 id 小、created_at 可能为 NULL，用 id 排序比时间更稳。
     """
-    stmt = select(CourseQuestion).order_by(CourseQuestion.id.desc()).limit(limit)
+    stmt = select(CourseQuestion)
+    if tenant_id is not None:
+        stmt = stmt.where(CourseQuestion.tenant_id == tenant_id)
+    stmt = stmt.order_by(CourseQuestion.id.desc()).limit(limit)
     res = await db.execute(stmt)
     return list(res.scalars().all())
 

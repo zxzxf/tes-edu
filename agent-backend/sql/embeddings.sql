@@ -20,12 +20,17 @@ CREATE TABLE IF NOT EXISTS course_kb_embeddings (
     source_tag      TEXT,                           -- 来源标记（如 gk2026/manual）
     -- T-C3 题型路由：course_kb.type（单选/多选/填空/解答/实验），
     -- 见 scripts/add_qtype_to_embeddings.sql（ALTER + 回填）
-    type            TEXT        NOT NULL DEFAULT ''
+    type            TEXT        NOT NULL DEFAULT '',
+    -- M0-4 租户隔离：rag._search_pg 必须按此过滤（迁移见 web-backend/migrations/0013）
+    tenant_id       VARCHAR(32) NOT NULL DEFAULT 'school_pilot_01'
 );
 
 -- content_hash 唯一键：import_bank/sync_embeddings 的 ON CONFLICT (content_hash) 依赖它
 CREATE UNIQUE INDEX IF NOT EXISTS uq_kb_embeddings_content_hash
     ON course_kb_embeddings (content_hash);
+
+CREATE INDEX IF NOT EXISTS ix_kb_embeddings_tenant_subject
+    ON course_kb_embeddings (tenant_id, subject);
 
 CREATE INDEX IF NOT EXISTS idx_kb_embeddings_subject
     ON course_kb_embeddings (subject);

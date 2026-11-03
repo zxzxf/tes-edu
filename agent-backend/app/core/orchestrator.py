@@ -150,7 +150,8 @@ async def handle_question(
     question = normalize_question(question)
     # 1) RAG 检索上下文（知识点 / 例题 / 题型）
     #    llm_cfg（租户级配置）透传：学校配置了独立 embedding 模型时按学校端点向量化
-    ctx = await rag.retrieve(question, subject=subject, llm_cfg=cfg)
+    #    tenant_id 透传：检索只在本租户题库内进行，别校题不得成为本次的"标答"
+    ctx = await rag.retrieve(question, subject=subject, llm_cfg=cfg, tenant_id=tenant_id)
     # 2) T-C3 "直接看解析"一等功能：mode=direct 直达 L4（等价 direct_reveal），
     #    App 常驻按钮走此入口；行为入埋点（solve.py）且不作为违规（R6）。
     if mode == "direct":

@@ -64,6 +64,15 @@ async def main() -> None:
         await conn.execute(
             "ALTER TABLE course_kb_embeddings ADD COLUMN IF NOT EXISTS type text NOT NULL DEFAULT ''"
         )
+        # M0-4：RAG 表租户列（老库补齐 + 按 course_kb 回填真实归属）
+        await conn.execute(
+            "ALTER TABLE course_kb_embeddings "
+            "ADD COLUMN IF NOT EXISTS tenant_id varchar(32) NOT NULL DEFAULT 'school_pilot_01'"
+        )
+        await conn.execute(
+            "UPDATE course_kb_embeddings e SET tenant_id = c.tenant_id FROM course_kb c "
+            "WHERE e.content_hash = c.content_hash AND c.tenant_id IS NOT NULL"
+        )
         await conn.execute(
             "UPDATE course_kb_embeddings e SET type = c.type FROM course_kb c "
             "WHERE e.content_hash = c.content_hash AND (e.type IS NULL OR e.type = '')"
@@ -75,7 +84,7 @@ async def main() -> None:
 
         rows = await conn.fetch(
             "select subject, chapter, stem, answer, analysis, difficulty, type, "
-            "knowledge_points, content_hash, embedding from course_kb order by id"
+            "knowledge_points, content_hash, embedding, tenant_id from course_kb order by id"
         )
         ins = skip = 0
         for r in rows:
@@ -84,8 +93,8 @@ async def main() -> None:
             res = await conn.execute(
                 """
                 INSERT INTO course_kb_embeddings
-                    (subject, knowledge_point, difficulty, question, answer, content, embedding, content_hash, type)
-                VALUES ($1,$2,$3,$4,$5,$6,$7::vector,$8,$9)
+                    (subject, knowledge_point, difficulty, question, answer, content, embedding, content_hash, type, tenant_id)
+                VALUES ($1,$2,$3,$4,$5,$6,$7::vector,$8,$9,$10)
                 ON CONFLICT (content_hash) DO NOTHING
                 """,
                 r["subject"],
@@ -97,6 +106,7 @@ async def main() -> None:
                 vec_literal(r["embedding"]),
                 r["content_hash"],
                 r["type"] or "",               # T-C3 题型路由燃料
+                r["tenant_id"] or "school_pilot_01",  # M0-4 租户隔离
             )
             # 注意：ON CONFLICT DO NOTHING 冲突时 asyncpg 返回 "INSERT 0 0"（不是空串），
             # 只判断 startswith("INSERT") 会把跳过的行误计为新增。必须看末尾的影响行数。

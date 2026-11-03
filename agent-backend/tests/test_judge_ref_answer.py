@@ -147,7 +147,7 @@ def test_orchestrator_passes_ref_answer_to_judge(monkeypatch):
     """solve 算出的答案要透传给判分，否则判分仍在裸重算。"""
     captured = {}
 
-    async def fake_retrieve(q, subject=None, *, llm_cfg=None):
+    async def fake_retrieve(q, subject=None, *, llm_cfg=None, tenant_id=None):
         return {"chunks": [], "points": [], "steps": []}
 
     async def fake_solve(q, **kw):

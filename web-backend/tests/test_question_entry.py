@@ -131,6 +131,8 @@ def test_create_question_writes_draft_and_dual_writes_embedding():
         assert len(emb) == 1
         assert emb[0].content_hash == row.content_hash
         assert emb[0].type == "单选"
+        # M0-4：RAG 检索表也必须带租户，否则别校题会被当作本校标答召回
+        assert emb[0].tenant_id == TENANT
         assert emb[0].difficulty == "2"         # 本表 difficulty 是 TEXT
         assert "代入得 4" in emb[0].content      # 送检索文本含解析
 
@@ -164,6 +166,26 @@ def test_embedding_failure_still_stores_question_as_draft():
         # 三个失败场景都不该留下向量行
         emb = (await db.execute(select(CourseKbEmbedding))).scalars().all()
         assert emb == []
+
+    asyncio.run(_run(scenario))
+
+
+def test_embedding_rows_are_tenant_scoped():
+    """两个学校各录一题：向量表按 content_hash 各一行，租户不得串写。"""
+    other = {"user_id": "t_demo", "tenant_id": "demo", "role": "teacher"}
+
+    async def scenario(db):
+        await question_entry.create_questions(
+            db, [_payload(stem="试点校的题")], TEACHER,
+            transport=_ok_transport(), embed_config=FAKE_CFG,
+        )
+        await question_entry.create_questions(
+            db, [_payload(stem="别校的题")], other,
+            transport=_ok_transport(), embed_config=FAKE_CFG,
+        )
+        rows = (await db.execute(select(CourseKbEmbedding))).scalars().all()
+        assert {r.tenant_id for r in rows} == {TENANT, "demo"}
+        assert len(rows) == 2
 
     asyncio.run(_run(scenario))
 

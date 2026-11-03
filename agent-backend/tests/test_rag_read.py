@@ -8,6 +8,10 @@
 - 向量字面量维度必须与 EMBED_DIM 一致（与 ws qwen3.7-text-embedding 1024 对齐）
 - content_hash 必须透传（judge v2 步骤级归因靠它定位 course_kb_steps）
 - dev 模式（db_ready=False）仍走内存库，不抛异常
+
+M0-4（2026-11-03）：RAG 读取侧补租户谓词。此前 course_kb_embeddings 没有
+tenant_id，`_search_pg` 也不带租户条件——别校题目会被当作本校本题的「标答」
+参与判分。现在租户是**默认收敛**的：调用方不传时按试点校兜底，绝不放开全表。
 """
 import asyncio
 import os
@@ -116,6 +120,26 @@ def test_search_pg_sql_contract(fake_embed, monkeypatch):
     assert len(vec.strip("[]").split(",")) == config.EMBED_DIM  # 1024 对齐
 
 
+def test_search_pg_filters_by_tenant(fake_embed, monkeypatch):
+    """M0-4：检索必须按租户过滤，别校题不得进入上下文/判分标答。"""
+    conn = _patch_pg(monkeypatch, _ROWS)
+    asyncio.run(rag.retrieve("解方程 2x=4", subject="数学", tenant_id="demo"))
+
+    sql, args = conn.calls[0]
+    assert "tenant_id = $4" in sql
+    assert args[3] == "demo"
+
+
+def test_retrieve_defaults_to_pilot_tenant(fake_embed, monkeypatch):
+    """网关漏注入租户头时按试点校兜底，绝不退化成"全表检索"。"""
+    conn = _patch_pg(monkeypatch, _ROWS)
+    asyncio.run(rag.retrieve("解方程 2x=4", subject="数学"))
+
+    sql, args = conn.calls[0]
+    assert "tenant_id = $4" in sql
+    assert args[3] == rag.DEFAULT_TENANT_ID
+
+
 def test_search_pg_passes_through_hash_and_dedups_points(fake_embed, monkeypatch):
     """返回结构：content_hash 透传（None→''）；points 去重且保序。"""
     _patch_pg(monkeypatch, _ROWS)
@@ -151,6 +175,25 @@ def test_dev_mode_falls_back_to_memory(fake_embed, monkeypatch):
     out = asyncio.run(rag.retrieve("解方程", subject="数学"))
     assert out["points"] == ["KP-1"]               # subject 过滤生效
     assert out["chunks"][0]["content_hash"] == ""  # dev 文档无 hash，键仍存在
+
+
+def test_memory_mode_also_scopes_by_tenant(fake_embed, monkeypatch):
+    """dev 内存库同样隔离：别校文档不得返回；未标租户的种子按试点校处理。"""
+    monkeypatch.setattr(config, "db_ready", lambda: False)
+    monkeypatch.setattr(rag, "_LOADED", True)
+    monkeypatch.setattr(rag, "_DOCS", [
+        {"content": "试点校题", "knowledge_point": "KP-PILOT", "subject": "数学"},
+        {"content": "别校题", "knowledge_point": "KP-OTHER", "subject": "数学",
+         "tenant_id": "demo"},
+    ])
+    monkeypatch.setattr(rag, "_VEC", [[1.0, 0.0], [1.0, 0.0]])
+    monkeypatch.setattr(rag, "_VEC_READY", True)
+
+    out = asyncio.run(rag.retrieve("题", subject="数学", tenant_id="demo"))
+    assert out["points"] == ["KP-OTHER"]
+
+    out = asyncio.run(rag.retrieve("题", subject="数学", tenant_id="school_pilot_01"))
+    assert out["points"] == ["KP-PILOT"]
 
 
 # ------------------------------------------------------------------ healthz 探活

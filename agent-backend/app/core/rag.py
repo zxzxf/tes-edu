@@ -25,6 +25,9 @@ _LOADED = False
 _VEC_READY = False
 #: course_kb_embeddings.type 列是否存在（T-C3 迁移前的老库为 False，查询自动降级）
 _TYPE_COLUMN_OK = True
+#: 入口缺省租户：网关漏注入 X-Tenant-Id 时按试点校兜底。
+#: 写死兜底而不是"不过滤"，因为一次配置遗漏不能把全库回答暴露给任何人。
+DEFAULT_TENANT_ID = "school_pilot_01"
 
 
 def _load_seed() -> None:
@@ -117,12 +120,23 @@ def top_match(context: dict | None) -> dict | None:
     return chunks[0] if chunks else None
 
 
-async def retrieve(query: str, subject: str | None = None, *, llm_cfg=None) -> dict:
+async def retrieve(
+    query: str,
+    subject: str | None = None,
+    *,
+    llm_cfg=None,
+    tenant_id: str | None = None,
+) -> dict:
     """检索与问题相关的知识点/例题。
+
+    ``tenant_id`` 默认按试点校兜底：**检索始终只在本租户题库内进行**，
+    不传并不意味着全库检索（那会把别校题当标答参与判分）。
 
     ``llm_cfg`` 传入且租户配置了 embedding 模型时，按学校 BYOM 配置的 embedding 端点/
     模型对查询向量化（与 KB 向量空间一致由学校侧保证）；否则回落全局 ``config.EMBED_*``。
     """
+    # 网关漏注入租户头时按试点校兜底（与 web-backend _tenant_of 同口径）。
+    tenant_id = tenant_id or DEFAULT_TENANT_ID
     embed_cfg: EmbedConfig | None = None
     if llm_cfg is not None:
         emb_model = getattr(llm_cfg, "embed_model", "") or ""
@@ -143,13 +157,13 @@ async def retrieve(query: str, subject: str | None = None, *, llm_cfg=None) -> d
 
     if config.db_ready():
         try:
-            chunks = await _search_pg(q_vec, subject)
+            chunks = await _search_pg(q_vec, subject, tenant_id)
         except Exception as e:  # noqa: BLE001
             log.warning("rag pg search failed, degrade to empty: %s", str(e)[:160])
             return {"chunks": [], "points": [], "degraded": True}
     else:
         await _ensure_vectors()
-        chunks = _search_memory(q_vec, subject)
+        chunks = _search_memory(q_vec, subject, tenant_id)
     points = list(dict.fromkeys(c["knowledge_point"] for c in chunks if c.get("knowledge_point")))
     return {"chunks": chunks, "points": points, "degraded": False}
 
@@ -174,19 +188,26 @@ async def _embed_query(query: str, embed_cfg: EmbedConfig | None) -> list[float]
     return None
 
 
-def _search_memory(q_vec: list[float], subject: str | None) -> list[dict]:
+def _search_memory(
+    q_vec: list[float], subject: str | None, tenant_id: str = DEFAULT_TENANT_ID
+) -> list[dict]:
     if not _DOCS or not _VEC:
         return []
     scored: list[tuple[float, dict]] = []
     for doc, vec in zip(_DOCS, _VEC):
         if subject and doc.get("subject") and doc["subject"] != subject:
             continue
+        # dev 种子没有 tenant_id 字段 -> 视为试点校；显式标了别校的文档必须挡掉
+        if (doc.get("tenant_id") or DEFAULT_TENANT_ID) != tenant_id:
+            continue
         scored.append((_cosine(q_vec, vec), doc))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [_fmt(s, d) for s, d in scored[: config.TOP_K]]
 
 
-async def _search_pg(q_vec: list[float], subject: str | None) -> list[dict]:
+async def _search_pg(
+    q_vec: list[float], subject: str | None, tenant_id: str = DEFAULT_TENANT_ID
+) -> list[dict]:
     from app.db.pg import get_pool  # 延迟导入
 
     global _TYPE_COLUMN_OK
@@ -202,6 +223,9 @@ async def _search_pg(q_vec: list[float], subject: str | None) -> list[dict]:
                    1 - (embedding <=> $1::vector) AS score
             FROM course_kb_embeddings
             WHERE ($2::text IS NULL OR subject = $2)
+              -- M0-4 租户隔离：只检索本校题。别校题目一旦被召回，
+              -- 就会作为"标答"参与判分，比列表串题更严重。
+              AND tenant_id = $4
               -- 硬隔离 seed demo 假题：id 1-46 的编造例题不参与线上检索，
               -- 只保留供压测/回滚；物理删除前一律靠此谓词挡掉。
               AND (is_demo IS NOT TRUE)
@@ -215,7 +239,7 @@ async def _search_pg(q_vec: list[float], subject: str | None) -> list[dict]:
     try:
         async with pool.acquire() as conn:
             rows = await conn.fetch(
-                _build_sql(_TYPE_COLUMN_OK), vec_literal, subject, config.TOP_K
+                _build_sql(_TYPE_COLUMN_OK), vec_literal, subject, config.TOP_K, tenant_id
             )
     except Exception as e:  # noqa: BLE001 缺 type 列（迁移未执行）-> 降级重试一次
         if not _TYPE_COLUMN_OK or "type" not in str(e):
@@ -223,7 +247,7 @@ async def _search_pg(q_vec: list[float], subject: str | None) -> list[dict]:
         _TYPE_COLUMN_OK = False
         async with pool.acquire() as conn:
             rows = await conn.fetch(
-                _build_sql(False), vec_literal, subject, config.TOP_K
+                _build_sql(False), vec_literal, subject, config.TOP_K, tenant_id
             )
     return [
         {

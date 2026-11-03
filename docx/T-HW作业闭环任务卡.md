@@ -75,6 +75,13 @@
   - `create_all` 不会再加列（加列必须手工 ALTER，记忆红线）。
 - **涉及**：`course_kb`、`migrations/0005`、`resolve_kp_codes`（kp 写侧唯一入口，禁改）。
 - **波次/估点**：W10 / ≈6d
+- **进度（2026-11-03）**：第 1、3 步已完成；第 2 步仅 `tenant_id`/`source_tag` 由 DEFAULT 归试点校，`answer_values` 回填尚无仓库脚本；第 4 步容器内校验本轮未执行。
+  - 第 3 步收口两个读取面：（a）`GET /api/admin/questions` 与 `/search` 按登录态 `tenant_id` 过滤，
+    网关漏注入时按 `school_pilot_01` 兜底而不是不过滤；（b）RAG 检索表 `course_kb_embeddings` 补 `tenant_id`
+    （`0013_course_kb_embeddings_tenant.sql`），`rag._search_pg` / `_search_memory` 均带租户谓词，`orchestrator` 透传租户。
+  - 写侧同步：教师录题双写、`import_bank`、`sync_embeddings` 均写入真实租户，不再靠默认值兜底。
+  - 用例：`web-backend/tests/test_question_tenant_isolation.py`、`test_question_entry.py::test_embedding_rows_are_tenant_scoped`、
+    `agent-backend/tests/test_rag_read.py`（含 dev 内存库同样隔离）。
 
 ---
 

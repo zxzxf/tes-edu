@@ -21,6 +21,15 @@ router = APIRouter(prefix="/questions", tags=["questions"])
 _ENTRY_ROLES = (Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)
 
 
+def _tenant_of(user: dict) -> str:
+    """读取侧租户口径：与 exam / student_profile 保持一致。
+
+    网关漏注入 ``X-Tenant-Id`` 时按试点校兜底；**不可**退化成不过滤，
+    否则一次配置遗漏就会把别校题库整表暴露出去。
+    """
+    return user.get("tenant_id") or "school_pilot_01"
+
+
 @router.post("", response_model=QuestionCreateResult, summary="教师录单题（M0-1）")
 async def create_question(
     payload: QuestionCreate,
@@ -65,7 +74,8 @@ async def list_questions(
     user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    return await svc.list_questions(db, limit=limit)
+    """最近录入优先；**只返回本租户题目**（M0-4 隔离验收）。"""
+    return await svc.list_questions(db, limit=limit, tenant_id=_tenant_of(user))
 
 
 @router.get("/search", response_model=List[QuestionOut])
@@ -78,6 +88,13 @@ async def search(
     user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
+    """关键词/学科/题型/知识点检索；**只在本租户题库内查**（M0-4）。"""
     return await svc.search_questions(
-        db, q=q, subject=subject, qtype=type, knowledge_point=knowledge_point, limit=limit
+        db,
+        q=q,
+        subject=subject,
+        qtype=type,
+        knowledge_point=knowledge_point,
+        limit=limit,
+        tenant_id=_tenant_of(user),
     )

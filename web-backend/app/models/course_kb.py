@@ -125,6 +125,8 @@ class CourseKbEmbedding(Base):
     is_demo = Column(Boolean, nullable=False, default=False, server_default="false")
     source_tag = Column(Text)
     type = Column(Text, nullable=False, server_default="")
+    #: M0-4 租户隔离键；RAG 检索必须按此过滤，别校题不得进入本校上下文
+    tenant_id = Column(String(32), nullable=False, server_default="school_pilot_01", index=True)
 
 
 class QuestionCreate(QuestionIn):

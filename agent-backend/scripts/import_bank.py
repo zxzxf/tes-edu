@@ -530,8 +530,8 @@ async def _run(args) -> None:
                 await conn.execute(
                     """
                     INSERT INTO course_kb_embeddings
-                        (subject, knowledge_point, difficulty, question, answer, content, embedding, content_hash, type)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7::vector,$8,$9)
+                        (subject, knowledge_point, difficulty, question, answer, content, embedding, content_hash, type, tenant_id)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7::vector,$8,$9,$10)
                     ON CONFLICT (content_hash) DO NOTHING
                     """,
                     r["subject"],
@@ -542,6 +542,8 @@ async def _run(args) -> None:
                     r["content_hash"],
                     # T-C3 题型路由：题型随检索 chunks 带回（qtype.route_question_tier）
                     r["type"],
+                    # M0-4：RAG 表与规范库同租户，否则检索会串校
+                    r["tenant_id"],
                 )
                 inserted += 1
             except Exception as e:  # noqa: BLE001
