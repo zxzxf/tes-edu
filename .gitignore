@@ -61,3 +61,6 @@ output/
 
 # 前端 vitest 临时目录（CODEBUDDY_BROKERED_FS_HOOK_ENABLED=0 时由 os.tmpdir 兜底，一般不会生成）
 web-frontend/.tmp/
+
+# ---- AI 工具配置噪音（Claude Code 等生成的提交流程说明，非项目资产）----
+CLAUDE.md
