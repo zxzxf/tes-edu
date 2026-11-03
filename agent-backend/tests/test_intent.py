@@ -113,6 +113,26 @@ def test_resolve_llm_failure_degrades_to_guide(monkeypatch):
     assert (i, m, src) == (intent.INTENT_GUIDE, "guide", "default")
 
 
+def test_resolve_ignores_cache_when_switch_off(monkeypatch):
+    """CACHE_ENABLED=false 时不得读写缓存（回归：绕过总开关导致跨用例缓存污染）。
+
+    conftest 已全局关闭缓存总开关；此处断言同题连跑两次都回源 LLM，
+    而不是第二次命中上一条用例写入的进程内缓存。
+    """
+
+    calls = {"n": 0}
+
+    async def _fake_llm(q, context=None, **_kw):
+        calls["n"] += 1
+        return intent.INTENT_EXPLAIN
+
+    monkeypatch.setattr(intent, "classify_intent_llm", _fake_llm)
+    q = "一个三角形已知三边长分别为3、4、5，我想弄清楚它的面积是怎么推出来的"
+    for _ in range(2):
+        i, m, src = asyncio.run(intent.resolve_response_mode(q))
+        assert (i, m, src) == (intent.INTENT_EXPLAIN, "explain", "llm")
+    assert calls["n"] == 2
+
 def test_resolve_short_question_skips_llm(monkeypatch):
     """短问句（最常见形态）不花 LLM 调用，直接默认引导档。"""
 

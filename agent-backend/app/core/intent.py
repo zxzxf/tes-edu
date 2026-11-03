@@ -206,14 +206,19 @@ async def resolve_response_mode(
         return INTENT_GUIDE, TIER_TO_MODE[INTENT_GUIDE], "default"
 
     # T-C5：LLM 分类走缓存（同题不再重烧，TTL 与解题缓存一致）
+    # 总开关关闭（CACHE_ENABLED=false / 单测默认）必须完全不碰缓存：
+    # 否则会读写进程内 MemoryStore，让上一条用例的结果污染后续用例。
     from app.core import llm_cache
 
-    store = llm_cache.get_default_store()
-    cache_key = f"intent:{llm_cache.normalize_question(question)}"
-    cached = await store.get(cache_key)
-    if cached and isinstance(cached, dict) and "intent" in cached:
-        intent_val = cached["intent"]
-        return intent_val, TIER_TO_MODE.get(intent_val, TIER_TO_MODE[INTENT_GUIDE]), "cache"
+    store = None
+    cache_key = ""
+    if config.cache_enabled():
+        store = llm_cache.get_default_store()
+        cache_key = f"intent:{llm_cache.normalize_question(question)}"
+        cached = await store.get(cache_key)
+        if cached and isinstance(cached, dict) and "intent" in cached:
+            intent_val = cached["intent"]
+            return intent_val, TIER_TO_MODE.get(intent_val, TIER_TO_MODE[INTENT_GUIDE]), "cache"
 
     # 回源：烧一次 LLM
     intent = await classify_intent_llm(question, context, llm_cfg=llm_cfg)
@@ -224,6 +229,7 @@ async def resolve_response_mode(
 
     # 落缓存（只存成功的结果，失败不落）
     result_tuple = (intent, TIER_TO_MODE[intent], source)
-    await store.set(cache_key, {"intent": intent}, ttl=llm_cache.CACHE_TTL_SECONDS)
+    if store is not None:
+        await store.set(cache_key, {"intent": intent}, ttl=llm_cache.CACHE_TTL_SECONDS)
 
     return result_tuple

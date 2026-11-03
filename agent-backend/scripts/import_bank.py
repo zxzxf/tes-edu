@@ -552,7 +552,25 @@ async def _run(args) -> None:
     print(f"完成：新增 {inserted}，跳过(重复) {duplicated}，失败 {failed}，embedding 失败 {embed_fail}")
 
 
+def _make_stdout_tolerant() -> None:
+    """让中文输出在 GBK 等窄编码控制台下降级而不是崩溃。
+
+    Windows 默认控制台/重定向是 GBK，题库里的 U+2212(−) 等字符无法编码，
+    直接 print 会抛 UnicodeEncodeError，把整批导入以退出码 1 中断。
+    这里只放宽错误处理（保留原编码），不可编码字符转义输出，不丢其他输出。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="backslashreplace")
+        except (ValueError, OSError):
+            pass
+
+
 def main() -> None:
+    _make_stdout_tolerant()
     ap = argparse.ArgumentParser(description="批量导入题库到 106 pgvector")
     ap.add_argument("file", help="题库文件 .csv/.json/.jsonl/.xlsx")
     ap.add_argument("--subject", default="数学")

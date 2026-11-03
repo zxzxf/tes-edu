@@ -38,6 +38,22 @@ def _run_cli(path, *extra):
     )
 
 
+def test_dry_run_survives_non_utf8_console():
+    """GBK 控制台（Windows 默认）下 --dry-run 仍要成功。
+
+    回归：脚本把含 U+2212(−) 的题干直接 print 到 GBK 控制台，
+    抛 UnicodeEncodeError 令整条导入流水线以退出码 1 结束。
+    """
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "gbk"
+    env.pop("PYTHONUTF8", None)
+    r = subprocess.run(
+        [sys.executable, SCRIPT, str(DEMO), "--dry-run", "--source", "河南", "--paper", "新高考I卷"],
+        capture_output=True, text=True, encoding="gbk", errors="replace", cwd=CWD, env=env,
+    )
+    assert r.returncode == 0, r.stderr
+    assert "未写入数据库" in r.stdout
+
 def test_parse_demo_row_count():
     assert len(_rows()) == 7
 
