@@ -60,6 +60,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -461,21 +462,22 @@ private fun GraphCanvas(
                 val head = measurer.measure(
                     b.label,
                     style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF546E7A)),
-                    maxLines = 1
+                    maxLines = 1,
+                    constraints = Constraints()
                 )
                 drawText(
-                    textMeasurer = measurer,
-                    text = b.label,
-                    topLeft = Offset(b.x + 8f, 20f),
-                    style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF546E7A)),
-                    maxLines = 1
+                    head,
+                    topLeft = Offset(b.x + 8f, 20f)
                 )
-                drawText(
-                    textMeasurer = measurer,
-                    text = "${b.count} 点",
-                    topLeft = Offset(b.x + 8f, 20f + head.size.height + 2f),
+                val countLayout = measurer.measure(
+                    "${b.count} 点",
                     style = TextStyle(fontSize = 9.sp, color = Color(0xFF90A4AE)),
-                    maxLines = 1
+                    maxLines = 1,
+                    constraints = Constraints()
+                )
+                drawText(
+                    countLayout,
+                    topLeft = Offset(b.x + 8f, 20f + head.size.height + 2f)
                 )
             }
             // 边先画（在节点下层）
@@ -549,7 +551,7 @@ private fun DrawScope.drawGraphNode(
             if (showLabel) {
                 val title = node.title ?: node.code
                 val labelStyle = TextStyle(fontSize = 11.sp, color = Color(0xFF37474F))
-                val result = measurer.measure(title, style = labelStyle, maxLines = 1)
+                val result = measurer.measure(title, style = labelStyle, maxLines = 1, constraints = Constraints())
                 val tw = result.size.width.toFloat()
                 val th = result.size.height.toFloat()
                 var tx = n.x + radius + 6f
@@ -558,15 +560,12 @@ private fun DrawScope.drawGraphNode(
                 drawRoundRect(
                     color = Color.White.copy(alpha = 0.78f),
                     topLeft = Offset(tx - 3f, ty - 2f),
-                    size = androidx.compose.ui.geometry.Size(tw + 6f, th + 4f),
+                    size = androidx.compose.ui.geometry.Size(kotlin.math.max(0f, tw + 6f), kotlin.math.max(0f, th + 4f)),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
                 )
                 drawText(
-                    textMeasurer = measurer,
-                    text = title,
-                    topLeft = Offset(tx, ty),
-                    style = labelStyle,
-                    maxLines = 1
+                    result,
+                    topLeft = Offset(tx, ty)
                 )
             }
 }
