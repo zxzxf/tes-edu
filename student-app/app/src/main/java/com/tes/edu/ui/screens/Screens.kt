@@ -67,8 +67,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.tes.edu.data.local.entities.DrillCard
 import com.tes.edu.data.local.entities.WrongQuestion
+import com.tes.edu.data.remote.ExamOption
 import com.tes.edu.data.remote.Judgement
 import com.tes.edu.data.remote.MasteryPoint
 import com.tes.edu.data.remote.WrongRedoResult
@@ -1547,6 +1550,19 @@ private fun WrongCard(
             color = TesEduColors.TextPrimary
         )
 
+        // 选择题展示选项（只读，无对错高亮）；选项存为 ExamOption 的 JSON
+        if (q.questionType == "choice") {
+            val opts = remember(q.options) { parseWrongOptions(q.options) }
+            if (opts.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    opts.forEach { opt ->
+                        WrongOptionRow(opt.label, opt.content)
+                    }
+                }
+            }
+        }
+
         if (!q.errorType.isNullOrBlank() || !q.questionType.isNullOrBlank()) {
             Spacer(Modifier.height(10.dp))
             Row(
@@ -1619,6 +1635,54 @@ private fun WrongCard(
             text = "做成背诵卡",
             icon = Icons.Rounded.AutoStories
         ) { onMakeCard() }
+    }
+}
+
+/** 把错题表存的选项 JSON（[`{"label":"A","content":"A. ..."}`]）解析成列表，失败返回空。 */
+private fun parseWrongOptions(json: String?): List<ExamOption> {
+    if (json.isNullOrBlank()) return emptyList()
+    return runCatching {
+        val type = object : TypeToken<List<ExamOption>>() {}.type
+        Gson().fromJson<List<ExamOption>>(json, type) ?: emptyList()
+    }.getOrDefault(emptyList())
+}
+
+/** 错题本选项行（只读，无对错高亮，仅把 A/B/C/D 与选项内容列出）。 */
+@Composable
+private fun WrongOptionRow(label: String, content: String) {
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(TesEduColors.Surface)
+            .border(1.dp, TesEduColors.Divider, shape)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .size(26.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(TesEduColors.FieldBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = TesEduColors.TextSecondary
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        // 后端存的 content 常自带 "A. " 前缀（与 label 重复），展示时去掉，保持和选项一致的观感
+        val display = content.removePrefix("$label. ").removePrefix("$label.")
+        MathText(
+            display,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = TesEduColors.TextPrimary
+        )
     }
 }
 

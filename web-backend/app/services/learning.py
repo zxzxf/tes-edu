@@ -222,6 +222,7 @@ async def record_wrong_question(db: AsyncSession, event: dict) -> bool:
             evidence=row["evidence"],
             attribution_source=row["attribution_source"],
             question_type=row.get("question_type"),
+            options=row.get("options") or None,
             created_at=now,
         )
     )

@@ -46,5 +46,8 @@ data class WrongQuestion(
     // —— 题型筛选（MIGRATION_8_9）——
     // choice/blank/subjective：错题本按「选择题/填空题/解答题」筛选。
     // 后端按卷题快照回填，手工收的题由输入页带上来。
-    @ColumnInfo(name = "question_type") val questionType: String? = null
+    @ColumnInfo(name = "question_type") val questionType: String? = null,
+    // —— 选项（MIGRATION_9_10）——
+    // 选择题选项 JSON，形如 [{"label":"A","content":"A. {2}"}]，与后端 ExamOption 对齐；无选项为空。
+    @ColumnInfo(name = "options") val options: String? = null
 )

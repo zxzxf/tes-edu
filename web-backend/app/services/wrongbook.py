@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import List, Optional, Sequence, Tuple
 
@@ -33,6 +34,32 @@ def _from_ms(ms: Optional[int]) -> Optional[datetime]:
     return datetime.fromtimestamp(int(ms) / 1000, tz=timezone.utc)
 
 
+def _options_to_db(options) -> Optional[str]:
+    """卷题 options (dict/list) → 标准化 JSON 字符串 [{"label","content"}]，存库；无则空。
+
+    统一成 App 端可直接 `List<ExamOption>` 解析的形状；手写录入错题无选项时返回 None。
+    """
+    if not options:
+        return None
+    try:
+        m = _options_to_map(options)  # {label: content}
+        items = [{"label": k, "content": v} for k, v in m.items()]
+    except Exception:
+        return None
+    return json.dumps(items, ensure_ascii=False) if items else None
+
+
+def _options_from_db(raw: Optional[str]) -> List[dict]:
+    """DB 里存的标准化 JSON 字符串 → [{label, content}]；兜底空列表。"""
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
 def wrong_out(w: WrongQuestion) -> dict:
     """错题 → 客户端契约（时间统一 epoch 毫秒）。"""
     return {
@@ -49,6 +76,7 @@ def wrong_out(w: WrongQuestion) -> dict:
         "correction": w.correction,
         "first_wrong_step": w.first_wrong_step,
         "question_type": w.question_type,
+        "options": _options_from_db(w.options),
         "created_at": _ms(w.created_at) or 0,
         "updated_at": _ms(w.updated_at) or _ms(w.created_at) or 0,
         "deleted_at": _ms(w.deleted_at),
@@ -92,6 +120,8 @@ async def _apply_exam_wrong(
     row.knowledge_point = kps[0][:128] if kps and isinstance(kps[0], str) else ""
     # 题型来自卷题快照：错题本才能按「选择题/填空题/解答题」筛选
     row.question_type = question.qtype
+    # 选项（选择题用）：从卷题快照原样带过来，错题本才能像结果页那样展示 A/B/C/D
+    row.options = _options_to_db(question.options)
     row.deleted_at = None
     row.updated_at = now
     row.source = "exam"
@@ -250,6 +280,7 @@ async def upsert_sync(
                 paper_id=it.get("paper_id"),
                 paper_question_id=it.get("paper_question_id"),
                 question_type=it.get("question_type"),
+                options=_options_to_db(it.get("options")),
                 source=(it.get("source") or "app"),
                 created_at=_from_ms(incoming_ms) or now,
                 updated_at=now,
@@ -279,6 +310,8 @@ async def upsert_sync(
             row.first_wrong_step = it["first_wrong_step"]
         if it.get("question_type"):
             row.question_type = it["question_type"]
+        if it.get("options") is not None:
+            row.options = _options_to_db(it["options"])
         row.deleted_at = None
         row.updated_at = now
 

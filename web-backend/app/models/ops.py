@@ -109,6 +109,9 @@ class WrongQuestion(Base):
     paper_question_id = Column(Integer)
     # 题型（choice/blank/subjective）：错题本按题型筛选（选择题/填空题/解答题）
     question_type = Column(String(16))
+    # 选项（选择题用）：标准化为 [{"label":..,"content":..}] 的 JSON 字符串，
+    # 与 exam_paper_questions.options 同源；手工录入错题无选项则为空。
+    options = Column(Text)
 
 
 class DrillCard(Base):

@@ -58,6 +58,8 @@ class WrongQuestion(BaseModel):
     knowledge_point: str
     # 题型（choice/blank/subjective）：错题本按题型筛选
     question_type: Optional[str] = None
+    # 选项（选择题用）：[{label, content}]，与 App 端 ExamOption 对齐；无选项则为空
+    options: Optional[List[dict]] = None
     # S5 ④ 步骤级归因落点（录入时可选）
     content_hash: Optional[str] = None
     wrong_step_no: Optional[int] = None

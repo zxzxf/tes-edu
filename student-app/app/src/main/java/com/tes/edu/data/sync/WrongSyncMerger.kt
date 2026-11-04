@@ -1,8 +1,22 @@
 package com.tes.edu.data.sync
 
+import com.google.gson.Gson
 import com.tes.edu.data.local.entities.WrongQuestion
+import com.tes.edu.data.remote.ExamOption
 import com.tes.edu.data.remote.WrongPushItem
 import com.tes.edu.data.remote.WrongRemote
+
+/** 选项 JSON 字符串 ↔ List<ExamOption> 互转（与后端 [{"label","content"}] 形状对齐）。 */
+private val gson = Gson()
+
+private fun parseOptions(json: String?): List<ExamOption>? {
+    if (json.isNullOrBlank()) return null
+    return try {
+        gson.fromJson(json, Array<ExamOption>::class.java)?.toList()
+    } catch (_: Exception) {
+        null
+    }
+}
 
 /**
  * 错题本双向同步的合并逻辑（**纯 Kotlin，不碰 Android / 网络**）。
@@ -82,6 +96,7 @@ object WrongSyncMerger {
                 paperId = q.paperId,
                 paperQuestionId = q.paperQuestionId,
                 questionType = q.questionType,
+                options = q.options?.let { parseOptions(it) },
                 updatedAt = if (q.updatedAt > 0) q.updatedAt else now,
                 deleted = q.deleted
             )
@@ -142,6 +157,7 @@ internal fun WrongRemote.toLocal(id: Long = 0): WrongQuestion = WrongQuestion(
     paperId = paperId,
     paperQuestionId = paperQuestionId,
     questionType = questionType,
+    options = options?.takeIf { it.isNotEmpty() }?.let { gson.toJson(it) },
     remoteId = this.id,
     clientId = clientId,
     updatedAt = updatedAt,

@@ -29,6 +29,7 @@ data class WrongRemote(
     @SerializedName("paper_question_id") val paperQuestionId: Long? = null,
     /** 题型（choice/blank/subjective）：错题本按题型筛选。 */
     @SerializedName("question_type") val questionType: String? = null,
+    @SerializedName("options") val options: List<ExamOption>? = null,
     @SerializedName("created_at") val createdAt: Long = 0,
     @SerializedName("updated_at") val updatedAt: Long = 0,
     /** 非空 = 服务端已软删，本地要真删。 */
@@ -58,6 +59,7 @@ data class WrongPushItem(
     @SerializedName("paper_question_id") val paperQuestionId: Long? = null,
     /** 题型（choice/blank/subjective）：错题本按题型筛选。 */
     @SerializedName("question_type") val questionType: String? = null,
+    @SerializedName("options") val options: List<ExamOption>? = null,
     @SerializedName("updated_at") val updatedAt: Long = 0,
     val deleted: Boolean = false
 )
