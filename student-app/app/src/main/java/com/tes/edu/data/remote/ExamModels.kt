@@ -56,6 +56,44 @@ data class PaperGraphDto(
     )
 }
 
+/**
+ * M3-6 结果页**单题**知识子图：`GET /api/student/exams/{id}/questions/{seq}/graph`。
+ *
+ * 与 [PaperGraphDto]（整卷）的区别：节点集合只围绕这一道题——本题考点 + 一层
+ * 前驱 + 一层后继，学生看「查看结果」时能直接定位「这题卡在哪个知识点」，
+ * 而不是被整卷十道题的点淹没。
+ *
+ * `core_kps/prereq_kps/successor_kps` 是互斥的三层 code 列表；[nodes] 是并集，
+ * 用 code 回查即可，客户端不自己算 DAG（同一份口径只在服务端维护）。
+ */
+data class QuestionGraphDto(
+    @SerializedName("assignment_id") val assignmentId: Long = 0,
+    @SerializedName("paper_id") val paperId: Long = 0,
+    val seq: Int = 0,
+    @SerializedName("question_id") val questionId: Long? = null,
+    @SerializedName("core_kps") val coreKps: List<String> = emptyList(),
+    @SerializedName("prereq_kps") val prereqKps: List<String> = emptyList(),
+    @SerializedName("successor_kps") val successorKps: List<String> = emptyList(),
+    val nodes: List<GraphNode> = emptyList(),
+    val edges: List<GraphEdge> = emptyList(),
+    @SerializedName("unresolved_kps") val unresolvedKps: List<String> = emptyList(),
+    val note: String? = null
+) {
+    private fun nodesOf(codes: List<String>): List<GraphNode> =
+        codes.mapNotNull { code -> nodes.firstOrNull { it.code == code } }
+
+    /** 本题考点（结果页主卡片用）。 */
+    fun coreNodes(): List<GraphNode> = nodesOf(coreKps)
+
+    /** 先学：这些点没过关，本题才做不出来。 */
+    fun prereqNodes(): List<GraphNode> = nodesOf(prereqKps)
+
+    /** 可延伸：本题之后能接着学的点。 */
+    fun successorNodes(): List<GraphNode> = nodesOf(successorKps)
+
+    val hasGraph: Boolean get() = nodes.isNotEmpty()
+}
+
 /** `GET /api/student/exams` 一行：一份可做的卷。 */
 data class StudentExamItem(
     @SerializedName("assignment_id") val assignmentId: Long,

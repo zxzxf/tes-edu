@@ -14,6 +14,8 @@ import com.tes.edu.data.remote.ExamResultDto
 import com.tes.edu.data.remote.ExamSolutionDto
 import com.tes.edu.data.remote.ExamSolutionSteps
 import com.tes.edu.data.remote.ExamSubmitRequest
+import com.tes.edu.data.remote.GraphNode
+import com.tes.edu.data.remote.QuestionGraphDto
 import com.tes.edu.data.remote.StudentExamItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -119,6 +121,16 @@ class ExamViewModelTest {
 
         override suspend fun paperGraph(assignmentId: Long) =
             com.tes.edu.data.remote.PaperGraphDto(paperId = 11)
+
+        var questionGraphDto: QuestionGraphDto = QuestionGraphDto()
+        var questionGraphError: Throwable? = null
+        val questionGraphCalls = mutableListOf<Pair<Long, Int>>()
+
+        override suspend fun questionGraph(assignmentId: Long, seq: Int): QuestionGraphDto {
+            questionGraphCalls += assignmentId to seq
+            questionGraphError?.let { throw it }
+            return questionGraphDto
+        }
     }
 
     private class FakeDraftStore : ExamDraftStore {
@@ -420,6 +432,65 @@ class ExamViewModelTest {
         )
         vm.loadSolution(1)
         assertEquals("解析结论与卷面标答不一致，未缓存", vm.ui.value.solutions[1]!!.error)
+    }
+
+    // ------------------------------------------------------------ M3-6 逐题图谱
+    @Test
+    fun loadQuestionGraph_lazyLoadsPerSeq_andDoesNotRefetch() {
+        api.resultDto = ExamResultDto(assignmentId = assignmentId, paperId = 11, totalCount = 3)
+        vm.open(item(submitted = true))
+        api.questionGraphDto = QuestionGraphDto(
+            assignmentId = assignmentId, paperId = 11, seq = 1,
+            coreKps = listOf("K01"),
+            nodes = listOf(GraphNode(code = "K01", title = "集合", band = "strong"))
+        )
+        vm.loadQuestionGraph(1)
+        val state = vm.ui.value.questionGraphs[1]!!
+        val dto = state.data!!
+        assertEquals(1, dto.coreNodes().size)
+        assertEquals("集合", dto.coreNodes().single().title)
+        assertNull(state.error)
+        // 十道题的卷子不该一次拉十个：没展开的题一个请求都没有
+        assertEquals(1, api.questionGraphCalls.size)
+        vm.loadQuestionGraph(1)
+        assertEquals("同题反复展开不重复打接口", 1, api.questionGraphCalls.size)
+        assertEquals(assignmentId to 1, api.questionGraphCalls.single())
+    }
+
+    @Test
+    fun loadQuestionGraph_failure_isRetryable() {
+        api.resultDto = ExamResultDto(assignmentId = assignmentId, paperId = 11)
+        vm.open(item(submitted = true))
+        api.questionGraphError = IOException("timeout")
+        vm.loadQuestionGraph(2)
+        assertTrue(vm.ui.value.questionGraphs[2]!!.error!!.contains("加载失败"))
+
+        api.questionGraphError = null
+        api.questionGraphDto = QuestionGraphDto(
+            seq = 2, coreKps = listOf("K02"), nodes = listOf(GraphNode(code = "K02"))
+        )
+        vm.loadQuestionGraph(2)
+        assertEquals("失败不能当缓存，点重试要真的再发一次", 2, api.questionGraphCalls.size)
+        assertNotNull(vm.ui.value.questionGraphs[2]!!.data)
+        assertNull(vm.ui.value.questionGraphs[2]!!.error)
+    }
+
+    @Test
+    fun openResult_clearsQuestionGraphsOfPreviousPaper() {
+        api.resultDto = ExamResultDto(assignmentId = assignmentId, paperId = 11)
+        vm.open(item(submitted = true))
+        api.questionGraphDto = QuestionGraphDto(
+            seq = 1, coreKps = listOf("A"), nodes = listOf(GraphNode(code = "A"))
+        )
+        vm.loadQuestionGraph(1)
+        assertNotNull(vm.ui.value.questionGraphs[1]!!.data)
+
+        api.resultDto = ExamResultDto(assignmentId = 8L, paperId = 12)
+        vm.openResult(8L)
+        assertTrue("换卷必须清空，否则 A 卷的图会挂到 B 卷同题号上",
+            vm.ui.value.questionGraphs.isEmpty())
+        vm.loadQuestionGraph(1)
+        assertEquals(listOf(assignmentId to 1, 8L to 1), api.questionGraphCalls)
     }
 
     // ------------------------------------------------- 结果缓存（弱网秒开 + 合并接口）

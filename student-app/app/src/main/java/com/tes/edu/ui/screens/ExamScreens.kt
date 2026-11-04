@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tes.edu.data.remote.ExamQuestionView
 import com.tes.edu.data.remote.ExamResultDto
+import com.tes.edu.data.remote.GraphNode
+import com.tes.edu.data.remote.QuestionGraphDto
 import com.tes.edu.data.remote.StudentExamItem
 import com.tes.edu.ui.components.EmptyState
 import com.tes.edu.ui.components.GradientButton
@@ -62,13 +64,14 @@ import com.tes.edu.ui.components.SoftNotice
 import com.tes.edu.ui.components.SoftOutlinedButton
 import com.tes.edu.ui.components.SoftQuote
 import com.tes.edu.ui.components.TesHero
-import com.tes.edu.state.AppBridge
 import com.tes.edu.ui.theme.TesEduColors
 import com.tes.edu.util.MathText
 import com.tes.edu.viewmodel.ExamSolutionState
 import com.tes.edu.viewmodel.ExamStage
 import com.tes.edu.viewmodel.ExamUiState
 import com.tes.edu.viewmodel.ExamViewModel
+import com.tes.edu.viewmodel.QuestionGraphState
+import kotlin.math.roundToInt
 
 /**
  * 作业闭环（M1-6）：列表 → 答题 → 结果。
@@ -78,8 +81,7 @@ import com.tes.edu.viewmodel.ExamViewModel
  */
 @Composable
 fun ExamScreen(
-    vm: ExamViewModel = viewModel(),
-    onNavigate: (String) -> Unit = {}
+    vm: ExamViewModel = viewModel()
 ) {
     val ui by vm.ui.collectAsState()
 
@@ -103,13 +105,8 @@ fun ExamScreen(
             onBack = vm::backToList,
             onRefresh = { ui.assignmentId.takeIf { it != 0L }?.let { vm.openResult(it, ui.title) } },
             onSolution = vm::loadSolution,
-            // M3-4：把「按卷看图」请求交给图谱页（一次性传参，消费即清空）
-            onOpenPaperGraph = {
-                if (ui.assignmentId != 0L) {
-                    AppBridge.postPaperGraph(ui.assignmentId, ui.title)
-                    onNavigate(Screen.Graph.route)
-                }
-            }
+            // M3-6：图谱下沉到逐题卡片，展开该题才拉这份子图（不再跳整卷图谱页）
+            onGraph = vm::loadQuestionGraph
         )
     }
 }
@@ -481,7 +478,7 @@ private fun ExamResultBody(
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onSolution: (Int) -> Unit,
-    onOpenPaperGraph: () -> Unit
+    onGraph: (Int) -> Unit
 ) {
     Column(
         Modifier
@@ -532,19 +529,16 @@ private fun ExamResultBody(
             }
         } else if (r != null) {
             ResultSummary(r = r, title = ui.title)
-            Spacer(Modifier.height(12.dp))
-            // 整卷维度入口：错题集负责「按卷筛」，图谱负责「这卷考了哪些点」
-            SoftOutlinedButton(
-                text = "看本卷知识点图谱",
-                icon = Icons.Rounded.AccountTree,
-                onClick = onOpenPaperGraph
-            )
             Spacer(Modifier.height(14.dp))
+            // M3-6：图谱按题下沉——每张题卡自带「本题知识图谱」，不再是整卷一个大图。
+            // 学生看结果时关心的是「这一题卡在哪个知识点」，整卷图会把十道题的点混在一起。
             r.items.forEach { item ->
                 ResultItemCard(
                     item = item,
                     solution = ui.solutions[item.seq],
-                    onLoadSolution = { onSolution(item.seq) }
+                    onLoadSolution = { onSolution(item.seq) },
+                    graph = ui.questionGraphs[item.seq],
+                    onLoadGraph = { onGraph(item.seq) }
                 )
                 Spacer(Modifier.height(10.dp))
             }
@@ -620,7 +614,9 @@ private fun ResultSummary(r: ExamResultDto, title: String) {
 private fun ResultItemCard(
     item: com.tes.edu.data.remote.ExamResultItem,
     solution: ExamSolutionState?,
-    onLoadSolution: () -> Unit
+    onLoadSolution: () -> Unit,
+    graph: QuestionGraphState?,
+    onLoadGraph: () -> Unit
 ) {
     val (pillColor, pillBg, icon) = when {
         item.manualPending -> Triple(TesEduColors.Amber, TesEduColors.AmberSoft, Icons.Rounded.Schedule)
@@ -696,6 +692,7 @@ private fun ResultItemCard(
             )
         }
         SolutionSection(solution = solution, onLoad = onLoadSolution)
+        QuestionGraphSection(state = graph, onLoad = onLoadGraph)
     }
 }
 
@@ -761,6 +758,211 @@ private fun SolutionSection(solution: ExamSolutionState?, onLoad: () -> Unit) {
             SoftOutlinedButton(text = "重试", icon = Icons.Rounded.Refresh, onClick = onLoad)
         }
     }
+}
+
+// ======================================================= M3-6 逐题知识子图
+/**
+ * 结果页每题卡片自带一个「本题知识图谱」：默认收起，**展开才拉那道题的子图**。
+ *
+ * 为什么不做成整卷图谱按钮：学生看「查看结果」时关心的是「这一题卡在哪个点」，
+ * 整卷图把十道题的知识点混在一起，反而定位不到。按题懒加载还顺带省了流量——
+ * 十道题的卷子不会一次发十个请求，失败重试也只影响这一张卡片。
+ */
+@Composable
+private fun QuestionGraphSection(
+    state: QuestionGraphState?,
+    onLoad: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Spacer(Modifier.height(10.dp))
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(TesEduColors.BrandSofter)
+            .clickable {
+                expanded = !expanded
+                // 首次展开、或上次失败后才请求；已成功的不重复打接口
+                if (expanded && state?.data == null && state?.loading != true) onLoad()
+            }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Rounded.AccountTree,
+            contentDescription = null,
+            tint = TesEduColors.Brand,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            "本题知识图谱",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = TesEduColors.Brand,
+            modifier = Modifier.weight(1f)
+        )
+        val nodeCount = state?.data?.nodes?.size ?: 0
+        if (nodeCount > 0) {
+            InfoPill("$nodeCount 个知识点", TesEduColors.TextSecondary, TesEduColors.Surface)
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(
+            if (expanded) "收起" else "展开",
+            style = MaterialTheme.typography.labelSmall,
+            color = TesEduColors.TextMuted
+        )
+    }
+
+    if (expanded) {
+        Spacer(Modifier.height(10.dp))
+        val error = state?.error
+        val data = state?.data
+        when {
+            state == null || state.loading -> Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    Modifier.size(14.dp), strokeWidth = 2.dp, color = TesEduColors.Brand
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "正在整理本题知识点…",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TesEduColors.TextMuted
+                )
+            }
+
+            error != null -> {
+                Text(error, style = MaterialTheme.typography.bodySmall, color = TesEduColors.Danger)
+                Spacer(Modifier.height(6.dp))
+                SoftOutlinedButton(text = "重试", icon = Icons.Rounded.Refresh, onClick = onLoad)
+            }
+
+            data != null -> QuestionGraphContent(data)
+        }
+    }
+}
+
+/** 三层结构：前置 → 本题考点 → 后继；节点带掌握度配色带，与图谱页同一口径。 */
+@Composable
+private fun QuestionGraphContent(dto: QuestionGraphDto) {
+    if (!dto.hasGraph) {
+        Text(
+            dto.note?.takeIf { it.isNotBlank() } ?: "本题暂未标注知识点",
+            style = MaterialTheme.typography.bodySmall,
+            color = TesEduColors.TextSecondary
+        )
+    } else {
+        GraphLayer(
+            title = "先学 · 前置知识",
+            nodes = dto.prereqNodes(),
+            accent = TesEduColors.Amber,
+            bg = TesEduColors.AmberSoft
+        )
+        if (dto.coreNodes().isNotEmpty()) GraphFlowLine()
+        GraphLayer(
+            title = "本题考点",
+            nodes = dto.coreNodes(),
+            accent = TesEduColors.Brand,
+            bg = TesEduColors.BrandSoft
+        )
+        if (dto.successorNodes().isNotEmpty()) GraphFlowLine()
+        GraphLayer(
+            title = "接着学 · 后续知识",
+            nodes = dto.successorNodes(),
+            accent = TesEduColors.Mint,
+            bg = TesEduColors.MintSoft
+        )
+        if (dto.unresolvedKps.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "另有 ${dto.unresolvedKps.size} 个标签未匹配知识点",
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
+        }
+    }
+}
+
+@Composable
+private fun GraphLayer(
+    title: String,
+    nodes: List<GraphNode>,
+    accent: Color,
+    bg: Color
+) {
+    if (nodes.isEmpty()) return
+    Text(
+        title,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = accent
+    )
+    Spacer(Modifier.height(6.dp))
+    nodes.forEach { n ->
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(bg)
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    n.title?.takeIf { it.isNotBlank() } ?: n.code,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TesEduColors.TextPrimary
+                )
+                val sub = listOfNotNull(n.chapter?.takeIf { it.isNotBlank() }, n.code)
+                    .joinToString(" · ")
+                if (sub.isNotBlank()) {
+                    Text(sub, style = MaterialTheme.typography.labelSmall, color = TesEduColors.TextSecondary)
+                }
+                n.mastery?.let { m ->
+                    Text(
+                        "掌握度 ${(m * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TesEduColors.TextMuted
+                    )
+                }
+            }
+            Spacer(Modifier.width(6.dp))
+            InfoPill(bandLabel(n.band), bandColor(n.band), TesEduColors.Surface)
+        }
+        Spacer(Modifier.height(6.dp))
+    }
+}
+
+/** 学习流向的连接线：前置在上、本题居中、后继在下（from=前置、to=后置）。 */
+@Composable
+private fun GraphFlowLine() {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 12.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(width = 2.dp, height = 14.dp).background(TesEduColors.Divider))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            "↓ 学习流向",
+            style = MaterialTheme.typography.labelSmall,
+            color = TesEduColors.TextMuted
+        )
+    }
+}
+
+private fun bandLabel(band: String): String = when (band) {
+    GraphNode.BAND_STRONG -> "已掌握"
+    GraphNode.BAND_MEDIUM -> "巩固中"
+    GraphNode.BAND_WEAK -> "薄弱"
+    else -> "未学过"
+}
+
+private fun bandColor(band: String): Color = when (band) {
+    GraphNode.BAND_STRONG -> TesEduColors.Success
+    GraphNode.BAND_MEDIUM -> TesEduColors.Brand
+    GraphNode.BAND_WEAK -> TesEduColors.Danger
+    else -> TesEduColors.TextSecondary
 }
 
 // ================================================================== 零件

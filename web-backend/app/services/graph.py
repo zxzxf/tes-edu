@@ -259,6 +259,148 @@ async def paper_graph_db(
     }
 
 
+def question_graph_plan(
+    raw_kps: Sequence[str],
+    meta_by_code: Dict[str, dict],
+    edges: Sequence[Tuple[str, str]],
+) -> dict:
+    """M3-6 纯函数：题目标签 -> 本题考点 + 一层前驱/后继 + 子图边。
+
+    与 ``paper_graph_db`` 的关键区别是**节点集合按单题锁定**：整卷图把十道题的
+    知识点混在一起，学生看结果页时定位不到「这道题到底卡在哪个点」。
+
+    题目标签可能是 DAG code，也可能是中文名（旧数据）：能翻译的并入节点集，
+    翻不到的进 ``unresolved`` 原样回报，绝不硬塞进图（避免造第二套键）。
+    只展开**一层**前驱/后继：手机端逐题卡片放不下多级子图，且多级会让
+    「本题考点」被淹没在一堆远亲里。
+    """
+    title_to_code = {
+        m["title"]: code
+        for code, m in meta_by_code.items()
+        if m.get("title")
+    }
+    core: set = set()
+    unresolved: List[str] = []
+    for k in raw_kps or []:
+        if not k:
+            continue
+        code = k if k in meta_by_code else title_to_code.get(k)
+        if code:
+            core.add(code)
+        else:
+            unresolved.append(k)
+
+    prereq_map: Dict[str, set] = {}
+    successors: Dict[str, set] = {}
+    for kp, pre in edges or []:
+        prereq_map.setdefault(kp, set()).add(pre)
+        successors.setdefault(pre, set()).add(kp)
+
+    prereqs = {
+        p for k in core for p in prereq_map.get(k, set()) if p in meta_by_code
+    } - core
+    # 三层角色必须互斥：链 A->B->C 里若 A、C 都是本题考点，B 既是 A 的后继
+    # 又是 C 的前驱，不减去 prereqs 的话 App 会把同一个节点画两遍。
+    succs = {
+        s for k in core for s in successors.get(k, set()) if s in meta_by_code
+    } - core - prereqs
+    nodes_set = core | prereqs | succs
+    # from=前置、to=后置（学习流向），只保留两端都在子图里的边
+    sub_edges = [
+        (pre, kp) for kp, pre in (edges or [])
+        if kp in nodes_set and pre in nodes_set
+    ]
+    return {
+        "core": sorted(core),
+        "prereqs": sorted(prereqs),
+        "successors": sorted(succs),
+        "nodes_set": nodes_set,
+        "edges": sub_edges,
+        "unresolved": sorted(set(unresolved)),
+        "prereq_map": prereq_map,
+    }
+
+
+async def question_graph_db(
+    db: AsyncSession,
+    *,
+    assignment_id: int,
+    paper_id: int,
+    seq: int,
+    student_id: str,
+    question,
+) -> dict:
+    """M3-6：单题知识子图（结果页逐题图谱）的 DB 装配层。
+
+    数据来源两处并集：卷面题自带的 ``knowledge_points`` 快照（线上卷里已是
+    DAG code）+ ``question_kp`` 教师标注（按 question_id，无 id 时按 content_hash）。
+    掌握度走 ``mastery.load_mastery_map`` 复用衰减口径，节点深度固定为
+    前置=0 / 本题=1 / 后继=2，供 App 分三层渲染。
+    """
+    raw = {k for k in (getattr(question, "knowledge_points", None) or []) if k}
+    qid = getattr(question, "question_id", None)
+    content_hash = getattr(question, "content_hash", None)
+    if qid or content_hash:
+        from app.models.ops import QuestionKp
+        from sqlalchemy import select as _select
+
+        stmt = _select(QuestionKp.kp_code)
+        stmt = stmt.where(
+            QuestionKp.question_id == qid
+            if qid else QuestionKp.content_hash == content_hash
+        )
+        rows = (await db.execute(stmt)).all()
+        raw |= {r[0] for r in rows if r[0]}
+
+    meta_rows = await load_kp_meta(db)
+    meta_by_code = {m["code"]: m for m in meta_rows if m.get("code")}
+    all_edges = await mastery.load_dag_edges(db)
+    plan = question_graph_plan(sorted(raw), meta_by_code, all_edges)
+
+    nodes_set = plan["nodes_set"]
+    mmap = (
+        await mastery.load_mastery_map(db, student_id, sorted(nodes_set))
+        if nodes_set else {}
+    )
+
+    core = set(plan["core"])
+    prereqs = set(plan["prereqs"])
+    nodes = []
+    for code in sorted(nodes_set):
+        role = "core" if code in core else ("prereq" if code in prereqs else "successor")
+        depth = {"prereq": 0, "core": 1, "successor": 2}[role]
+        n = assemble_node(
+            meta_by_code[code],
+            mmap.get(code),
+            None,
+            False,
+            depth,
+            0,
+            sorted(p for p in plan["prereq_map"].get(code, set()) if p in nodes_set),
+        )
+        # App 按 code 分组展示即可；role 冗余一份便于调试/未来直接渲染
+        n["role"] = role
+        nodes.append(n)
+
+    edges = [{"from": f, "to": t} for f, t in plan["edges"]]
+    return {
+        "assignment_id": assignment_id,
+        "paper_id": paper_id,
+        "seq": seq,
+        "question_id": qid,
+        "student_id": student_id,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "summary": summarize(nodes, [(e["from"], e["to"]) for e in edges]),
+        "core_kps": plan["core"],
+        "prereq_kps": plan["prereqs"],
+        "successor_kps": plan["successors"],
+        "nodes": nodes,
+        "edges": edges,
+        "unresolved_kps": plan["unresolved"],
+        "note": "" if core else "本题尚未绑定 DAG 知识点（先在题↔知识点里标注）",
+    }
+
+
 async def knowledge_graph_db(
     db: AsyncSession,
     student_id: str,

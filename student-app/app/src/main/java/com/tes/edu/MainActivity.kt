@@ -133,7 +133,8 @@ fun AppRoot() {
             startDestination = Screen.Exam.route,
             modifier = Modifier.padding(padding)
         ) {
-            composable(Screen.Exam.route) { ExamScreen(onNavigate = go) }
+            // 结果页的图谱已在题卡内就地展开，作业页不再需要跨页跳转
+            composable(Screen.Exam.route) { ExamScreen() }
             composable(Screen.Input.route) { InputScreen() }
             composable(Screen.Camera.route) { CameraScreen(onNavigate = go) }
             composable(Screen.Explain.route) { ExplainScreen() }

@@ -5,6 +5,7 @@
 学生：
 - GET  /student/exams/{assignment_id}/questions/{seq}/solution  解析（提交后才可见）
 - GET  /student/exams/{assignment_id}/graph                     按卷知识点子图
+- GET  /student/exams/{assignment_id}/questions/{seq}/graph    单题知识子图（结果页逐题）
 - GET  /student/exams/{assignment_id}/questions/{seq}/similar   同知识点同条件变式
 
 教师：
@@ -136,6 +137,34 @@ async def student_paper_graph(
     """M3-4：按卷展示本题涉及知识点及其前驱后继（复用 T-B5 图谱装配）。"""
     a = await _assignment_for_student(db, assignment_id, user)
     return await graph_svc.paper_graph_db(db, a.paper_id, user["user_id"])
+
+
+@student_router.get("/{assignment_id}/questions/{seq}/graph")
+async def student_question_graph(
+    assignment_id: int,
+    seq: int,
+    user=Depends(require_role(Role.STUDENT)),
+    db: AsyncSession = Depends(get_db),
+):
+    """M3-6：结果页**逐题**知识子图（本题考点 + 一层前驱后继 + 掌握度）。
+
+    与 ``/{assignment_id}/graph``（整卷）并存但用途不同：整卷把十道题的点混在
+    一起，学生看结果页时定位不到「这一题卡在哪个点」。这里按 seq 锁定单题，
+    且提交前后都可见（图谱不含答案/解析，不构成泄题）。
+
+    租户/下发范围由 ``_assignment_for_student`` 保证；题不存在由
+    ``_question_by_seq`` 给 404，不会跨卷拿题。
+    """
+    a = await _assignment_for_student(db, assignment_id, user)
+    q = await _question_by_seq(db, a.paper_id, seq)
+    return await graph_svc.question_graph_db(
+        db,
+        assignment_id=assignment_id,
+        paper_id=a.paper_id,
+        seq=seq,
+        student_id=user["user_id"],
+        question=q,
+    )
 
 
 @student_router.get("/{assignment_id}/questions/{seq}/similar")

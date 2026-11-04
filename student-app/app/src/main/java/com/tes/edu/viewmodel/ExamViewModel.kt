@@ -16,6 +16,7 @@ import com.tes.edu.data.remote.ApiClient
 import com.tes.edu.data.remote.ExamApi
 import com.tes.edu.data.remote.ExamQuestionView
 import com.tes.edu.data.remote.ExamResultDto
+import com.tes.edu.data.remote.QuestionGraphDto
 import com.tes.edu.data.remote.ExamSolutionDto
 import com.tes.edu.data.remote.ExamSubmitItem
 import com.tes.edu.data.remote.ExamSubmitRequest
@@ -37,6 +38,16 @@ data class ExamSolutionState(
     val error: String? = null
 ) {
     /** 有内容可展示（生成失败但带原因时也算「已请求过」）。 */
+    val requested: Boolean get() = data != null || error != null
+}
+
+/** M3-6 单题知识子图的加载状态（结果页按题展开，点开才拉）。 */
+data class QuestionGraphState(
+    val loading: Boolean = false,
+    val data: QuestionGraphDto? = null,
+    val error: String? = null
+) {
+    /** 已请求过（成功或失败都算）；失败仍允许重试，所以和 [requested] 分开判。 */
     val requested: Boolean get() = data != null || error != null
 }
 
@@ -67,7 +78,9 @@ data class ExamUiState(
     val draftRestored: Boolean = false,
     val result: ExamResultDto? = null,
     /** M3-1 逐题解析：key=卷内题号。加载态按题存，切题/翻页不互相顶掉。 */
-    val solutions: Map<Int, ExamSolutionState> = emptyMap()
+    val solutions: Map<Int, ExamSolutionState> = emptyMap(),
+    /** M3-6 逐题知识子图：key=卷内题号，结果页展开该题时才加载。 */
+    val questionGraphs: Map<Int, QuestionGraphState> = emptyMap()
 ) {
     val total: Int get() = questions.size
     val current: ExamQuestionView? get() = questions.getOrNull(index)
@@ -180,7 +193,10 @@ class ExamViewModel(
                     answers = emptyMap(),
                     index = 0,
                     result = null,
-                    draftRestored = false
+                    draftRestored = false,
+                    // 逐题解析/图谱按卷缓存，换卷必须清空，否则 A 卷的图会挂到 B 卷同题号上
+                    solutions = emptyMap(),
+                    questionGraphs = emptyMap()
                 )
             }
 
@@ -226,7 +242,9 @@ class ExamViewModel(
             answers = restored,
             index = firstUnansweredIndex(questionsAsc, restored),
             draftRestored = restored.isNotEmpty(),
-            result = null
+            result = null,
+            solutions = emptyMap(),
+            questionGraphs = emptyMap()
         )
     }
 
@@ -244,7 +262,9 @@ class ExamViewModel(
                 offline = false,
                 assignmentId = assignmentId,
                 title = title,
-                result = cached
+                result = cached,
+                solutions = emptyMap(),
+                questionGraphs = emptyMap()
             )
 
             // 2) 后台拉最新：优先 bundle（一次拿全），失败降级 result()。
@@ -302,6 +322,41 @@ class ExamViewModel(
                 )
             )
         }
+    }
+
+    // ------------------------------------------------------------------ 逐题图谱
+    /**
+     * M3-6 取本题知识子图：结果页**展开该题时**才调用，不是进结果页就拉整卷。
+     *
+     * 与 [loadSolution] 同一套按题缓存：十道题的卷子不会一次打十个请求，同一题
+     * 反复展开也不重复打接口。失败保留错误文案但允许重试（error 不当缓存），
+     * 图谱是增值信息，加载失败绝不影响判分结果本身。
+     */
+    fun loadQuestionGraph(seq: Int) {
+        val s = _ui.value
+        if (s.assignmentId == 0L) return
+        val current = s.questionGraphs[seq]
+        if (current?.loading == true || current?.data != null) return
+        _ui.value = s.copy(
+            questionGraphs = s.questionGraphs + (seq to QuestionGraphState(loading = true))
+        )
+        viewModelScope.launch {
+            val res = withAuth { api.questionGraph(s.assignmentId, seq) }
+            _ui.value = _ui.value.copy(
+                questionGraphs = _ui.value.questionGraphs + (
+                    seq to res.fold(
+                        onSuccess = { data -> QuestionGraphState(data = data) },
+                        onFailure = { e -> QuestionGraphState(error = graphMessageOf(e)) }
+                    )
+                )
+            )
+        }
+    }
+
+    /** 404 = 该 seq 不在本卷（老服务端也还没有这个路由），给可行动的提示。 */
+    private fun graphMessageOf(e: Throwable): String = when {
+        e is HttpException && e.code() == 404 -> "这道题暂无知识图谱（卷子可能已更新）"
+        else -> "知识图谱加载失败：${messageOf(e)}"
     }
 
     // ------------------------------------------------------------------ 作答
@@ -411,6 +466,8 @@ class ExamViewModel(
                         title = r.title.ifBlank { _ui.value.title },
                         error = null,
                         offline = false,
+                        solutions = emptyMap(),
+                        questionGraphs = emptyMap(),
                         // 列表里的"已提交"立刻同步，不必等用户下拉刷新
                         exams = _ui.value.exams.map {
                             if (it.assignmentId == s.assignmentId) it.copy(submitted = true) else it
@@ -438,7 +495,9 @@ class ExamViewModel(
             answers = emptyMap(),
             index = 0,
             draftRestored = false,
-            result = null
+            result = null,
+            solutions = emptyMap(),
+            questionGraphs = emptyMap()
         )
     }
 

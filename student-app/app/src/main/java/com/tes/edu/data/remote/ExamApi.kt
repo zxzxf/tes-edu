@@ -55,4 +55,14 @@ interface ExamApi {
     /** M3-4 按卷知识点与前后继（提交前后都可见，不含答案/解析）。 */
     @GET("api/student/exams/{assignmentId}/graph")
     suspend fun paperGraph(@Path("assignmentId") assignmentId: Long): PaperGraphDto
+
+    /**
+     * M3-6 结果页逐题知识子图：只围绕这一题的考点 + 一层前驱/后继 + 掌握度。
+     * 不含答案/解析，提交前后都可见；题号不存在由服务端给 404。
+     */
+    @GET("api/student/exams/{assignmentId}/questions/{seq}/graph")
+    suspend fun questionGraph(
+        @Path("assignmentId") assignmentId: Long,
+        @Path("seq") seq: Int
+    ): QuestionGraphDto
 }
