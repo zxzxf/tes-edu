@@ -101,6 +101,9 @@ class ExamPaperQuestionOut(BaseModel):
     knowledge_points: List[str] = []
     # M2-4：可接受答案值集合（标答预展开 + 教师批改时确认追加），教师校对用
     answer_values: List[str] = []
+    # M4-1：组卷来源题 id + 本题分值（NULL = 未配分，发布前须补齐）
+    question_id: Optional[int] = None
+    score: Optional[float] = None
 
 
 class ExamPaperCreate(BaseModel):
@@ -108,6 +111,9 @@ class ExamPaperCreate(BaseModel):
 
     ``paper_type`` 三值（M1-3）：``pure_choice`` 纯选择题卷 / ``pure_blank`` 纯填空题卷 /
     ``mixed`` 混合卷（含解答题，发布时标「需人工 N 道」）。
+
+    ``difficulty_mix``（M4-2）：难度配比，如 ``{"2": 3, "3": 4, "4": 3}``；
+    给定后**合计必须等于 count**，抽不满时如实回报实际分布与缺口，不静默凑卷。
     """
     title: Optional[str] = None
     grade: str = "高三"
@@ -117,6 +123,28 @@ class ExamPaperCreate(BaseModel):
     knowledge_points: List[str] = []                  # 可选：限定知识点
     difficulty_min: Optional[int] = None
     difficulty_max: Optional[int] = None
+    difficulty_mix: Dict[int, int] = {}               # M4-2：难度配比（合计须等于 count）
+
+
+class ManualPaperItem(BaseModel):
+    """M4-1 手动出卷：从题库选 1 题，可覆盖分值/答案/答案值。"""
+    question_id: int
+    score: Optional[float] = Field(default=None, ge=0)
+    #: 教师可在卷面上修正答案（库里答案有误时不必先改题库）；不给则用题库答案
+    answer: Optional[str] = None
+    answer_values: List[str] = []
+
+
+class ManualPaperCreate(BaseModel):
+    """M4-1 手动出卷请求：按顺序选题 + 配分，保存为草稿卷。"""
+    title: Optional[str] = None
+    grade: str = "高三"
+    subject: str = "数学"
+    paper_type: Literal["pure_choice", "pure_blank", "mixed"] = "pure_choice"
+    questions: List[ManualPaperItem] = Field(default_factory=list)
+    knowledge_points: List[str] = []
+    #: true = 保存即发布（仍须过发布闸门）；默认 false 存草稿
+    publish: bool = False
 
 
 class ExamPaperOut(BaseModel):
@@ -126,10 +154,15 @@ class ExamPaperOut(BaseModel):
     grade: str
     subject: str
     published: bool
+    version: int = 1
+    source: str = "manual"
     question_count: int = 0
     auto_gradeable_count: int = 0
     manual_required_count: int = 0
+    total_score: float = 0
     questions: List[ExamPaperQuestionOut] = []
+    # M4-2：规则组卷的实际分布与缺口说明（手动/复制卷为空）
+    compose_report: Optional[dict] = None
 
 
 # ---- 发布校验（M1-3）----

@@ -24,16 +24,19 @@
 """
 from __future__ import annotations
 
+import logging
 import random
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.answer_verify import status_label as answer_status_label
+from app.core.compose_engine import ComposeError
+from app.core.publish_guard import missing_answers, missing_scores, sample_report
 from app.core.db import get_db
 from app.core.equiv import (
     blank_judge,
@@ -70,6 +73,7 @@ from app.models.ops import (
     ExamPaperQuestion,
     ExamSubmission,
     ExamSubmissionItem,
+    WrongQuestion,
 )
 from app.models.schemas import (
     AnswerCheckConfirmRequest,
@@ -77,6 +81,7 @@ from app.models.schemas import (
     AnswerCheckOut,
     AnswerCheckSummaryOut,
     AssignmentCreate,
+    ManualPaperCreate,
     AssignmentOut,
     ExamPaperCreate,
     ExamPaperOut,
@@ -89,10 +94,14 @@ from app.models.schemas import (
     SubmitExamRequest,
 )
 from app.services import answer_verify as verify
+from app.services import drill_link
 from app.services import grading_guard as guard
+from app.services import paper_compose
 from app.services import student_profile
 from app.services import wrongbook
 from app.services.student_profile import DEFAULT_GRADE, grade_matches
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/exam", tags=["exam"])
 student_router = APIRouter(prefix="/exams", tags=["student-exam"])
@@ -215,107 +224,298 @@ async def compose_paper(
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    """规则组卷：从 course_kb 抽题生成试卷（答案随卷快照）。
+    """M4-2 规则组卷：从 course_kb 按配额抽题成卷（答案随卷快照）。
 
-    过滤：subject / grade / 卷型白名单题型 / tenant / 答案合规 / 有 embedding（已入库质检过）/
-    非 quarantine。知识点可选；题源不足显式报错不静默凑卷。
+    过滤条件与权重全部在 ``app.services.paper_compose`` / ``app.core.compose_engine``：
+    ``published`` + 非 quarantine + 有答案 + 本租户 + 卷型题型白名单 + 难度区间；
+    知识点覆盖优先 -> 难度配比 -> 题源优先级（teacher > import > crawl > llm_generated）。
+    题源不足直接 409 并说明缺哪个维度，**不静默凑卷**。
     """
     tenant_id = user.get("tenant_id") or "school_pilot_01"
     if not is_known_paper_type(body.paper_type):
         raise HTTPException(status_code=400, detail=f"未知卷型 {body.paper_type!r}")
-
-    course_types = course_types_for(body.paper_type)
-    if not course_types:
+    if not course_types_for(body.paper_type):
         raise HTTPException(status_code=400, detail=f"卷型 {body.paper_type!r} 无对应题型")
 
-    stmt = select(CourseQuestion).where(
-        CourseQuestion.subject == body.subject,
-        CourseQuestion.grade == body.grade,
-        CourseQuestion.type.in_(course_types),
-        CourseQuestion.tenant_id == tenant_id,
-        CourseQuestion.answer.isnot(None),
-        CourseQuestion.embedding.isnot(None),
-        CourseQuestion.status == "published",
-        (CourseQuestion.source_tag.is_(None)) | (CourseQuestion.source_tag != "quarantine"),
-    )
-    rows = (await db.execute(stmt)).scalars().all()
-
-    # 答案合规 + 可选知识点过滤（JSON 不支持 SQL 数组算子，放 Python）
-    wanted = set(body.knowledge_points)
-    cand = []
-    for r in rows:
-        if not _answer_acceptable(r):
-            continue
-        if wanted and not wanted.intersection(set(r.knowledge_points or [])):
-            continue
-        cand.append(r)
-
-    # 随机抽题 + 去重（content_hash）
-    random.shuffle(cand)
-    seen = set()
-    picked = []
-    for r in cand:
-        if r.content_hash in seen:
-            continue
-        seen.add(r.content_hash)
-        picked.append(r)
-        if len(picked) >= body.count:
-            break
-
-    if len(picked) < body.count:
+    try:
+        paper, report = await paper_compose.create_rule_paper(
+            db, body, tenant_id=tenant_id, user_id=user.get("user_id")
+        )
+    except ComposeError as exc:
         raise HTTPException(
             status_code=409,
-            detail=(
-                f"题源不足：{body.grade}·{body.subject} 可组"
-                f"{PAPER_TYPE_LABEL[body.paper_type]}的题目仅 {len(picked)} 道"
-                f"（需 {body.count}）。请降低题量、放宽知识点筛选或改用其他卷型。"
-            ),
+            detail={
+                "code": "COMPOSE_SOURCE_SHORT",
+                "message": exc.message,
+                "missing_kps": exc.missing_kps,
+                "shortfall": exc.shortfall,
+            },
+        ) from exc
+
+    await db.commit()
+    await db.refresh(paper)
+    out = await _paper_out(db, paper)
+    # 实际分布与缺口说明（卡面第 5 条）：教师端要能看到「难度 4 不足」这类偏差
+    out.compose_report = report
+    return out
+
+
+async def _load_course_questions(
+    db: AsyncSession, ids, tenant_id: str
+) -> dict:
+    """批量取题库行，只允许本租户（手动出卷不得引用别校题目）。"""
+    wanted = [int(i) for i in (ids or [])]
+    if not wanted:
+        return {}
+    rows = (
+        await db.execute(
+            select(CourseQuestion).where(
+                CourseQuestion.id.in_(wanted),
+                CourseQuestion.tenant_id == tenant_id,
+            )
+        )
+    ).scalars().all()
+    return {r.id: r for r in rows}
+
+
+class LlmPaperCreate(BaseModel):
+    """M4-3 LLM 辅助组卷请求：按主题出草稿题（教师确认后才发布）。"""
+
+    topic: str = Field(..., min_length=1, max_length=200)
+    grade: str = "高三"
+    subject: str = "数学"
+    paper_type: Literal["pure_choice", "pure_blank", "mixed"] = "pure_choice"
+    count: int = Field(default=10, ge=1, le=30)
+    difficulty_mix: dict = {}
+
+
+@router.post("/papers/llm-generate", status_code=201)
+async def llm_generate_paper(
+    body: LlmPaperCreate,
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    """M4-3：按主题调租户模型出草稿题（连同草稿卷），**一律不发布**。
+
+    题目落 ``course_kb(status=draft, source_tag=llm_generated)``；
+    教师须走 M3-7 审核转 ``published`` 后，才可能被规则组卷抽到。
+    即使这里返回了 ``paper_id``，该卷也是草稿：发布闸门会因题目未审核而 409。
+
+    模型不可用（未配置/403/429/超时/输出不合规）时返回 503/422 + 可读原因，
+    **绝不回落到模板题冒充生成**。
+    """
+    from app.services import llm_paper as llm_paper_svc
+
+    tenant_id = _tenant_of(user)
+    if not is_known_paper_type(body.paper_type):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "BAD_PAPER_TYPE",
+                "message": f"未知卷型 {body.paper_type}",
+                "allowed": list(PAPER_TYPE_LABEL),
+            },
+        )
+    try:
+        result = await llm_paper_svc.generate_drafts(
+            db,
+            tenant_id=tenant_id,
+            topic=body.topic,
+            grade=body.grade,
+            subject=body.subject,
+            paper_type=body.paper_type,
+            count=body.count,
+            difficulty_mix=body.difficulty_mix,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422, detail={"code": "LLM_OUTPUT_INVALID", "message": str(exc)}
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503, detail={"code": "LLM_UNAVAILABLE", "message": str(exc)}
+        ) from exc
+    await db.commit()
+
+    if result["created"] == 0:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "LLM_NO_VALID_QUESTION",
+                "message": "生成结果没有可入库的题（可能都被答案/题型校验拦下）",
+                "rejected": result["rejected"],
+            },
+        )
+    return result
+
+
+@router.post("/papers/manual", response_model=ExamPaperOut, status_code=201)
+async def create_manual_paper(
+    body: ManualPaperCreate,
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    """M4-1 手动出卷：教师按筛选结果选题 + 配分，保存为草稿卷。
+
+    - 只允许引用**本租户**、``published``、非隔离、有答案的题；
+    - 每题可覆盖分值/答案（题库答案有误时不必先改题库，改的是本卷快照）；
+    - ``publish=true`` 时走与 ``/publish`` 完全相同的闸门（结构/G1/G2），不绕过。
+    """
+    tenant_id = user.get("tenant_id") or "school_pilot_01"
+    if not is_known_paper_type(body.paper_type):
+        raise HTTPException(status_code=400, detail=f"未知卷型 {body.paper_type!r}")
+    if not body.questions:
+        raise HTTPException(status_code=400, detail="请至少选择 1 道题")
+
+    ids = [it.question_id for it in body.questions]
+    if len(set(ids)) != len(ids):
+        raise HTTPException(status_code=400, detail="同一道题不能重复入卷")
+
+    bank = await _load_course_questions(db, ids, tenant_id)
+    missing = [i for i in ids if i not in bank]
+    if missing:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "QUESTION_NOT_FOUND", "message": "题目不存在或不属于本校",
+                    "question_ids": missing},
         )
 
-    title = body.title or (
-        f"{body.grade}·{body.subject}·{PAPER_TYPE_LABEL[body.paper_type]}（{len(picked)}题）"
-    )
+    bad = [
+        i for i in ids
+        if bank[i].status != "published" or bank[i].source_tag == "quarantine"
+        or not (bank[i].answer or "").strip()
+    ]
+    if bad:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "QUESTION_NOT_PUBLISHED",
+                "message": "含未审核/已隔离/无答案题目，不能入卷（请先在题目审核里放行）",
+                "question_ids": bad,
+            },
+        )
+
+    allowed_types = set(course_types_for(body.paper_type))
+    wrong_type = [i for i in ids if (bank[i].type or "") not in allowed_types]
+    if wrong_type:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "QTYPE_NOT_ALLOWED",
+                "message": f"卷型 {body.paper_type} 不包含所选题目类型",
+                "question_ids": wrong_type,
+            },
+        )
+
     paper = ExamPaper(
         tenant_id=tenant_id,
-        title=title,
+        title=body.title or f"{body.grade}·{body.subject}·手动组卷（{len(ids)}题）",
         paper_type=body.paper_type,
         grade=body.grade,
         subject=body.subject,
         knowledge_points=body.knowledge_points
-        or sorted({kp for r in picked for kp in (r.knowledge_points or [])}),
+        or sorted({kp for i in ids for kp in (bank[i].knowledge_points or [])}),
         created_by=user.get("user_id"),
+        version=1,
+        source="manual",
         published=False,
     )
     db.add(paper)
-    await db.flush()  # 取 paper.id
+    await db.flush()
 
-    for seq, r in enumerate(picked, start=1):
-        qtype, multi = _qtype_from_course(r.type)
-        answer = (r.answer or "").strip()
-        db.add(
-            ExamPaperQuestion(
-                paper_id=paper.id,
-                seq=seq,
-                content_hash=r.content_hash,
-                qtype=qtype,
-                multi=multi,
-                stem=r.stem,
-                options=r.options,
-                answer=answer,
-                analysis=r.analysis,
-                difficulty=r.difficulty,
-                knowledge_points=r.knowledge_points,
-                # M2-4：标答预展开成可接受答案值集合，判分时命中即判对
-                answer_values=expand_answer_values(answer) or None,
-            )
+    questions = []
+    for seq, item in enumerate(body.questions, start=1):
+        row = bank[item.question_id]
+        qtype, multi = _qtype_from_course(row.type)
+        answer = (item.answer if item.answer is not None else row.answer or "").strip()
+        values = list(item.answer_values or [])
+        if not values:
+            values = expand_answer_values(answer) or []
+        q = ExamPaperQuestion(
+            paper_id=paper.id,
+            seq=seq,
+            question_id=row.id,
+            content_hash=row.content_hash,
+            # 未配分时留空：发布闸门会拦「未配分」，不替教师猜分
+            score=item.score,
+            qtype=qtype,
+            multi=multi,
+            stem=row.stem,
+            options=row.options,
+            answer=answer,
+            analysis=row.analysis,
+            difficulty=row.difficulty,
+            knowledge_points=row.knowledge_points or [],
+            answer_values=values or None,
         )
+        db.add(q)
+        questions.append(q)
 
-    diffs = [r.difficulty for r in picked if r.difficulty]
+    diffs = [r.difficulty for i in ids for r in [bank[i]] if r.difficulty]
     paper.difficulty_avg = round(sum(diffs) / len(diffs)) if diffs else None
 
     await db.commit()
     await db.refresh(paper)
+    if body.publish:
+        return await publish_paper(paper.id, user=user, db=db)
     return await _paper_out(db, paper)
+
+
+@router.post("/papers/{paper_id}/copy", response_model=ExamPaperOut, status_code=201)
+async def copy_paper(
+    paper_id: int,
+    title: Optional[str] = None,
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    """M4-5 复制/另存：新 id，引用同 question_id/content_hash，快照独立。
+
+    复制出来的卷**一定是草稿**且 version=1：已发布卷的判据不能因为复制被改动；
+    原卷 version 自增只用于记录「被另存过」，不影响已下发卷的判分。
+    """
+    src = await _paper_or_404(db, paper_id, user)
+    src_qs = await _load_questions(db, paper_id)
+
+    copy = ExamPaper(
+        tenant_id=src.tenant_id,
+        title=title or f"{src.title}（副本）",
+        paper_type=src.paper_type,
+        grade=src.grade,
+        subject=src.subject,
+        difficulty_avg=src.difficulty_avg,
+        knowledge_points=list(src.knowledge_points or []),
+        created_by=user.get("user_id"),
+        version=1,
+        source="copy",
+        published=False,
+    )
+    db.add(copy)
+    await db.flush()
+
+    for q in src_qs:
+        db.add(
+            ExamPaperQuestion(
+                paper_id=copy.id,
+                seq=q.seq,
+                question_id=q.question_id,
+                content_hash=q.content_hash,
+                score=q.score,
+                qtype=q.qtype,
+                multi=q.multi,
+                stem=q.stem,
+                options=q.options,
+                answer=q.answer,
+                analysis=q.analysis,
+                difficulty=q.difficulty,
+                knowledge_points=list(q.knowledge_points or []),
+                answer_values=list(q.answer_values or []) or None,
+            )
+        )
+
+    src.version = int(src.version or 1) + 1
+    await db.commit()
+    await db.refresh(copy)
+    return await _paper_out(db, copy)
 
 
 async def _load_questions(db: AsyncSession, paper_id: int) -> list:
@@ -338,9 +538,12 @@ async def _paper_out(db: AsyncSession, paper: ExamPaper) -> ExamPaperOut:
         grade=paper.grade,
         subject=paper.subject,
         published=paper.published,
+        version=int(paper.version or 1),
+        source=paper.source or "manual",
         question_count=len(qs),
         auto_gradeable_count=report.auto_gradeable_count,
         manual_required_count=report.manual_required_count,
+        total_score=sum(float(q.score or 0) for q in qs),
         questions=[
             ExamPaperQuestionOut(
                 seq=q.seq,
@@ -353,6 +556,8 @@ async def _paper_out(db: AsyncSession, paper: ExamPaper) -> ExamPaperOut:
                 difficulty=q.difficulty,
                 knowledge_points=q.knowledge_points or [],
                 answer_values=_values_of(q),
+                question_id=q.question_id,
+                score=float(q.score) if q.score is not None else None,
             )
             for q in qs
         ],
@@ -580,6 +785,9 @@ async def validate_paper_for_publish(
     report = validate_paper(p.paper_type, qs)
     data = report.as_dict()
     problems = list(data["violations"])
+    # M4-6：无答案/未配分先于结构之外的业务闸门报，教师一眼知道要补什么
+    problems += missing_answers(qs)
+    problems += missing_scores(qs)
     unreviewed = await _unreviewed_violations(db, p.tenant_id, qs)
     if unreviewed:
         problems += unreviewed
@@ -589,6 +797,10 @@ async def validate_paper_for_publish(
     _, unchecked = await verify.gate(db, p, qs)
     if unchecked:
         problems += unchecked
+    # M4-7 G2：发布前标准样本空跑（正确解/常见错法/等价写法/边界写法）
+    g2 = sample_report(qs)
+    if not g2["ok"]:
+        problems += g2["blocking"]
     if problems:
         data["ok"] = False
         data["violations"] = problems
@@ -597,8 +809,11 @@ async def validate_paper_for_publish(
             bits.append(f"{len(frozen)} 道冻结题")
         if unchecked:
             bits.append(f"{len(unchecked)} 道答案未通过校验")
+        if not g2["ok"]:
+            bits.append(f"{len(g2['blocking'])} 处抽样判定异常")
         tail = f"（含 {'、'.join(bits)}）" if bits else ""
         data["note"] = f"不可发布：{len(problems)} 处问题待修复{tail}"
+    data["g2"] = g2
     return PaperValidationOut(paper_id=p.id, **data)
 
 
@@ -631,6 +846,25 @@ async def publish_paper(
                 "violations": [v.as_dict() for v in report.violations],
             },
         )
+
+    # M4-6：无答案 / 未配分是「卷子根本不完整」，排在结构校验之后、审核之前
+    no_answer = missing_answers(qs)
+    if no_answer:
+        raise HTTPException(status_code=409, detail={
+            "code": "ANSWER_MISSING",
+            "message": f"{len(no_answer)} 道题没有答案，无法判分",
+            "paper_id": p.id,
+            "violations": no_answer,
+        })
+
+    no_score = missing_scores(qs)
+    if no_score:
+        raise HTTPException(status_code=409, detail={
+            "code": "SCORE_MISSING",
+            "message": f"{len(no_score)} 道题未配分，无法计算总分",
+            "paper_id": p.id,
+            "violations": no_score,
+        })
 
     unreviewed = await _unreviewed_violations(db, p.tenant_id, qs)
     if unreviewed:
@@ -677,6 +911,24 @@ async def publish_paper(
                 "paper_id": p.id,
                 "violations": unchecked,
                 "summary": summary,
+            },
+        )
+
+    # M4-7 G2：发布前标准样本空跑。正确解被判错/常见错法被判对 -> 拦；
+    # 「新卷首周强制 100% 抽样」在这一层就已经是 100%，不需要再抽一部分。
+    g2 = sample_report(qs)
+    if not g2["ok"]:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "G2_SAMPLE_FAILED",
+                "message": (
+                    f"{len(g2['blocking'])} 处标准样本判定异常（正确解被判错或"
+                    "常见错法被判对），修正标答后再发布"
+                ),
+                "paper_id": p.id,
+                "violations": g2["blocking"],
+                "sample": g2["samples"],
             },
         )
 
@@ -792,7 +1044,17 @@ async def list_student_exams(
     user=Depends(require_role(Role.STUDENT)),
     db: AsyncSession = Depends(get_db),
 ):
-    """列出该学生可做的试卷（本租户 + 已发布 + 下发到本人/本年级段）。"""
+    """列出该学生可做的试卷（本租户 + 已发布 + 下发到本人/本年级段）。
+
+    ⚠️ **固定 5 条 SQL，与下发条数无关**（N+1 批量化，2026-11-04）。
+    库在另一台机器上（137 应用 → 106 数据，跨云公网），每条 SQL 都是一次往返
+    （实测 RTT ≈ 17ms）。原实现每份下发跑 3 条（卷、题数、提交），20 份就是
+    60 次往返 ≈ 1 秒纯网络等待，叠加隧道抖动后 App 端就是「转圈很久然后超时」。
+    这里一次性把卷 / 题数 / 提交记录全取回来在内存里配对——下发再多也只有
+    5 条查询（年级 1 + 下发 2 + 卷 1 + 题数 1 + 提交 1）。
+
+    别为了「代码短」退回逐份查询：这个接口是学生打开 App 的第一个请求。
+    """
     student_id = user["user_id"]
     tenant_id = _tenant_of(user)
     # M0-3：按学生真实年级取卷；没配档案时用租户默认年级兜底（只读，不落库）
@@ -815,30 +1077,44 @@ async def list_student_exams(
         )
     ).scalars().all()
 
-    out = []
-    for a in list(grade_rows) + list(stu_rows):
-        if not _visible_to(a, user, grade):
-            continue
-        p = (
-            await db.execute(select(ExamPaper).where(ExamPaper.id == a.paper_id))
-        ).scalar_one_or_none()
-        if not p or not p.published:
-            continue
-        qc = (
+    # 先做可见性过滤（纯内存判断，不碰库），只对真正会下发的卷查后续数据
+    visible = [a for a in list(grade_rows) + list(stu_rows) if _visible_to(a, user, grade)]
+    if not visible:
+        return []
+
+    paper_ids = {a.paper_id for a in visible}
+    papers = {
+        p.id: p
+        for p in (
+            await db.execute(select(ExamPaper).where(ExamPaper.id.in_(paper_ids)))
+        ).scalars().all()
+    }
+    counts = dict(
+        (
             await db.execute(
-                select(func.count())
-                .select_from(ExamPaperQuestion)
-                .where(ExamPaperQuestion.paper_id == a.paper_id)
+                select(ExamPaperQuestion.paper_id, func.count())
+                .where(ExamPaperQuestion.paper_id.in_(paper_ids))
+                .group_by(ExamPaperQuestion.paper_id)
             )
-        ).scalar() or 0
-        sub = (
+        ).all()
+    )
+    submitted_ids = {
+        row
+        for (row,) in (
             await db.execute(
-                select(ExamSubmission).where(
-                    ExamSubmission.assignment_id == a.id,
+                select(ExamSubmission.assignment_id).where(
+                    ExamSubmission.assignment_id.in_([a.id for a in visible]),
                     ExamSubmission.student_id == student_id,
                 )
             )
-        ).scalar_one_or_none()
+        ).all()
+    }
+
+    out = []
+    for a in visible:
+        p = papers.get(a.paper_id)
+        if p is None or not p.published:
+            continue
         out.append(
             StudentExamListItem(
                 assignment_id=a.id,
@@ -847,9 +1123,9 @@ async def list_student_exams(
                 paper_type=p.paper_type,
                 grade=p.grade,
                 subject=p.subject,
-                question_count=qc,
+                question_count=int(counts.get(a.paper_id) or 0),
                 due_at=_to_iso(a.due_at),
-                submitted=sub is not None,
+                submitted=a.id in submitted_ids,
             )
         )
     return out
@@ -1000,6 +1276,31 @@ async def submit_exam(
         if obj.correct is False
     ]
     await wrongbook.sync_exam_wrong_questions(db, student_id, wrong_pairs)
+
+    # M3-6：判错 -> 知识点 -> 背诵卡。按 kp 建/推卡（同 kp 只一张），
+    # 失败不影响提交主链路（错题本已经落库，卡可以下次进错题页补）。
+    if wrong_pairs:
+        try:
+            await db.flush()
+            wrong_rows = (
+                await db.execute(
+                    select(WrongQuestion).where(
+                        WrongQuestion.student_id == student_id,
+                        WrongQuestion.client_id.in_(
+                            [f"exam:{obj.id}" for _, obj in wrong_pairs]
+                        ),
+                        WrongQuestion.deleted_at.is_(None),
+                    )
+                )
+            ).scalars().all()
+            await drill_link.on_wrong_exam_items(
+                db,
+                student_id=student_id,
+                tenant_id=user.get("tenant_id") or a.tenant_id,
+                wrong_rows=wrong_rows,
+            )
+        except Exception as exc:  # noqa: BLE001 卡片失败不阻断交卷
+            log.warning("drill card link failed: %s", exc)
 
     await db.commit()
     await db.refresh(sub)
