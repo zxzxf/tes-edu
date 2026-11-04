@@ -61,18 +61,21 @@ async def _lookup_user(username: str) -> dict | None:
 
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest):
-    db_user = await _lookup_user(req.username)
+    # 从文档/聊天窗口复制账号常带首尾空格，按原值精确查库会误报 401。
+    # 只 trim 用户名：密码中的空格是有效字符，绝不能一并处理。
+    username = (req.username or "").strip()
+    db_user = await _lookup_user(username)
     if db_user is None:
         # 过渡兼容占位库
-        u = _FAKE_USERS.get(req.username)
+        u = _FAKE_USERS.get(username)
         if not u or u["password"] != req.password:
             raise HTTPException(status_code=401, detail="invalid credentials")
-        token = create_token(user_id=req.username, role=u["role"], tenant_id=u.get("tenant_id"))
+        token = create_token(user_id=username, role=u["role"], tenant_id=u.get("tenant_id"))
         return TokenResponse(
             access_token=token,
             token_type="bearer",
             role=u["role"],
-            user_id=req.username,
+            user_id=username,
             tenant_id=u.get("tenant_id"),
         )
 

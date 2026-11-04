@@ -70,6 +70,42 @@ def test_login_still_mounted_under_admin_prefix(client):
     assert r.status_code == 200, r.text
 
 
+def test_login_trims_username_whitespace(client):
+    """复制账号带首尾空格不应误报 401；签发身份必须是 trim 后的账号。
+
+    线上实测：`"pilot@school01.edu "` 原样查库命中不到 sys_user → 401，
+    去掉空格同一口令 200。用户名 trim 后所有客户端（后台/App/API 工具）都受益。
+    """
+    r = client.post("/login", json={"username": "  student@tes.edu  ", "password": "demo1234"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["user_id"] == "student@tes.edu"
+    assert body["role"] == "student"
+    assert body["tenant_id"] == "school_pilot_01"
+
+
+def test_login_does_not_trim_password(client):
+    """只 trim 用户名，密码里的空格是有效字符，不能被悄悄去掉。"""
+    r = client.post("/login", json={"username": " student@tes.edu ", "password": " demo1234 "})
+    assert r.status_code == 401
+
+
+def test_login_db_lookup_receives_trimmed_username(client, monkeypatch):
+    """DB 分支同样拿 trim 后的名字查 sys_user，而不是原始带空格串。"""
+    from app.api import auth
+
+    seen = []
+
+    async def fake_lookup(username):
+        seen.append(username)
+        return None  # 回落占位库，验证参数即可
+
+    monkeypatch.setattr(auth, "_lookup_user", fake_lookup)
+    r = client.post("/login", json={"username": "\tpilot@school01.edu\n", "password": "demo1234"})
+    assert r.status_code == 401  # 占位库里没有 pilot，但查库参数必须已 trim
+    assert seen == ["pilot@school01.edu"]
+
+
 def test_knowledge_graph_route_registered_at_learning_prefix(client):
     """/learning/knowledge-graph 已注册（未带 token 时应 401 而非 404）。"""
     r = client.get("/learning/knowledge-graph", params={"student_id": "student@tes.edu"})
