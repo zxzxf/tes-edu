@@ -559,6 +559,13 @@ async def judge_ticket(
 
     await _recalc_submission(db, t.submission_id)
     await db.commit()
+    # 人工改判会改逐题结论与汇总；accept_answer 还会改标答（题面 blank_count
+    # 也可能变）。这两个缓存不清，学生端结果页会继续读到改判前的旧分数。
+    from app.core import cache
+
+    tenant = t.tenant_id or _tenant(user)
+    await cache.delete(f"exam:v1:q:{tenant}:{t.paper_id}")
+    await cache.delete_prefix(f"exam:v1:r:{tenant}:{t.paper_id}:")
     return await _ticket_detail(db, t.id)
 
 

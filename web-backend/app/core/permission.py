@@ -9,13 +9,20 @@
 - 暴露纯函数 build_permission_set(role_menus) 便于不连库单测。
 """
 
+import logging
 from typing import Iterable, Optional, Set
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import cache
+from app.core.config import settings
 from app.core.rbac import Role, ROLE_PERMISSIONS
 from app.core.security import get_current_user
+
+log = logging.getLogger(__name__)
+
+PERM_CACHE_PREFIX = "perm:v1:"
 
 
 def build_permission_set(menu_rows: Iterable[dict]) -> Set[str]:
@@ -55,13 +62,22 @@ class PermissionEngine:
         if role_enum is Role.ADMIN:
             return set(ROLE_PERMISSIONS[Role.ADMIN])
 
+        # 权限集合每请求都要聚合 sys_user_role × sys_role_menu × sys_menu（跨云
+        # 到 106 的一次查询）。缓存 60s，授权变更时主动清整个前缀即时生效。
+        key = f"{PERM_CACHE_PREFIX}{user_id}:{role}"
+        hit = await cache.get_json(key)
+        if isinstance(hit, list):
+            return set(hit)
+
         # 非 admin：从 DB 聚合（省略号由调用方注入 db session）
         if db is None:
             # 无 DB 降级：用静态兜底（仅过渡）
             return set(ROLE_PERMISSIONS.get(role_enum, []))
 
         rows = await self._query_user_menu_codes(db, user_id)
-        return build_permission_set(rows)
+        perms = build_permission_set(rows)
+        await cache.set_json(key, sorted(perms), settings.permission_cache_ttl)
+        return perms
 
     @staticmethod
     async def _query_user_menu_codes(db, user_id: str) -> list[dict]:
@@ -96,6 +112,11 @@ _engine = PermissionEngine()
 
 def get_engine() -> PermissionEngine:
     return _engine
+
+
+async def invalidate_all_permissions() -> None:
+    """授权变更后清缓存，避免 60s TTL 内继续用旧权限放行/拦截。"""
+    await cache.delete_prefix(PERM_CACHE_PREFIX)
 
 
 def require_perm(*codes: str):

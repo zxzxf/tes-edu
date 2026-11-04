@@ -17,3 +17,6 @@ asyncpg==0.29.0
 pgvector==0.5.1
 openpyxl==3.1.2
 aiokafka==0.11.0
+# 学生端试卷/结果缓存（redis.asyncio）。未配置 REDIS_URL 时全部降级为直查 DB，
+# 因此本地单测不需要起 Redis。
+redis==5.0.4

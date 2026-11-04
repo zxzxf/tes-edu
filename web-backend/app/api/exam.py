@@ -34,8 +34,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import cache
 from app.core.answer_verify import status_label as answer_status_label
 from app.core.compose_engine import ComposeError
+from app.core.config import settings
 from app.core.publish_guard import missing_answers, missing_scores, sample_report
 from app.core.db import get_db
 from app.core.equiv import (
@@ -89,6 +91,7 @@ from app.models.schemas import (
     ExamResult,
     ExamResultItem,
     PaperValidationOut,
+    StudentExamBundle,
     StudentExamListItem,
     StudentQuestionView,
     SubmitExamRequest,
@@ -760,6 +763,8 @@ async def confirm_answer_checks(
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    # 标答可能被修正：卷题快照（含 blank_count）与该卷判分结果都要重算
+    await invalidate_paper(p.tenant_id or "", paper_id)
     summary = verify.summarize(rows)
     return _check_list(p, rows, summary)
 
@@ -935,6 +940,8 @@ async def publish_paper(
     p.published = True
     p.published_at = _utcnow()
     await db.commit()
+    # 发布/重新发布可能修正了题面或标答：题干与历史结果缓存一并失效
+    await invalidate_paper(p.tenant_id or "", p.id)
     return await _paper_out(db, p)
 
 
@@ -1001,6 +1008,87 @@ async def _assignment_out(db: AsyncSession, a: ExamAssignment) -> AssignmentOut:
 
 
 # ============================================================== 学生端
+# ---- 读缓存（Redis 可选）--------------------------------------------------
+# key 一律带 tenant_id：Redis 是网关/agent/web 共用的，试卷与成绩属于学校资产，
+# 少了这一维就是跨校串数据。缓存 miss / Redis 挂了都照常查 106 的 PG。
+def _q_cache_key(tenant_id: str, paper_id: int) -> str:
+    return f"exam:v1:q:{tenant_id}:{paper_id}"
+
+
+def _r_cache_prefix(tenant_id: str, paper_id: int) -> str:
+    return f"exam:v1:r:{tenant_id}:{paper_id}:"
+
+
+def _r_cache_key(tenant_id: str, paper_id: int, submission_id: int) -> str:
+    return _r_cache_prefix(tenant_id, paper_id) + str(submission_id)
+
+
+async def _student_questions(
+    db: AsyncSession, paper_id: int, tenant_id: str
+) -> list[StudentQuestionView]:
+    """卷题快照（发布后冻结）：Redis 命中直接返回，否则查库回填。"""
+    key = _q_cache_key(tenant_id, paper_id)
+    hit = await cache.get_json(key)
+    if isinstance(hit, list):
+        try:
+            return [StudentQuestionView(**x) for x in hit]
+        except Exception as exc:  # noqa: BLE001  脏缓存当 miss 处理
+            log.debug("question cache unusable %s: %s", key, exc)
+    qs = (
+        await db.execute(
+            select(ExamPaperQuestion)
+            .where(ExamPaperQuestion.paper_id == paper_id)
+            .order_by(ExamPaperQuestion.seq)
+        )
+    ).scalars().all()
+    views = [
+        StudentQuestionView(
+            seq=q.seq,
+            qtype=q.qtype,
+            multi=q.multi,
+            stem=q.stem,
+            options=_options_to_list(q.options),
+            difficulty=q.difficulty,
+            knowledge_points=q.knowledge_points or [],
+            blank_count=len(split_blanks(q.answer or "")) if q.qtype == QTYPE_BLANK else 0,
+        )
+        for q in qs
+    ]
+    await cache.set_json(
+        key, [v.model_dump() for v in views], settings.exam_cache_ttl
+    )
+    return views
+
+
+async def _result_cached(
+    db: AsyncSession, sub: ExamSubmission, tenant_id: str, paper_id: int
+) -> ExamResult:
+    """判分结果：结果主体（逐题 + 冻结原因 + 老师评语）整包缓存。
+
+    TTL 只有 5 分钟，且教师改判 / 标答复核会主动 delete_prefix 失效，
+    所以学生不会长期看到过期的「待人工」状态。
+    """
+    key = _r_cache_key(tenant_id, paper_id, sub.id)
+    hit = await cache.get_json(key)
+    if isinstance(hit, dict):
+        try:
+            return ExamResult(**hit)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("result cache unusable %s: %s", key, exc)
+    out = await _result_out(db, sub)
+    await cache.set_json(key, out.model_dump(), settings.exam_result_cache_ttl)
+    return out
+
+
+async def invalidate_paper(tenant_id: str, paper_id: int) -> None:
+    """卷内容/判分口径变了：题干 + 该卷所有学生的结果一起失效。
+
+    由发布卷、标答复核、人工改判调用；无 Redis 时是 no-op。
+    """
+    await cache.delete(_q_cache_key(tenant_id, paper_id))
+    await cache.delete_prefix(_r_cache_prefix(tenant_id, paper_id))
+
+
 def _tenant_of(user: dict) -> str:
     return user.get("tenant_id") or "school_pilot_01"
 
@@ -1137,29 +1225,54 @@ async def get_exam_for_student(
     user=Depends(require_role(Role.STUDENT)),
     db: AsyncSession = Depends(get_db),
 ):
-    """取卷：只返回题干 + 选项（不含答案/解析）。"""
+    """取卷：只返回题干 + 选项（不含答案/解析）。卷题快照走 Redis。"""
     a = await _assignment_for_student(db, assignment_id, user)
-    qs = (
+    return await _student_questions(db, a.paper_id, _tenant_of(user))
+
+
+@student_router.get("/{assignment_id}/bundle", response_model=StudentExamBundle)
+async def get_exam_bundle(
+    assignment_id: int,
+    user=Depends(require_role(Role.STUDENT)),
+    db: AsyncSession = Depends(get_db),
+):
+    """一次进卷拿全：题干 + 是否已交 + 判分结果（弱网合并接口）。
+
+    App 进卷原本要串行发「取卷」+（已提交时）「取结果」两次，每次都过一遍
+    跨境隧道（实测 1.5–2.9s）。这里合并成一次往返；题干/结果各自走 Redis，
+    重复进卷也不再重复跨云查库。
+
+    安全口径与两个原接口完全一致：先按 (租户, 学生) 校验下发可见性；
+    ``questions`` 不含答案；``result`` 仅在本人已提交时返回。
+    """
+    a = await _assignment_for_student(db, assignment_id, user)
+    tenant = _tenant_of(user)
+    questions = await _student_questions(db, a.paper_id, tenant)
+    paper = (
+        await db.execute(select(ExamPaper).where(ExamPaper.id == a.paper_id))
+    ).scalar_one_or_none()
+    sub = (
         await db.execute(
-            select(ExamPaperQuestion)
-            .where(ExamPaperQuestion.paper_id == a.paper_id)
-            .order_by(ExamPaperQuestion.seq)
+            select(ExamSubmission).where(
+                ExamSubmission.assignment_id == assignment_id,
+                ExamSubmission.student_id == user["user_id"],
+            )
         )
-    ).scalars().all()
-    return [
-        StudentQuestionView(
-            seq=q.seq,
-            qtype=q.qtype,
-            multi=q.multi,
-            stem=q.stem,
-            options=_options_to_list(q.options),
-            difficulty=q.difficulty,
-            knowledge_points=q.knowledge_points or [],
-            # 多空题让 App 能渲染逐空输入（只暴露空数，不暴露答案）
-            blank_count=len(split_blanks(q.answer or "")) if q.qtype == QTYPE_BLANK else 0,
-        )
-        for q in qs
-    ]
+    ).scalar_one_or_none()
+    result = (
+        await _result_cached(db, sub, tenant, sub.paper_id or a.paper_id)
+        if sub is not None
+        else None
+    )
+    return StudentExamBundle(
+        assignment_id=assignment_id,
+        paper_id=a.paper_id,
+        title=paper.title if paper else "",
+        paper_type=paper.paper_type if paper else "",
+        submitted=sub is not None,
+        questions=questions,
+        result=result,
+    )
 
 
 @student_router.post("/{assignment_id}/submit", response_model=ExamResult)
@@ -1304,7 +1417,13 @@ async def submit_exam(
 
     await db.commit()
     await db.refresh(sub)
-    return await _result_out(db, sub)
+    # 结果首次产生：直接回填缓存，交卷后立刻进结果页不必再跑一遍 5–8 条跨云 SQL
+    tenant = user.get("tenant_id") or a.tenant_id or "school_pilot_01"
+    key = _r_cache_key(tenant, a.paper_id, sub.id)
+    await cache.delete(key)
+    result = await _result_out(db, sub)
+    await cache.set_json(key, result.model_dump(), settings.exam_result_cache_ttl)
+    return result
 
 
 def _grade_one(
@@ -1443,7 +1562,9 @@ async def get_result(
     ).scalar_one_or_none()
     if not sub:
         raise HTTPException(status_code=404, detail="not submitted yet")
-    return await _result_out(db, sub)
+    return await _result_cached(
+        db, sub, _tenant_of(user), sub.paper_id or 0
+    )
 
 
 async def _result_out(db: AsyncSession, sub: ExamSubmission) -> ExamResult:

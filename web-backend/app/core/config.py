@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     crawl_scheduler_enabled: bool = True
     crawl_scheduler_interval: int = 60
 
+    # 学生端读缓存（Redis）。留空 = 全部直查 DB（本地单测/未部署 Redis 时的降级路径）。
+    # 137 上由 web-backend.env 注入 redis://:<pw>@redis:6379/0，与网关共用同一实例。
+    redis_url: str = ""
+    # 卷题快照发布后不变，缓存可长；判分结果会被人工改判/标答复核改写，TTL 必须短。
+    exam_cache_ttl: int = 3600
+    exam_result_cache_ttl: int = 300
+    permission_cache_ttl: int = 60
+
     @property
     def kafka_enabled(self) -> bool:
         """是否启用异步管道；未配置时降级为同步直写。"""

@@ -283,6 +283,24 @@ class ExamResult(BaseModel):
     items: List[ExamResultItem] = []
 
 
+class StudentExamBundle(BaseModel):
+    """一次进卷拿全：题干 + 是否已交 + 判分结果（M5 弱网合并接口）。
+
+    App 打开一份卷原本要串行发「取卷」和（已提交时）「取结果」两个请求，
+    每个都要过一次跨境隧道（实测 1.5–2.9s）。合并后只剩一次往返，且服务端
+    把题干/结果分别走 Redis，重复进卷不再重复查 106 的 Postgres。
+
+    安全口径不变：``questions`` 永不含答案；``result`` 仅在本人已提交时返回。
+    """
+    assignment_id: int
+    paper_id: int
+    title: str = ""
+    paper_type: str = ""
+    submitted: bool = False
+    questions: List[StudentQuestionView] = []
+    result: Optional[ExamResult] = None
+
+
 # ---------- 模块5：教师批改（人工评定工单，M2-5/M2-6） ----------
 class Submission(BaseModel):
     id: Optional[int] = None

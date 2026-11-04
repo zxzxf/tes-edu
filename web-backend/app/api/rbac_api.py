@@ -769,4 +769,8 @@ async def authorize_role(
             raise HTTPException(status_code=400, detail=f"menu not found: {mid}")
         db.add(m.SysRoleMenu(role_id=role_id, menu_id=mid))
     await db.commit()
+    # 权限集合是 Redis 缓存的：授权一改就清，否则 60s 内还按旧菜单放行/拦截
+    from app.core.permission import invalidate_all_permissions
+
+    await invalidate_all_permissions()
     return None

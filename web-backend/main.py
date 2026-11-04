@@ -112,6 +112,14 @@ async def lifespan(app: FastAPI):
         )
         logger.info("采集调度器已启动（每 %ss 检查一次）", settings.crawl_scheduler_interval)
 
+    # 4) Redis 读缓存（可选）：没配/连不上只记一行日志，绝不阻断服务启动
+    from app.core import cache
+
+    if await cache.ping():
+        logger.info("Redis 读缓存已启用（试卷题干/判分结果/权限集合）")
+    else:
+        logger.info("Redis 未启用，试卷与结果直查数据库")
+
     yield
 
     # ---- 关闭 ----
