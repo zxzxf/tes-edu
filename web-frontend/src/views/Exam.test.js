@@ -12,7 +12,13 @@ vi.mock('../api/admin', () => ({
   runAnswerChecks: vi.fn(),
   confirmAnswerChecks: vi.fn(),
   listReviewQuestions: vi.fn(),
-  reviewQuestion: vi.fn()
+  reviewQuestion: vi.fn(),
+  llmGeneratePaper: vi.fn(),
+  createManualPaper: vi.fn(),
+  copyPaper: vi.fn(),
+  getPaperGraph: vi.fn(),
+  getPaperSolutions: vi.fn(),
+  searchQuestions: vi.fn()
 }))
 
 import {

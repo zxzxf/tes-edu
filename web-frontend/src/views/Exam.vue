@@ -38,6 +38,45 @@
       </div>
     </section>
 
+    <!-- M4-3 LLM 辅助组卷：只出草稿，必须教师审核后才可发布 -->
+    <div class="tes-card form">
+      <div class="row">
+        <label class="grow">
+          <span>AI 草稿组卷（M4-3）· 主题</span>
+          <input v-model.trim="llm.topic" placeholder="如 等比数列的通项与前n项和" />
+        </label>
+        <label>
+          <span>题量</span>
+          <input v-model.number="llm.count" type="number" min="1" max="30" />
+        </label>
+        <label>
+          <span>卷型</span>
+          <select v-model="llm.paper_type">
+            <option value="pure_choice">纯选择题卷</option>
+            <option value="pure_blank">纯填空题卷</option>
+            <option value="mixed">混合卷</option>
+          </select>
+        </label>
+        <button class="ghost" :disabled="busy" @click="llmGenerate">
+          {{ busy ? '生成中…' : '生成草稿' }}
+        </button>
+      </div>
+      <p class="hint">
+        生成的题一律 <b>draft</b>（未审核不可组卷、学生端不可见）；审核通过后才可发布。
+        本租户未配置模型时接口返回 503，不会用模板题冒充生成。
+      </p>
+      <div v-if="llmResult" class="review-queue">
+        <p>
+          <b>已入库 {{ llmResult.created }} 题草稿</b>
+          <span v-if="llmResult.duplicated"> · 重复 {{ llmResult.duplicated }}</span>
+          <span v-if="llmResult.paper_id" class="tes-pill warn">草稿卷 #{{ llmResult.paper_id }}</span>
+        </p>
+        <p v-if="llmResult.rejected && llmResult.rejected.length" class="err">
+          被拦下 {{ llmResult.rejected.length }} 题：{{ llmResult.rejected.map((r) => r.reason).join('；') }}
+        </p>
+      </div>
+    </div>
+
     <!-- 组卷参数 -->
     <div class="tes-card form">
       <div class="row">
@@ -82,6 +121,124 @@
       <p v-if="error" class="err">{{ error }}</p>
     </div>
 
+    <!-- M4-1 手动出卷：按 kp/难度/题型/学科/年级筛选选题 + 逐题配分 -->
+    <div class="tes-card form">
+      <div class="row">
+        <label>
+          <span>手动出卷（M4-1）· 年级</span>
+          <input v-model.trim="manual.grade" placeholder="高三" />
+        </label>
+        <label>
+          <span>学科</span>
+          <input v-model.trim="manual.subject" placeholder="数学" />
+        </label>
+        <label>
+          <span>卷型</span>
+          <select v-model="manual.paper_type">
+            <option value="pure_choice">纯选择题卷</option>
+            <option value="pure_blank">纯填空题卷</option>
+            <option value="mixed">混合卷</option>
+          </select>
+        </label>
+        <label>
+          <span>知识点</span>
+          <input v-model.trim="manual.kp" placeholder="如 等比数列" />
+        </label>
+        <label>
+          <span>难度区间</span>
+          <span class="range">
+            <input v-model.number="manual.difficulty_min" type="number" min="1" max="5" placeholder="1" />
+            <input v-model.number="manual.difficulty_max" type="number" min="1" max="5" placeholder="5" />
+          </span>
+        </label>
+        <button class="ghost" :disabled="busy" @click="searchManual">筛选题库</button>
+      </div>
+      <p class="hint">
+        只列出本租户 <b>已审核(published)</b>、非隔离、有答案的题；勾选后逐题配分。
+        保存为草稿卷，发布前仍会过答案/分值/抽样闸门；未配分时发布会被拦（不替教师猜分）。
+      </p>
+      <div v-if="manualRows.length" class="qpick">
+        <label v-for="q in manualRows" :key="q.id" class="qpick-row">
+          <input type="checkbox" :checked="manualPicked[q.id] !== undefined" @change="togglePick(q)" />
+          <span class="qpick-main">
+            <span class="qpick-stem">{{ q.stem }}</span>
+            <span class="meta">
+              #{{ q.id }} · {{ q.type }} · {{ q.grade || '—' }} · 难度 {{ q.difficulty }} · {{ (q.knowledge_points || []).join('、') || '未标知识点' }}
+            </span>
+          </span>
+          <input
+            v-if="manualPicked[q.id] !== undefined"
+            class="qpick-score"
+            type="number"
+            min="0"
+            placeholder="分值"
+            :value="manualPicked[q.id]"
+            @input="manualPicked[q.id] = $event.target.value === '' ? null : Number($event.target.value)"
+          />
+          <span v-if="manualPicked[q.id] !== undefined" class="meta">分</span>
+        </label>
+      </div>
+      <p v-else-if="manualSearched" class="tes-empty">没有符合条件的题。</p>
+      <div class="foot">
+        <span class="meta">已选 {{ pickedIds.length }} 题</span>
+        <button class="ghost" :disabled="busy || !pickedIds.length" @click="manualCreate">保存草稿卷</button>
+      </div>
+      <p v-if="manualMsg" class="msg">{{ manualMsg }}</p>
+    </div>
+
+    <!-- M3-1/M3-3/M3-4 知识点与解析（教师端） -->
+    <div class="tes-card form">
+      <div class="row">
+        <label class="grow">
+          <span>题目知识点绑定（M3-3）· 题目 id（逗号分隔）</span>
+          <input v-model.trim="kpBind.ids" placeholder="如 101,102" />
+        </label>
+        <label class="grow">
+          <span>知识点（名称或 code，逗号分隔）</span>
+          <input v-model.trim="kpBind.codes" placeholder="如 等比数列,MA-K1" />
+        </label>
+        <button class="ghost" :disabled="busy" @click="bindKps">批量绑定</button>
+        <button class="ghost" :disabled="busy" @click="backfillKps">从题库标签回填</button>
+        <button class="ghost" :disabled="busy" @click="loadKpCoverage">看覆盖度</button>
+      </div>
+      <p v-if="kpMsg" class="msg">{{ kpMsg }}</p>
+      <div v-if="kpCoverage" class="meta">
+        已绑定 {{ kpCoverage.bound_questions }} / {{ kpCoverage.total_questions }} 题
+        （覆盖率 {{ (kpCoverage.coverage_rate * 100).toFixed(1) }}%），待标注 {{ kpCoverage.unbound_count }} 题。
+        <span v-if="kpCoverage.unresolved && kpCoverage.unresolved.length" class="err">
+          未识别：{{ kpCoverage.unresolved.join('、') }}
+        </span>
+      </div>
+      <div class="actions">
+        <button class="ghost sm" :disabled="busy || !paper" @click="loadPaperGraph">看本卷知识点图谱</button>
+        <button class="ghost sm" :disabled="busy || !paper" @click="loadPaperSolutions">
+          {{ solutions.length ? '刷新整卷解析' : '生成整卷解析（M3-1）' }}
+        </button>
+      </div>
+      <div v-if="paperGraph" class="meta">
+        本卷知识点 {{ paperGraph.paper_kp_count }} 个 · 节点 {{ (paperGraph.nodes || []).length }} ·
+        边 {{ (paperGraph.edges || []).length }}
+        <span v-if="paperGraph.unresolved_kps && paperGraph.unresolved_kps.length">
+          · 未识别：{{ paperGraph.unresolved_kps.join('、') }}
+        </span>
+        <ul class="kg-list">
+          <li v-for="n in (paperGraph.nodes || []).slice(0, 20)" :key="n.code || n.id">
+            {{ n.title || n.name || n.code }}
+            <span v-if="n.is_core" class="tes-pill success">本卷核心</span>
+            <span v-if="n.is_prereq" class="tes-pill info">前驱</span>
+            <span v-if="n.is_successor" class="tes-pill warn">后继</span>
+          </li>
+        </ul>
+      </div>
+      <ul v-if="solutions.length" class="kg-list">
+        <li v-for="s in solutions" :key="s.question_id">
+          第 {{ s.question_id }} 题：
+          <span v-if="s.solution_steps">{{ s.solution_steps.answer || '已生成解析' }}</span>
+          <span v-else class="err">{{ s.reason || '未生成' }}</span>
+        </li>
+      </ul>
+    </div>
+
     <!-- 试卷列表 -->
     <div v-if="papers.length" class="papers">
       <div
@@ -123,6 +280,7 @@
 
       <!-- 发布 / 下发 -->
       <div class="actions">
+        <button class="ghost" :disabled="busy" @click="copyCurrent">复制为新卷</button>
         <button v-if="!paper.published" class="tes-btn-primary" :disabled="busy" @click="doPublish">
           校验并发布
         </button>
@@ -241,18 +399,27 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   assignPaper,
   composePaper,
+  copyPaper,
+  createManualPaper,
   confirmAnswerChecks,
   getAnswerChecks,
   getPaper,
+  getPaperGraph,
+  getPaperSolutions,
+  bindQuestionKp,
+  backfillQuestionKp,
+  getQuestionKpCoverage,
   listPapers,
   listReviewQuestions,
+  llmGeneratePaper,
   publishPaper,
   reviewQuestion,
-  runAnswerChecks
+  runAnswerChecks,
+  searchQuestions
 } from '../api/admin'
 
 const form = ref({
@@ -278,6 +445,30 @@ const reviewStatus = ref('draft')
 const reviewRows = ref([])
 const reviewBusy = ref(false)
 const reviewError = ref('')
+// M4-3 LLM 草稿组卷
+const llm = ref({ topic: '', count: 10, paper_type: 'pure_choice' })
+const llmResult = ref(null)
+// M4-1 手动出卷：筛选条件 + 已选（id -> 分值）
+const manual = ref({
+  grade: '高三',
+  subject: '数学',
+  paper_type: 'pure_choice',
+  kp: '',
+  difficulty_min: null,
+  difficulty_max: null
+})
+const manualRows = ref([])
+const manualPicked = ref({})
+const manualSearched = ref(false)
+const manualMsg = ref('')
+const pickedIds = computed(() => Object.keys(manualPicked.value).map(Number))
+
+// M3-1/M3-3/M3-4 教师端
+const kpBind = ref({ ids: '', codes: '' })
+const kpCoverage = ref(null)
+const kpMsg = ref('')
+const paperGraph = ref(null)
+const solutions = ref([])
 
 async function loadReviewQuestions() {
   reviewBusy.value = true
@@ -391,6 +582,204 @@ async function compose() {
     await refreshChecks()
   } catch (e) {
     error.value = errText(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function searchManual() {
+  busy.value = true
+  error.value = ''
+  manualMsg.value = ''
+  try {
+    const params = {
+      grade: manual.value.grade || undefined,
+      subject: manual.value.subject || undefined,
+      knowledge_point: manual.value.kp || undefined,
+      difficulty_min: manual.value.difficulty_min ?? undefined,
+      difficulty_max: manual.value.difficulty_max ?? undefined,
+      answerable: true,
+      limit: 100
+    }
+    manualRows.value = await searchQuestions(params)
+    manualSearched.value = true
+    manualMsg.value = `筛出 ${manualRows.value.length} 题（只含已审核、非隔离、有答案的题）`
+  } catch (e) {
+    error.value = errText(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+function togglePick(q) {
+  const next = { ...manualPicked.value }
+  if (next[q.id] !== undefined) delete next[q.id]
+  else next[q.id] = null
+  manualPicked.value = next
+}
+
+async function manualCreate() {
+  const ids = pickedIds.value
+  if (!ids.length) {
+    error.value = '请先勾选题目'
+    return
+  }
+  busy.value = true
+  error.value = ''
+  msg.value = ''
+  manualMsg.value = ''
+  try {
+    paper.value = await createManualPaper({
+      grade: manual.value.grade,
+      subject: manual.value.subject,
+      paper_type: manual.value.paper_type,
+      questions: ids.map((id) => ({
+        question_id: id,
+        score: manualPicked.value[id] === null ? undefined : Number(manualPicked.value[id])
+      }))
+    })
+    manualMsg.value = `已保存草稿卷「${paper.value.title}」`
+    msg.value = manualMsg.value
+    await loadPapers()
+    await refreshChecks()
+  } catch (e) {
+    error.value = errText(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+function splitIds(text) {
+  return String(text || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map(Number)
+    .filter((n) => Number.isFinite(n))
+}
+
+async function bindKps() {
+  const ids = splitIds(kpBind.value.ids)
+  const codes = String(kpBind.value.codes || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (!ids.length || !codes.length) {
+    error.value = '请填写题目 id 与知识点'
+    return
+  }
+  busy.value = true
+  error.value = ''
+  kpMsg.value = ''
+  try {
+    const out = await bindQuestionKp({ question_ids: ids, kp_codes: codes })
+    kpMsg.value = `已绑定 ${out.created} 行` +
+      (out.skipped && out.skipped.length ? `，跳过 ${out.skipped.length} 行（已存在）` : '') +
+      (out.unresolved && out.unresolved.length ? `；未识别：${out.unresolved.join('、')}` : '')
+  } catch (e) {
+    error.value = errText(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function backfillKps() {
+  busy.value = true
+  error.value = ''
+  kpMsg.value = ''
+  try {
+    const ids = splitIds(kpBind.value.ids)
+    const out = await backfillQuestionKp(ids.length ? ids : null)
+    kpMsg.value = `扫描 ${out.scanned} 题，回填 ${out.created} 行` +
+      (out.unresolved && out.unresolved.length ? `；未识别：${out.unresolved.join('、')}` : '')
+  } catch (e) {
+    error.value = errText(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function loadKpCoverage() {
+  busy.value = true
+  error.value = ''
+  try {
+    kpCoverage.value = await getQuestionKpCoverage()
+  } catch (e) {
+    error.value = errText(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function loadPaperGraph() {
+  if (!paper.value) return
+  busy.value = true
+  error.value = ''
+  try {
+    paperGraph.value = await getPaperGraph(paper.value.id)
+  } catch (e) {
+    error.value = errText(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function loadPaperSolutions() {
+  if (!paper.value) return
+  busy.value = true
+  error.value = ''
+  try {
+    solutions.value = await getPaperSolutions(paper.value.id, true)
+  } catch (e) {
+    error.value = errText(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function copyCurrent() {
+  if (!paper.value) return
+  busy.value = true
+  error.value = ''
+  try {
+    paper.value = await copyPaper(paper.value.id)
+    msg.value = '已复制为新卷（草稿、快照独立，不影响原卷判据）'
+    await loadPapers()
+    await refreshChecks()
+  } catch (e) {
+    error.value = errText(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function llmGenerate() {
+  if (!llm.value.topic.trim()) {
+    error.value = '请先填主题'
+    return
+  }
+  busy.value = true
+  error.value = ''
+  msg.value = ''
+  llmResult.value = null
+  try {
+    llmResult.value = await llmGeneratePaper({
+      ...llm.value,
+      grade: form.value.grade,
+      subject: form.value.subject
+    })
+    msg.value = '草稿已生成：需在「题库审核」里逐题通过后才能组卷/发布'
+    await loadPapers()
+    if (reviewOpen.value) await loadReviewQuestions()
+  } catch (e) {
+    const d = e && e.response && e.response.data && e.response.data.detail
+    if (d && d.code === 'LLM_UNAVAILABLE') {
+      error.value = `本租户模型不可用：${d.message}（可先在「模型配置」里配好再试）`
+    } else if (d && d.code === 'LLM_NO_VALID_QUESTION') {
+      error.value = `生成结果没有可入库的题：${d.message}`
+    } else {
+      error.value = errText(e)
+    }
   } finally {
     busy.value = false
   }
@@ -554,6 +943,21 @@ input, select {
 .opts { list-style: none; padding: 0; margin: 0 0 8px; font-size: 13px; color: var(--ink-2); }
 .opts li { margin-bottom: 3px; }
 .vals { font-size: 12px; color: var(--muted); margin: 0; }
+.range { display: flex; gap: 6px; }
+.range input { width: 64px; }
+.qpick { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow: auto; margin-bottom: 10px; }
+.qpick-row {
+  display: flex; gap: 10px; align-items: flex-start;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  padding: 8px 10px; background: var(--surface);
+}
+.qpick-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.qpick-stem { font-size: 13px; color: var(--ink); }
+.qpick-score {
+  width: 76px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  padding: 5px 8px; font-size: 12px;
+}
+.kg-list { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--ink-2); }
 .chip {
   display: inline-block; background: var(--brand-grad-soft); color: var(--brand-2);
   border-radius: 8px; padding: 1px 7px; margin: 0 5px 4px 0; font-size: 11px;

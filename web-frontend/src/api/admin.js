@@ -33,6 +33,10 @@ export function createQuestionsBatch(list) {
 export function listQuestions(limit = 20) {
   return client.get('/questions', { params: { limit } })
 }
+// M4-1 手动出卷筛选：按 kp/难度/题型/学科/年级挑题，answerable=1 只要可入卷的题
+export function searchQuestions(params) {
+  return client.get('/questions/search', { params })
+}
 
 // 模块2 学情看板
 export function getAnalytics(studentId) {
@@ -91,6 +95,99 @@ export function publishPaper(paperId) {
 }
 export function assignPaper(paperId, data) {
   return client.post(`/exam/papers/${paperId}/assign`, data)
+}
+
+// M4-1 手动出卷：从题库选题 + 配分，存草稿（publish=true 仍须过发布闸门）
+export function createManualPaper(data) {
+  return client.post('/exam/papers/manual', data)
+}
+// M4-5 复制/另存：新 id、新快照、草稿态（改副本不动原卷已下发判据）
+export function copyPaper(paperId, title) {
+  return client.post(`/exam/papers/${paperId}/copy`, null, {
+    params: title ? { title } : {}
+  })
+}
+// M4-3 LLM 辅助组卷：只出草稿（status=draft，需教师审核后才可发布）
+// 503 = 本租户未配置/不可用模型；422 = 输出不合规（都被答案/题型校验拦下）
+export function llmGeneratePaper(data) {
+  return client.post('/exam/papers/llm-generate', data)
+}
+
+// M3-3 题↔知识点批量标注 + 覆盖度
+export function bindQuestionKp(data) {
+  return client.post('/exam/question-kp/bind', data)
+}
+export function backfillQuestionKp(questionIds) {
+  return client.post('/exam/question-kp/backfill', { question_ids: questionIds || null })
+}
+export function getQuestionKpCoverage() {
+  return client.get('/exam/question-kp/coverage')
+}
+// M3-4 按卷知识点子图（教师端）
+export function getPaperGraph(paperId) {
+  return client.get(`/exam/papers/${paperId}/graph`)
+}
+// M3-1 整卷解析（教师始终可见；generate=true 才现场生成）
+export function getPaperSolutions(paperId, generate = false) {
+  return client.get(`/exam/papers/${paperId}/solutions`, {
+    params: generate ? { generate: true } : {}
+  })
+}
+
+// ------------------------------------------------------------------ M5 课程采集
+// M5-1 课程源
+export function listCourseSources() {
+  return client.get('/course/sources')
+}
+export function createCourseSource(data) {
+  return client.post('/course/sources', data)
+}
+export function setCourseSourceStatus(sourceId, status) {
+  return client.post(`/course/sources/${sourceId}/status`, null, { params: { status } })
+}
+export function deleteCourseSource(sourceId) {
+  return client.delete(`/course/sources/${sourceId}`)
+}
+
+// M3-8/M4-4 采集任务（path=P1 整卷入库 / P2 拆题入库）
+export function listCrawlJobs() {
+  return client.get('/course/jobs')
+}
+export function createCrawlJob(data) {
+  return client.post('/course/jobs', data)
+}
+// M3-8 任务启停：只有 active 会被后台调度循环取到
+export function setCrawlJobStatus(jobId, status) {
+  return client.post(`/course/jobs/${jobId}/status`, null, { params: { status } })
+}
+export function runCrawlJob(jobId) {
+  return client.post(`/course/jobs/${jobId}/run`)
+}
+export function retryCrawlJob(jobId) {
+  return client.post(`/course/jobs/${jobId}/retry`)
+}
+// M4-4 一键回退本次采集（只撤 draft/auto_crawl）
+export function rollbackCrawlRun(runId) {
+  return client.post(`/course/runs/${runId}/rollback`)
+}
+// M5-6 采集可观测
+export function getCrawlMetrics() {
+  return client.get('/course/metrics')
+}
+
+// M5-2 课程解析 pipeline（不落库，先看结构化大纲）
+export function parseCourseSource(data) {
+  return client.post('/course/parse', data)
+}
+// M5-3/4 知识点候选入库 + 审核
+export function listKpNodes(status) {
+  return client.get('/course/kp-nodes', { params: status ? { status } : {} })
+}
+export function upsertKpNodes(items) {
+  return client.post('/course/kp-nodes', items)
+}
+export function reviewKpNode(code, status) {
+  return client.post(`/course/kp-nodes/${code}/review`, { status })
 }
 
 // M2-9 / G1 答案双源交叉校验：答案是判分唯一依据，没验证过的答案不许发布
