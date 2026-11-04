@@ -9,6 +9,8 @@ import com.tes.edu.data.local.ExamPaperCacheStore
 import com.tes.edu.data.local.RoomExamDraftStore
 import com.tes.edu.data.local.RoomExamListCacheStore
 import com.tes.edu.data.local.RoomExamPaperCacheStore
+import com.tes.edu.data.local.ExamResultCacheStore
+import com.tes.edu.data.local.RoomExamResultCacheStore
 import com.tes.edu.data.local.entities.ExamDraft
 import com.tes.edu.data.remote.ApiClient
 import com.tes.edu.data.remote.ExamApi
@@ -91,6 +93,8 @@ class ExamViewModel(
     private val drafts: ExamDraftStore = RoomExamDraftStore(),
     private val cache: ExamPaperCacheStore = RoomExamPaperCacheStore(),
     private val listCache: ExamListCacheStore = RoomExamListCacheStore(),
+    /** 判分结果缓存（结果页弱网秒开，见 [openResult]）。 */
+    private val resultCache: ExamResultCacheStore = RoomExamResultCacheStore(),
     /**
      * 重试间隔（毫秒）。生产用 [RETRY_DELAY_MS]；单测传 0，
      * 否则协程会挂在 `delay` 上、断言跑在看结果之前（UnconfinedTestDispatcher
@@ -180,9 +184,9 @@ class ExamViewModel(
                 )
             }
 
-            // 2) 后台拉最新（首次/缓存过期/卷被修订）：成功覆盖缓存；题集一致则不动 UI，
-            //    只静默刷新缓存（避免覆盖用户正在输入、且草稿还没落盘的答案）。
-            val loaded = withAuthRetry { api.questions(item.assignmentId) }
+            // 2) 后台拉最新：优先走合并接口 bundle（一次拿全题干，弱网少一次隧道往返）；
+            //    旧服务端无该路由回 404 → 降级到 questions()。成功覆盖缓存；题集一致则不动 UI。
+            val loaded = loadQuestionsWithFallback(item.assignmentId)
             if (loaded.isSuccess) {
                 val fresh = loaded.getOrNull()!!.sortedBy { it.seq }
                 runCatching { cache.save(item.assignmentId, item.paperId, fresh) }
@@ -229,22 +233,37 @@ class ExamViewModel(
     /** 直接看结果（列表里已提交的卷）。 */
     fun openResult(assignmentId: Long, title: String = "") {
         viewModelScope.launch {
+            // 1) 先出缓存：命中即秒开（结果除人工改判外不可变，可安全缓存）。
+            //    缓存命中也先 loading=false，弱网进来不是白屏；无缓存才转圈。
+            val cached = runCatching { resultCache.load(assignmentId) }.getOrNull()
+            val hadCache = cached != null
             _ui.value = _ui.value.copy(
                 stage = ExamStage.RESULT,
-                loading = true,
+                loading = !hadCache,
                 error = null,
                 offline = false,
                 assignmentId = assignmentId,
                 title = title,
-                result = null
+                result = cached
             )
-            val res = withAuth { api.result(assignmentId) }
+
+            // 2) 后台拉最新：优先 bundle（一次拿全），失败降级 result()。
+            val res = loadResultWithFallback(assignmentId)
             _ui.value = res.fold(
                 onSuccess = { r ->
+                    runCatching { resultCache.save(assignmentId, r) }
                     _ui.value.copy(loading = false, result = r, title = r.title.ifBlank { title })
                 },
                 onFailure = { e ->
-                    _ui.value.copy(loading = false, error = messageOf(e), offline = isNetwork(e))
+                    if (hadCache) {
+                        _ui.value.copy(loading = false)
+                    } else {
+                        _ui.value.copy(
+                            loading = false,
+                            error = messageOf(e),
+                            offline = isNetwork(e)
+                        )
+                    }
                 }
             )
         }
@@ -384,6 +403,7 @@ class ExamViewModel(
                 onSuccess = { r ->
                     // 交卷成功才删草稿；失败一律保留，学生回来还能接着答
                     runCatching { drafts.delete(s.assignmentId) }
+                    runCatching { resultCache.save(s.assignmentId, r) }
                     _ui.value = _ui.value.copy(
                         submitting = false,
                         stage = ExamStage.RESULT,
@@ -432,6 +452,30 @@ class ExamViewModel(
     }
 
     // ------------------------------------------------------------------ 内部
+    /**
+     * 取卷合并接口优先，失败降级到老取卷接口。
+     *
+     * 弱网进卷只发一个请求（bundle 一次拿全题干）；旧服务端没有该路由回 404，
+     * 这里退回 [ExamApi.questions]，保证新旧服务端都能用。
+     */
+    private suspend fun loadQuestionsWithFallback(assignmentId: Long): Result<List<ExamQuestionView>> {
+        val b = withAuthRetry { api.bundle(assignmentId) }
+        if (b.isSuccess) return Result.success(b.getOrNull()!!.questions)
+        return withAuthRetry { api.questions(assignmentId) }
+    }
+
+    /**
+     * 结果优先走 bundle（一次拿全，含题干+结果），bundle 不可用或未带结果时降级 result()。
+     */
+    private suspend fun loadResultWithFallback(assignmentId: Long): Result<ExamResultDto> {
+        val b = withAuthRetry { api.bundle(assignmentId) }
+        if (b.isSuccess) {
+            val r = b.getOrNull()!!.result
+            if (r != null) return Result.success(r)
+        }
+        return withAuthRetry { api.result(assignmentId) }
+    }
+
     private suspend fun <T> withAuth(block: suspend () -> T): Result<T> =
         LoginManager.withAuth(block)
 

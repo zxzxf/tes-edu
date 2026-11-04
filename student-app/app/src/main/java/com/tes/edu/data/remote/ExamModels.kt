@@ -220,3 +220,20 @@ data class ExamResultDto(
     val autoScoreText: String
         get() = if (autoGradeableCount > 0) "$correctCount / $autoGradeableCount" else "—"
 }
+
+/**
+ * 进卷合并接口 `GET /api/student/exams/{id}/bundle` 的响应。
+ *
+ * 服务端一次给全题干 + 是否已交 + 判分结果，App 进卷只发一个请求（跨境隧道
+ * 每个请求实测 1.5–2.9s，少一次往返就是少一次转圈）。`result` 仅在本人已提交
+ * 时返回；题干永不含答案。
+ */
+data class ExamBundleDto(
+    @SerializedName("assignment_id") val assignmentId: Long = 0,
+    @SerializedName("paper_id") val paperId: Long = 0,
+    val title: String = "",
+    @SerializedName("paper_type") val paperType: String = "",
+    val submitted: Boolean = false,
+    val questions: List<ExamQuestionView> = emptyList(),
+    val result: ExamResultDto? = null
+)

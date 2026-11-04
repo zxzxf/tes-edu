@@ -4,8 +4,10 @@ import com.google.gson.Gson
 import com.tes.edu.data.local.ExamDraftStore
 import com.tes.edu.data.local.ExamListCacheStore
 import com.tes.edu.data.local.ExamPaperCacheStore
+import com.tes.edu.data.local.ExamResultCacheStore
 import com.tes.edu.data.local.entities.ExamDraft
 import com.tes.edu.data.remote.ExamApi
+import com.tes.edu.data.remote.ExamBundleDto
 import com.tes.edu.data.remote.ExamOption
 import com.tes.edu.data.remote.ExamQuestionView
 import com.tes.edu.data.remote.ExamResultDto
@@ -53,6 +55,12 @@ class ExamViewModelTest {
         var submitError: Throwable? = null
         var resultError: Throwable? = null
 
+        /** 合并接口 bundle：默认模拟「老服务端无此路由」回 404，让调用方走 legacy 降级；
+         *  新测试可显式给 bundleDto 验证合并路径。 */
+        var bundleDto: ExamBundleDto? = null
+        var bundleError: Throwable? = null
+        var bundleCalls = 0
+
         val submitted = mutableListOf<Pair<Long, ExamSubmitRequest>>()
 
         /** list() 调用次数：用来锁「网络失败只重试一次、HTTP 错误一次都不重试」。 */
@@ -85,6 +93,18 @@ class ExamViewModelTest {
         override suspend fun result(assignmentId: Long): ExamResultDto {
             resultError?.let { throw it }
             return resultDto
+        }
+
+        override suspend fun bundle(assignmentId: Long): ExamBundleDto {
+            bundleCalls++
+            bundleError?.let { throw it }
+            return bundleDto ?: throw retrofit2.HttpException(
+                retrofit2.Response.error<Any>(
+                    404,
+                    "{\"detail\":\"not found\"}"
+                        .toResponseBody("application/json".toMediaType())
+                )
+            )
         }
 
         var solutionDto: ExamSolutionDto = ExamSolutionDto()
@@ -140,10 +160,22 @@ class ExamViewModelTest {
         }
     }
 
+    /** 内存版判分结果缓存：results 按 assignmentId 存，验证弱网秒开/回退逻辑。 */
+    private class FakeExamResultCacheStore : ExamResultCacheStore {
+        val results = mutableMapOf<Long, ExamResultDto>()
+
+        override suspend fun load(assignmentId: Long): ExamResultDto? = results[assignmentId]
+
+        override suspend fun save(assignmentId: Long, result: ExamResultDto) {
+            results[assignmentId] = result
+        }
+    }
+
     private lateinit var api: FakeExamApi
     private lateinit var store: FakeDraftStore
     private lateinit var cache: FakePaperCacheStore
     private lateinit var listCache: FakeListCacheStore
+    private lateinit var resultCache: FakeExamResultCacheStore
     private lateinit var vm: ExamViewModel
 
     private val assignmentId = 7L
@@ -155,7 +187,8 @@ class ExamViewModelTest {
         store = FakeDraftStore()
         cache = FakePaperCacheStore()
         listCache = FakeListCacheStore()
-        vm = ExamViewModel(api, store, cache, listCache, retryDelayMs = 0L)
+        resultCache = FakeExamResultCacheStore()
+        vm = ExamViewModel(api, store, cache, listCache, resultCache, retryDelayMs = 0L)
     }
 
     @After
@@ -387,6 +420,69 @@ class ExamViewModelTest {
         )
         vm.loadSolution(1)
         assertEquals("解析结论与卷面标答不一致，未缓存", vm.ui.value.solutions[1]!!.error)
+    }
+
+    // ------------------------------------------------- 结果缓存（弱网秒开 + 合并接口）
+    @Test
+    fun openResult_cacheHit_showsInstantly_andToleratesResultFailure() {
+        // 缓存里已有结果，网络即便拉不到也该秒开、且不报联网错误
+        val cached = ExamResultDto(
+            submissionId = 9, assignmentId = assignmentId, paperId = 11,
+            title = "高三·数学·混合卷（3题）", correctCount = 2, totalCount = 3
+        )
+        resultCache.results[assignmentId] = cached
+        api.resultError = IOException("offline")
+        vm.openResult(assignmentId)
+        val ui = vm.ui.value
+        // 命中缓存即秒开：不转圈、不报错、结果保留为缓存内容（而非被网络失败清掉）
+        assertFalse("命中缓存不该再转圈", ui.loading)
+        assertNull("有缓存时网络失败要静默保留，不报错", ui.error)
+        assertEquals(cached, ui.result)
+    }
+
+    @Test
+    fun openResult_cacheMiss_fetchesViaBundle_andWritesCache() {
+        // 新服务端有 bundle：一次拿全结果并落盘，下次再开就能秒开
+        api.bundleDto = ExamBundleDto(
+            assignmentId = assignmentId, paperId = 11,
+            title = "高三·数学·混合卷（3题）",
+            submitted = true, questions = emptyList(),
+            result = ExamResultDto(
+                submissionId = 9, assignmentId = assignmentId, paperId = 11,
+                title = "高三·数学·混合卷（3题）", correctCount = 3, totalCount = 3
+            )
+        )
+        vm.openResult(assignmentId)
+        val ui = vm.ui.value
+        assertFalse(ui.loading)
+        assertEquals(1, api.bundleCalls)
+        assertNotNull(ui.result)
+        assertEquals(3, ui.result!!.correctCount)
+        assertEquals("取到后必须写回缓存", 3, resultCache.results[assignmentId]?.correctCount)
+    }
+
+    @Test
+    fun openResult_cacheMiss_legacyFallback_whenBundle404() {
+        // 老服务端没有 bundle（404）→ 降级到 result()，结果仍要落缓存
+        api.resultDto = ExamResultDto(
+            submissionId = 5, assignmentId = assignmentId, paperId = 11,
+            title = "高三·数学·混合卷（3题）", correctCount = 1, totalCount = 3
+        )
+        vm.openResult(assignmentId)
+        val ui = vm.ui.value
+        assertEquals("404 要走 legacy result()", 1, ui.result!!.correctCount)
+        assertEquals(1, resultCache.results[assignmentId]?.correctCount)
+    }
+
+    @Test
+    fun submit_savesResultCache() {
+        openMixed()
+        api.submitResult = ExamResultDto(submissionId = 1, correctCount = 2, totalCount = 3)
+        vm.submit()
+        assertEquals(
+            "交卷成功必须把结果落盘缓存，下次看结果才秒开",
+            2, resultCache.results[assignmentId]?.correctCount
+        )
     }
 
     // ---------------------------------------------------------------- 缓存（弱网秒开）

@@ -15,6 +15,7 @@ import com.tes.edu.data.local.entities.DrillReviewLog
 import com.tes.edu.data.local.entities.ExamDraft
 import com.tes.edu.data.local.entities.ExamListCache
 import com.tes.edu.data.local.entities.ExamPaperCache
+import com.tes.edu.data.local.entities.ExamResultCache
 import com.tes.edu.data.local.entities.WrongQuestion
 import kotlinx.coroutines.flow.Flow
 
@@ -129,13 +130,26 @@ interface ExamListCacheDao {
     suspend fun delete(key: String)
 }
 
-// 本地库：背诵卡 + 错题本 + 复习队列 + 作业草稿 + 卷题干缓存 + 作业列表缓存（无网可背可复习可答题，联网再对账）
+/** 判分结果缓存：一个学生 × 一份下发一行，结果页弱网秒开（见 [com.tes.edu.viewmodel.ExamViewModel]）。 */
+@Dao
+interface ExamResultCacheDao {
+    @Query("SELECT * FROM exam_result_cache WHERE cache_key = :key LIMIT 1")
+    suspend fun get(key: String): ExamResultCache?
+
+    @Upsert suspend fun upsert(cache: ExamResultCache)
+
+    @Query("DELETE FROM exam_result_cache WHERE cache_key = :key")
+    suspend fun delete(key: String)
+}
+
+// 本地库：背诵卡 + 错题本 + 复习队列 + 作业草稿 + 卷题干缓存 + 列表缓存 + 结果缓存
 @Database(
     entities = [
         DrillCard::class, WrongQuestion::class, DrillReviewLog::class,
-        ExamDraft::class, ExamPaperCache::class, ExamListCache::class
+        ExamDraft::class, ExamPaperCache::class, ExamListCache::class,
+        ExamResultCache::class
     ],
-    version = 7
+    version = 8
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun drillCardDao(): DrillCardDao
@@ -144,6 +158,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun examDraftDao(): ExamDraftDao
     abstract fun paperCacheDao(): ExamPaperCacheDao
     abstract fun examListCacheDao(): ExamListCacheDao
+
+    /** 判分结果缓存 DAO（结果页弱网秒开）。 */
+    abstract fun examResultCacheDao(): ExamResultCacheDao
 
     companion object {
         @Volatile
@@ -158,7 +175,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                        MIGRATION_5_6, MIGRATION_6_7
+                        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8
                     )
                     .build()
                     .also { instance = it }
@@ -288,6 +305,25 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE TABLE IF NOT EXISTS `exam_list_cache` (" +
                         "`cache_key` TEXT NOT NULL, " +
                         "`items_json` TEXT NOT NULL, " +
+                        "`updated_at` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`cache_key`))"
+                )
+            }
+        }
+
+        /**
+         * v7 → v8：判分结果缓存（结果页弱网秒开）。
+         *
+         * 只 CREATE TABLE，老数据一条不动。列类型/非空与 [ExamResultCache] 实体逐字对齐，
+         * 否则 Room 的迁移后 schema 校验会抛 "Migration didn't properly handle"。
+         */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `exam_result_cache` (" +
+                        "`cache_key` TEXT NOT NULL, " +
+                        "`assignment_id` INTEGER NOT NULL, " +
+                        "`result_json` TEXT NOT NULL, " +
                         "`updated_at` INTEGER NOT NULL, " +
                         "PRIMARY KEY(`cache_key`))"
                 )

@@ -22,6 +22,15 @@ interface ExamApi {
     @GET("api/student/exams/{assignmentId}")
     suspend fun questions(@Path("assignmentId") assignmentId: Long): List<ExamQuestionView>
 
+    /**
+     * 进卷合并接口：一次拿全题干 + 是否已交 + 判分结果。
+     *
+     * 弱网下优先走这个；旧版服务端没有该路由会回 404，ViewModel 会回退到
+     * [questions] / [result] 两个老接口，保证新旧服务端都能用。
+     */
+    @GET("api/student/exams/{assignmentId}/bundle")
+    suspend fun bundle(@Path("assignmentId") assignmentId: Long): ExamBundleDto
+
     /** 提交并判分。同一份卷重复提交时服务端返回既有结果（幂等）。 */
     @POST("api/student/exams/{assignmentId}/submit")
     suspend fun submit(
