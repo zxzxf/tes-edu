@@ -546,6 +546,36 @@ class ExamViewModelTest {
     }
 
     @Test
+    fun openResult_populatesQuestionsForFullDisplay() {
+        // 结果页要能回看题目原文+选项，不能只有对错；bundle 一次给全题干与结果。
+        api.bundleDto = ExamBundleDto(
+            assignmentId = assignmentId, paperId = 11,
+            title = "高三·数学·混合卷（3题）", submitted = true,
+            questions = listOf(choice(1), choice(2, multi = true), blank(3)),
+            result = ExamResultDto(
+                submissionId = 9, assignmentId = assignmentId, paperId = 11,
+                title = "高三·数学·混合卷（3题）", correctCount = 2, totalCount = 3
+            )
+        )
+        vm.openResult(assignmentId)
+        val ui = vm.ui.value
+        assertEquals("结果页必须带出题干，否则看不出这题在问什么", 3, ui.questions.size)
+        assertEquals("第 1 题题干", ui.questions.first { it.seq == 1 }.stem)
+        assertTrue("选择题要带出选项", ui.questions.first { it.seq == 1 }.options.isNotEmpty())
+        // 题干也要写回卷缓存，下次弱网进结果页仍能看到题面
+        assertEquals(3, cache.questions[assignmentId]?.size)
+    }
+
+    @Test
+    fun openResult_legacyFallback_stillLoadsQuestions() {
+        // 老服务端无 bundle：结果与题干分别取，题干仍要补上
+        api.questions = listOf(choice(1), blank(2))
+        api.resultDto = ExamResultDto(assignmentId = assignmentId, paperId = 11)
+        vm.openResult(assignmentId)
+        assertEquals(2, vm.ui.value.questions.size)
+    }
+
+    @Test
     fun submit_savesResultCache() {
         openMixed()
         api.submitResult = ExamResultDto(submissionId = 1, correctCount = 2, totalCount = 3)

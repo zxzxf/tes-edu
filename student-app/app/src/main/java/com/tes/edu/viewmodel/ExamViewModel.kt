@@ -55,6 +55,12 @@ data class QuestionGraphState(
  *  这样底部导航始终停在「作业」tab 上，返回栈不会堆出一串卷子。 */
 enum class ExamStage { LIST, ANSWERING, RESULT }
 
+/** 结果页一次取全：判分结果 + 卷面题干（结果页展示完整题目与选项用）。 */
+private data class ResultWithQuestions(
+    val result: ExamResultDto,
+    val questions: List<ExamQuestionView>
+)
+
 /** 断网时的作答提示：草稿已落盘，不该让学生以为答案丢了。 */
 const val EXAM_OFFLINE_HINT = "网络不可用，作答已保存在本机，联网后可继续"
 
@@ -252,8 +258,10 @@ class ExamViewModel(
     fun openResult(assignmentId: Long, title: String = "") {
         viewModelScope.launch {
             // 1) 先出缓存：命中即秒开（结果除人工改判外不可变，可安全缓存）。
-            //    缓存命中也先 loading=false，弱网进来不是白屏；无缓存才转圈。
+            //    题干一并从本地卷缓存取——结果页要展示完整题目与选项，
+            //    只有对错没有题面，学生看不出这题在问什么。
             val cached = runCatching { resultCache.load(assignmentId) }.getOrNull()
+            val cachedQuestions = runCatching { cache.load(assignmentId) }.getOrNull().orEmpty()
             val hadCache = cached != null
             _ui.value = _ui.value.copy(
                 stage = ExamStage.RESULT,
@@ -263,16 +271,26 @@ class ExamViewModel(
                 assignmentId = assignmentId,
                 title = title,
                 result = cached,
+                questions = cachedQuestions.sortedBy { it.seq },
                 solutions = emptyMap(),
                 questionGraphs = emptyMap()
             )
 
-            // 2) 后台拉最新：优先 bundle（一次拿全），失败降级 result()。
-            val res = loadResultWithFallback(assignmentId)
+            // 2) 后台拉最新：bundle 一次拿全题干 + 结果；不可用时结果与题干分别取。
+            val res = loadResultWithQuestions(assignmentId)
             _ui.value = res.fold(
                 onSuccess = { r ->
-                    runCatching { resultCache.save(assignmentId, r) }
-                    _ui.value.copy(loading = false, result = r, title = r.title.ifBlank { title })
+                    runCatching { resultCache.save(assignmentId, r.result) }
+                    val qs = r.questions.sortedBy { it.seq }
+                    if (qs.isNotEmpty()) {
+                        runCatching { cache.save(assignmentId, r.result.paperId, qs) }
+                    }
+                    _ui.value.copy(
+                        loading = false,
+                        result = r.result,
+                        title = r.result.title.ifBlank { title },
+                        questions = qs.ifEmpty { _ui.value.questions }
+                    )
                 },
                 onFailure = { e ->
                     if (hadCache) {
@@ -524,15 +542,24 @@ class ExamViewModel(
     }
 
     /**
-     * 结果优先走 bundle（一次拿全，含题干+结果），bundle 不可用或未带结果时降级 result()。
+     * 结果 + 题干一起取：结果页要展示完整题目与选项，不能只有对错。
+     *
+     * 优先 bundle（一次拿全题干 + 结果）；bundle 不可用（旧服务端 404/未带结果）时，
+     * 结果与题干分别取。题干取不到不影响判分展示，只是少题面——结果页仍可用。
      */
-    private suspend fun loadResultWithFallback(assignmentId: Long): Result<ExamResultDto> {
+    private suspend fun loadResultWithQuestions(assignmentId: Long): Result<ResultWithQuestions> {
         val b = withAuthRetry { api.bundle(assignmentId) }
         if (b.isSuccess) {
-            val r = b.getOrNull()!!.result
-            if (r != null) return Result.success(r)
+            val bundle = b.getOrNull()!!
+            val r = bundle.result
+            if (r != null) return Result.success(ResultWithQuestions(r, bundle.questions))
         }
-        return withAuthRetry { api.result(assignmentId) }
+        val r = withAuthRetry { api.result(assignmentId) }
+        if (r.isFailure) return Result.failure(r.exceptionOrNull()!!)
+        val q = withAuthRetry { api.questions(assignmentId) }
+        return Result.success(
+            ResultWithQuestions(r.getOrNull()!!, q.getOrNull().orEmpty())
+        )
     }
 
     private suspend fun <T> withAuth(block: suspend () -> T): Result<T> =

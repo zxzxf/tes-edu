@@ -535,6 +535,7 @@ private fun ExamResultBody(
             r.items.forEach { item ->
                 ResultItemCard(
                     item = item,
+                    question = ui.questions.firstOrNull { it.seq == item.seq },
                     solution = ui.solutions[item.seq],
                     onLoadSolution = { onSolution(item.seq) },
                     graph = ui.questionGraphs[item.seq],
@@ -613,6 +614,7 @@ private fun ResultSummary(r: ExamResultDto, title: String) {
 @Composable
 private fun ResultItemCard(
     item: com.tes.edu.data.remote.ExamResultItem,
+    question: ExamQuestionView?,
     solution: ExamSolutionState?,
     onLoadSolution: () -> Unit,
     graph: QuestionGraphState?,
@@ -643,6 +645,8 @@ private fun ResultItemCard(
             Spacer(Modifier.weight(1f))
             InfoPill(item.verdictLabel, pillColor, pillBg)
         }
+        // 题目原文 + 选项：只给对错看不出来这题在问什么，结果页要把题面还原出来
+        question?.let { ResultQuestionBlock(it, item) }
         Spacer(Modifier.height(10.dp))
         MathText(
             "你的答案：${item.studentAnswer?.takeIf { it.isNotBlank() } ?: "（未作答）"}",
@@ -693,6 +697,128 @@ private fun ResultItemCard(
         }
         SolutionSection(solution = solution, onLoad = onLoadSolution)
         QuestionGraphSection(state = graph, onLoad = onLoadGraph)
+    }
+}
+
+/**
+ * 结果页的题目原文 + 选项（只读）。
+ *
+ * 学生回看结果时首先要能看清「这题问什么、有哪些选项」，否则只有对错无从复盘。
+ * 选择题把正确项标绿、学生错选项标红；填空/解答只还原题干。
+ * 题干与选项取不到时（旧缓存/弱网）整块不渲染，退化为原来的答案+解析视图。
+ */
+@Composable
+private fun ResultQuestionBlock(
+    q: ExamQuestionView,
+    item: com.tes.edu.data.remote.ExamResultItem
+) {
+    Spacer(Modifier.height(10.dp))
+    if (q.stem.isNotBlank()) {
+        MathText(
+            q.stem,
+            style = MaterialTheme.typography.bodyLarge,
+            color = TesEduColors.TextPrimary
+        )
+        Spacer(Modifier.height(10.dp))
+    }
+    if (q.isChoice && q.options.isNotEmpty()) {
+        // 只对选择题做选项高亮：填空题/解答题的标答是文本，不按字母解读
+        val correctSet = labelsOf(item.correctAnswer)
+        val selectedSet = labelsOf(item.studentAnswer)
+        q.options.forEach { opt ->
+            val label = opt.label.trim().uppercase()
+            ResultOptionRow(
+                label = opt.label,
+                content = opt.content,
+                correct = correctSet.contains(label),
+                selected = selectedSet.contains(label)
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+/** 从答案串里抽选项字母（`AC` / `A,C` / `ABD` 都认）；只在选择题里用。 */
+private fun labelsOf(answer: String?): Set<String> =
+    answer.orEmpty().uppercase().filter { it in 'A'..'Z' }.map { it.toString() }.toSet()
+
+/**
+ * 结果页选项行（只读，无点击）。
+ *
+ * 绿=正确、红=学生选了但错、灰=既非正确也未被选；两者重合时按「正确」展示，
+ * 因为学生最关心的是这题的正解长什么样。
+ */
+@Composable
+private fun ResultOptionRow(
+    label: String,
+    content: String,
+    correct: Boolean,
+    selected: Boolean
+) {
+    val shape = RoundedCornerShape(14.dp)
+    val bg = when {
+        correct -> TesEduColors.SuccessSoft
+        selected -> TesEduColors.DangerSoft
+        else -> TesEduColors.Surface
+    }
+    val accent = when {
+        correct -> TesEduColors.Success.copy(alpha = 0.55f)
+        selected -> TesEduColors.Danger.copy(alpha = 0.55f)
+        else -> TesEduColors.Divider
+    }
+    val labelBg = when {
+        correct -> TesEduColors.Success
+        selected -> TesEduColors.Danger
+        else -> TesEduColors.FieldBg
+    }
+    val labelFg = if (correct || selected) Color.White else TesEduColors.TextSecondary
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(bg)
+            .border(if (correct || selected) 1.5.dp else 1.dp, accent, shape)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .size(26.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(labelBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = labelFg
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        MathText(
+            content,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = TesEduColors.TextPrimary
+        )
+        if (correct) {
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "正确",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = TesEduColors.Success
+            )
+        } else if (selected) {
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "你选",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = TesEduColors.Danger
+            )
+        }
     }
 }
 
