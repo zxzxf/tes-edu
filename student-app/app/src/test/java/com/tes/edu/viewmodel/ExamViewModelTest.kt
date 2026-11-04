@@ -11,6 +11,7 @@ import com.tes.edu.data.remote.ExamBundleDto
 import com.tes.edu.data.remote.ExamOption
 import com.tes.edu.data.remote.ExamQuestionView
 import com.tes.edu.data.remote.ExamResultDto
+import com.tes.edu.data.remote.ExamResultItem
 import com.tes.edu.data.remote.ExamSolutionDto
 import com.tes.edu.data.remote.ExamSolutionSteps
 import com.tes.edu.data.remote.ExamSubmitRequest
@@ -573,6 +574,50 @@ class ExamViewModelTest {
         api.resultDto = ExamResultDto(assignmentId = assignmentId, paperId = 11)
         vm.openResult(assignmentId)
         assertEquals(2, vm.ui.value.questions.size)
+    }
+
+    @Test
+    fun openResult_autoLoadsSolutionAndGraphForEachQuestion() {
+        // 结果页每题都要能直接看到「解题步骤」和「本题知识图谱」，
+        // 不能要求学生逐题点一下按钮才加载。
+        api.bundleDto = ExamBundleDto(
+            assignmentId = assignmentId, paperId = 11,
+            title = "高三·数学·混合卷（3题）", submitted = true,
+            questions = listOf(choice(1), choice(2), blank(3)),
+            result = ExamResultDto(
+                submissionId = 9, assignmentId = assignmentId, paperId = 11,
+                title = "高三·数学·混合卷（3题）", correctCount = 2, totalCount = 3,
+                items = listOf(
+                    ExamResultItem(seq = 1, correct = true),
+                    ExamResultItem(seq = 2, correct = false)
+                )
+            )
+        )
+        vm.openResult(assignmentId)
+
+        assertEquals(
+            "每题都要自动拉解析，学生不必逐题点「看解题步骤」",
+            listOf(assignmentId to 1, assignmentId to 2), api.solutionCalls
+        )
+        assertEquals(
+            "每题都要自动拉本题知识图谱",
+            listOf(assignmentId to 1, assignmentId to 2), api.questionGraphCalls
+        )
+    }
+
+    @Test
+    fun warmResultDetails_isIdempotent() {
+        // 已经拉过的题不该因为再触发一次预热而重复生成（解析是要花额度的）
+        api.resultDto = ExamResultDto(
+            assignmentId = assignmentId, paperId = 11,
+            items = listOf(ExamResultItem(seq = 1))
+        )
+        vm.openResult(assignmentId)
+        assertEquals(1, api.solutionCalls.size)
+
+        vm.warmResultDetails()
+        assertEquals("已加载的题不该重复生成", 1, api.solutionCalls.size)
+        assertEquals("图谱同理", 1, api.questionGraphCalls.size)
     }
 
     @Test

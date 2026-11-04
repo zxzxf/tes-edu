@@ -899,7 +899,11 @@ private fun QuestionGraphSection(
     state: QuestionGraphState?,
     onLoad: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    // 默认展开：进结果页就该看到「这题考什么」，展开动作留给想收起的人
+    var expanded by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        if (expanded && state?.data == null && state?.loading != true) onLoad()
+    }
     Spacer(Modifier.height(10.dp))
     Row(
         Modifier

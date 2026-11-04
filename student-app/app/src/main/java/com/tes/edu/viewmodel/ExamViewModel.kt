@@ -31,6 +31,9 @@ import retrofit2.HttpException
 import java.io.IOException
 import java.util.UUID
 
+/** 进结果页自动补解析/图谱的题数上限：正常作业卷远小于此，只防超大卷一次打爆。 */
+private const val AUTO_DETAIL_LIMIT = 20
+
 /** 单题解析的加载状态（M3-1/M3-2）。 */
 data class ExamSolutionState(
     val loading: Boolean = false,
@@ -304,6 +307,8 @@ class ExamViewModel(
                     }
                 }
             )
+            // 3) 逐题的「解题步骤」与「本题知识图谱」自动补齐（不再要求每题点一下）
+            warmResultDetails()
         }
     }
 
@@ -315,59 +320,109 @@ class ExamViewModel(
      * 失败（含未交卷）不抛异常，按题展示原因——解析是增值服务，不该让结果页崩掉。
      */
     fun loadSolution(seq: Int) {
+        if (!markSolutionLoading(seq)) return
+        viewModelScope.launch { fetchSolution(seq) }
+    }
+
+    /** 置 loading 并返回「是否真的要去拉」：已加载/正在加载的不重复打接口。 */
+    private fun markSolutionLoading(seq: Int): Boolean {
         val s = _ui.value
-        if (s.assignmentId == 0L) return
+        if (s.assignmentId == 0L) return false
         val current = s.solutions[seq]
-        if (current?.loading == true || current?.data != null) return
+        if (current?.loading == true || current?.data != null) return false
         _ui.value = s.copy(
             solutions = s.solutions + (seq to ExamSolutionState(loading = true))
         )
-        viewModelScope.launch {
-            val res = withAuth { api.solution(s.assignmentId, seq) }
-            _ui.value = _ui.value.copy(
-                solutions = _ui.value.solutions + (
-                    seq to res.fold(
-                        onSuccess = { data ->
-                            ExamSolutionState(
-                                data = data,
-                                error = if (data.ok) null else data.reason.ifBlank {
-                                    "解析暂时生成失败，可稍后重试"
-                                }
-                            )
-                        },
-                        onFailure = { e -> ExamSolutionState(error = solutionMessageOf(e)) }
-                    )
+        return true
+    }
+
+    private suspend fun fetchSolution(seq: Int) {
+        val assignmentId = _ui.value.assignmentId
+        if (assignmentId == 0L) return
+        val res = withAuth { api.solution(assignmentId, seq) }
+        // 拉取期间可能已经切到别的卷，结果丢弃，别污染新页面的状态
+        if (_ui.value.assignmentId != assignmentId) return
+        _ui.value = _ui.value.copy(
+            solutions = _ui.value.solutions + (
+                seq to res.fold(
+                    onSuccess = { data ->
+                        ExamSolutionState(
+                            data = data,
+                            error = if (data.ok) null else data.reason.ifBlank {
+                                "解析暂时生成失败，可稍后重试"
+                            }
+                        )
+                    },
+                    onFailure = { e -> ExamSolutionState(error = solutionMessageOf(e)) }
                 )
             )
-        }
+        )
     }
 
     // ------------------------------------------------------------------ 逐题图谱
     /**
-     * M3-6 取本题知识子图：结果页**展开该题时**才调用，不是进结果页就拉整卷。
+     * M3-6 取本题知识子图。
      *
-     * 与 [loadSolution] 同一套按题缓存：十道题的卷子不会一次打十个请求，同一题
-     * 反复展开也不重复打接口。失败保留错误文案但允许重试（error 不当缓存），
-     * 图谱是增值信息，加载失败绝不影响判分结果本身。
+     * 与 [loadSolution] 同一套按题缓存：同一题反复展开也不重复打接口。失败保留错误
+     * 文案但允许重试（error 不当缓存），图谱是增值信息，加载失败绝不影响判分结果本身。
      */
     fun loadQuestionGraph(seq: Int) {
+        if (!markGraphLoading(seq)) return
+        viewModelScope.launch { fetchQuestionGraph(seq) }
+    }
+
+    private fun markGraphLoading(seq: Int): Boolean {
         val s = _ui.value
-        if (s.assignmentId == 0L) return
+        if (s.assignmentId == 0L) return false
         val current = s.questionGraphs[seq]
-        if (current?.loading == true || current?.data != null) return
+        if (current?.loading == true || current?.data != null) return false
         _ui.value = s.copy(
             questionGraphs = s.questionGraphs + (seq to QuestionGraphState(loading = true))
         )
-        viewModelScope.launch {
-            val res = withAuth { api.questionGraph(s.assignmentId, seq) }
-            _ui.value = _ui.value.copy(
-                questionGraphs = _ui.value.questionGraphs + (
-                    seq to res.fold(
-                        onSuccess = { data -> QuestionGraphState(data = data) },
-                        onFailure = { e -> QuestionGraphState(error = graphMessageOf(e)) }
-                    )
+        return true
+    }
+
+    private suspend fun fetchQuestionGraph(seq: Int) {
+        val assignmentId = _ui.value.assignmentId
+        if (assignmentId == 0L) return
+        val res = withAuth { api.questionGraph(assignmentId, seq) }
+        if (_ui.value.assignmentId != assignmentId) return
+        _ui.value = _ui.value.copy(
+            questionGraphs = _ui.value.questionGraphs + (
+                seq to res.fold(
+                    onSuccess = { data -> QuestionGraphState(data = data) },
+                    onFailure = { e -> QuestionGraphState(error = graphMessageOf(e)) }
                 )
             )
+        )
+    }
+
+    /**
+     * 结果页进入后自动补齐每道题的「本题知识图谱」与「解题步骤」。
+     *
+     * 学生看结果是为了复盘整题——题目、步骤、考点应该一眼能看到，而不是每题都点一下。
+     * 图谱是纯库查询（便宜），先全拉；解析会触发生成，**串行**跑并留一点间隔，
+     * 避免一份十题的卷子瞬间打出十个生成请求（额度与弱网都吃不消）。
+     * 服务端按题缓存，第二次进结果页不会再生成。
+     */
+    fun warmResultDetails() {
+        val s = _ui.value
+        val result = s.result ?: return
+        if (s.assignmentId == 0L) return
+        val assignmentId = s.assignmentId
+        val seqs = result.items.map { it.seq }.take(AUTO_DETAIL_LIMIT)
+        if (seqs.isEmpty()) return
+        viewModelScope.launch {
+            // 图谱：便宜，并发拉，先把「考点」铺满
+            seqs.forEach { seq ->
+                if (_ui.value.assignmentId != assignmentId) return@launch
+                if (markGraphLoading(seq)) launch { fetchQuestionGraph(seq) }
+            }
+            // 解析：串行，一题一题来，边出边看（await 本身就把请求排成了队，不额外 sleep）
+            for (seq in seqs) {
+                if (_ui.value.assignmentId != assignmentId) return@launch
+                if (markSolutionLoading(seq)) fetchSolution(seq)
+            }
         }
     }
 
