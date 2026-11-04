@@ -10,12 +10,14 @@ package com.tes.edu.data.remote
  *  - 老安装只有 token、没存流水号时，`ensureLogin` 会补一次登录把它换回来。
  *
  * 所以这里：未登录（无 token）→ null，调用方安全跳过同步；已登录 → 取落盘的
- * studentId；仍拿不到（老服务端不返回该字段）才回落到演示学生常量。
+ * studentId；仍拿不到（老服务端不返回该字段）才回落到登录账号本身。
+ *
+ * 口径红线（2026-11-04）：**绝不回落到演示流水号 student_001**。错题/背诵接口
+ * 后端会按 JWT 强制覆盖 student_id，回落值传了也不生效；但图谱接口客户端传什么
+ * 就查谁，一回落就会去查另一个学生的空学情，出现「作业有数据、图谱全空」。
+ * 登录换来的 JWT uid 就是登录账号名，回落用它才与其余页面一致。
  */
 object StudentSession {
-
-    /** 与 GraphUiState.DEFAULT_STUDENT_ID 保持一致：同一个演示学生。 */
-    const val DEFAULT_STUDENT_ID = "student_001"
 
     private fun store(): SessionStore? = try {
         SessionStore(AppContextProvider.context)
@@ -28,7 +30,7 @@ object StudentSession {
     fun currentId(): String? {
         val s = store() ?: return null
         if (s.token.isNullOrBlank()) return null
-        return s.studentId?.takeIf { it.isNotBlank() } ?: DEFAULT_STUDENT_ID
+        return s.studentId?.takeIf { it.isNotBlank() } ?: LoginManager.DEV_USERNAME
     }
 
     /** 下次 pull 的 `since`：0 = 全量。 */

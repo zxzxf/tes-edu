@@ -3,10 +3,12 @@ package com.tes.edu.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tes.edu.data.remote.ApiClient
+import com.tes.edu.data.remote.ApiService
 import com.tes.edu.data.remote.LoginManager
 import com.tes.edu.data.remote.GraphEdge
 import com.tes.edu.data.remote.GraphNode
 import com.tes.edu.data.remote.GraphResponse
+import com.tes.edu.data.remote.StudentSession
 import com.tes.edu.ui.graph.GraphLayout
 import com.tes.edu.ui.graph.GraphLayoutCalc
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,8 +21,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 /**
  * T-B5 图谱页状态。
  *
- * 链路：确保登录（占位 /login 换 JWT）-> GET /learning/knowledge-graph
- *      -> 本地分层布局 -> Canvas 渲染。
+ * 链路：确保登录（占位 /login 换 JWT）-> 读 StudentSession.currentId()
+ *      -> GET /learning/knowledge-graph -> 本地分层布局 -> Canvas 渲染。
  */
 data class GraphUiState(
     val loading: Boolean = false,
@@ -28,24 +30,15 @@ data class GraphUiState(
     val graph: GraphResponse? = null,
     val layout: GraphLayout? = null,
     val selected: GraphNode? = null,
-    val studentId: String = DEFAULT_STUDENT_ID,
+    /** 实际用于查询的登录身份；未取到登录态时为 null（不发请求）。 */
+    val studentId: String? = null,
     /** M3-4 按卷维度：非空时看的是「这一卷的知识点 + 前驱后继」，不是全量图谱。 */
     val paperAssignmentId: Long? = null,
     val paperTitle: String = "",
     // T-G1：节点详情「练这个知识点」——拉题中的加载态与无题/失败提示
     val kpLoading: Boolean = false,
     val kpNotice: String? = null
-) {
-    companion object {
-        /**
-         * 演示学生（106 库真实流水 student_001~003；P2 登录态后取当前用户）。
-         * 占位账号 student@tes.edu / demo1234（role=student）。
-         */
-        const val DEFAULT_STUDENT_ID = "student_001"
-        const val DEV_USERNAME = "student@tes.edu"
-        const val DEV_PASSWORD = "demo1234"
-    }
-}
+)
 
 /**
  * 图谱加载短超时：paperGraph / knowledgeGraph 本应 2s 内返回，但真机走跨境 Cloudflare
@@ -54,7 +47,13 @@ data class GraphUiState(
  */
 private const val GRAPH_TIMEOUT_MS = 30_000L
 
-class GraphViewModel : ViewModel() {
+class GraphViewModel(
+    // 可注入：JVM 单测用 fake 记录 knowledgeGraph 的 student_id；生产走 ApiClient。
+    // 全默认参数会生成无参构造，Compose 的 viewModel() 仍可反射实例化（同 SolveViewModel）。
+    private val api: ApiService = ApiClient.instance,
+    // 身份统一入口：与作业/错题/背诵一样读登录态；单测可替换成已登录用户。
+    private val resolveStudentId: () -> String? = { StudentSession.currentId() }
+) : ViewModel() {
 
     private val _ui = MutableStateFlow(GraphUiState())
     val ui: StateFlow<GraphUiState> = _ui.asStateFlow()
@@ -68,6 +67,7 @@ class GraphViewModel : ViewModel() {
      *
      * 返回体与全量图谱同构（nodes/edges/summary），所以复用同一套布局与渲染；
      * 差别只在节点集合（卷内点 + 前驱 + 后继）和 `paper_kp_count` 提示。
+     * 该接口只按 assignment_id + JWT 取数，客户端不传 student_id，身份天然是登录态。
      */
     fun loadPaper(assignmentId: Long, title: String = "") {
         viewModelScope.launch {
@@ -117,15 +117,23 @@ class GraphViewModel : ViewModel() {
         load()
     }
 
-    fun load(studentId: String = _ui.value.studentId) {
+    /**
+     * 全量图谱：身份一律取登录态，不再写死演示学号 student_001。
+     *
+     * 后端 learning/knowledge-graph 不按 JWT 覆盖 student_id（与错题/背诵不同），
+     * 客户端传什么就查谁；所以必须 ensureLogin 之后再解析身份，且取不到登录态时
+     * 宁可报错，也不发一个「可能查到别人学情」的请求。
+     */
+    fun load() {
         viewModelScope.launch {
             _ui.update { it.copy(loading = true, error = null, selected = null) }
             runCatching {
                 withTimeoutOrNull(GRAPH_TIMEOUT_MS) {
                     ensureLogin()
-                    ApiClient.instance.knowledgeGraph(studentId = studentId)
+                    val sid = resolveStudentId() ?: error("登录态未就绪，请重试")
+                    sid to api.knowledgeGraph(studentId = sid)
                 } ?: throw java.net.SocketTimeoutException("图谱加载超时（网络不佳，请重试）")
-            }.onSuccess { res ->
+            }.onSuccess { (sid, res) ->
                 runCatching {
                     val layout = GraphLayoutCalc.layout(res.nodes, res.edges)
                     _ui.update {
@@ -133,7 +141,7 @@ class GraphViewModel : ViewModel() {
                             loading = false,
                             graph = res,
                             layout = layout,
-                            studentId = studentId,
+                            studentId = sid,
                             paperAssignmentId = null,
                             paperTitle = ""
                         )
@@ -167,7 +175,7 @@ class GraphViewModel : ViewModel() {
             _ui.update { it.copy(kpLoading = true, kpNotice = null) }
             runCatching {
                 ensureLogin()
-                ApiClient.instance.variants(kp = node.code, n = 1)
+                api.variants(kp = node.code, n = 1)
             }.onSuccess { res ->
                 val stem = res.items.firstOrNull()?.stem?.takeIf { it.isNotBlank() }
                 if (stem != null) {

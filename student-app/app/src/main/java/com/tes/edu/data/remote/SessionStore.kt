@@ -30,10 +30,11 @@ class SessionStore(context: Context) {
         }
 
     /**
-     * 学生流水号（错题/背诵同步的 student_id）。
+     * 学生流水号（错题/背诵/图谱共用的 student_id）。
      *
-     * 登录响应只有 token 与 role、不带 student_id，所以这里留一个落盘位：
-     * 现在回落到演示学生，P2 登录接口返回真实 id 时写入即可，调用方不用改。
+     * 由 LoginManager 写登录响应的 user_id（即 JWT 的 uid）。老安装只存了 token
+     * 时会补一次登录换回来；实在拿不到时 StudentSession 回落到登录账号本身，
+     * 绝不回落到演示流水号 student_001（否则图谱会查到别人的空学情）。
      */
     var studentId: String?
         get() = prefs.getString(KEY_STUDENT_ID, null)
