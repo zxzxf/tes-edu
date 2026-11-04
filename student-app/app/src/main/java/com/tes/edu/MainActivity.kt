@@ -45,16 +45,52 @@ import com.tes.edu.ui.screens.Screen
 import com.tes.edu.ui.screens.SimilarScreen
 import com.tes.edu.ui.theme.TesEduColors
 import com.tes.edu.ui.theme.TesEduTheme
+import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
+import com.tes.edu.util.CrashReporter
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppContextProvider.init(applicationContext)
+        CrashReporter.init(applicationContext)
         setContent {
             TesEduTheme {
                 AppRoot()
             }
         }
+        // 若有上次崩溃，启动后弹窗展示堆栈，可一键复制到剪贴板（无需 adb）
+        CrashReporter.consumePendingCrash()?.let { report ->
+            Handler(Looper.getMainLooper()).post { showCrashDialog(report) }
+        }
+    }
+
+    private fun showCrashDialog(report: String) {
+        val scroll = ScrollView(this)
+        val tv = TextView(this).apply {
+            text = report
+            setTextIsSelectable(true)
+            textSize = 11f
+            setPadding(24, 24, 24, 24)
+        }
+        scroll.addView(tv)
+        AlertDialog.Builder(this)
+            .setTitle("上一 session 捕获到崩溃（可复制发给开发）")
+            .setView(scroll)
+            .setPositiveButton("复制到剪贴板") { _, _ ->
+                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("crash", report))
+                Toast.makeText(this, "已复制，可粘贴发给开发", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("关闭") { d, _ -> d.dismiss() }
+            .show()
     }
 }
 
