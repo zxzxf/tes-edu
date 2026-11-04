@@ -34,6 +34,8 @@ class WrongPushItem(BaseModel):
     comment: Optional[str] = None
     correction: Optional[str] = None
     first_wrong_step: Optional[int] = None
+    paper_id: Optional[int] = None          # M3-9：来源卷（考试题才有）
+    paper_question_id: Optional[int] = None
     updated_at: int = 0            # epoch 毫秒，冲突判定用
     deleted: bool = False          # true = 客户端已删除，服务端软删
 
@@ -46,6 +48,14 @@ class WrongSyncRequest(BaseModel):
 class WrongSyncResponse(BaseModel):
     items: List[dict] = Field(default_factory=list)
     server_time: int = 0
+
+
+class WrongRedoRequest(BaseModel):
+    """M3-9 重做请求：choice 传 answer（如 "A" / "AB"）；blank 可传逐空 blanks。"""
+
+    student_id: str = ""
+    answer: str = ""
+    blanks: List[str] = Field(default_factory=list)
 
 
 class DrillPushItem(BaseModel):
@@ -93,13 +103,17 @@ async def list_wrong_questions(
     since: int = Query(0),
     kp: Optional[str] = Query(None),
     error_type: Optional[str] = Query(None),
+    paper_id: Optional[int] = Query(None, description="M3-9：按卷筛选"),
     limit: int = Query(200),
     user=Depends(require_role(Role.STUDENT, Role.ADMIN, Role.TEACHER, Role.PARENT)),
     db: AsyncSession = Depends(get_db),
 ):
     """增量拉取错题（含 since 之后的 tombstone，客户端据此同步删除）。"""
     sid = _student_id(user, student_id)
-    items = await wrong_svc.list_sync(db, sid, since_ms=since, kp=kp, error_type=error_type, limit=limit)
+    items = await wrong_svc.list_sync(
+        db, sid, since_ms=since, kp=kp, error_type=error_type,
+        paper_id=paper_id, limit=limit,
+    )
     return WrongSyncResponse(items=items, server_time=_now_ms())
 
 
@@ -130,6 +144,29 @@ async def delete_wrong_question(
     if not ok:
         raise HTTPException(status_code=404, detail="wrong question not found")
     return OkResponse(ok=True)
+
+
+@router.post("/wrong-questions/{wrong_id}/redo")
+async def redo_wrong_question(
+    wrong_id: int,
+    req: WrongRedoRequest,
+    user=Depends(require_role(Role.STUDENT, Role.ADMIN, Role.TEACHER)),
+    db: AsyncSession = Depends(get_db),
+):
+    """M3-9 重做一道错题：确定性判分（0 token）。
+
+    - 判对 → 错题行软删（同步 tombstone 自然移出错题本）+ 知识点背诵卡到期后推；
+    - 判错 → 更新最近一次作答，留在错题本等下次重做；
+    - 填空含变量/符号 → manual_pending 转人工，**绝不硬判错**；
+    - 原卷题已不存在 / 主观题 → unavailable。
+    """
+    sid = _student_id(user, req.student_id)
+    result = await wrong_svc.redo_wrong(
+        db, sid, wrong_id, answer=req.answer, blanks=req.blanks
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="wrong question not found")
+    return result
 
 
 @router.get("/wrong-questions/stats")

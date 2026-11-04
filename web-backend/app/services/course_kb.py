@@ -52,6 +52,11 @@ async def search_questions(
     subject: Optional[str] = None,
     qtype: Optional[str] = None,
     knowledge_point: Optional[str] = None,
+    grade: Optional[str] = None,
+    difficulty_min: Optional[int] = None,
+    difficulty_max: Optional[int] = None,
+    status: Optional[str] = None,
+    answerable: bool = False,
     limit: int = 50,
     tenant_id: Optional[str] = None,
 ) -> List[CourseQuestion]:
@@ -59,10 +64,28 @@ async def search_questions(
 
     ``tenant_id`` 非空时**只返回本租户题目**（M0-4 隔离验收）：教师端检索
     绝不能捞到别校的题，包括别校草稿。传 None 保持旧行为，供一次性运维/脚本调用。
+
+    M4-1 手动出卷的筛选器要按 年级/难度/题型/学科/kp 挑题，且只能挑
+    ``published`` + 非隔离 + 有答案的题（``answerable=True``）；这些条件
+    放在 SQL 里，避免把整库拉回内存再过滤。
     """
     stmt = select(CourseQuestion)
     if tenant_id is not None:
         stmt = stmt.where(CourseQuestion.tenant_id == tenant_id)
+    if grade:
+        stmt = stmt.where(CourseQuestion.grade == grade)
+    if difficulty_min is not None:
+        stmt = stmt.where(CourseQuestion.difficulty >= int(difficulty_min))
+    if difficulty_max is not None:
+        stmt = stmt.where(CourseQuestion.difficulty <= int(difficulty_max))
+    if status:
+        stmt = stmt.where(CourseQuestion.status == status)
+    if answerable:
+        stmt = stmt.where(CourseQuestion.answer.isnot(None))
+        stmt = stmt.where(
+            (CourseQuestion.source_tag.is_(None))
+            | (CourseQuestion.source_tag != "quarantine")
+        )
     if q:
         like = f"%{q}%"
         stmt = stmt.where(

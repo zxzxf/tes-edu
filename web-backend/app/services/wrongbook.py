@@ -38,6 +38,8 @@ def wrong_out(w: WrongQuestion) -> dict:
     return {
         "id": w.id,
         "client_id": w.client_id,
+        "paper_id": w.paper_id,
+        "paper_question_id": w.paper_question_id,
         "question": w.question,
         "my_answer": w.wrong_answer,
         "correct_answer": w.correct_answer,
@@ -82,6 +84,9 @@ async def _apply_exam_wrong(
     row.wrong_answer = item.student_answer or ""
     row.correct_answer = question.answer or ""
     row.content_hash = question.content_hash
+    # M3-9：记下来源卷，学生端才能按卷筛选/重做
+    row.paper_id = question.paper_id
+    row.paper_question_id = question.id
     kps = question.knowledge_points or []
     row.knowledge_point = kps[0][:128] if kps and isinstance(kps[0], str) else ""
     row.deleted_at = None
@@ -144,6 +149,7 @@ async def list_sync(
     since_ms: int = 0,
     kp: Optional[str] = None,
     error_type: Optional[str] = None,
+    paper_id: Optional[int] = None,
     limit: int = SYNC_LIMIT,
 ) -> List[dict]:
     """增量拉取：未删记录 + since 之后的 tombstone（让客户端能跟着删）。"""
@@ -155,6 +161,8 @@ async def list_sync(
         stmt = stmt.where(WrongQuestion.knowledge_point == kp)
     if error_type:
         stmt = stmt.where(WrongQuestion.error_type == error_type)
+    if paper_id is not None:
+        stmt = stmt.where(WrongQuestion.paper_id == int(paper_id))
 
     live = stmt.where(WrongQuestion.deleted_at.is_(None))
     if since:
@@ -236,6 +244,8 @@ async def upsert_sync(
                 comment=it.get("comment"),
                 correction=it.get("correction"),
                 first_wrong_step=it.get("first_wrong_step"),
+                paper_id=it.get("paper_id"),
+                paper_question_id=it.get("paper_question_id"),
                 source=(it.get("source") or "app"),
                 created_at=_from_ms(incoming_ms) or now,
                 updated_at=now,
@@ -334,4 +344,138 @@ async def stats(db: AsyncSession, student_id: str) -> dict:
         "by_error_type": by_error,
         "by_knowledge_point": by_kp,
         "mastery": mastery,
+    }
+
+
+# --------------------------------------------------------------------------- M3-9 重做
+
+def _options_to_map(options) -> dict:
+    """options (dict / list) -> {label: content}（与 exam._options_to_map 同义，供判分识别数值写法）。"""
+    if isinstance(options, dict):
+        return {str(k): str(v) for k, v in options.items()}
+    if isinstance(options, list):
+        out: dict = {}
+        for i, item in enumerate(options):
+            if isinstance(item, dict):
+                lab = str(item.get("label") or item.get("key") or "").strip()
+                content = str(item.get("text") or item.get("value") or "")
+            else:
+                lab = chr(ord("A") + i)
+                content = str(item)
+            if lab:
+                out[lab] = content
+        return out
+    return {}
+
+
+async def redo_wrong(
+    db: AsyncSession,
+    student_id: str,
+    wrong_id: int,
+    *,
+    answer: str = "",
+    blanks: Optional[List[str]] = None,
+    now: Optional[datetime] = None,
+) -> Optional[dict]:
+    """M3-9 重做一道错题（确定性判分，0 token，复用与作业判分同一套等价判定）。
+
+    - 数据来源：``wrong_questions(paper_id, paper_question_id)`` → 原卷题，
+      qtype/answer/options/multi 与判分链路完全同源，不另设口径；
+    - 判分：choice → ``choice_equivalent``；blank → ``blank_judge`` 三态
+      （manual 一律转人工，**绝不硬判错**）；subjective / 原卷题已不存在 → 不可重做；
+    - 判对：错题行软删（客户端同步 tombstone 自然把它移出错题本）+ 按知识点推
+      背诵卡到期（``drill_link.on_mastery_up``：只延 due_at，不动 SM-2 参数）；
+    - 判错：更新 wrong_answer 留在错题本，等下次重做。
+
+    返回 None = 该错题不属于该学生或已删除（API 层转 404）。
+    """
+    from app.core.equiv import blank_judge, choice_equivalent
+
+    now = now or _utcnow()
+    row = (
+        await db.execute(
+            select(WrongQuestion).where(
+                WrongQuestion.id == int(wrong_id),
+                WrongQuestion.student_id == student_id,
+                WrongQuestion.deleted_at.is_(None),
+            )
+        )
+    ).scalars().first()
+    if row is None:
+        return None
+
+    # 原卷题：优先 paper_question_id，兜底 content_hash（同 hash 取最新一卷的题）
+    pq: Optional[ExamPaperQuestion] = None
+    if row.paper_question_id:
+        pq = (
+            await db.execute(
+                select(ExamPaperQuestion).where(ExamPaperQuestion.id == row.paper_question_id)
+            )
+        ).scalars().first()
+    if pq is None and row.content_hash:
+        pq = (
+            await db.execute(
+                select(ExamPaperQuestion)
+                .where(ExamPaperQuestion.content_hash == row.content_hash)
+                .order_by(ExamPaperQuestion.id.desc())
+            )
+        ).scalars().first()
+    if pq is None or (pq.qtype or "") not in ("choice", "blank"):
+        return {
+            "wrong_id": row.id, "paper_id": row.paper_id,
+            "paper_question_id": row.paper_question_id,
+            "qtype": getattr(pq, "qtype", None),
+            "status": "unavailable", "correct": None, "partial": False,
+            "reason": "原卷题已不存在或题型不支持重做", "resolved": False,
+            "card_pushed": False,
+        }
+
+    if pq.qtype == "choice":
+        res = choice_equivalent(
+            answer, pq.answer or "", multi=bool(pq.multi),
+            options=_options_to_map(pq.options),
+        )
+        correct = True if res is True else (False if res in (False, "partial") else False)
+        partial = res == "partial"
+        status, reason, source = "auto", "", "choice"
+    else:
+        display = answer or "；".join(str(x or "").strip() for x in (blanks or []))
+        v = blank_judge(display, pq.answer or "", blanks=blanks or None,
+                        values=getattr(pq, "answer_values", None))
+        if v.get("status") == "manual":
+            # 红线：含变量/符号函数等解析不了的结构转人工，不落库不判错
+            return {
+                "wrong_id": row.id, "paper_id": row.paper_id,
+                "paper_question_id": row.paper_question_id,
+                "qtype": "blank", "status": "manual_pending", "correct": None,
+                "partial": False, "reason": v.get("reason") or "需人工判分",
+                "resolved": False, "card_pushed": False,
+            }
+        correct = bool(v.get("correct"))
+        partial = False
+        status, reason, source = "auto", v.get("reason") or "", v.get("source") or "blank"
+
+    card_pushed = False
+    if correct:
+        row.deleted_at = now
+        row.updated_at = now
+        if row.knowledge_point:
+            from app.services import mastery as mastery_svc
+            resolved = await mastery_svc.resolve_kp_codes(db, [row.knowledge_point])
+            code = resolved.get(row.knowledge_point)
+            if code:
+                from app.services import drill_link
+                card_pushed = await drill_link.on_mastery_up(
+                    db, student_id=student_id, kp_code=code, now=now
+                ) is not None
+    else:
+        row.wrong_answer = answer or row.wrong_answer
+        row.updated_at = now
+
+    return {
+        "wrong_id": row.id, "paper_id": row.paper_id,
+        "paper_question_id": row.paper_question_id,
+        "qtype": pq.qtype, "status": status, "correct": correct,
+        "partial": partial, "reason": reason, "source": source,
+        "resolved": bool(correct), "card_pushed": card_pushed,
     }

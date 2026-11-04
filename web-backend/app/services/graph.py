@@ -170,6 +170,95 @@ async def load_practice_stats(
     return out
 
 
+async def paper_graph_db(
+    db: AsyncSession,
+    paper_id: int,
+    student_id: Optional[str] = None,
+) -> dict:
+    """M3-4：按卷聚合知识点，返回子图 + 前驱/后继高亮。
+
+    与 ``knowledge_graph_db`` 的区别只在**节点集合**：这里取卷内题的
+    ``question_kp`` 绑定（回落到题库 ``knowledge_points`` 标签），再把
+    这些点的前驱（学习前置）与后继（可延伸）补进来，并分别标记
+    ``in_paper`` / ``is_prereq`` / ``is_successor`` 供前端着色。
+    """
+    from app.models.ops import ExamPaperQuestion, QuestionKp
+    from sqlalchemy import select as _select
+
+    qs = (
+        await db.execute(
+            _select(ExamPaperQuestion).where(ExamPaperQuestion.paper_id == paper_id)
+        )
+    ).scalars().all()
+    qids = [q.question_id for q in qs if q.question_id]
+    hashes = [q.content_hash for q in qs if q.content_hash]
+
+    paper_kps: set = set()
+    if qids:
+        rows = (
+            await db.execute(
+                _select(QuestionKp.kp_code).where(QuestionKp.question_id.in_(qids))
+            )
+        ).all()
+        paper_kps |= {r[0] for r in rows if r[0]}
+    for q in qs:
+        paper_kps |= {k for k in (q.knowledge_points or []) if k}
+
+    meta_rows = await load_kp_meta(db)
+    meta_by_code = {m["code"]: m for m in meta_rows if m.get("code")}
+    # 卷内标签可能是名称：能翻译成 code 的并入节点集，翻不到的单独列出（不硬塞进图）
+    unresolved = sorted(k for k in paper_kps if k not in meta_by_code)
+    all_edges = await mastery.load_dag_edges(db)
+
+    prereqs: dict = {}
+    successors: dict = {}
+    for kp, pre in all_edges:
+        prereqs.setdefault(kp, set()).add(pre)
+        successors.setdefault(pre, set()).add(kp)
+
+    core = {k for k in paper_kps if k in meta_by_code}
+    highlight_pre = {p for k in core for p in prereqs.get(k, set()) if p in meta_by_code}
+    highlight_post = {s for k in core for s in successors.get(k, set()) if s in meta_by_code}
+    nodes_set = core | highlight_pre | highlight_post
+
+    nodes = []
+    for code in sorted(nodes_set):
+        m = meta_by_code[code]
+        nodes.append(
+            assemble_node(
+                m,
+                None,
+                None,
+                False,
+                depth=0,
+                question_count=0,
+                prereqs=sorted(prereqs.get(code, set())),
+            )
+        )
+        nodes[-1].update({
+            "in_paper": code in core,
+            "is_prereq": code in highlight_pre and code not in core,
+            "is_successor": code in highlight_post and code not in core,
+        })
+
+    edges = [
+        {"from": pre, "to": kp}
+        for kp, pre in all_edges
+        if kp in nodes_set and pre in nodes_set
+    ]
+    return {
+        "paper_id": paper_id,
+        "student_id": student_id,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "summary": summarize(nodes, [(e["from"], e["to"]) for e in edges]),
+        "nodes": nodes,
+        "edges": edges,
+        "paper_kp_count": len(core),
+        "unresolved_kps": unresolved,
+        "note": "" if core else "本卷题目尚未绑定 DAG 知识点（先在题↔知识点里标注）",
+    }
+
+
 async def knowledge_graph_db(
     db: AsyncSession,
     student_id: str,
