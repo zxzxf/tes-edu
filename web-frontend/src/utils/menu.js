@@ -15,7 +15,7 @@
 export const ICON_MAP = {
   setting: '⚙️', menu: '🧭', role: '👥', region: '🗺️', cloud: '☁️', ops: '🧩',
   school: '🏫', book: '📚', chart: '📈', search: '🔍', wrong: '📕', exam: '📝',
-  grade: '✅', report: '💌', shield: '🛡️', target: '🎯', user: '👤',
+  grade: '✅', report: '💌', shield: '🛡️', target: '🎯', user: '👤', send: '📤',
 }
 
 /**
@@ -34,6 +34,7 @@ export const MENU_ROUTE_MAP = {
   '/ops/error-distribution': '/error-distribution',
   '/ops/wrong': '/wrong-questions',
   '/ops/exam': '/exam',
+  '/ops/exam-dispatch': '/papers', // 试卷下发页（2026-11-04 从自动组卷拆出，列表/发布/下发）
   '/ops/grading': '/grading',
   '/ops/reports': '/reports',
   '/ops/compliance': '/compliance',

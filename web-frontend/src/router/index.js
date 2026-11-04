@@ -9,6 +9,7 @@ import Questions from '../views/Questions.vue'
 import Analytics from '../views/Analytics.vue'
 import WrongQuestions from '../views/WrongQuestions.vue'
 import Exam from '../views/Exam.vue'
+import PaperDispatch from '../views/PaperDispatch.vue'
 import Grading from '../views/Grading.vue'
 import Reports from '../views/Reports.vue'
 import Compliance from '../views/Compliance.vue'
@@ -43,6 +44,8 @@ const routes = [
       { path: 'error-distribution', name: 'error-distribution', component: ErrorDistribution, meta: { title: '班级错因分布' } },
       { path: 'wrong-questions', name: 'wrong-questions', component: WrongQuestions, meta: { title: '错题本' } },
       { path: 'exam', name: 'exam', component: Exam, meta: { title: '自动组卷' } },
+      // 试卷列表/发布/下发从自动组卷拆出（2026-11-04），独立菜单 m_ops_exam_dispatch
+      { path: 'papers', name: 'papers', component: PaperDispatch, meta: { title: '试卷下发' } },
       { path: 'grading', name: 'grading', component: Grading, meta: { title: '教师批改' } },
       { path: 'reports', name: 'reports', component: Reports, meta: { title: '家长周报' } },
       { path: 'compliance', name: 'compliance', component: Compliance, meta: { title: '合规审核' } },

@@ -61,6 +61,10 @@ MENUS = [
     ("m_ops_wrong", "m_ops", "错题本", "MENU", "/ops/wrong", "Wrong", "wrong", 4, None),
     ("m_ops_exam", "m_ops", "自动组卷", "MENU", "/ops/exam", "Exam", "exam", 5, None),
     ("m_ops_exam_gen", "m_ops_exam", "生成组卷", "BUTTON", "", "", "", 1, "exam:generate"),
+    # 试卷列表/发布/下发从 Exam.vue 拆成独立页（2026-11-04），避免教师往下滚 3~4 屏才找到下发。
+    # sort=12 追加在区域运营组末尾：线上库已有旧种子，seed 只补插新行、不改既有 sort，
+    # 若复用 5/6 会与「自动组卷/教师批改」并列、顺序不可控。
+    ("m_ops_exam_dispatch", "m_ops", "试卷下发", "MENU", "/ops/exam-dispatch", "PaperDispatch", "send", 12, None),
     ("m_ops_grading", "m_ops", "教师批改", "MENU", "/ops/grading", "Grading", "grade", 6, None),
     ("m_ops_grading_submit", "m_ops_grading", "提交批改", "BUTTON", "", "", "", 1, "grading:submit"),
     ("m_ops_grading_review", "m_ops_grading", "评分批改", "BUTTON", "", "", "", 2, "grading:review"),
@@ -96,7 +100,7 @@ ROLE_MENU_MAP = {
          "m_ops_tenant_add", "m_ops_tenant_edit", "m_ops_tenant_del"],  # 区域管理员：区域运营 + 功能开关 + 模型配置（不含系统设置其余）；含学校增删改按钮码
     "role_school": [
         "m_ops", "m_ops_tenant", "m_ops_knowledge", "m_ops_analytics",
-        "m_ops_wrong", "m_ops_exam", "m_ops_grading", "m_ops_reports", "m_ops_compliance",
+        "m_ops_wrong", "m_ops_exam", "m_ops_exam_dispatch", "m_ops_grading", "m_ops_reports", "m_ops_compliance",
         "m_ops_errordist", "m_ops_practice", "m_ops_questions",  # 学校：可给本校题库录题
         "m_ops_course",  # M5：课程采集/知识点审核
         "m_sys_feature", "m_sys_feature_manage",  # 学校：可管控本校功能显隐
@@ -104,7 +108,7 @@ ROLE_MENU_MAP = {
     ],
     "role_teacher": [
         "m_ops", "m_ops_knowledge", "m_ops_analytics", "m_ops_wrong",
-        "m_ops_exam", "m_ops_grading", "m_ops_reports",
+        "m_ops_exam", "m_ops_exam_dispatch", "m_ops_grading", "m_ops_reports",
         "m_ops_errordist", "m_ops_practice", "m_ops_questions",  # 教师：录题（M0-1）
         "m_ops_course",  # M5：课程采集/知识点审核
         "m_ops_exam_gen", "m_ops_grading_submit", "m_ops_grading_review",

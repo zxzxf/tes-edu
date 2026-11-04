@@ -107,3 +107,18 @@ def test_has_perm_exact_and_prefix():
 def test_no_perm_returns_false():
     eng = perm_mod.PermissionEngine()
     assert eng.has_perm(set(), "system:menu:add") is False
+
+
+def test_seed_exam_dispatch_menu_and_role_grants():
+    """试卷下发独立菜单（2026-11-04 拆页）：教学角色可见，家长不可见。"""
+    menus = {m["menu_id"]: m for m in rbac_seed.build_seed_menus()}
+    node = menus["m_ops_exam_dispatch"]
+    assert node["menu_name"] == "试卷下发"
+    assert node["path"] == "/ops/exam-dispatch"
+    assert node["parent_id"] == "m_ops"
+    assert node["menu_type"] == "MENU"
+
+    pairs = {(r["role_id"], r["menu_id"]) for r in rbac_seed.build_seed_role_menus()}
+    for rid in ("role_admin", "role_region_admin", "role_school", "role_teacher"):
+        assert (rid, "m_ops_exam_dispatch") in pairs
+    assert ("role_parent", "m_ops_exam_dispatch") not in pairs
