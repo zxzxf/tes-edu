@@ -9,6 +9,8 @@ import com.tes.edu.data.remote.ApiClient
 import com.tes.edu.data.remote.LearningApi
 import com.tes.edu.data.remote.LoginManager
 import com.tes.edu.data.remote.StudentSession
+import com.tes.edu.data.remote.WrongRedoRequest
+import com.tes.edu.data.remote.WrongRedoResult
 import com.tes.edu.data.remote.WrongStats
 import com.tes.edu.data.remote.WrongSyncRequest
 import com.tes.edu.data.sync.WrongSyncMerger
@@ -20,20 +22,25 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import java.util.UUID
 
 /** 断网时的轻提示——同步失败不弹错、不打断复习，只说一句"联网后会自动来"。 */
 const val OFFLINE_HINT = "离线中，联网后自动同步"
 
-/** 错题筛选条件：kp=知识点，errorType=错因；都为 null 表示不筛选。 */
+/** 错题筛选条件：kp=知识点，errorType=错因，paperId=来源卷；都为 null 表示不筛选。 */
 data class WrongFilter(
     val kp: String? = null,
-    val errorType: String? = null
+    val errorType: String? = null,
+    /** M3-9：按卷筛选。手工收进的错题没有 paperId，不该被任何卷筛中。 */
+    val paperId: Long? = null
 ) {
-    val active: Boolean get() = kp != null || errorType != null
+    val active: Boolean get() = kp != null || errorType != null || paperId != null
 
     fun matches(q: WrongQuestion): Boolean =
-        (kp == null || q.knowledgePoint == kp) && (errorType == null || q.errorType == errorType)
+        (kp == null || q.knowledgePoint == kp) &&
+            (errorType == null || q.errorType == errorType) &&
+            (paperId == null || q.paperId == paperId)
 }
 
 /**
@@ -67,6 +74,12 @@ class WrongBookViewModel @JvmOverloads constructor(
         combine(items, _filter) { list, f -> list.filter { f.matches(it) } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** M3-9：可筛选的来源卷（有卷归属的错题才出现，手工题不占位）。 */
+    val paperOptions: StateFlow<List<Long>> = items
+        .map { list -> list.mapNotNull { it.paperId } }
+        .map { it.distinct().sorted() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** 知识点筛选项：本地记录里去重的 kp（离线也有，不依赖后端）。 */
     val kpOptions: StateFlow<List<String>> = items
         .map { list -> list.mapNotNull { it.knowledgePoint.takeIf { kp -> kp.isNotBlank() } } }
@@ -86,6 +99,79 @@ class WrongBookViewModel @JvmOverloads constructor(
     /** 同步失败提示（断网时是 [OFFLINE_HINT]，不算错误态）。 */
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    /** M3-9 重做：提交中 / 最近一次结果 / 提交失败提示。 */
+    private val _redoing = MutableStateFlow(false)
+    val redoing: StateFlow<Boolean> = _redoing.asStateFlow()
+
+    private val _redoResult = MutableStateFlow<WrongRedoResult?>(null)
+    val redoResult: StateFlow<WrongRedoResult?> = _redoResult.asStateFlow()
+
+    private val _redoError = MutableStateFlow<String?>(null)
+    val redoError: StateFlow<String?> = _redoError.asStateFlow()
+
+    /** 关闭重做弹窗时清状态，避免下一次打开看到上一次的判分结果。 */
+    fun clearRedo() {
+        _redoResult.value = null
+        _redoError.value = null
+    }
+
+    /**
+     * M3-9 重做一道错题。
+     *
+     * 判分只信服务端（确定性等价判定，0 token）：客户端**不**自己比对答案，
+     * 否则「已确认答案值 / 多空 / 多选部分分」这些规则会分叉出两套结论。
+     * 判对后服务端已归档并顺延背诵卡，本地先删该行再 sync，避免下一次 pull
+     * 把已归档的题又带回来。
+     */
+    fun redo(q: WrongQuestion, answer: String, blanks: List<String> = emptyList()) {
+        viewModelScope.launch {
+            if (_redoing.value) return@launch
+            val rid = q.remoteId
+            if (rid == null || rid <= 0) {
+                _redoError.value = "这道题还没同步到服务器，联网同步后再重做"
+                return@launch
+            }
+            if (!LoginManager.ensureLogin()) {
+                _redoError.value = "未登录，登录后才能判分"
+                return@launch
+            }
+            val sid = StudentSession.currentId()
+            if (sid == null) {
+                _redoError.value = "未登录，登录后才能判分"
+                return@launch
+            }
+            _redoing.value = true
+            _redoError.value = null
+            _redoResult.value = null
+            try {
+                val res = api.redoWrongQuestion(
+                    rid,
+                    WrongRedoRequest(
+                        studentId = sid,
+                        answer = answer.trim(),
+                        blanks = blanks.map { it.trim() }
+                    )
+                )
+                _redoResult.value = res
+                if (res.resolved) {
+                    dao.deleteByIds(listOf(q.id))
+                    sync()
+                }
+            } catch (e: HttpException) {
+                // 404 = 已在别处归档/被删：不是网络问题，别让学生反复重试
+                _redoError.value = if (e.code() == 404) {
+                    "这道题已归档或不存在，刷新错题本再看看"
+                } else {
+                    "重做没提交成功（${e.code()}），稍后再试"
+                }
+            } catch (e: Exception) {
+                _redoError.value = "重做没提交成功，检查网络后再试"
+            } finally {
+                _redoing.value = false
+            }
+        }
+    }
 
     /** 切换筛选：本地立即生效，同时让后端也按同一条件过滤下一轮 pull。 */
     fun setFilter(f: WrongFilter) {
@@ -161,7 +247,8 @@ class WrongBookViewModel @JvmOverloads constructor(
                     studentId = sid,
                     since = StudentSession.wrongSince(),
                     kp = _filter.value.kp,
-                    errorType = _filter.value.errorType
+                    errorType = _filter.value.errorType,
+                    paperId = _filter.value.paperId
                 )
                 apply(WrongSyncMerger.merge(dao.allOnce(), res.items))
                 StudentSession.markWrongSync(res.serverTime)

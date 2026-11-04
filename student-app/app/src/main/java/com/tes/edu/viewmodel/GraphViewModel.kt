@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tes.edu.data.remote.ApiClient
 import com.tes.edu.data.remote.LoginManager
+import com.tes.edu.data.remote.GraphEdge
 import com.tes.edu.data.remote.GraphNode
 import com.tes.edu.data.remote.GraphResponse
 import com.tes.edu.ui.graph.GraphLayout
@@ -27,6 +28,9 @@ data class GraphUiState(
     val layout: GraphLayout? = null,
     val selected: GraphNode? = null,
     val studentId: String = DEFAULT_STUDENT_ID,
+    /** M3-4 按卷维度：非空时看的是「这一卷的知识点 + 前驱后继」，不是全量图谱。 */
+    val paperAssignmentId: Long? = null,
+    val paperTitle: String = "",
     // T-G1：节点详情「练这个知识点」——拉题中的加载态与无题/失败提示
     val kpLoading: Boolean = false,
     val kpNotice: String? = null
@@ -51,6 +55,52 @@ class GraphViewModel : ViewModel() {
         load()
     }
 
+    /**
+     * M3-4 按卷加载：`GET /api/student/exams/{assignment_id}/graph`。
+     *
+     * 返回体与全量图谱同构（nodes/edges/summary），所以复用同一套布局与渲染；
+     * 差别只在节点集合（卷内点 + 前驱 + 后继）和 `paper_kp_count` 提示。
+     */
+    fun loadPaper(assignmentId: Long, title: String = "") {
+        viewModelScope.launch {
+            _ui.update {
+                it.copy(
+                    loading = true,
+                    error = null,
+                    selected = null,
+                    paperAssignmentId = assignmentId,
+                    paperTitle = title
+                )
+            }
+            runCatching {
+                ensureLogin()
+                ApiClient.exam.paperGraph(assignmentId)
+            }.onSuccess { dto ->
+                val res = dto.toGraphResponse()
+                val layout = GraphLayoutCalc.layout(res.nodes, res.edges)
+                _ui.update {
+                    it.copy(
+                        loading = false,
+                        graph = res,
+                        layout = layout,
+                        paperAssignmentId = assignmentId,
+                        paperTitle = title
+                    )
+                }
+            }.onFailure { e ->
+                _ui.update { it.copy(loading = false, error = "加载失败：${e.message}") }
+            }
+        }
+    }
+
+    /** 退出按卷维度，回到全量图谱。 */
+    fun exitPaper() {
+        val s = _ui.value
+        if (s.paperAssignmentId == null) return
+        _ui.update { it.copy(paperAssignmentId = null, paperTitle = "") }
+        load()
+    }
+
     fun load(studentId: String = _ui.value.studentId) {
         viewModelScope.launch {
             _ui.update { it.copy(loading = true, error = null, selected = null) }
@@ -64,7 +114,9 @@ class GraphViewModel : ViewModel() {
                         loading = false,
                         graph = res,
                         layout = layout,
-                        studentId = studentId
+                        studentId = studentId,
+                        paperAssignmentId = null,
+                        paperTitle = ""
                     )
                 }
             }.onFailure { e ->

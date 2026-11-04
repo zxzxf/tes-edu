@@ -38,5 +38,9 @@ data class WrongQuestion(
     @ColumnInfo(name = "client_id") val clientId: String? = null,
     @ColumnInfo(name = "updated_at", defaultValue = "0") val updatedAt: Long = 0,
     @ColumnInfo(name = "dirty", defaultValue = "1") val dirty: Boolean = true,
-    @ColumnInfo(name = "deleted", defaultValue = "0") val deleted: Boolean = false
+    @ColumnInfo(name = "deleted", defaultValue = "0") val deleted: Boolean = false,
+    // —— M3-9 按卷筛选（MIGRATION_5_6）——
+    // 判错自动进错题本时记下来源卷；手工收进错题本的题没有卷，保持 null。
+    @ColumnInfo(name = "paper_id") val paperId: Long? = null,
+    @ColumnInfo(name = "paper_question_id") val paperQuestionId: Long? = null
 )

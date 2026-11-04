@@ -32,4 +32,18 @@ interface ExamApi {
     /** 取回历史判分结果（已提交才有，未提交 404）。 */
     @GET("api/student/exams/{assignmentId}/result")
     suspend fun result(@Path("assignmentId") assignmentId: Long): ExamResultDto
+
+    /**
+     * M3-1/M3-2 解析：**提交前服务端返回 403**（防抄），提交后按需生成并缓存。
+     * `seq` 是卷内题号（1 起）。
+     */
+    @GET("api/student/exams/{assignmentId}/questions/{seq}/solution")
+    suspend fun solution(
+        @Path("assignmentId") assignmentId: Long,
+        @Path("seq") seq: Int
+    ): ExamSolutionDto
+
+    /** M3-4 按卷知识点与前后继（提交前后都可见，不含答案/解析）。 */
+    @GET("api/student/exams/{assignmentId}/graph")
+    suspend fun paperGraph(@Path("assignmentId") assignmentId: Long): PaperGraphDto
 }

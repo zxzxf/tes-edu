@@ -79,6 +79,8 @@ object WrongSyncMerger {
                 comment = q.comment,
                 correction = q.correction,
                 firstWrongStep = q.firstWrongStep,
+                paperId = q.paperId,
+                paperQuestionId = q.paperQuestionId,
                 updatedAt = if (q.updatedAt > 0) q.updatedAt else now,
                 deleted = q.deleted
             )
@@ -136,6 +138,8 @@ internal fun WrongRemote.toLocal(id: Long = 0): WrongQuestion = WrongQuestion(
     firstWrongStep = firstWrongStep,
     comment = comment,
     correction = correction,
+    paperId = paperId,
+    paperQuestionId = paperQuestionId,
     remoteId = this.id,
     clientId = clientId,
     updatedAt = updatedAt,

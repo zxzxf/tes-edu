@@ -24,6 +24,9 @@ data class WrongRemote(
     val comment: String? = null,
     val correction: String? = null,
     @SerializedName("first_wrong_step") val firstWrongStep: Int? = null,
+    /** M3-9：来源卷 id（exam 判错才有），用于「按卷筛选」。 */
+    @SerializedName("paper_id") val paperId: Long? = null,
+    @SerializedName("paper_question_id") val paperQuestionId: Long? = null,
     @SerializedName("created_at") val createdAt: Long = 0,
     @SerializedName("updated_at") val updatedAt: Long = 0,
     /** 非空 = 服务端已软删，本地要真删。 */
@@ -48,6 +51,9 @@ data class WrongPushItem(
     val comment: String? = null,
     val correction: String? = null,
     @SerializedName("first_wrong_step") val firstWrongStep: Int? = null,
+    /** M3-9：来源卷（考试判错自动生成的记录带；手工题不带）。 */
+    @SerializedName("paper_id") val paperId: Long? = null,
+    @SerializedName("paper_question_id") val paperQuestionId: Long? = null,
     @SerializedName("updated_at") val updatedAt: Long = 0,
     val deleted: Boolean = false
 )
@@ -55,6 +61,31 @@ data class WrongPushItem(
 data class WrongSyncRequest(
     @SerializedName("student_id") val studentId: String,
     val items: List<WrongPushItem> = emptyList()
+)
+
+/** M3-9 错题重做请求：选择题填 `answer`（如 `A`/`AB`），多空题用 `blanks`。 */
+data class WrongRedoRequest(
+    @SerializedName("student_id") val studentId: String,
+    val answer: String = "",
+    val blanks: List<String> = emptyList()
+)
+
+/**
+ * M3-9 重做结果。`status` 为 `auto` / `manual_pending` / `unavailable`；
+ * 只有 `resolved=true` 时后端才把错题归档并顺延背诵卡。
+ */
+data class WrongRedoResult(
+    @SerializedName("wrong_id") val wrongId: Long = 0,
+    @SerializedName("paper_id") val paperId: Long? = null,
+    @SerializedName("paper_question_id") val paperQuestionId: Long? = null,
+    val qtype: String? = null,
+    val status: String = "",
+    val correct: Boolean? = null,
+    val partial: Boolean = false,
+    val reason: String? = null,
+    val source: String? = null,
+    val resolved: Boolean = false,
+    @SerializedName("card_pushed") val cardPushed: Boolean = false
 )
 
 /** 掌握度单点：kp 的知识点、掌握度 0~1、较上周的变化量。 */

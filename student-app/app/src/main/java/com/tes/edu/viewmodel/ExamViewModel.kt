@@ -4,24 +4,39 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tes.edu.data.local.ExamAnswerCodec
 import com.tes.edu.data.local.ExamDraftStore
+import com.tes.edu.data.local.ExamListCacheStore
 import com.tes.edu.data.local.ExamPaperCacheStore
 import com.tes.edu.data.local.RoomExamDraftStore
+import com.tes.edu.data.local.RoomExamListCacheStore
 import com.tes.edu.data.local.RoomExamPaperCacheStore
 import com.tes.edu.data.local.entities.ExamDraft
 import com.tes.edu.data.remote.ApiClient
 import com.tes.edu.data.remote.ExamApi
 import com.tes.edu.data.remote.ExamQuestionView
 import com.tes.edu.data.remote.ExamResultDto
+import com.tes.edu.data.remote.ExamSolutionDto
 import com.tes.edu.data.remote.ExamSubmitItem
 import com.tes.edu.data.remote.ExamSubmitRequest
 import com.tes.edu.data.remote.LoginManager
 import com.tes.edu.data.remote.StudentExamItem
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import java.io.IOException
 import java.util.UUID
+
+/** 单题解析的加载状态（M3-1/M3-2）。 */
+data class ExamSolutionState(
+    val loading: Boolean = false,
+    val data: ExamSolutionDto? = null,
+    val error: String? = null
+) {
+    /** 有内容可展示（生成失败但带原因时也算「已请求过」）。 */
+    val requested: Boolean get() = data != null || error != null
+}
 
 /** 作业页三个层次：列表 → 答题 → 结果。用状态切换而不是三条导航路由，
  *  这样底部导航始终停在「作业」tab 上，返回栈不会堆出一串卷子。 */
@@ -48,7 +63,9 @@ data class ExamUiState(
     val index: Int = 0,
     /** 本次进入答题页是否恢复了上次草稿（UI 给一句「已恢复上次作答」）。 */
     val draftRestored: Boolean = false,
-    val result: ExamResultDto? = null
+    val result: ExamResultDto? = null,
+    /** M3-1 逐题解析：key=卷内题号。加载态按题存，切题/翻页不互相顶掉。 */
+    val solutions: Map<Int, ExamSolutionState> = emptyMap()
 ) {
     val total: Int get() = questions.size
     val current: ExamQuestionView? get() = questions.getOrNull(index)
@@ -72,7 +89,14 @@ data class ExamUiState(
 class ExamViewModel(
     private val api: ExamApi = ApiClient.exam,
     private val drafts: ExamDraftStore = RoomExamDraftStore(),
-    private val cache: ExamPaperCacheStore = RoomExamPaperCacheStore()
+    private val cache: ExamPaperCacheStore = RoomExamPaperCacheStore(),
+    private val listCache: ExamListCacheStore = RoomExamListCacheStore(),
+    /**
+     * 重试间隔（毫秒）。生产用 [RETRY_DELAY_MS]；单测传 0，
+     * 否则协程会挂在 `delay` 上、断言跑在看结果之前（UnconfinedTestDispatcher
+     * 不推进虚拟时间，`delay` 之后那半段根本没执行）。
+     */
+    private val retryDelayMs: Long = RETRY_DELAY_MS
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(ExamUiState())
@@ -82,13 +106,22 @@ class ExamViewModel(
     private var clientId: String = ""
 
     // ------------------------------------------------------------------ 列表
+    /**
+     * 拉作业列表。
+     *
+     * 两条止血措施（2026-11-04，公网入口走 Cloudflare 隧道、跨境丢包 16–25%）：
+     *  1. **失败回退本地缓存**：清单落过盘就直接出（离线进来不是白屏）；
+     *  2. **网络类失败自动重试一次**：丢包导致的握手/读超时重来一次多半就过了。
+     *     HTTP 错误（4xx/5xx）不重试——重试也不会变好，只会让学生多等一轮。
+     */
     fun refresh() {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true, error = null, offline = false)
-            val res = withAuth { api.list() }
-            _ui.value = res.fold(
+            val res = withAuthRetry { api.list() }
+            res.fold(
                 onSuccess = { list ->
-                    _ui.value.copy(
+                    runCatching { listCache.save(list) }
+                    _ui.value = _ui.value.copy(
                         loading = false,
                         exams = list,
                         loaded = true,
@@ -98,7 +131,19 @@ class ExamViewModel(
                 },
                 onFailure = { e ->
                     // 拉列表失败不清空已有列表：离线进来也要能看见上次的作业
-                    _ui.value.copy(loading = false, error = messageOf(e), offline = isNetwork(e))
+                    val fallback = if (_ui.value.exams.isEmpty()) {
+                        runCatching { listCache.load() }.getOrNull().orEmpty()
+                    } else {
+                        emptyList()
+                    }
+                    _ui.value = _ui.value.copy(
+                        loading = false,
+                        // 命中缓存时把 loaded 标上：UI 才会渲染清单而不是「暂无作业」空态
+                        loaded = _ui.value.loaded || fallback.isNotEmpty(),
+                        exams = _ui.value.exams.ifEmpty { fallback },
+                        error = messageOf(e),
+                        offline = isNetwork(e)
+                    )
                 }
             )
         }
@@ -137,7 +182,7 @@ class ExamViewModel(
 
             // 2) 后台拉最新（首次/缓存过期/卷被修订）：成功覆盖缓存；题集一致则不动 UI，
             //    只静默刷新缓存（避免覆盖用户正在输入、且草稿还没落盘的答案）。
-            val loaded = withAuth { api.questions(item.assignmentId) }
+            val loaded = withAuthRetry { api.questions(item.assignmentId) }
             if (loaded.isSuccess) {
                 val fresh = loaded.getOrNull()!!.sortedBy { it.seq }
                 runCatching { cache.save(item.assignmentId, item.paperId, fresh) }
@@ -201,6 +246,41 @@ class ExamViewModel(
                 onFailure = { e ->
                     _ui.value.copy(loading = false, error = messageOf(e), offline = isNetwork(e))
                 }
+            )
+        }
+    }
+
+    // ------------------------------------------------------------------ 解析
+    /**
+     * M3-1 取本题解析（只有交卷后才允许，服务端对未提交卷返回 403）。
+     *
+     * 结果按题号缓存在 state 里：同一题连点不重复打接口，切到别的题再回来也不丢。
+     * 失败（含未交卷）不抛异常，按题展示原因——解析是增值服务，不该让结果页崩掉。
+     */
+    fun loadSolution(seq: Int) {
+        val s = _ui.value
+        if (s.assignmentId == 0L) return
+        val current = s.solutions[seq]
+        if (current?.loading == true || current?.data != null) return
+        _ui.value = s.copy(
+            solutions = s.solutions + (seq to ExamSolutionState(loading = true))
+        )
+        viewModelScope.launch {
+            val res = withAuth { api.solution(s.assignmentId, seq) }
+            _ui.value = _ui.value.copy(
+                solutions = _ui.value.solutions + (
+                    seq to res.fold(
+                        onSuccess = { data ->
+                            ExamSolutionState(
+                                data = data,
+                                error = if (data.ok) null else data.reason.ifBlank {
+                                    "解析暂时生成失败，可稍后重试"
+                                }
+                            )
+                        },
+                        onFailure = { e -> ExamSolutionState(error = solutionMessageOf(e)) }
+                    )
+                )
             )
         }
     }
@@ -355,6 +435,35 @@ class ExamViewModel(
     private suspend fun <T> withAuth(block: suspend () -> T): Result<T> =
         LoginManager.withAuth(block)
 
+    /**
+     * 网络类失败自动重试一次（GET 专用，见 [refresh] 的说明）。
+     *
+     * 只重试 IO 类异常（连接重置 / 握手超时 / 读超时都在这类里）；HTTP 4xx/5xx
+     * 与登录失败直接返回——重试不会变好，只会让学生多等一个 [RETRY_DELAY_MS]。
+     */
+    private suspend fun <T> withAuthRetry(block: suspend () -> T): Result<T> {
+        var last: Throwable? = null
+        repeat(NETWORK_ATTEMPTS) { attempt ->
+            val res = withAuth(block)
+            if (res.isSuccess) return res
+            val e = res.exceptionOrNull()!!
+            if (!isTransient(e) || attempt == NETWORK_ATTEMPTS - 1) return res
+            last = e
+            if (retryDelayMs > 0) delay(retryDelayMs)
+        }
+        return Result.failure(last ?: IOException("请求失败"))
+    }
+
+    /** 值得重试的失败：纯网络层异常（HttpException 是协议层错误，不算）。 */
+    private fun isTransient(e: Throwable): Boolean = e is IOException && e !is HttpException
+
+    /** 解析接口的错误文案：403 是「还没交卷」，要和学生说清楚而不是报「请求失败」。 */
+    private fun solutionMessageOf(e: Throwable): String = when {
+        e is HttpException && e.code() == 403 -> "交卷后才能查看解析"
+        e is HttpException && e.code() == 404 -> "这道题不在本卷中，可能卷子已更新"
+        else -> messageOf(e)
+    }
+
     private fun isNetwork(e: Throwable): Boolean =
         e !is HttpException && e !is IllegalStateException
 
@@ -374,5 +483,13 @@ class ExamViewModel(
     private fun firstUnansweredIndex(questions: List<ExamQuestionView>, answers: Map<Int, String>): Int {
         val i = questions.indexOfFirst { answers[it.seq].isNullOrBlank() }
         return if (i >= 0) i else 0
+    }
+
+    private companion object {
+        /** 总尝试次数：初次 + 1 次重试。再多只是让学生多等，丢包是概率事件，一次足够。 */
+        const val NETWORK_ATTEMPTS = 2
+
+        /** 重试间隔：短到用户无感（还在转圈），长到足以避开一次瞬时抖动。 */
+        const val RETRY_DELAY_MS = 700L
     }
 }

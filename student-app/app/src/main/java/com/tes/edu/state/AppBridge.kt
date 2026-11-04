@@ -31,6 +31,12 @@ object AppBridge {
     private val _pendingFocusTitle = MutableStateFlow<String?>(null)
     val pendingFocusTitle: StateFlow<String?> = _pendingFocusTitle.asStateFlow()
 
+    private val _pendingPaperId = MutableStateFlow<Long?>(null)
+    val pendingPaperId: StateFlow<Long?> = _pendingPaperId.asStateFlow()
+
+    private val _pendingPaperTitle = MutableStateFlow<String?>(null)
+    val pendingPaperTitle: StateFlow<String?> = _pendingPaperTitle.asStateFlow()
+
     /** 记录"学生最近在做的题"——触类页的来源题干。 */
     fun setLastQuestion(question: String) {
         val q = question.trim()
@@ -66,11 +72,35 @@ object AppBridge {
         return code to title
     }
 
+    /**
+     * M3-4：作业结果页请求「按卷看图谱」——只传 id + 标题，不传整卷题面。
+     *
+     * 图谱页据此切到「按卷」维度（`/api/student/exams/{assignment_id}/graph`）。
+     * 传 assignmentId（不是 paperId）：学生端接口按作业校验可见性，直接给 paperId
+     * 会绕过「这份卷是否下发给我」这一层。
+     */
+    fun postPaperGraph(assignmentId: Long, title: String? = null) {
+        if (assignmentId <= 0) return
+        _pendingPaperId.value = assignmentId
+        _pendingPaperTitle.value = title
+    }
+
+    /** 图谱页取出按卷请求；取出即清空。 */
+    fun consumePaperGraph(): Pair<Long, String?>? {
+        val id = _pendingPaperId.value ?: return null
+        val title = _pendingPaperTitle.value
+        _pendingPaperId.value = null
+        _pendingPaperTitle.value = null
+        return id to title
+    }
+
     /** 仅单测用：清空全部桥接状态。 */
     fun resetForTest() {
         _lastQuestion.value = ""
         _pendingQuestion.value = null
         _pendingFocusKp.value = null
         _pendingFocusTitle.value = null
+        _pendingPaperId.value = null
+        _pendingPaperTitle.value = null
     }
 }

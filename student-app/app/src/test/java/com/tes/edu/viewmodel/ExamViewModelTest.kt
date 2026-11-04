@@ -2,12 +2,15 @@ package com.tes.edu.viewmodel
 
 import com.google.gson.Gson
 import com.tes.edu.data.local.ExamDraftStore
+import com.tes.edu.data.local.ExamListCacheStore
 import com.tes.edu.data.local.ExamPaperCacheStore
 import com.tes.edu.data.local.entities.ExamDraft
 import com.tes.edu.data.remote.ExamApi
 import com.tes.edu.data.remote.ExamOption
 import com.tes.edu.data.remote.ExamQuestionView
 import com.tes.edu.data.remote.ExamResultDto
+import com.tes.edu.data.remote.ExamSolutionDto
+import com.tes.edu.data.remote.ExamSolutionSteps
 import com.tes.edu.data.remote.ExamSubmitRequest
 import com.tes.edu.data.remote.StudentExamItem
 import kotlinx.coroutines.Dispatchers
@@ -52,7 +55,18 @@ class ExamViewModelTest {
 
         val submitted = mutableListOf<Pair<Long, ExamSubmitRequest>>()
 
+        /** list() 调用次数：用来锁「网络失败只重试一次、HTTP 错误一次都不重试」。 */
+        var listCalls = 0
+
+        /** 前 N 次 list() 抛瞬时网络错误（模拟隧道丢包），之后正常返回。 */
+        var listTransientFailures = 0
+
         override suspend fun list(): List<StudentExamItem> {
+            listCalls++
+            if (listTransientFailures > 0) {
+                listTransientFailures--
+                throw IOException("timeout: no recent network activity")
+            }
             listError?.let { throw it }
             return exams
         }
@@ -72,6 +86,19 @@ class ExamViewModelTest {
             resultError?.let { throw it }
             return resultDto
         }
+
+        var solutionDto: ExamSolutionDto = ExamSolutionDto()
+        var solutionError: Throwable? = null
+        val solutionCalls = mutableListOf<Pair<Long, Int>>()
+
+        override suspend fun solution(assignmentId: Long, seq: Int): ExamSolutionDto {
+            solutionCalls += assignmentId to seq
+            solutionError?.let { throw it }
+            return solutionDto
+        }
+
+        override suspend fun paperGraph(assignmentId: Long) =
+            com.tes.edu.data.remote.PaperGraphDto(paperId = 11)
     }
 
     private class FakeDraftStore : ExamDraftStore {
@@ -100,9 +127,23 @@ class ExamViewModelTest {
         }
     }
 
+    /** 内存版作业列表缓存：只有一份（真实现按学生 id 分行，单测只验行为）。 */
+    private class FakeListCacheStore : ExamListCacheStore {
+        var items: List<StudentExamItem>? = null
+        var saves = 0
+
+        override suspend fun load(): List<StudentExamItem>? = items
+
+        override suspend fun save(items: List<StudentExamItem>) {
+            this.items = items
+            saves++
+        }
+    }
+
     private lateinit var api: FakeExamApi
     private lateinit var store: FakeDraftStore
     private lateinit var cache: FakePaperCacheStore
+    private lateinit var listCache: FakeListCacheStore
     private lateinit var vm: ExamViewModel
 
     private val assignmentId = 7L
@@ -113,7 +154,8 @@ class ExamViewModelTest {
         api = FakeExamApi()
         store = FakeDraftStore()
         cache = FakePaperCacheStore()
-        vm = ExamViewModel(api, store, cache)
+        listCache = FakeListCacheStore()
+        vm = ExamViewModel(api, store, cache, listCache, retryDelayMs = 0L)
     }
 
     @After
@@ -184,6 +226,57 @@ class ExamViewModelTest {
         assertFalse(ui.loading)
     }
 
+    // ------------------------------------------------- 止血：列表缓存 + 一次重试
+    @Test
+    fun refresh_success_writesListCache() {
+        api.exams = listOf(item())
+        vm.refresh()
+        assertEquals("拉列表成功要落盘，下次断网才有东西可回退", 1, listCache.saves)
+        assertEquals(1, listCache.items?.size)
+    }
+
+    @Test
+    fun refresh_transientNetworkFailure_retriesOnce_thenSucceeds() {
+        api.exams = listOf(item())
+        api.listTransientFailures = 1  // 第一次模拟隧道丢包超时
+        vm.refresh()
+        val ui = vm.ui.value
+        assertEquals("瞬时网络错误应自动重试一次", 2, api.listCalls)
+        assertEquals(1, ui.exams.size)
+        assertFalse("重试成功不该报离线", ui.offline)
+        assertNull(ui.error)
+    }
+
+    @Test
+    fun refresh_httpError_isNotRetried() {
+        api.listError = httpError(500)
+        vm.refresh()
+        assertEquals("HTTP 500 重试不会变好，不该让学生多等一轮", 1, api.listCalls)
+        assertTrue(vm.ui.value.error!!.contains("500"))
+    }
+
+    @Test
+    fun refresh_networkFailure_fallsBackToCachedList() {
+        listCache.items = listOf(item(submitted = true))
+        api.listError = IOException("timeout")
+        vm.refresh()
+        val ui = vm.ui.value
+        assertEquals("断网也要能看见上次的作业清单", 1, ui.exams.size)
+        assertTrue(ui.exams.single().submitted)
+        assertTrue("命中缓存时 loaded 必须为 true，否则 UI 走「暂无作业」空态", ui.loaded)
+        assertTrue(ui.offline)
+    }
+
+    @Test
+    fun refresh_failure_withEmptyCache_staysUnloaded() {
+        api.listError = IOException("timeout")
+        vm.refresh()
+        val ui = vm.ui.value
+        assertTrue(ui.exams.isEmpty())
+        assertFalse("没有任何缓存时不要谎报已加载", ui.loaded)
+        assertTrue(ui.offline)
+    }
+
     // ---------------------------------------------------------------- 取卷
     @Test
     fun open_loadsQuestions_andStartsAtFirstUnanswered() {
@@ -247,6 +340,53 @@ class ExamViewModelTest {
         assertEquals(ExamStage.ANSWERING, ui.stage)
         assertEquals(EXAM_OFFLINE_HINT, ui.error)
         assertEquals(0, ui.total)
+    }
+
+    // ---------------------------------------------------------------- M3-1 解析
+    @Test
+    fun loadSolution_cachesPerSeq_andDoesNotRefetch() {
+        api.resultDto = ExamResultDto(assignmentId = assignmentId, paperId = 11, totalCount = 3)
+        vm.open(item(submitted = true))
+        api.solutionDto = ExamSolutionDto(
+            paperId = 11, questionId = 3, cached = false,
+            solutionSteps = ExamSolutionSteps(answer = "2", steps = listOf("移项", "开方"))
+        )
+        vm.loadSolution(1)
+        val state = vm.ui.value.solutions[1]
+        assertEquals(2, state!!.data!!.solutionSteps!!.steps.size)
+        assertNull(state.error)
+        // 再点同一题不应重复请求（防连点烧 token）
+        vm.loadSolution(1)
+        assertEquals(1, api.solutionCalls.size)
+        assertEquals(assignmentId to 1, api.solutionCalls.single())
+    }
+
+    @Test
+    fun loadSolution_failure_surfacesReasonButKeepsOthersUsable() {
+        api.resultDto = ExamResultDto(assignmentId = assignmentId, paperId = 11, totalCount = 3)
+        vm.open(item(submitted = true))
+        api.solutionError = retrofit2.HttpException(
+            retrofit2.Response.error<Any>(
+                403,
+                "{\"detail\":{\"code\":\"SOLUTION_LOCKED\"}}"
+                    .toResponseBody("application/json".toMediaType())
+            )
+        )
+        vm.loadSolution(2)
+        val state = vm.ui.value.solutions[2]!!
+        assertEquals("交卷后才能查看解析", state.error)
+        assertTrue("失败不该清掉其他题的状态", vm.ui.value.solutions.keys.contains(2))
+    }
+
+    @Test
+    fun loadSolution_okFalse_reportsBackendReason() {
+        api.resultDto = ExamResultDto(assignmentId = assignmentId, paperId = 11, totalCount = 3)
+        vm.open(item(submitted = true))
+        api.solutionDto = ExamSolutionDto(
+            paperId = 11, questionId = 1, ok = false, reason = "解析结论与卷面标答不一致，未缓存"
+        )
+        vm.loadSolution(1)
+        assertEquals("解析结论与卷面标答不一致，未缓存", vm.ui.value.solutions[1]!!.error)
     }
 
     // ---------------------------------------------------------------- 缓存（弱网秒开）

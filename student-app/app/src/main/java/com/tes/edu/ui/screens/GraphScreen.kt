@@ -106,6 +106,13 @@ fun GraphScreen(
     var offset by remember { mutableStateOf(Offset.Zero) }
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
 
+    // M3-4：从作业结果页过来时带上「按卷看图」请求；消费即清空（一次性传参约定）。
+    LaunchedEffect(Unit) {
+        AppBridge.consumePaperGraph()?.let { (assignmentId, title) ->
+            vm.loadPaper(assignmentId, title.orEmpty())
+        }
+    }
+
     val layout = ui.layout
     val measurer = rememberTextMeasurer()
 
@@ -122,6 +129,13 @@ fun GraphScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
+        ui.paperAssignmentId?.let { id ->
+            PaperGraphBar(
+                title = ui.paperTitle.ifBlank { "第 $id 份作业" },
+                kpCount = ui.graph?.nodes?.count { true } ?: 0,
+                onExit = { vm.exitPaper() }
+            )
+        }
         ui.graph?.summary?.let { s ->
             GraphSummaryBar(s.total, s.mastered, s.medium, s.weak, s.untouched, s.inZpd, s.edges)
         }
@@ -265,6 +279,37 @@ private fun GraphSummaryBar(
 }
 
 /** 图例：配色带 + ZPD 环含义。 */
+/**
+ * M3-4 按卷维度提示条：明确告诉学生「现在看的是这一卷」，并给回全量图谱的出口。
+ *
+ * 不做自动回退：学生可能就为了看这一卷的前驱后继才点进来，切回去要由他自己决定。
+ */
+@Composable
+private fun PaperGraphBar(title: String, kpCount: Int, onExit: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "按卷查看：$title",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    "本卷知识点 $kpCount 个（含前驱后继）",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Gray
+                )
+            }
+            TextButton(onClick = onExit) { Text("看全量图谱") }
+        }
+    }
+}
+
 @Composable
 private fun GraphLegend() {
     Row(

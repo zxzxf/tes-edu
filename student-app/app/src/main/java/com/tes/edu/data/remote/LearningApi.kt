@@ -26,12 +26,20 @@ interface LearningApi {
         @Query("student_id") studentId: String,
         @Query("since") since: Long = 0,
         @Query("kp") kp: String? = null,
-        @Query("error_type") errorType: String? = null
+        @Query("error_type") errorType: String? = null,
+        @Query("paper_id") paperId: Long? = null
     ): WrongSyncResponse
 
     /** 上传本地 dirty 记录（含软删），服务端 upsert 后回吐完整列表。 */
     @POST("learning/wrong-questions/sync")
     suspend fun syncWrongQuestions(@Body req: WrongSyncRequest): WrongSyncResponse
+
+    /** M3-9 重做一道错题并回写掌握度/背诵卡；判分在服务端确定性完成。 */
+    @POST("learning/wrong-questions/{id}/redo")
+    suspend fun redoWrongQuestion(
+        @Path("id") id: Long,
+        @Body req: WrongRedoRequest
+    ): WrongRedoResult
 
     /** 硬删一条服务端记录（本波流程走软删，端点按契约保留备用）。 */
     @DELETE("learning/wrong-questions/{id}")

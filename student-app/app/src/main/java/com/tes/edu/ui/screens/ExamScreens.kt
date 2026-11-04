@@ -18,9 +18,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Assignment
+import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.ErrorOutline
@@ -60,8 +62,10 @@ import com.tes.edu.ui.components.SoftNotice
 import com.tes.edu.ui.components.SoftOutlinedButton
 import com.tes.edu.ui.components.SoftQuote
 import com.tes.edu.ui.components.TesHero
+import com.tes.edu.state.AppBridge
 import com.tes.edu.ui.theme.TesEduColors
 import com.tes.edu.util.MathText
+import com.tes.edu.viewmodel.ExamSolutionState
 import com.tes.edu.viewmodel.ExamStage
 import com.tes.edu.viewmodel.ExamUiState
 import com.tes.edu.viewmodel.ExamViewModel
@@ -73,7 +77,10 @@ import com.tes.edu.viewmodel.ExamViewModel
  * 切换，底部导航始终停在「作业」上，也不会给学生堆一串返回栈。
  */
 @Composable
-fun ExamScreen(vm: ExamViewModel = viewModel()) {
+fun ExamScreen(
+    vm: ExamViewModel = viewModel(),
+    onNavigate: (String) -> Unit = {}
+) {
     val ui by vm.ui.collectAsState()
 
     // 进页拉一次列表。放在 LaunchedEffect(Unit) 里：切回该 tab 会重新组合，
@@ -94,7 +101,15 @@ fun ExamScreen(vm: ExamViewModel = viewModel()) {
         ExamStage.RESULT -> ExamResultBody(
             ui = ui,
             onBack = vm::backToList,
-            onRefresh = { ui.assignmentId.takeIf { it != 0L }?.let { vm.openResult(it, ui.title) } }
+            onRefresh = { ui.assignmentId.takeIf { it != 0L }?.let { vm.openResult(it, ui.title) } },
+            onSolution = vm::loadSolution,
+            // M3-4：把「按卷看图」请求交给图谱页（一次性传参，消费即清空）
+            onOpenPaperGraph = {
+                if (ui.assignmentId != 0L) {
+                    AppBridge.postPaperGraph(ui.assignmentId, ui.title)
+                    onNavigate(Screen.Graph.route)
+                }
+            }
         )
     }
 }
@@ -461,7 +476,13 @@ private fun OptionRow(label: String, content: String, picked: Boolean, onClick: 
 
 // ================================================================== 结果
 @Composable
-private fun ExamResultBody(ui: ExamUiState, onBack: () -> Unit, onRefresh: () -> Unit) {
+private fun ExamResultBody(
+    ui: ExamUiState,
+    onBack: () -> Unit,
+    onRefresh: () -> Unit,
+    onSolution: (Int) -> Unit,
+    onOpenPaperGraph: () -> Unit
+) {
     Column(
         Modifier
             .fillMaxSize()
@@ -511,9 +532,20 @@ private fun ExamResultBody(ui: ExamUiState, onBack: () -> Unit, onRefresh: () ->
             }
         } else if (r != null) {
             ResultSummary(r = r, title = ui.title)
+            Spacer(Modifier.height(12.dp))
+            // 整卷维度入口：错题集负责「按卷筛」，图谱负责「这卷考了哪些点」
+            SoftOutlinedButton(
+                text = "看本卷知识点图谱",
+                icon = Icons.Rounded.AccountTree,
+                onClick = onOpenPaperGraph
+            )
             Spacer(Modifier.height(14.dp))
             r.items.forEach { item ->
-                ResultItemCard(item = item)
+                ResultItemCard(
+                    item = item,
+                    solution = ui.solutions[item.seq],
+                    onLoadSolution = { onSolution(item.seq) }
+                )
                 Spacer(Modifier.height(10.dp))
             }
         }
@@ -585,7 +617,11 @@ private fun ResultSummary(r: ExamResultDto, title: String) {
 }
 
 @Composable
-private fun ResultItemCard(item: com.tes.edu.data.remote.ExamResultItem) {
+private fun ResultItemCard(
+    item: com.tes.edu.data.remote.ExamResultItem,
+    solution: ExamSolutionState?,
+    onLoadSolution: () -> Unit
+) {
     val (pillColor, pillBg, icon) = when {
         item.manualPending -> Triple(TesEduColors.Amber, TesEduColors.AmberSoft, Icons.Rounded.Schedule)
         item.correct -> Triple(
@@ -658,6 +694,71 @@ private fun ResultItemCard(item: com.tes.edu.data.remote.ExamResultItem) {
                 accent = TesEduColors.Brand,
                 bg = TesEduColors.BrandSofter
             )
+        }
+        SolutionSection(solution = solution, onLoad = onLoadSolution)
+    }
+}
+
+/**
+ * M3-1/M3-2 按卷题的「看解析」。
+ *
+ * 只放在**结果页**：提交前不该有入口（服务端也会 403），所以这里不做「隐藏」判断，
+ * 而是结果页天然只在交卷后出现。解析按需加载——题目多时不必一次生成整卷。
+ */
+@Composable
+private fun SolutionSection(solution: ExamSolutionState?, onLoad: () -> Unit) {
+    Spacer(Modifier.height(10.dp))
+    when {
+        solution == null -> SoftOutlinedButton(
+            text = "看解题步骤",
+            icon = Icons.Rounded.AutoStories,
+            onClick = onLoad
+        )
+
+        solution.loading -> Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(
+                Modifier.size(14.dp),
+                strokeWidth = 2.dp,
+                color = TesEduColors.Brand
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "正在整理解题步骤…",
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
+        }
+
+        solution.data?.solutionSteps != null -> {
+            val steps = solution.data.solutionSteps.steps
+            SoftQuote(
+                title = "解题步骤",
+                text = (listOf(solution.data.solutionSteps.answer.takeIf { it.isNotBlank() }
+                    ?.let { "答案：$it" }) + steps.mapIndexed { i, s -> "${i + 1}. $s" })
+                    .filterNotNull()
+                    .joinToString("\n"),
+                accent = TesEduColors.Brand,
+                bg = TesEduColors.BrandSofter
+            )
+            if (solution.data.cached) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "已缓存，不重复消耗生成额度",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TesEduColors.TextMuted
+                )
+            }
+        }
+
+        else -> {
+            // 生成失败/未交卷：给原因 + 重试，不显示空白卡片
+            Text(
+                solution.error ?: "解析暂时不可用",
+                style = MaterialTheme.typography.bodySmall,
+                color = TesEduColors.TextSecondary
+            )
+            Spacer(Modifier.height(6.dp))
+            SoftOutlinedButton(text = "重试", icon = Icons.Rounded.Refresh, onClick = onLoad)
         }
     }
 }

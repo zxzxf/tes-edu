@@ -49,6 +49,21 @@ class AppBridgeTest {
     }
 
     @Test
+    fun postPaperGraph_consumesOnlyOnce() {
+        AppBridge.postPaperGraph(42L, "高三·数学·混合卷")
+        val pair = AppBridge.consumePaperGraph()
+        assertEquals(42L, pair!!.first)
+        assertEquals("高三·数学·混合卷", pair.second)
+        assertNull("消费后必须清空，否则每次进图谱页都会被旧卷顶掉", AppBridge.consumePaperGraph())
+    }
+
+    @Test
+    fun postPaperGraph_ignoresInvalidId() {
+        AppBridge.postPaperGraph(0L, "无效")
+        assertNull(AppBridge.consumePaperGraph())
+    }
+
+    @Test
     fun postFocusKp_ignoresBlankCode() {
         AppBridge.postFocusKp("", "标题")
         assertNull(AppBridge.consumeFocusKp())

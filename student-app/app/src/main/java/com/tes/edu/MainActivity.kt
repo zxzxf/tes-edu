@@ -97,7 +97,7 @@ fun AppRoot() {
             startDestination = Screen.Exam.route,
             modifier = Modifier.padding(padding)
         ) {
-            composable(Screen.Exam.route) { ExamScreen() }
+            composable(Screen.Exam.route) { ExamScreen(onNavigate = go) }
             composable(Screen.Input.route) { InputScreen() }
             composable(Screen.Camera.route) { CameraScreen(onNavigate = go) }
             composable(Screen.Explain.route) { ExplainScreen() }

@@ -13,6 +13,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.tes.edu.data.local.entities.DrillCard
 import com.tes.edu.data.local.entities.DrillReviewLog
 import com.tes.edu.data.local.entities.ExamDraft
+import com.tes.edu.data.local.entities.ExamListCache
 import com.tes.edu.data.local.entities.ExamPaperCache
 import com.tes.edu.data.local.entities.WrongQuestion
 import kotlinx.coroutines.flow.Flow
@@ -116,10 +117,25 @@ interface ExamPaperCacheDao {
     suspend fun delete(assignmentId: Long)
 }
 
-// 本地库：背诵卡 + 错题本 + 复习队列 + 作业草稿 + 卷题干缓存（无网可背可复习可答题，联网再对账）
+/** 作业列表缓存：一个学生一行，弱网进来先出上次的清单（见 [com.tes.edu.viewmodel.ExamViewModel]）。 */
+@Dao
+interface ExamListCacheDao {
+    @Query("SELECT * FROM exam_list_cache WHERE cache_key = :key LIMIT 1")
+    suspend fun get(key: String): ExamListCache?
+
+    @Upsert suspend fun upsert(cache: ExamListCache)
+
+    @Query("DELETE FROM exam_list_cache WHERE cache_key = :key")
+    suspend fun delete(key: String)
+}
+
+// 本地库：背诵卡 + 错题本 + 复习队列 + 作业草稿 + 卷题干缓存 + 作业列表缓存（无网可背可复习可答题，联网再对账）
 @Database(
-    entities = [DrillCard::class, WrongQuestion::class, DrillReviewLog::class, ExamDraft::class, ExamPaperCache::class],
-    version = 5
+    entities = [
+        DrillCard::class, WrongQuestion::class, DrillReviewLog::class,
+        ExamDraft::class, ExamPaperCache::class, ExamListCache::class
+    ],
+    version = 7
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun drillCardDao(): DrillCardDao
@@ -127,6 +143,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun wrongQuestionDao(): WrongQuestionDao
     abstract fun examDraftDao(): ExamDraftDao
     abstract fun paperCacheDao(): ExamPaperCacheDao
+    abstract fun examListCacheDao(): ExamListCacheDao
 
     companion object {
         @Volatile
@@ -139,7 +156,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "tes_edu.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(
+                        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+                        MIGRATION_5_6, MIGRATION_6_7
+                    )
                     .build()
                     .also { instance = it }
             }
@@ -230,6 +250,19 @@ abstract class AppDatabase : RoomDatabase() {
          * 只 CREATE TABLE，老数据一条不动。列类型/非空与 [ExamPaperCache] 实体逐字对齐，
          * 否则 Room 的迁移后 schema 校验会抛 "Migration didn't properly handle"。
          */
+        /**
+         * v5 → v6：错题来源卷（M3-9 按卷筛选）。
+         *
+         * 纯 ADD COLUMN（可空、无默认值），老数据一条不丢；手工收进的错题
+         * 没有卷，保持 NULL 即可，不参与按卷筛选。
+         */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE wrong_questions ADD COLUMN paper_id INTEGER")
+                db.execSQL("ALTER TABLE wrong_questions ADD COLUMN paper_question_id INTEGER")
+            }
+        }
+
         private val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -239,6 +272,24 @@ abstract class AppDatabase : RoomDatabase() {
                         "`questions_json` TEXT NOT NULL, " +
                         "`updated_at` INTEGER NOT NULL, " +
                         "PRIMARY KEY(`assignment_id`))"
+                )
+            }
+        }
+
+        /**
+         * v6 → v7：作业列表缓存（弱网/断网进来能看见上次的作业清单）。
+         *
+         * 只 CREATE TABLE，老数据一条不动。列类型/非空与 [ExamListCache] 实体逐字对齐，
+         * 否则 Room 的迁移后 schema 校验会抛 "Migration didn't properly handle"。
+         */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `exam_list_cache` (" +
+                        "`cache_key` TEXT NOT NULL, " +
+                        "`items_json` TEXT NOT NULL, " +
+                        "`updated_at` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`cache_key`))"
                 )
             }
         }

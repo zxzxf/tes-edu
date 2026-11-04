@@ -71,7 +71,10 @@ import com.tes.edu.data.local.entities.DrillCard
 import com.tes.edu.data.local.entities.WrongQuestion
 import com.tes.edu.data.remote.Judgement
 import com.tes.edu.data.remote.MasteryPoint
+import com.tes.edu.data.remote.WrongRedoResult
 import com.tes.edu.data.remote.WrongStats
+import com.tes.edu.data.sync.redoFeedback
+import com.tes.edu.data.sync.splitRedoBlanks
 import com.tes.edu.state.AppBridge
 import com.tes.edu.util.MathText
 import com.tes.edu.ui.components.GradientButton
@@ -1060,6 +1063,8 @@ fun ReviewScreen(
     val focusTitle by AppBridge.pendingFocusTitle.collectAsState()
     // 删除是破坏性操作，先问一句再删
     var pendingRemove by remember { mutableStateOf<WrongQuestion?>(null) }
+    // M3-9：重做弹窗（判分在服务端，结果只展示不本地推断）
+    var redoTarget by remember { mutableStateOf<WrongQuestion?>(null) }
 
     // 进入页面同步一次：不做后台定时轮询（学生端没必要，也费电）
     LaunchedEffect(Unit) {
@@ -1097,7 +1102,8 @@ fun ReviewScreen(
                         ).show()
                     }
                 },
-                onRemove = { pendingRemove = it }
+                onRemove = { pendingRemove = it },
+                onRedo = { redoTarget = it }
             )
 
             ReviewTab.DRILL -> DrillSection(
@@ -1138,6 +1144,17 @@ fun ReviewScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pendingRemove = null }) { Text("再留着") }
+            }
+        )
+    }
+
+    redoTarget?.let { q ->
+        RedoDialog(
+            q = q,
+            vm = vm,
+            onDismiss = {
+                vm.clearRedo()
+                redoTarget = null
             }
         )
     }
@@ -1185,11 +1202,13 @@ private fun WrongSection(
     vm: WrongBookViewModel,
     onNavigate: (String) -> Unit,
     onMakeCard: (WrongQuestion) -> Unit,
-    onRemove: (WrongQuestion) -> Unit
+    onRemove: (WrongQuestion) -> Unit,
+    onRedo: (WrongQuestion) -> Unit
 ) {
     val all by vm.items.collectAsState()
     val visible by vm.visible.collectAsState()
     val kpOptions by vm.kpOptions.collectAsState()
+    val paperOptions by vm.paperOptions.collectAsState()
     val filter by vm.filter.collectAsState()
     val stats by vm.stats.collectAsState()
     val pending by vm.hasPending.collectAsState()
@@ -1249,7 +1268,7 @@ private fun WrongSection(
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                "按知识点 / 错因挑着看",
+                "按来源卷 / 知识点 / 错因挑着看",
                 style = MaterialTheme.typography.labelSmall,
                 color = TesEduColors.TextMuted
             )
@@ -1263,6 +1282,17 @@ private fun WrongSection(
                     modifier = Modifier.clickable { vm.setFilter(WrongFilter()) }
                 )
             }
+        }
+        if (paperOptions.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            // M3-9 按卷筛选：只列本地确实有卷归属的错题，手工收的题不占位
+            ChipRow(
+                title = "来源卷",
+                options = paperOptions.map { it.toString() },
+                selected = filter.paperId?.toString(),
+                labelOf = { "第 $it 卷" },
+                onSelect = { vm.setFilter(filter.copy(paperId = it?.toLongOrNull())) }
+            )
         }
         if (kpOptions.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
@@ -1312,7 +1342,8 @@ private fun WrongSection(
                     onNavigate(Screen.Input.route)
                 },
                 onMakeCard = { onMakeCard(q) },
-                onRemove = { onRemove(q) }
+                onRemove = { onRemove(q) },
+                onRedo = { onRedo(q) }
             )
         }
     }
@@ -1443,7 +1474,8 @@ private fun WrongCard(
     mastery: MasteryPoint?,
     onPractice: () -> Unit,
     onMakeCard: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onRedo: () -> Unit
 ) {
     SoftCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1534,6 +1566,11 @@ private fun WrongCard(
         }
 
         Spacer(Modifier.height(14.dp))
+        SoftOutlinedButton(
+            text = "重做并判分",
+            icon = Icons.Rounded.CheckCircle
+        ) { onRedo() }
+        Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SoftOutlinedButton(
                 text = "重练这道",
@@ -1552,6 +1589,107 @@ private fun WrongCard(
             icon = Icons.Rounded.AutoStories
         ) { onMakeCard() }
     }
+}
+
+/**
+ * M3-9 重做弹窗：选择题直接填选项，多空题用 `；` 或换行分隔。
+ *
+ * 判分权只在服务端：这里展示的每一句都来自 [WrongRedoResult]，
+ * 客户端不根据 `correctAnswer` 自行比对（多选题序、部分分、答案值集合
+ * 的规则都以服务端为准）。
+ */
+@Composable
+private fun RedoDialog(
+    q: WrongQuestion,
+    vm: WrongBookViewModel,
+    onDismiss: () -> Unit
+) {
+    var input by remember(q.id) { mutableStateOf("") }
+    val result by vm.redoResult.collectAsState()
+    val redoing by vm.redoing.collectAsState()
+    val error by vm.redoError.collectAsState()
+    val done = result != null
+
+    AlertDialog(
+        onDismissRequest = { if (!redoing) onDismiss() },
+        shape = RoundedCornerShape(22.dp),
+        containerColor = TesEduColors.Surface,
+        title = {
+            Text(
+                "重做这道",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = TesEduColors.TextPrimary
+            )
+        },
+        text = {
+            Column {
+                MathText(
+                    q.question,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TesEduColors.TextSecondary
+                )
+                Spacer(Modifier.height(12.dp))
+                if (!done) {
+                    SoftFieldCard(
+                        label = "你的答案",
+                        value = input,
+                        onValueChange = { input = it },
+                        hint = "多空用；分隔",
+                        placeholder = "选择题填 A/AB；填空按空填写",
+                        minLines = 2,
+                        accent = TesEduColors.Brand,
+                        leadingIcon = Icons.Rounded.EditNote
+                    )
+                }
+                error?.let {
+                    Spacer(Modifier.height(10.dp))
+                    SoftNotice(
+                        text = it,
+                        icon = Icons.Rounded.CloudOff,
+                        color = TesEduColors.Amber,
+                        bg = TesEduColors.AmberSoft
+                    )
+                }
+                result?.let { res ->
+                    Spacer(Modifier.height(10.dp))
+                    val good = res.resolved
+                    SoftNotice(
+                        text = redoFeedback(res),
+                        icon = if (good) Icons.Rounded.CheckCircle else Icons.Rounded.Info,
+                        color = if (good) TesEduColors.Success else TesEduColors.Amber,
+                        bg = if (good) TesEduColors.SuccessSoft else TesEduColors.AmberSoft
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (done) {
+                TextButton(onClick = onDismiss) { Text("完成") }
+            } else {
+                TextButton(
+                    enabled = input.isNotBlank() && !redoing,
+                    onClick = {
+                        val blanks = splitRedoBlanks(input)
+                        vm.redo(q, input, blanks)
+                    }
+                ) {
+                    Text(if (redoing) "判分中…" else "提交判分")
+                }
+            }
+        },
+        dismissButton = {
+            when {
+                // 已归档的题不能再提交一次（服务端 404）；只留「完成」
+                result?.resolved == true -> Unit
+                done -> TextButton(onClick = {
+                    input = ""
+                    vm.clearRedo()
+                }) { Text("再试一次") }
+                else -> TextButton(enabled = !redoing, onClick = onDismiss) { Text("取消") }
+            }
+        }
+    )
 }
 
 // ---------------------------------------------------------------- 背诵段

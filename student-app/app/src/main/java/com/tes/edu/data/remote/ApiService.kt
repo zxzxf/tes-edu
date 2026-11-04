@@ -259,10 +259,15 @@ object ApiClient {
             // RAG 检索 + LLM 生成——线上实测简单题（guide 档）25.8s、复杂题
             // （explain 档）62.6s，默认值下必然 SocketTimeoutException，
             // 表现为「转圈半天然后失败」。写超时给 60s（上传图片体积大、
-            // 弱网慢），连接超时保持 10s（连不上就该快速失败，不必久等）。
+            // 弱网慢）。
+            //
+            // 连接超时 20s（2026-11-04 由 10s 放宽）：公网入口是 Cloudflare 隧道，
+            // 137→边缘那段实测 RTT 200ms、丢包 16–25%，TLS 握手偶发打穿 10s，
+            // 学生端直接报「超时」。20s 只是覆盖握手毛刺，不是等死——真连不上
+            // 时还有 ViewModel 层的一次快速重试兜底（见 ExamViewModel.withAuthRetry）。
             // 链路上其余环节：nginx /api/app/ 单独放宽到 180s（见 deploy/nginx.conf），
             // 网关 WriteTimeout=0 / ResponseHeaderTimeout=0（不截断长响应）。
-            .connectTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(180, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
             .build()

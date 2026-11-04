@@ -12,6 +12,50 @@ import com.google.gson.annotations.SerializedName
  * `[{label, content}]` 列表（不是 jsonb 原样），可以安全声明为强类型。
  */
 
+/** M3-1 解析响应：`solution_steps` 是 `{answer, steps[]}`，服务端缓存后原样返回。 */
+data class ExamSolutionDto(
+    @SerializedName("paper_id") val paperId: Long = 0,
+    /** 卷内题 id（不是 seq），前端只做展示不做寻址。 */
+    @SerializedName("question_id") val questionId: Long = 0,
+    @SerializedName("solution_steps") val solutionSteps: ExamSolutionSteps? = null,
+    /** true = 读的缓存（没有重复烧 token）。 */
+    val cached: Boolean = false,
+    /** false = 生成失败/被数值护栏丢弃，此时 `reason` 有说明。 */
+    val ok: Boolean = true,
+    val reason: String = ""
+)
+
+data class ExamSolutionSteps(
+    val answer: String = "",
+    val steps: List<String> = emptyList()
+)
+
+/** M3-4 按卷图谱：节点集合是卷内知识点 + 前驱 + 后继。 */
+data class PaperGraphDto(
+    @SerializedName("paper_id") val paperId: Long = 0,
+    val summary: GraphSummary? = null,
+    val nodes: List<GraphNode> = emptyList(),
+    val edges: List<GraphEdge> = emptyList(),
+    @SerializedName("paper_kp_count") val paperKpCount: Int = 0,
+    @SerializedName("unresolved_kps") val unresolvedKps: List<String> = emptyList(),
+    val note: String? = null
+) {
+    /**
+     * 转成图谱页既有的响应形状，复用同一套布局/渲染。
+     *
+     * 按卷接口与全量图谱同构（nodes/edges/summary），不转的话图谱页要么复制一份
+     * 渲染代码、要么在多处做分支——两者都会随时间漂移。
+     */
+    fun toGraphResponse(): GraphResponse = GraphResponse(
+        subject = null,
+        summary = summary,
+        nodes = nodes,
+        edges = edges,
+        note = note?.takeIf { it.isNotBlank() }
+            ?: if (paperKpCount == 0) "本卷题目尚未绑定知识点" else null
+    )
+}
+
 /** `GET /api/student/exams` 一行：一份可做的卷。 */
 data class StudentExamItem(
     @SerializedName("assignment_id") val assignmentId: Long,
