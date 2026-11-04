@@ -67,4 +67,17 @@ WHERE w.question_type IS NULL
   AND w.deleted_at IS NULL
   AND w.id IN (89, 97, 98, 112);
 
+-- 档 E：让已经同步过的客户端能重新拉到这些行。
+--   错题增量拉取按 `updated_at >= since` 过滤（`wrongbook.list_sync`），只改题型不动 updated_at，
+--   手机端会一直停在旧值（App 传的是上次同步的服务端时间戳，不是 0）。
+--   把本次补过型的行提一档；重复执行无害（只是让客户端多拉一次）。
+UPDATE wrong_questions w
+SET updated_at = now()
+WHERE w.question_type IS NOT NULL
+  AND w.deleted_at IS NULL
+  AND w.id IN (
+      SELECT b.id FROM wrong_questions_qtype_bak_20261105 b
+      WHERE b.question_type IS NULL
+  );
+
 COMMIT;
