@@ -1,8 +1,10 @@
-# T-HW 作业闭环 · 可执行任务卡（46 项未启动）
+# T-HW 作业闭环 · 可执行任务卡（M3/M4/M5 共 22 项：代码已落地，待 137 迁移与验收）
 
-> 来源：`docx/学生Agent需求变更-任务方案书.md` v1.5（M0~M5 共 47 项）+ `docx/总任务清单与排期计划.md` v5.2（仪表盘：T-HW 47 项 / **1 完成（M0-2 审核隔离）/ 46 未开始**）。
+> 来源：`docx/学生Agent需求变更-任务方案书.md` v1.5（M0~M5 共 47 项）+ `docx/总任务清单与排期计划.md` v5.3（仪表盘：T-HW 47 项 / **25 完成（M0〜M2）/ 22 未开始（M3〜M5）**）。
 > 范围：本卡集覆盖**除 M0-2 外的 46 项**。每一项给出可直接开工的「步骤 + 验收 + 依赖 + 涉及文件/表 + 波次 + 估点」。
 > 估点口径：拆分自方案书 §7（研发 128 人日 + 联调 26 人日 ≈154），**含前后端联调**，仅作排期参考。
+>
+> **2026-11-03 落地状态**：M3/M4/M5 共 22 项代码已全部落地并通过本地回归（`web-backend` 549、`web-frontend` 137、App 单测 144）。**尚未完成**：137 上的 4 个迁移（0014~0017）未执行、未做真机/真实题库验收，因此暂不把总清单仪表盘计为"已交付"。
 > 波次（取自主计划 §4.1 启动策略）：**W10** M0 → **W11** M1 → **W12** M2 → **W13** M4 → **W14** M3 → **W15** M5。与方案书 §9.2 首期 MVP（高三·数学·纯选择题卷）对齐：W10~W13 中 `paper_type=pure_choice` / `qtype=choice` 路径优先。
 
 ---
@@ -362,6 +364,7 @@
 - **验收（可测）**：教师筛选高三·数学·选择题→选 5 题→配分→保存为草稿卷。
 - **涉及**：组卷页、`exam_paper_question`。
 - **波次/估点**：W13 / ≈3d
+- **状态**：✅ 已完成：教师端 `Exam.vue` 改为「年级/学科/卷型/kp/难度 → 题库列表 → 勾选 → 逐题配分 → 保存草稿」，后端 `POST /exam/papers/manual` 落 `exam_paper_question`（引用 `question_id` + 快照，标准答案随卷保存）。
 
 ## 卡 M4-2｜规则组卷器（核心）
 - **归口**：web-backend（组卷引擎）
@@ -376,6 +379,7 @@
 - **验收（可测）**：输入高三·数学·pure_choice·10题 → 返回合规卷；强制要 5 道填空 → 显式报错「填空题源不足（现有 21）」。
 - **涉及**：组卷引擎、`exam_paper_question`、题库过滤。
 - **波次/估点**：W13 / ≈6d
+- **状态**：✅ 已完成：`core/compose_engine.py` + `services/paper_compose.py` 只抽 `published`/非 `quarantine`/有答案/本租户/题型白名单/难度区间的题，同卷 `content_hash` 去重，kp 覆盖优先、同题优先 `teacher > import > crawl > llm_generated`；题源不足返回 409 并列出缺口维度，不静默凑卷。
 
 ## 卡 M4-3｜LLM 辅助组卷
 - **归口**：web-backend（LLM 生成）+ web-frontend
@@ -388,6 +392,7 @@
 - **验收（可测）**：生成 10 题草稿 → 库内 `status=draft`；未确认前 `GET /api/student/exams` 不可见。
 - **涉及**：LLM 组卷、`course_kb.source`。
 - **波次/估点**：W13 / ≈3d
+- **状态**：✅ 已完成：`services/llm_paper.py` + `POST /admin/exam/papers/llm-generate` 只写 `course_kb(status=draft, source_tag=llm_generated)`；不自动发布，未审核前学生端不可见。
 
 ## 卡 M4-4｜采集卷入库两条路径（都做）
 - **归口**：web-backend（采集入库）+ web-frontend（教师选路径）
@@ -400,6 +405,7 @@
 - **验收（可测）**：选 P1 采集一套卷 → `exam_paper.source=auto_crawl` 且题目入 `course_kb`；选 P2 → 题目入 `course_kb` 但未直接成卷。
 - **涉及**：采集入库、`exam_paper.source`、`crawl_job`。
 - **波次/估点**：W13 / ≈4d
+- **状态**：✅ 已完成：`services/crawl_intake.py` 支持 P1 建 `exam_paper(source=auto_crawl)` 且题目逐条入 `course_kb`、P2 只入题库；两条都 `draft`，来源可追溯，`POST /course/runs/{id}/rollback` 只撤本次 `draft/auto_crawl`，不动教师改过的题。
 
 ## 卡 M4-5｜试卷版本与复用
 - **归口**：web-backend
@@ -411,6 +417,7 @@
 - **验收（可测）**：复制卷独立编辑，原卷已下发题判定不受影响。
 - **涉及**：`exam_paper.version`、复制接口。
 - **波次/估点**：W13 / ≈2d
+- **状态**：✅ 已完成：`exam_paper.version`（迁移 0014）+ `POST /exam/papers/{id}/copy`；副本新 id、新快照、草稿态，原卷已下发判据不受影响。
 
 ## 卡 M4-6｜答案必填 + G1 双源校验
 - **归口**：web-backend（发布前校验）
@@ -423,6 +430,7 @@
 - **验收（可测）**：含 1 道无答案题的卷发布 → 409；双源冲突 → 转人工裁决不发布。
 - **涉及**：发布闸门、`exam_answer_checks`。
 - **波次/估点**：W13 / ≈2d
+- **状态**：✅ 已完成：`core/publish_guard.py` 发布闸门按「结构 → ANSWER_MISSING → SCORE_MISSING → QUESTION_UNREVIEWED → QUESTION_FROZEN → G1 双源 → G2 抽样」顺序拦截；无答案/双源冲突均 409 并给出明细。
 
 ## 卡 M4-7｜G2 新卷抽样复核
 - **归口**：web-backend（抽样空跑）
@@ -435,6 +443,7 @@
 - **验收（可测）**：构造「正确解被判错」的卷 → 发布被 G2 拦；正常卷通过。
 - **涉及**：G2 抽样管线、发布闸门。
 - **波次/估点**：W13 / ≈5d
+- **状态**：✅ 已完成：`publish_guard.sample_report` 对每题跑「正确解 / 常见错法 / 等价写法 / 边界写法」四类标准样本；正确解被判错或常见错法被判对即拦，并回传逐题样本明细。
 
 ---
 
@@ -451,6 +460,7 @@
 - **验收（可测）**：首次请求生成并落库；二次请求直接返回缓存；不重复生成。
 - **涉及**：`/exams/{id}/questions/{qid}/solution`、`solution_steps`。
 - **波次/估点**：W14 / ≈2d
+- **状态**：✅ 已完成：`services/solution.py` + 学生 `GET /student/exams/{paper_id}/questions/{seq}/solution`、教师 `GET /admin/exam/papers/{id}/solutions?generate=true`；按 `(paper_id, paper_question_id)` 幂等，已有则回缓存、无则生成落库。并发防刷已补：ORM 声明 `uq_exam_solution` 唯一键，撞键时回读先到者结果而非 500（`test_solution_concurrent_insert_returns_cached_row`）。
 
 ## 卡 M3-2｜解析时机控制
 - **归口**：web-backend（权限/状态校验）+ student-app（UI 控制）
@@ -463,6 +473,7 @@
 - **验收（可测）**：未提交卷调 `/solution` → 403；提交后 → 200。
 - **涉及**：`/solution` 权限、`ExamViewModel` UI 控制。
 - **波次/估点**：W14 / ≈1d
+- **状态**：✅ 已完成：未提交访问学生解析返回 403 `SOLUTION_LOCKED`；提交后才按需生成/命中缓存（教师端不受限）。
 
 ## 卡 M3-3｜题↔知识点绑定
 - **归口**：web-backend（`question_kp`）+ web-frontend（标注工具）
@@ -475,6 +486,7 @@
 - **验收（可测）**：绑 1 题到 2 个 kp → `question_kp` 2 行；覆盖度看板显示该 kp 题量。
 - **涉及**：`question_kp`、标注工具。**注意 kp_code 写侧唯一入口 `resolve_kp_codes`，禁改。**
 - **波次/估点**：W14 / ≈2d
+- **状态**：✅ 已完成：`question_kp` 表（迁移 0015）+ `services/question_kp.py`；`POST /exam/question-kp/bind`、`/backfill`、`GET /coverage`，未绑定题进待标注队列；`kp_code` 写侧统一走 `mastery.resolve_kp_codes`。
 
 ## 卡 M3-4｜知识体系可视化
 - **归口**：web-frontend（图谱页）+ student-app（GraphScreen 复用）
@@ -486,6 +498,7 @@
 - **验收（可测）**：打开某卷图谱 → 显示该卷所有题的知识点及依赖关系。
 - **涉及**：`GraphScreen`、`kb_knowledge_points`、`kb_kp_prerequisites`。
 - **波次/估点**：W14 / ≈3d
+- **状态**：✅ 已完成：`graph.paper_graph_db` 聚合卷内 kp 并高亮前驱后继，教师 `/admin/exam/papers/{id}/graph`、学生 `/student/exams/{paper_id}/graph`；App `GraphScreen` 支持按卷维度，`AppBridge.postPaperGraph` 承接跳转。
 
 ## 卡 M3-5｜触类旁通推题
 - **归口**：agent-backend（复用 `similar`）+ web-backend
@@ -498,6 +511,7 @@
 - **验收（可测）**：对某等比题推题 → 返回同知识点同条件变式，不含多限定条件的干扰题。
 - **涉及**：`similar`、`extra_conditions`、`question_kp`。
 - **波次/估点**：W14 / ≈2d
+- **状态**：✅ 已完成：`services/similar_kp.py` 复用 agent 侧 `extra_conditions`，把「题库题比学生题面多限定条件」的候选一律剔除；学生端点 `/student/exams/{paper_id}/similar`。
 
 ## 卡 M3-6｜错题 → 知识点 → 背诵卡联动
 - **归口**：web-backend + student-app（背诵卡 SM-2）
@@ -510,6 +524,7 @@
 - **验收（可测）**：判错 1 题 → 其 kp 对应背诵卡被推荐；重做正确 → 掌握度上调、卡调度变化。
 - **涉及**：背诵卡 SM-2、`wrong_questions`、`kp_codes`。
 - **波次/估点**：W14 / ≈3d
+- **状态**：✅ 已完成：`services/drill_link.py` 按错题 kp 生成/推荐背诵卡（同学生同 kp 只一张）；重做正确只顺延 `due_at`，不改 SM-2 参数；判错落卡与改判回收均有单测。
 
 ## 卡 M3-7｜新题录入（教师）
 - **归口**：web-frontend + web-backend
@@ -522,6 +537,7 @@
 - **验收（可测）**：教师录 1 题默认 `draft`；审核后 `published`；`draft` 不可组卷。
 - **涉及**：录题页、审核流、`course_kb.status`。
 - **波次/估点**：W14 / ≈2d
+- **状态**：✅ 已完成：复用录题页 + `POST /exam/questions/{id}/review`；新录入恒 `draft`，审核后 `published` 才能被组卷抽取，`quarantine` 在审核面板标红隔离。
 
 ## 卡 M3-8｜新题定时采集
 - **归口**：web-backend（`crawl_job` + worker）
@@ -534,6 +550,7 @@
 - **验收（可测）**：配置一个每分钟测试 job → 执行并入库 `draft`；设 `budget_limit=1` → 超预算即停。
 - **涉及**：`crawl_job`、采集 worker、预算告警。
 - **波次/估点**：W14 / ≈3d
+- **状态**：✅ 已完成：`services/crawl.py` 提供 cron 解析、`next_run_at`、`due_jobs`、`run_due_jobs`、`scheduler_loop`；web-backend lifespan 启动循环（`CRAWL_SCHEDULER_ENABLED/INTERVAL`）；新建任务默认 `paused`，`POST /admin/course/jobs/{id}/status?status=active|paused|stopped` 启停（启用时重算 `next_run_at`，非法 cron 拒绝，`CourseIntake.vue` 有「启用定时 / 暂停定时」按钮）；`content_hash` 去重、`budget_limit` 超限立即停并置 `status=stopped`。
 
 ## 卡 M3-9｜学生端三模块保留与打通（R8）
 - **归口**：student-app（讲解/图谱/错题集）
@@ -546,6 +563,7 @@
 - **验收（可测）**：作业场景三模块均可打开且数据正确；错题按卷筛选成功；重做后掌握度变化。
 - **涉及**：`SolveScreen`、`GraphScreen`、`WrongBook`、`WrongSyncMerger`。
 - **波次/估点**：W14 / ≈5d
+- **状态**：✅ 已完成：App 结果页可查卷内解析（提交前隐藏）、`GraphScreen` 按卷展示、错题本按卷筛选；新增「重做并判分」弹窗调 `POST /learning/wrong-questions/{id}/redo`，判对后服务端归档并顺延背诵卡，App 同步移除本地行。`RedoFeedbackTest` 11 例覆盖转人工/不可用/部分分文案与多空拆分。
 
 ---
 
@@ -561,6 +579,7 @@
 - **验收（可测）**：建 1 个文件源 + 1 个 URL 源 → 列表可见；启停状态切换生效。
 - **涉及**：`course_source`、教师端页面。
 - **波次/估点**：W15 / ≈3d
+- **状态**：✅ 已完成：`course_source`（迁移 0015）+ `GET/POST/DELETE /admin/course/sources`、`POST /sources/{id}/status`；教师页 `CourseIntake.vue` 支持增删、启停、文件/URL/题库包三类源。
 
 ## 卡 M5-2｜课程解析 pipeline
 - **归口**：agent-backend（解析）
@@ -573,6 +592,7 @@
 - **验收（可测）**：喂一份教材 PDF/大纲 → 输出结构化章节树。
 - **涉及**：`course_source.parser`、解析 pipeline。
 - **波次/估点**：W15 / ≈4d
+- **状态**：✅ 已完成：`services/course_pipeline.py` 按 `source_type` 选解析器，输出章节树 + 候选知识点；`POST /admin/course/parse` 不落库先看结构化大纲。
 
 ## 卡 M5-3｜知识点拆分与挂载
 - **归口**：agent-backend（LLM 抽取）+ web-backend（`kp_node`）
@@ -585,6 +605,7 @@
 - **验收（可测）**：抽取的知识点去重后入库；重复知识点不重复建节点；新节点 `status=draft`。
 - **涉及**：`kp_node`、`kb_knowledge_points`、`resolve_kp_codes`（唯一写侧）。
 - **波次/估点**：W15 / ≈4d
+- **状态**：✅ 已完成：`upsert_kp_nodes` 先走 `mastery.resolve_kp_codes`——已进 DAG 的归并（`merged`），新节点 `status=draft`，不再造第二套 code 体系。
 
 ## 卡 M5-4｜知识点审核与发布
 - **归口**：web-frontend（审核流）+ web-backend
@@ -596,6 +617,7 @@
 - **验收（可测）**：`draft` 知识点学生端图谱不可见；审核后可见。
 - **涉及**：`kp_node.status`、审核流。
 - **波次/估点**：W15 / ≈3d
+- **状态**：✅ 已完成：`POST /admin/course/kp-nodes/{code}/review`；`draft` 不进学生图谱，审核通过写 `kb_knowledge_points` 后可见，可退回。
 
 ## 卡 M5-5｜采集合规与预算
 - **归口**：web-backend（合规校验 + 预算）
@@ -608,6 +630,7 @@
 - **验收（可测）**：命中合规黑名单的源 → 采集被阻断；预算超限 → 自动停 + 告警。
 - **涉及**：合规校验、`crawl_job.budget_limit`。
 - **波次/估点**：W15 / ≈4d
+- **状态**：✅ 已完成：`COMPLIANCE_BLOCKLIST` 默认放行、命中即阻断；`budget_limit` 超限立即停并写 `budget_stop/stopped`；采集行带 source 追溯，run 级一键回退（已审核内容保留）。
 
 ## 卡 M5-6｜采集可观测
 - **归口**：web-backend（日志/指标）
@@ -620,6 +643,7 @@
 - **验收（可测）**：跑一个采集 → 日志与指标可见；手动触发重试成功。
 - **涉及**：采集日志、指标 API。
 - **波次/估点**：W15 / ≈3d
+- **状态**：✅ 已完成：`GET /admin/course/metrics` 返回成功率/去重率/失败与超预算计数 + 最近运行日志；`POST /courses/jobs/{id}/retry` 手动重试，失败原因可追溯。
 
 ---
 
