@@ -104,6 +104,9 @@ class WrongQuestion(Base):
     comment = Column(Text)
     correction = Column(Text)
     source = Column(String(16), default="app")
+    # M3-9：来源卷/卷题（source=exam 时由判分链路回填），供「按卷筛选 + 重做」
+    paper_id = Column(Integer, index=True)
+    paper_question_id = Column(Integer)
 
 
 class DrillCard(Base):
@@ -339,6 +342,9 @@ class ExamPaper(Base):
     difficulty_avg = Column(SmallInteger)
     knowledge_points = Column(JSON, default=list)
     created_by = Column(String(64))
+    # M4-5 version/source
+    version = Column(Integer, nullable=False, default=1, server_default='1')
+    source = Column(String(32), nullable=False, default='manual', server_default='manual')
     published = Column(Boolean, nullable=False, default=False)
     published_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), default=_utcnow)
@@ -355,7 +361,9 @@ class ExamPaperQuestion(Base):
     id = Column(Integer, primary_key=True)
     paper_id = Column(Integer, nullable=False, index=True)
     seq = Column(Integer, nullable=False)
+    question_id = Column(Integer, index=True)
     content_hash = Column(String(64), index=True)
+    score = Column(Numeric(6, 2))
     qtype = Column(String(16), nullable=False)  # choice/blank/subjective
     multi = Column(Boolean, nullable=False, default=False)
     stem = Column(Text, nullable=False)
@@ -367,6 +375,146 @@ class ExamPaperQuestion(Base):
     # M2-4：可接受答案值集合（标答预展开 + 教师确认追加），命中即判对。
     # 为空时判分侧现算 expand_answer_values(answer)，老卷无需回填。
     answer_values = Column(JSON)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class QuestionKp(Base):
+    """题↔知识点绑定（M3-3）。
+
+    ``kp_code`` 只能写 DAG 里已存在的 code：名称要经 ``resolve_kp_codes`` 翻译，
+    翻不到的键**不写**（宁可不绑，也不造第二套键）。``content_hash`` 便于按题
+    回溯，题目被重新导入换了 id 也能重新挂上。
+    """
+
+    __tablename__ = "question_kp"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64), index=True)
+    question_id = Column(Integer, index=True)
+    content_hash = Column(String(64), index=True)
+    kp_code = Column(String(32), nullable=False, index=True)
+    weight = Column(Numeric(4, 2), nullable=False, default=1)
+    source = Column(String(16), nullable=False, default="manual")
+    confidence = Column(Numeric(4, 3))
+    reviewed_by = Column(String(64))
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class ExamSolution(Base):
+    """按卷题缓存的解析（M3-1）。幂等键 ``(paper_id, paper_question_id)``。"""
+
+    __tablename__ = "exam_solutions"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64))
+    paper_id = Column(Integer, nullable=False, index=True)
+    paper_question_id = Column(Integer, nullable=False)
+    solution_steps = Column(JSON)
+    prompt_version = Column(Integer)
+    model = Column(String(128))
+    generated_at = Column(DateTime(timezone=True), default=_utcnow)
+
+    # M3-1 防刷：唯一键必须在 ORM 里声明，否则 create_all 建出的库（测试/开发）
+    # 不防重，并发会写进两条解析。迁移 0015 有同名约束，两边保持一致。
+    __table_args__ = (
+        UniqueConstraint("paper_id", "paper_question_id", name="uq_exam_solution"),
+    )
+
+
+class CourseSource(Base):
+    """课程源（M5-1）：文件/URL/题库包，可启停采集。"""
+
+    __tablename__ = "course_source"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    source_type = Column(String(16), nullable=False, default="file")
+    uri = Column(Text, nullable=False)
+    parser = Column(String(32), nullable=False, default="auto")
+    status = Column(String(16), nullable=False, default="paused")
+    ingested_at = Column(DateTime(timezone=True))
+    created_by = Column(String(64))
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class CrawlJob(Base):
+    """采集任务（M3-8）：cron + 预算上限；超预算自动停并告警。"""
+
+    __tablename__ = "crawl_job"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    source_id = Column(Integer, index=True)
+    name = Column(String(255), nullable=False)
+    path = Column(String(16), nullable=False, default="P2")
+    schedule = Column(String(64))
+    budget_limit = Column(Integer, nullable=False, default=100)
+    spent = Column(Integer, nullable=False, default=0)
+    status = Column(String(16), nullable=False, default="paused")
+    last_run_at = Column(DateTime(timezone=True))
+    next_run_at = Column(DateTime(timezone=True))
+    created_by = Column(String(64))
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class CrawlRun(Base):
+    """采集运行日志（M5-6）：每次执行一条，支撑成功率/去重率指标。"""
+
+    __tablename__ = "crawl_run"
+
+    id = Column(Integer, primary_key=True)
+    job_id = Column(Integer, nullable=False, index=True)
+    tenant_id = Column(String(64))
+    status = Column(String(16), nullable=False, default="running")
+    started_at = Column(DateTime(timezone=True), default=_utcnow)
+    finished_at = Column(DateTime(timezone=True))
+    fetched = Column(Integer, nullable=False, default=0)
+    inserted = Column(Integer, nullable=False, default=0)
+    duplicated = Column(Integer, nullable=False, default=0)
+    failed = Column(Integer, nullable=False, default=0)
+    budget_stop = Column(Boolean, nullable=False, default=False)
+    #: M4-4 P1 整卷入库时本次建出的卷 id（P2 为空）；指标页可直达该卷
+    paper_id = Column(Integer, index=True)
+    error = Column(Text)
+
+
+class ExamPaperIntake(Base):
+    """M4-4 采集入库追溯：谁（job/run）何时把哪些题/哪张卷送进题库。
+
+    回退（一键下架）按 ``run_id`` 而不是 ``job_id``：同一条采集任务会跑很多次，
+    按 job 回退会把历史好数据一起删掉。
+    """
+
+    __tablename__ = "exam_paper_intake"
+
+    id = Column(Integer, primary_key=True)
+    paper_id = Column(Integer, index=True)
+    tenant_id = Column(String(64), index=True)
+    job_id = Column(Integer, index=True)
+    run_id = Column(Integer, index=True)
+    source = Column(String(32), nullable=False, default="auto_crawl")
+    question_ids = Column(JSON, default=list)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class KpNode(Base):
+    """候选知识点（M5-3）：新节点默认 draft，审核后进 kb_knowledge_points。"""
+
+    __tablename__ = "kp_node"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64), index=True)
+    code = Column(String(32), nullable=False, unique=True)
+    course_id = Column(String(64))
+    parent_code = Column(String(32))
+    name = Column(String(255), nullable=False)
+    subject = Column(String(32))
+    grade = Column(String(32))
+    source = Column(String(16), nullable=False, default="crawled")
+    status = Column(String(16), nullable=False, default="draft")
     created_at = Column(DateTime(timezone=True), default=_utcnow)
 
 

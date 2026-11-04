@@ -37,6 +37,9 @@ services:
       # 生产必须显式配置（轮换 JWT 私钥会使已存厂商凭证不可解密）。
       # 生成：python -c "import os;print(os.urandom(32).hex())"
       VENDOR_CREDENTIAL_KEY: "${VENDOR_CREDENTIAL_KEY:-}"
+      # M3-8 采集调度器（容器内显式透传；关掉只保留手动执行/重试）
+      CRAWL_SCHEDULER_ENABLED: "${CRAWL_SCHEDULER_ENABLED:-true}"
+      CRAWL_SCHEDULER_INTERVAL: "${CRAWL_SCHEDULER_INTERVAL:-60}"
 
   web-frontend:
     build: ./web-frontend

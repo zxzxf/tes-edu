@@ -86,6 +86,7 @@ describe('routePathOf（后端 path → 前端路由映射）', () => {
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/knowledge' })).toBe('/knowledge')
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/error-distribution' })).toBe('/error-distribution')
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/wrong' })).toBe('/wrong-questions')
+    expect(routePathOf({ menu_type: 'MENU', path: '/ops/course-intake' })).toBe('/course-intake')
     // T-AM3/T-AM4/T-AM5/T-AM6 前端管理页（2026-10-26/27 建）后，/system/* 四个管理页可导航
     expect(routePathOf({ menu_type: 'MENU', path: '/system/menu' })).toBe('/system/menu')
     expect(routePathOf({ menu_type: 'MENU', path: '/system/role' })).toBe('/system/role')
@@ -110,7 +111,7 @@ describe('routePathOf（后端 path → 前端路由映射）', () => {
 
   it('映射表覆盖全部 /ops 业务页', () => {
     for (const p of ['/ops/knowledge', '/ops/analytics', '/ops/error-distribution', '/ops/wrong',
-      '/ops/exam', '/ops/grading', '/ops/reports', '/ops/compliance', '/ops/practice']) {
+      '/ops/exam', '/ops/grading', '/ops/reports', '/ops/compliance', '/ops/practice', '/ops/course-intake']) {
       expect(MENU_ROUTE_MAP[p]).toMatch(/^\//)
     }
   })

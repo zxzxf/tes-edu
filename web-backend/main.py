@@ -18,7 +18,9 @@ from app.api import (
     analytics,
     auth,
     compliance,
+    course,
     exam,
+    exam_learning,
     grading,
     ingest,
     knowledge,
@@ -98,6 +100,17 @@ async def lifespan(app: FastAPI):
         )
     else:
         logger.info("Kafka 未配置，入库走同步直写")
+
+    # 3) M3-8 定时采集：后台每分钟检查到期 cron 任务（单进程单 worker）
+    if settings.crawl_scheduler_enabled:
+        from app.services.crawl import scheduler_loop
+
+        _worker_tasks.append(
+            asyncio.create_task(
+                scheduler_loop(interval_seconds=settings.crawl_scheduler_interval)
+            )
+        )
+        logger.info("采集调度器已启动（每 %ss 检查一次）", settings.crawl_scheduler_interval)
 
     yield
 
@@ -194,6 +207,9 @@ app.include_router(student_features.admin_router, prefix="/api/admin")  # W3 功
 app.include_router(exam.student_router, prefix="/api/student")  # 作业闭环：学生取卷/提交/判分
 app.include_router(student_profile.router, prefix="/api/admin")  # M0-3 学生年级归属（教师维护 + 批量导入）
 app.include_router(student_profile.student_router, prefix="/api/student")  # M0-3 学生查自己的年级（/profile/me）
+app.include_router(exam_learning.router, prefix="/api/admin")  # M3 解析/题↔知识点/按卷图谱（教师端）
+app.include_router(exam_learning.student_router, prefix="/api/student")  # M3 解析/按卷图谱/同条件推题（学生端）
+app.include_router(course.router, prefix="/api/admin")  # M5 课程源/采集/解析/知识点审核
 
 # T-B5：C 端直连挂载（网关 /login 与 /learning/ 路由按原路径转发、不做前缀改写，
 # 2026-10-24 部署时发现单挂 /api/admin 会导致网关侧 404，故补根路径双挂载）。

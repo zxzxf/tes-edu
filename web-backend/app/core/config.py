@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # 端点额度紧张（403/429）时它还会拖慢发布流程，所以按需开。
     answer_verify_llm: bool = False
 
+    # M3-8 定时采集调度器：随 web-backend 启动，每分钟检查到期 cron 任务。
+    # 单测/本地不想起后台循环时设 CRAWL_SCHEDULER_ENABLED=false。
+    crawl_scheduler_enabled: bool = True
+    crawl_scheduler_interval: int = 60
+
     @property
     def kafka_enabled(self) -> bool:
         """是否启用异步管道；未配置时降级为同步直写。"""

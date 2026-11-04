@@ -72,6 +72,8 @@ MENUS = [
     # 班级错因分布（S5 老师端）；在线练习（过程采集）。
     ("m_ops_errordist", "m_ops", "班级错因分布", "MENU", "/ops/error-distribution", "ErrorDistribution", "search", 9, None),
     ("m_ops_practice", "m_ops", "在线练习", "MENU", "/ops/practice", "Practice", "target", 10, None),
+    # M5-1 课程采集与知识点：课程源/采集任务/解析/知识点审核
+    ("m_ops_course", "m_ops", "课程采集与知识点", "MENU", "/ops/course-intake", "CourseIntake", "book", 11, None),
 ]
 
 # 角色 × 菜单授权（菜单节点 + 其下按钮一并授权）：仅 admin 见系统设置全部。
@@ -96,6 +98,7 @@ ROLE_MENU_MAP = {
         "m_ops", "m_ops_tenant", "m_ops_knowledge", "m_ops_analytics",
         "m_ops_wrong", "m_ops_exam", "m_ops_grading", "m_ops_reports", "m_ops_compliance",
         "m_ops_errordist", "m_ops_practice", "m_ops_questions",  # 学校：可给本校题库录题
+        "m_ops_course",  # M5：课程采集/知识点审核
         "m_sys_feature", "m_sys_feature_manage",  # 学校：可管控本校功能显隐
         "m_sys_byom", "m_sys_byom_manage",  # 学校：可配本租户大模型（BYOM）
     ],
@@ -103,6 +106,7 @@ ROLE_MENU_MAP = {
         "m_ops", "m_ops_knowledge", "m_ops_analytics", "m_ops_wrong",
         "m_ops_exam", "m_ops_grading", "m_ops_reports",
         "m_ops_errordist", "m_ops_practice", "m_ops_questions",  # 教师：录题（M0-1）
+        "m_ops_course",  # M5：课程采集/知识点审核
         "m_ops_exam_gen", "m_ops_grading_submit", "m_ops_grading_review",
         "m_sys_feature", "m_sys_feature_manage",  # 教师：可管控本班功能显隐
     ],
