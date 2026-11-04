@@ -914,8 +914,11 @@ private fun GraphLayer(
                     fontWeight = FontWeight.SemiBold,
                     color = TesEduColors.TextPrimary
                 )
-                val sub = listOfNotNull(n.chapter?.takeIf { it.isNotBlank() }, n.code)
-                    .joinToString(" · ")
+                // 副行只显示中文（章·节），不再暴露 DAG 编码（如 MA-B2-C4-S2-K04）
+                val sub = listOfNotNull(
+                    n.chapter?.takeIf { it.isNotBlank() },
+                    n.section?.takeIf { it.isNotBlank() }
+                ).joinToString(" · ").ifBlank { n.code }
                 if (sub.isNotBlank()) {
                     Text(sub, style = MaterialTheme.typography.labelSmall, color = TesEduColors.TextSecondary)
                 }

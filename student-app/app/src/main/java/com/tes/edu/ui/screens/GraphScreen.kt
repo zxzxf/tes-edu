@@ -634,7 +634,7 @@ private fun NodeDetailCard(
                 }
             }
             Text(
-                "${node.chapter.orEmpty()} / ${node.section.orEmpty()} · ${node.code}",
+                "${node.chapter.orEmpty()} / ${node.section.orEmpty()}".takeIf { it.isNotBlank() } ?: node.code,
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.Gray,
                 maxLines = 1,
