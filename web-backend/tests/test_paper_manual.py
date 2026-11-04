@@ -3,12 +3,15 @@ import asyncio
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from app.api import exam
 from app.models.course_kb import Base, CourseQuestion
+from app.models.ops import ExamAssignment, ExamPaper
 from app.models.schemas import (
+    AssignmentCreate,
     ExamPaperCreate,
     ManualPaperCreate,
     ManualPaperItem,
@@ -250,6 +253,78 @@ def test_rule_paper_mentions_missing_kp():
             assert exc.value.status_code == 409
             assert "KP9" in detail["message"]
             assert detail["missing_kps"] == ["KP9"]
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_paper_id_endpoints_all_reject_cross_tenant():
+    """B 端按 id 取卷的四个接口统一走 _paper_or_404：别校卷一律 404。
+
+    回归背景：get_paper / validation / publish / assign 曾各自 select(id)，
+    只有 copy_paper 走租户助手，别校教师凭 paper_id 就能发布、下发本校卷。
+    """
+    async def scenario():
+        engine = _engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            _bank(db, n=1)
+            await db.commit()
+            qid = (await db.execute(select(CourseQuestion))).scalars().first().id
+            paper = await exam.create_manual_paper(
+                ManualPaperCreate(questions=[ManualPaperItem(question_id=qid, score=5)]),
+                user=_teacher(), db=db,
+            )
+            # 同租户仍可正常读取
+            assert (await exam.get_paper(paper.id, user=_teacher(), db=db)).id == paper.id
+
+            other = _teacher("other-school")
+            cases = [
+                ("get_paper", lambda: exam.get_paper(paper.id, user=other, db=db)),
+                ("validation", lambda: exam.validate_paper_for_publish(paper.id, user=other, db=db)),
+                ("publish", lambda: exam.publish_paper(paper.id, user=other, db=db)),
+                ("assign", lambda: exam.assign_paper(
+                    paper.id,
+                    AssignmentCreate(target_type="student", target_student="student@tes.edu"),
+                    user=other, db=db,
+                )),
+            ]
+            for name, call in cases:
+                with pytest.raises(HTTPException) as exc:
+                    await call()
+                assert exc.value.status_code == 404, f"{name} 应把别校卷当 404"
+
+            # 别校的发布/下发没有产生任何副作用
+            assert (await db.execute(select(ExamAssignment))).scalars().all() == []
+            assert (await exam.get_paper(paper.id, user=_teacher(), db=db)).published is False
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_legacy_paper_without_tenant_still_readable():
+    """迁移前 tenant_id=NULL 的老卷保持可读，不因补租户校验被误伤。"""
+    async def scenario():
+        engine = _engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            _bank(db, n=1)
+            await db.commit()
+            qid = (await db.execute(select(CourseQuestion))).scalars().first().id
+            paper = await exam.create_manual_paper(
+                ManualPaperCreate(questions=[ManualPaperItem(question_id=qid, score=5)]),
+                user=_teacher(), db=db,
+            )
+            row = (await db.execute(select(ExamPaper))).scalars().first()
+            row.tenant_id = None
+            await db.commit()
+
+            out = await exam.get_paper(row.id, user=_teacher("other-school"), db=db)
+            assert out.id == row.id
         await engine.dispose()
 
     asyncio.run(scenario())

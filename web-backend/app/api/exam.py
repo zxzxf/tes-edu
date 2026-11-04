@@ -596,11 +596,7 @@ async def get_paper(
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    p = (
-        await db.execute(select(ExamPaper).where(ExamPaper.id == paper_id))
-    ).scalar_one_or_none()
-    if not p:
-        raise HTTPException(status_code=404, detail="paper not found")
+    p = await _paper_or_404(db, paper_id, user)
     return await _paper_out(db, p)
 
 
@@ -781,11 +777,7 @@ async def validate_paper_for_publish(
     标答冻结（M2-10）→ 答案双源校验（M2-9）。先讲「卷子本身不合法」，再讲
     「这道题的答案正在复核」，最后才是「答案没人验证过」——教师修起来有先后。
     """
-    p = (
-        await db.execute(select(ExamPaper).where(ExamPaper.id == paper_id))
-    ).scalar_one_or_none()
-    if not p:
-        raise HTTPException(status_code=404, detail="paper not found")
+    p = await _paper_or_404(db, paper_id, user)
     qs = await _load_questions(db, paper_id)
     report = validate_paper(p.paper_type, qs)
     data = report.as_dict()
@@ -829,11 +821,7 @@ async def publish_paper(
     db: AsyncSession = Depends(get_db),
 ):
     """发布。先跑卷型/题型/答案校验，不通过一律 409 拒绝（不发布半成品）。"""
-    p = (
-        await db.execute(select(ExamPaper).where(ExamPaper.id == paper_id))
-    ).scalar_one_or_none()
-    if not p:
-        raise HTTPException(status_code=404, detail="paper not found")
+    p = await _paper_or_404(db, paper_id, user)
 
     if p.published:  # 幂等：已发布不再重复校验
         return await _paper_out(db, p)
@@ -952,11 +940,7 @@ async def assign_paper(
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    p = (
-        await db.execute(select(ExamPaper).where(ExamPaper.id == paper_id))
-    ).scalar_one_or_none()
-    if not p:
-        raise HTTPException(status_code=404, detail="paper not found")
+    p = await _paper_or_404(db, paper_id, user)
     if not p.published:
         raise HTTPException(
             status_code=409,
