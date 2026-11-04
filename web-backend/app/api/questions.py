@@ -1,5 +1,5 @@
 """题库接口：教研侧录入（M0-1）+ 查询（消费侧）。"""
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,7 +70,7 @@ async def create_questions_batch(
 
 @router.get("", response_model=List[QuestionOut])
 async def list_questions(
-    limit: int = Query(50, le=200),
+    limit: Annotated[int, Query(le=200)] = 50,
     user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -80,21 +80,31 @@ async def list_questions(
 
 @router.get("/search", response_model=List[QuestionOut])
 async def search(
-    q: Optional[str] = Query(None, description="关键词（题干/解析模糊匹配）"),
+    q: Annotated[Optional[str], Query(description="关键词（题干/解析模糊匹配）")] = None,
     subject: Optional[str] = None,
     type: Optional[str] = None,
     knowledge_point: Optional[str] = None,
-    limit: int = Query(50, le=200),
+    grade: Optional[str] = None,
+    difficulty_min: Annotated[Optional[int], Query(ge=1, le=5)] = None,
+    difficulty_max: Annotated[Optional[int], Query(ge=1, le=5)] = None,
+    status: Annotated[Optional[str], Query(pattern="^(draft|published|quarantine)$")] = None,
+    answerable: Annotated[bool, Query(description="M4-1 选题：只返回可入卷的题")] = False,
+    limit: Annotated[int, Query(le=200)] = 50,
     user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    """关键词/学科/题型/知识点检索；**只在本租户题库内查**（M0-4）。"""
+    """关键词/学科/题型/知识点/年级/难度检索；**只在本租户题库内查**（M0-4）。"""
     return await svc.search_questions(
         db,
         q=q,
         subject=subject,
         qtype=type,
         knowledge_point=knowledge_point,
+        grade=grade,
+        difficulty_min=difficulty_min,
+        difficulty_max=difficulty_max,
+        status=status,
+        answerable=answerable,
         limit=limit,
         tenant_id=_tenant_of(user),
     )

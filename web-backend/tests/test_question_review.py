@@ -34,7 +34,9 @@ def test_draft_and_quarantined_questions_are_excluded_from_composition():
                     ExamPaperCreate(count=2), user={"user_id": "teacher-1", "tenant_id": "school-1"}, db=db,
                 )
             assert exc.value.status_code == 409
-            assert "仅 1 道" in exc.value.detail
+            detail = exc.value.detail
+            assert detail["code"] == "COMPOSE_SOURCE_SHORT"
+            assert "仅 1 道" in detail["message"]
         await engine.dispose()
 
     asyncio.run(scenario())
@@ -96,6 +98,7 @@ def test_draft_question_blocks_publication_after_paper_was_composed():
             db.add(ExamPaperQuestion(
                 paper_id=paper.id, seq=1, content_hash="draft-hash", qtype="choice",
                 stem="待审题", answer="A", options=["1", "2", "3", "4"],
+                score=5,
             ))
             await db.commit()
             with pytest.raises(HTTPException) as exc:
