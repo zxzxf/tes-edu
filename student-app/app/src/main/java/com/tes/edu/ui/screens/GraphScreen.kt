@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -129,6 +132,7 @@ fun GraphScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
+        GraphHeader(ui.graph?.subject)
         ui.paperAssignmentId?.let { id ->
             PaperGraphBar(
                 title = ui.paperTitle.ifBlank { "第 $id 份作业" },
@@ -206,7 +210,7 @@ fun GraphScreen(
                     // 缩放控制（右下角）
                     Column(
                         Modifier
-                            .align(Alignment.BottomEnd)
+                            .align(Alignment.TopEnd)
                             .padding(12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -261,19 +265,79 @@ private fun ZoomButton(text: String, onClick: () -> Unit) {
     }
 }
 
-/** 顶部统计头：共 N 点 · 已掌握/巩固/薄弱/未学 · ZPD 待学 · 边数。 */
+/** 页面标题头：知识图谱 + 学科（外层 Scaffold 无顶栏，这里补上）。 */
+@Composable
+private fun GraphHeader(subject: String?) {
+    Surface(color = MaterialTheme.colorScheme.surface) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "知识图谱",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                if (!subject.isNullOrBlank()) {
+                    Text(
+                        subject,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 顶部统计条：彩色计数 chips（横滑，避免一行塞满被省略）。 */
 @Composable
 private fun GraphSummaryBar(
     total: Int, mastered: Int, medium: Int, weak: Int, untouched: Int, inZpd: Int, edges: Int
 ) {
     Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            StatChip(Color(0xFF607D8B), total, "知识点")
+            StatChip(ColorMastered, mastered, "已掌握")
+            StatChip(ColorMedium, medium, "巩固中")
+            StatChip(ColorWeak, weak, "薄弱")
+            StatChip(ColorUntouched, untouched, "未学")
+            StatChip(ColorZpdRing, inZpd, "ZPD待学")
+            StatChip(Color(0xFF78909C), edges, "学习边")
+        }
+    }
+}
+
+/** 统计小 chip：色点 + 数字 + 标签。 */
+@Composable
+private fun StatChip(color: Color, count: Int, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(9.dp)
+                .background(color, CircleShape)
+        )
+        Spacer(Modifier.width(4.dp))
         Text(
-            "共 $total 个知识点 · 已掌握 $mastered · 巩固中 $medium · 薄弱 $weak · " +
-                "未学 $untouched · ZPD 待学 $inZpd · 前置边 $edges",
+            "$count",
             style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.width(2.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.Gray
         )
     }
 }
@@ -312,21 +376,27 @@ private fun PaperGraphBar(title: String, kpCount: Int, onExit: () -> Unit) {
 
 @Composable
 private fun GraphLegend() {
-    Row(
+    Column(
         Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
-        LegendDot(ColorMastered, "已掌握")
-        LegendDot(ColorMedium, "巩固中")
-        LegendDot(ColorWeak, "薄弱")
-        LegendDot(ColorUntouched, "未学")
-        LegendDot(ColorZpdRing, "ZPD 待学", ring = true)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            LegendDot(ColorMastered, "已掌握")
+            LegendDot(ColorMedium, "巩固中")
+            LegendDot(ColorWeak, "薄弱")
+            LegendDot(ColorUntouched, "未学")
+            LegendDot(ColorZpdRing, "ZPD 待学", ring = true)
+        }
+        Spacer(Modifier.height(3.dp))
         Text(
-            "提示：拖动平移 · 双指缩放 · 点节点看详情",
+            "拖动平移 · 双指缩放 · 点节点看掌握度详情",
             style = MaterialTheme.typography.labelSmall,
             color = Color.Gray
         )
@@ -419,7 +489,7 @@ private fun GraphCanvas(
                 drawGraphNode(
                     n,
                     selected = n.code == selectedCode,
-                    showLabel = scale >= 0.55f,
+                    showLabel = scale >= 0.45f,
                     measurer = measurer,
                     viewRight = viewRight
                 )
@@ -475,30 +545,35 @@ private fun DrawScope.drawGraphNode(
             style = Stroke(width = 3.2f)
         )
     }
-    // 标签：缩放足够大时显示标题，超出可见右边界时翻到点左侧
-    if (showLabel) {
-        val title = node.title ?: node.code
-        val result = measurer.measure(
-            title,
-            style = TextStyle(fontSize = 10.sp, color = Color(0xFF37474F)),
-            maxLines = 1
-        )
-        val tw = result.size.width.toFloat()
-        val th = result.size.height.toFloat()
-        var tx = n.x + radius + 6f
-        if (tx + tw > viewRight) tx = n.x - radius - 6f - tw
-        drawText(
-            textMeasurer = measurer,
-            text = title,
-            topLeft = Offset(tx, n.y - th / 2f),
-            style = TextStyle(fontSize = 10.sp, color = Color(0xFF37474F)),
-            maxLines = 1
-        )
-    }
+            // 标签：缩放足够大时显示标题，超出可见右边界时翻到点左侧；加浅底衬提升可读性
+            if (showLabel) {
+                val title = node.title ?: node.code
+                val labelStyle = TextStyle(fontSize = 11.sp, color = Color(0xFF37474F))
+                val result = measurer.measure(title, style = labelStyle, maxLines = 1)
+                val tw = result.size.width.toFloat()
+                val th = result.size.height.toFloat()
+                var tx = n.x + radius + 6f
+                if (tx + tw > viewRight) tx = n.x - radius - 6f - tw
+                val ty = n.y - th / 2f
+                drawRoundRect(
+                    color = Color.White.copy(alpha = 0.78f),
+                    topLeft = Offset(tx - 3f, ty - 2f),
+                    size = androidx.compose.ui.geometry.Size(tw + 6f, th + 4f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+                )
+                drawText(
+                    textMeasurer = measurer,
+                    text = title,
+                    topLeft = Offset(tx, ty),
+                    style = labelStyle,
+                    maxLines = 1
+                )
+            }
 }
 
 /**
  * 选中节点详情卡：掌握度 / 练习统计 / 可练题数 / 前置链 + 两个联动出口。
+ * 内部可纵滑、最高 320dp，避免小屏盖住整张图。
  *
  * T-G1「练这个知识点」：调 T-A4 变式题拿真实题干 -> 跳输入页预填；
  * T-G2「背这个知识点」：把 code 交给背诵页限定范围（页本体属波 3）。
@@ -528,27 +603,36 @@ private fun NodeDetailCard(
     Card(
         modifier
             .fillMaxWidth()
+            .heightIn(max = 320.dp)
             .padding(12.dp),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(
+            Modifier
+                .padding(14.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     node.title ?: node.code,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f),
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (node.zpd) {
-                    AssistChip(
-                        onClick = {},
-                        label = { Text("ZPD 待学", fontSize = 11.sp) }
-                    )
-                    Spacer(Modifier.width(6.dp))
-                }
                 TextButton(onClick = onClose) { Text("关闭") }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                BandPill(bandColor, bandLabel)
+                if (node.zpd) {
+                    AssistChip(onClick = {}, label = { Text("ZPD 待学", fontSize = 11.sp) })
+                }
             }
             Text(
                 "${node.chapter.orEmpty()} / ${node.section.orEmpty()} · ${node.code}",
@@ -557,36 +641,38 @@ private fun NodeDetailCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            // 掌握度
+            // 掌握度：大字号百分比 + 全宽进度条
             if (node.mastery != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("掌握度", style = MaterialTheme.typography.labelMedium)
-                    Spacer(Modifier.width(8.dp))
-                    LinearProgressIndicator(
-                        progress = { node.mastery.toFloat() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(8.dp),
-                        color = bandColor,
-                        trackColor = Color(0xFFECEFF1)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "${(node.mastery * 100).toInt()}% · $bandLabel",
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
+                Text(
+                    "掌握度 ${(node.mastery * 100).toInt()}%",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = bandColor
+                )
+                LinearProgressIndicator(
+                    progress = { node.mastery.toFloat() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp),
+                    color = bandColor,
+                    trackColor = Color(0xFFECEFF1)
+                )
             } else {
                 Text("掌握度：未学过（$bandLabel）", style = MaterialTheme.typography.labelMedium)
             }
-            Text(
-                "练习 ${node.practiceCount} 次 · 对 ${node.correctCount} · 错 ${node.wrongCount} · " +
-                    "可练题目 ${node.questionCount} 道",
-                style = MaterialTheme.typography.bodySmall
-            )
+            // 练习统计：4 列数字块，比一行文字更易读
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                StatBlock(node.practiceCount, "练习")
+                StatBlock(node.correctCount, "正确")
+                StatBlock(node.wrongCount, "错误")
+                StatBlock(node.questionCount, "可练题")
+            }
             if (node.prereqs.isNotEmpty()) {
                 Text(
-                    "前置：${node.prereqs.joinToString("、")}",
+                    "前置知识点：${node.prereqs.joinToString("、")}",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.Gray,
                     maxLines = 2,
@@ -594,7 +680,7 @@ private fun NodeDetailCard(
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(2.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SoftOutlinedButton(
                     text = if (kpLoading) "找题中…" else "练这个知识点",
@@ -619,5 +705,39 @@ private fun NodeDetailCard(
                 )
             }
         }
+    }
+}
+
+/** 掌握度彩色标签（浅底深字）。 */
+@Composable
+private fun BandPill(color: Color, label: String) {
+    Surface(
+        color = color.copy(alpha = 0.15f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(
+            label,
+            color = color,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+        )
+    }
+}
+
+/** 单个统计数字块：大字号数值 + 小标签。 */
+@Composable
+private fun StatBlock(value: Int, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "$value",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.Gray
+        )
     }
 }
