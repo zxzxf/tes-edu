@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * T-B5 图谱页状态。
@@ -46,6 +47,13 @@ data class GraphUiState(
     }
 }
 
+/**
+ * 图谱加载短超时：paperGraph / knowledgeGraph 本应 2s 内返回，但真机走跨境 Cloudflare
+ * 隧道时偶发「连接成功、响应读取挂起」。OkHttp 全局 readTimeout 是 180s（为解题 LLM
+ * 生成放宽），不能让图谱干等 3 分钟。这里 30s 内无响应即失败走 error 态（可重试）。
+ */
+private const val GRAPH_TIMEOUT_MS = 30_000L
+
 class GraphViewModel : ViewModel() {
 
     private val _ui = MutableStateFlow(GraphUiState())
@@ -73,19 +81,27 @@ class GraphViewModel : ViewModel() {
                 )
             }
             runCatching {
-                ensureLogin()
-                ApiClient.exam.paperGraph(assignmentId)
+                // 短超时：避免被全局 180s readTimeout 卡死（真机隧道偶发读取挂起）
+                withTimeoutOrNull(GRAPH_TIMEOUT_MS) {
+                    ensureLogin()
+                    ApiClient.exam.paperGraph(assignmentId)
+                } ?: throw java.net.SocketTimeoutException("图谱加载超时（网络不佳，请重试）")
             }.onSuccess { dto ->
-                val res = dto.toGraphResponse()
-                val layout = GraphLayoutCalc.layout(res.nodes, res.edges)
-                _ui.update {
-                    it.copy(
-                        loading = false,
-                        graph = res,
-                        layout = layout,
-                        paperAssignmentId = assignmentId,
-                        paperTitle = title
-                    )
+                // onSuccess 内的解析/布局也兜底：任一异常走 error 态而非 FC
+                runCatching {
+                    val res = dto.toGraphResponse()
+                    val layout = GraphLayoutCalc.layout(res.nodes, res.edges)
+                    _ui.update {
+                        it.copy(
+                            loading = false,
+                            graph = res,
+                            layout = layout,
+                            paperAssignmentId = assignmentId,
+                            paperTitle = title
+                        )
+                    }
+                }.onFailure { e ->
+                    _ui.update { it.copy(loading = false, error = "图谱处理失败：${e.message}") }
                 }
             }.onFailure { e ->
                 _ui.update { it.copy(loading = false, error = "加载失败：${e.message}") }
@@ -105,19 +121,25 @@ class GraphViewModel : ViewModel() {
         viewModelScope.launch {
             _ui.update { it.copy(loading = true, error = null, selected = null) }
             runCatching {
-                ensureLogin()
-                ApiClient.instance.knowledgeGraph(studentId = studentId)
+                withTimeoutOrNull(GRAPH_TIMEOUT_MS) {
+                    ensureLogin()
+                    ApiClient.instance.knowledgeGraph(studentId = studentId)
+                } ?: throw java.net.SocketTimeoutException("图谱加载超时（网络不佳，请重试）")
             }.onSuccess { res ->
-                val layout = GraphLayoutCalc.layout(res.nodes, res.edges)
-                _ui.update {
-                    it.copy(
-                        loading = false,
-                        graph = res,
-                        layout = layout,
-                        studentId = studentId,
-                        paperAssignmentId = null,
-                        paperTitle = ""
-                    )
+                runCatching {
+                    val layout = GraphLayoutCalc.layout(res.nodes, res.edges)
+                    _ui.update {
+                        it.copy(
+                            loading = false,
+                            graph = res,
+                            layout = layout,
+                            studentId = studentId,
+                            paperAssignmentId = null,
+                            paperTitle = ""
+                        )
+                    }
+                }.onFailure { e ->
+                    _ui.update { it.copy(loading = false, error = "图谱处理失败：${e.message}") }
                 }
             }.onFailure { e ->
                 _ui.update {
