@@ -48,6 +48,7 @@ def wrong_out(w: WrongQuestion) -> dict:
         "comment": w.comment,
         "correction": w.correction,
         "first_wrong_step": w.first_wrong_step,
+        "question_type": w.question_type,
         "created_at": _ms(w.created_at) or 0,
         "updated_at": _ms(w.updated_at) or _ms(w.created_at) or 0,
         "deleted_at": _ms(w.deleted_at),
@@ -89,6 +90,8 @@ async def _apply_exam_wrong(
     row.paper_question_id = question.id
     kps = question.knowledge_points or []
     row.knowledge_point = kps[0][:128] if kps and isinstance(kps[0], str) else ""
+    # 题型来自卷题快照：错题本才能按「选择题/填空题/解答题」筛选
+    row.question_type = question.qtype
     row.deleted_at = None
     row.updated_at = now
     row.source = "exam"
@@ -246,6 +249,7 @@ async def upsert_sync(
                 first_wrong_step=it.get("first_wrong_step"),
                 paper_id=it.get("paper_id"),
                 paper_question_id=it.get("paper_question_id"),
+                question_type=it.get("question_type"),
                 source=(it.get("source") or "app"),
                 created_at=_from_ms(incoming_ms) or now,
                 updated_at=now,
@@ -273,6 +277,8 @@ async def upsert_sync(
         row.correction = it.get("correction") or row.correction
         if it.get("first_wrong_step") is not None:
             row.first_wrong_step = it["first_wrong_step"]
+        if it.get("question_type"):
+            row.question_type = it["question_type"]
         row.deleted_at = None
         row.updated_at = now
 

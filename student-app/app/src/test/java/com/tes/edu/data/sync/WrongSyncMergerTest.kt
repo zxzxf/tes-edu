@@ -22,7 +22,8 @@ class WrongSyncMergerTest {
         updatedAt: Long = 100L,
         dirty: Boolean = false,
         deleted: Boolean = false,
-        question: String = "本地题干"
+        question: String = "本地题干",
+        questionType: String? = null
     ) = WrongQuestion(
         id = id,
         question = question,
@@ -30,6 +31,7 @@ class WrongSyncMergerTest {
         correctAnswer = "参考答案",
         knowledgePoint = "MA-B4-C2-S1-K03",
         errorType = "calc",
+        questionType = questionType,
         clientId = clientId,
         remoteId = remoteId,
         updatedAt = updatedAt,
@@ -42,7 +44,8 @@ class WrongSyncMergerTest {
         clientId: String? = "c1",
         updatedAt: Long = 200L,
         question: String = "云端题干",
-        deletedAt: Long? = null
+        deletedAt: Long? = null,
+        questionType: String? = null
     ) = WrongRemote(
         id = id,
         clientId = clientId,
@@ -51,6 +54,7 @@ class WrongSyncMergerTest {
         correctAnswer = "云端答案",
         knowledgePoint = "MA-B4-C2-S1-K03",
         errorType = "calc",
+        questionType = questionType,
         createdAt = 10L,
         updatedAt = updatedAt,
         deletedAt = deletedAt
@@ -200,5 +204,20 @@ class WrongSyncMergerTest {
         assertEquals(1, patched.size)
         assertEquals(1L, patched.single().id)
         assertEquals("generated-1", patched.single().clientId)
+    }
+
+    @Test
+    fun toLocal_mapsQuestionType() {
+        // 服务端记录带题型，合并到本地要原样落下（错题本才能按题型筛选）
+        val r = remote(questionType = "choice")
+        val local = r.toLocal()
+        assertEquals("choice", local.questionType)
+    }
+
+    @Test
+    fun toPushItems_mapsQuestionType() {
+        val q = local(questionType = "blank", dirty = true)
+        val push = WrongSyncMerger.toPushItems(listOf(q)).single()
+        assertEquals("blank", push.questionType)
     }
 }

@@ -149,7 +149,7 @@ interface ExamResultCacheDao {
         ExamDraft::class, ExamPaperCache::class, ExamListCache::class,
         ExamResultCache::class
     ],
-    version = 8
+    version = 9
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun drillCardDao(): DrillCardDao
@@ -175,7 +175,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8
+                        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
                     )
                     .build()
                     .also { instance = it }
@@ -327,6 +327,16 @@ abstract class AppDatabase : RoomDatabase() {
                         "`updated_at` INTEGER NOT NULL, " +
                         "PRIMARY KEY(`cache_key`))"
                 )
+            }
+        }
+
+        /**
+         * v8 → v9：错题本题型列（按「选择题/填空题/解答题」筛选）。
+         * 纯增量 ADD COLUMN，老数据题型留空（由云端回填或手动收题时补），一条不丢。
+         */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE wrong_questions ADD COLUMN question_type TEXT")
             }
         }
     }

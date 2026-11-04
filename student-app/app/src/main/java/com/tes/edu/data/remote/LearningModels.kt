@@ -27,6 +27,8 @@ data class WrongRemote(
     /** M3-9：来源卷 id（exam 判错才有），用于「按卷筛选」。 */
     @SerializedName("paper_id") val paperId: Long? = null,
     @SerializedName("paper_question_id") val paperQuestionId: Long? = null,
+    /** 题型（choice/blank/subjective）：错题本按题型筛选。 */
+    @SerializedName("question_type") val questionType: String? = null,
     @SerializedName("created_at") val createdAt: Long = 0,
     @SerializedName("updated_at") val updatedAt: Long = 0,
     /** 非空 = 服务端已软删，本地要真删。 */
@@ -54,6 +56,8 @@ data class WrongPushItem(
     /** M3-9：来源卷（考试判错自动生成的记录带；手工题不带）。 */
     @SerializedName("paper_id") val paperId: Long? = null,
     @SerializedName("paper_question_id") val paperQuestionId: Long? = null,
+    /** 题型（choice/blank/subjective）：错题本按题型筛选。 */
+    @SerializedName("question_type") val questionType: String? = null,
     @SerializedName("updated_at") val updatedAt: Long = 0,
     val deleted: Boolean = false
 )

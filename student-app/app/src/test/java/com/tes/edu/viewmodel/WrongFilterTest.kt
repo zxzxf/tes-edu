@@ -11,7 +11,8 @@ class WrongFilterTest {
     private fun q(
         kp: String = "KP-A",
         errorType: String? = "calc",
-        paperId: Long? = null
+        paperId: Long? = null,
+        questionType: String? = null
     ) = WrongQuestion(
         id = 1,
         question = "题",
@@ -19,7 +20,8 @@ class WrongFilterTest {
         correctAnswer = "",
         knowledgePoint = kp,
         errorType = errorType,
-        paperId = paperId
+        paperId = paperId,
+        questionType = questionType
     )
 
     @Test
@@ -68,5 +70,22 @@ class WrongFilterTest {
         assertFalse(f.matches(q(kp = "KP-A", errorType = "calc")))
         assertFalse(f.matches(q(kp = "KP-B", errorType = "read")))
         assertTrue(f.matches(q(kp = "KP-A", errorType = "read")))
+    }
+
+    @Test
+    fun filterByQuestionType_onlySameType() {
+        val f = WrongFilter(questionType = "choice")
+        assertTrue(f.active)
+        assertTrue(f.matches(q(questionType = "choice")))
+        assertFalse(f.matches(q(questionType = "blank")))
+        assertFalse("没题型的手工错题不该被题型筛选命中", f.matches(q(questionType = null)))
+    }
+
+    @Test
+    fun filterByKpAndQuestionType_mustMatchBoth() {
+        val f = WrongFilter(kp = "KP-A", questionType = "choice")
+        assertTrue(f.matches(q(kp = "KP-A", questionType = "choice")))
+        assertFalse(f.matches(q(kp = "KP-B", questionType = "choice")))
+        assertFalse(f.matches(q(kp = "KP-A", questionType = "blank")))
     }
 }

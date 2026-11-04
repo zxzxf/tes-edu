@@ -56,6 +56,8 @@ class WrongQuestion(BaseModel):
     wrong_answer: str
     correct_answer: str
     knowledge_point: str
+    # 题型（choice/blank/subjective）：错题本按题型筛选
+    question_type: Optional[str] = None
     # S5 ④ 步骤级归因落点（录入时可选）
     content_hash: Optional[str] = None
     wrong_step_no: Optional[int] = None

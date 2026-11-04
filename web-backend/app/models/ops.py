@@ -107,6 +107,8 @@ class WrongQuestion(Base):
     # M3-9：来源卷/卷题（source=exam 时由判分链路回填），供「按卷筛选 + 重做」
     paper_id = Column(Integer, index=True)
     paper_question_id = Column(Integer)
+    # 题型（choice/blank/subjective）：错题本按题型筛选（选择题/填空题/解答题）
+    question_type = Column(String(16))
 
 
 class DrillCard(Base):

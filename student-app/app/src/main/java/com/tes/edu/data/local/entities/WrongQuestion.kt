@@ -42,5 +42,9 @@ data class WrongQuestion(
     // —— M3-9 按卷筛选（MIGRATION_5_6）——
     // 判错自动进错题本时记下来源卷；手工收进错题本的题没有卷，保持 null。
     @ColumnInfo(name = "paper_id") val paperId: Long? = null,
-    @ColumnInfo(name = "paper_question_id") val paperQuestionId: Long? = null
+    @ColumnInfo(name = "paper_question_id") val paperQuestionId: Long? = null,
+    // —— 题型筛选（MIGRATION_8_9）——
+    // choice/blank/subjective：错题本按「选择题/填空题/解答题」筛选。
+    // 后端按卷题快照回填，手工收的题由输入页带上来。
+    @ColumnInfo(name = "question_type") val questionType: String? = null
 )

@@ -28,19 +28,22 @@ import java.util.UUID
 /** 断网时的轻提示——同步失败不弹错、不打断复习，只说一句"联网后会自动来"。 */
 const val OFFLINE_HINT = "离线中，联网后自动同步"
 
-/** 错题筛选条件：kp=知识点，errorType=错因，paperId=来源卷；都为 null 表示不筛选。 */
+/** 错题筛选条件：kp=知识点，errorType=错因，paperId=来源卷，questionType=题型；都为 null 表示不筛选。 */
 data class WrongFilter(
     val kp: String? = null,
     val errorType: String? = null,
     /** M3-9：按卷筛选。手工收进的错题没有 paperId，不该被任何卷筛中。 */
-    val paperId: Long? = null
+    val paperId: Long? = null,
+    /** 题型筛选：choice/blank/subjective。手动收的题不带题型，不该被任何题型筛中。 */
+    val questionType: String? = null
 ) {
-    val active: Boolean get() = kp != null || errorType != null || paperId != null
+    val active: Boolean get() = kp != null || errorType != null || paperId != null || questionType != null
 
     fun matches(q: WrongQuestion): Boolean =
         (kp == null || q.knowledgePoint == kp) &&
             (errorType == null || q.errorType == errorType) &&
-            (paperId == null || q.paperId == paperId)
+            (paperId == null || q.paperId == paperId) &&
+            (questionType == null || q.questionType == questionType)
 }
 
 /**
@@ -83,6 +86,12 @@ class WrongBookViewModel @JvmOverloads constructor(
     /** 知识点筛选项：本地记录里去重的 kp（离线也有，不依赖后端）。 */
     val kpOptions: StateFlow<List<String>> = items
         .map { list -> list.mapNotNull { it.knowledgePoint.takeIf { kp -> kp.isNotBlank() } } }
+        .map { it.distinct().sorted() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 题型筛选项：本地记录里去重的 questionType（choice/blank/subjective）。 */
+    val questionTypeOptions: StateFlow<List<String>> = items
+        .map { list -> list.mapNotNull { it.questionType?.takeIf { t -> t.isNotBlank() } } }
         .map { it.distinct().sorted() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 

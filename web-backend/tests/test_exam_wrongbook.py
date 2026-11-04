@@ -45,6 +45,8 @@ def test_exam_wrong_question_is_idempotent_and_rejudgment_soft_deletes():
             assert rows[0].client_id == "exam:21"
             assert rows[0].correct_answer == "B"
             assert rows[0].deleted_at is None
+            # 题型应来自卷题快照，供错题本按题型筛选
+            assert rows[0].question_type == "choice"
 
             item.correct = True
             await wrongbook.sync_exam_wrong_question(db, "student-1", item, question)
@@ -244,6 +246,38 @@ def test_teacher_rejudgment_updates_exam_wrongbook():
             await grading.judge_ticket(6, GradingJudgeRequest(verdict="correct"), user=user, db=db)
             assert rows[0].deleted_at is not None
             assert await ops.list_wrong(db, "student-1") == []
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_push_question_type_is_stored_and_returned():
+    """学生端收错题带上 question_type，服务端落库并经 wrong_out 回传。"""
+    async def scenario():
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:", poolclass=StaticPool,
+            connect_args={"check_same_thread": False},
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            await wrongbook.upsert_sync(db, "student-1", [{
+                "client_id": "app:manual-1",
+                "question": "手动收的错题",
+                "my_answer": "A",
+                "correct_answer": "B",
+                "knowledge_point": "MA-B1",
+                "error_type": "calc",
+                "question_type": "choice",
+                "source": "app",
+                "updated_at": 1700000000000,
+            }])
+            rows = (await db.execute(select(WrongQuestion))).scalars().all()
+            assert len(rows) == 1
+            assert rows[0].question_type == "choice"
+            out = wrongbook.wrong_out(rows[0])
+            assert out["question_type"] == "choice"
         await engine.dispose()
 
     asyncio.run(scenario())

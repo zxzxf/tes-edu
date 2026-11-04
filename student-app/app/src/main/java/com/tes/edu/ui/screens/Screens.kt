@@ -123,6 +123,13 @@ private val ERROR_TYPE_LABEL = mapOf(
     "unknown" to "待人工复核"
 )
 
+/** 题型标签：choice/blank/subjective -> 中文（错题本按题型筛选）。 */
+private val QTYPE_LABEL = mapOf(
+    "choice" to "选择题",
+    "blank" to "填空题",
+    "subjective" to "解答题"
+)
+
 /**
  * S4 过程采集：题干 + 多行作答过程 -> 提交判分 -> 展示 judge v2 步骤级归因。
  * T-C2/C3：Hint 阶梯对话（开始引导/回应/等级与分步进度）+
@@ -300,6 +307,7 @@ fun InputScreen(
                 myAnswer = process,
                 correctAnswer = ui.answer,
                 knowledgePoint = ui.knowledgePoints.firstOrNull() ?: "",
+                questionType = ui.questionType,
                 vm = wrongVm
             )
         }
@@ -509,6 +517,7 @@ private fun JudgementCard(
     myAnswer: String,
     correctAnswer: String,
     knowledgePoint: String,
+    questionType: String? = null,
     vm: WrongBookViewModel
 ) {
     val ctx = LocalContext.current
@@ -639,6 +648,7 @@ private fun JudgementCard(
                         myAnswer = myAnswer,
                         correctAnswer = correctAnswer,
                         knowledgePoint = knowledgePoint,
+                        questionType = questionType,
                         errorType = j.errorType,
                         firstWrongStep = j.firstWrongStep,
                         comment = j.comment,
@@ -1209,6 +1219,7 @@ private fun WrongSection(
     val visible by vm.visible.collectAsState()
     val kpOptions by vm.kpOptions.collectAsState()
     val paperOptions by vm.paperOptions.collectAsState()
+    val qtypeOptions by vm.questionTypeOptions.collectAsState()
     val filter by vm.filter.collectAsState()
     val stats by vm.stats.collectAsState()
     val pending by vm.hasPending.collectAsState()
@@ -1268,7 +1279,7 @@ private fun WrongSection(
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                "按来源卷 / 知识点 / 错因挑着看",
+                "按来源卷 / 知识点 / 错因 / 题型挑着看",
                 style = MaterialTheme.typography.labelSmall,
                 color = TesEduColors.TextMuted
             )
@@ -1314,6 +1325,17 @@ private fun WrongSection(
                 selected = filter.errorType,
                 labelOf = { ERROR_TYPE_LABEL[it] ?: it },
                 onSelect = { vm.setFilter(filter.copy(errorType = it)) }
+            )
+        }
+        if (qtypeOptions.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            // 题型筛选：choice/blank/subjective -> 选择题/填空题/解答题
+            ChipRow(
+                title = "题型",
+                options = qtypeOptions,
+                selected = filter.questionType,
+                labelOf = { QTYPE_LABEL[it] ?: it },
+                onSelect = { vm.setFilter(filter.copy(questionType = it)) }
             )
         }
     }
@@ -1525,18 +1547,27 @@ private fun WrongCard(
             color = TesEduColors.TextPrimary
         )
 
-        if (!q.errorType.isNullOrBlank()) {
+        if (!q.errorType.isNullOrBlank() || !q.questionType.isNullOrBlank()) {
             Spacer(Modifier.height(10.dp))
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                InfoPill(
-                    "错因 · ${ERROR_TYPE_LABEL[q.errorType] ?: q.errorType}",
-                    TesEduColors.Danger,
-                    TesEduColors.DangerSoft
-                )
+                q.questionType?.let {
+                    InfoPill(
+                        QTYPE_LABEL[it] ?: it,
+                        TesEduColors.TextSecondary,
+                        TesEduColors.FieldBg
+                    )
+                }
+                q.errorType?.let {
+                    InfoPill(
+                        "错因 · ${ERROR_TYPE_LABEL[it] ?: it}",
+                        TesEduColors.Danger,
+                        TesEduColors.DangerSoft
+                    )
+                }
             }
             q.firstWrongStep?.let {
                 Spacer(Modifier.height(6.dp))
