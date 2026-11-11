@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { useAuthStore } from '../stores/auth'
 import CourseIntake from './CourseIntake.vue'
 
 vi.mock('../api/admin', () => ({
@@ -35,6 +37,35 @@ import {
   setCrawlJobStatus,
   upsertKpNodes
 } from '../api/admin'
+
+/**
+ * 与后端 /course/parse 真实响应同构的精简 fixture：
+ * chapters[].sections[].points[]，节点带 code/code_hint，没有 children。
+ * 完整实跑 fixture 见 utils/courseOutline.test.js。
+ */
+const PARSED = {
+  parser: 'textbook',
+  chapter_count: 1,
+  point_count: 2,
+  chapters: [
+    {
+      title: '第一章 数列',
+      code_hint: '第一章_数列',
+      code: '第一章_数列_4ef3ec',
+      sections: [
+        {
+          title: '第一节 等差数列',
+          code_hint: '第一节_等差数列',
+          code: '第一节_等差数列_b699cb',
+          points: [
+            { name: '等差数列的通项公式', code_hint: '等差数列的通项公式', code: '等差数列的通项公式_65001a' },
+            { name: '等差数列的前n项和', code_hint: '等差数列的前n项和', code: '等差数列的前n项和_60b94c' }
+          ]
+        }
+      ]
+    }
+  ]
+}
 
 const SOURCE = {
   id: 1,
@@ -92,11 +123,15 @@ function buttonByText(wrapper, text) {
 }
 
 beforeEach(() => {
+  setActivePinia(createPinia())
+  useAuthStore().user = { username: 'admin@tes.edu', role: 'admin' }
   vi.clearAllMocks()
   listCourseSources.mockResolvedValue([SOURCE])
   listCrawlJobs.mockResolvedValue([JOB])
   getCrawlMetrics.mockResolvedValue(METRICS)
   listKpNodes.mockResolvedValue([])
+  parseCourseSource.mockResolvedValue(PARSED)
+  upsertKpNodes.mockResolvedValue({ created: 4, skipped: 0, merged: 0, codes: [] })
 })
 
 describe('CourseIntake 课程采集页（M5-1/2/3/4/6、M3-8、M4-4）', () => {
@@ -170,7 +205,7 @@ describe('CourseIntake 课程采集页（M5-1/2/3/4/6、M3-8、M4-4）', () => {
     expect(listCourseSources).toHaveBeenCalledTimes(2)
   })
 
-  it('新建采集任务带上 P1/P2 路径与预算', async () => {
+  it('新建采集任务带上 P1/P2 路径与预算，空 cron 归一成 null', async () => {
     createCrawlJob.mockResolvedValue({ id: 8 })
     const wrapper = mountPage()
     await flushPromises()
@@ -186,6 +221,7 @@ describe('CourseIntake 课程采集页（M5-1/2/3/4/6、M3-8、M4-4）', () => {
     expect(payload.name).toBe('整卷采集')
     expect(payload.path).toBe('P1')
     expect(payload.budget_limit).toBe(50)
+    expect(payload.schedule).toBeNull()
     expect(wrapper.text()).toContain('采集任务已创建')
   })
 
@@ -213,71 +249,82 @@ describe('CourseIntake 课程采集页（M5-1/2/3/4/6、M3-8、M4-4）', () => {
     expect(wrapper.text()).toContain('P2 只入题库')
   })
 
-  it('解析大纲后展示章节与候选知识点数量', async () => {
-    parseCourseSource.mockResolvedValue({
-      chapter_count: 1,
-      point_count: 2,
-      subject: '数学',
-      chapters: []
-    })
+  it('解析大纲后展示章节与知识点数量及可导入候选数', async () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    await wrapper.find('textarea').setValue('第一章 数列')
+    await wrapper.find('textarea').setValue('# 第一章 数列')
     await buttonByText(wrapper, '解析').trigger('click')
     await flushPromises()
 
     expect(parseCourseSource).toHaveBeenCalledWith({
-      text: '第一章 数列',
+      text: '# 第一章 数列',
       source_type: 'textbook'
     })
-    expect(wrapper.text()).toContain('解析出 1 章 / 2 个候选知识点')
+    expect(wrapper.text()).toContain('解析出 1 章 / 2 个知识点')
+    expect(wrapper.text()).toContain('导入 4 个候选')
   })
 
-  it('导入解析结果时把章节树拍平成带 parent_code 的候选', async () => {
-    parseCourseSource.mockResolvedValue({
-      chapter_count: 1,
-      point_count: 2,
-      subject: '数学',
-      chapters: [
-        {
-          code: 'C1',
-          title: '数列',
-          children: [{ code: 'C1-1', name: '等差数列', children: [] }]
-        }
-      ]
-    })
-    upsertKpNodes.mockResolvedValue({ items: [] })
+  it('导入解析结果时把「章→节→点」三层拍平成带合法 code 的候选', async () => {
     listKpNodes.mockResolvedValueOnce([]).mockResolvedValueOnce([
-      { code: 'C1', name: '数列', parent_code: null, source: 'crawled', status: 'draft' }
+      { code: '第一章_数列_4ef3ec', name: '第一章 数列', parent_code: null, source: 'crawled', status: 'draft' }
     ])
     const wrapper = mountPage()
     await flushPromises()
 
-    await wrapper.find('textarea').setValue('第一章 数列')
+    await wrapper.find('textarea').setValue('# 第一章 数列')
     await buttonByText(wrapper, '解析').trigger('click')
     await flushPromises()
-    await buttonByText(wrapper, '导入知识点候选').trigger('click')
+    await buttonByText(wrapper, '导入 4 个候选').trigger('click')
     await flushPromises()
 
     const items = upsertKpNodes.mock.calls[0][0]
-    expect(items).toHaveLength(2)
-    expect(items[0]).toMatchObject({ code: 'C1', name: '数列', parent_code: null, source: 'crawled' })
-    expect(items[1]).toMatchObject({ code: 'C1-1', name: '等差数列', parent_code: 'C1' })
-    expect(wrapper.text()).toContain('已导入 2 个候选')
+    expect(items).toHaveLength(4)
+    expect(items.every((i) => i.code && i.code.length <= 32)).toBe(true)
+    expect(new Set(items.map((i) => i.code)).size).toBe(4)
+    expect(items[0]).toMatchObject({ name: '第一章 数列', parent_code: null, subject: '数学', source: 'crawled' })
+    expect(items[1].parent_code).toBe(items[0].code)
+    expect(items[2]).toMatchObject({ name: '等差数列的通项公式', parent_code: items[1].code })
+    expect(items.map((i) => i.name)).toContain('等差数列的前n项和')
+    expect(wrapper.text()).toContain('已提交 4 个候选')
+  })
+
+  it('学科改为物理时导入 payload 带物理，不再硬编码数学', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('textarea').setValue('# 第一章')
+    await buttonByText(wrapper, '解析').trigger('click')
+    await flushPromises()
+    await wrapper.findAll('select')[4].setValue('物理')
+    await buttonByText(wrapper, '导入 4 个候选').trigger('click')
+    await flushPromises()
+
+    expect(upsertKpNodes.mock.calls[0][0].every((i) => i.subject === '物理')).toBe(true)
   })
 
   it('审核通过调用 published，并刷新当前筛选列表', async () => {
     listKpNodes.mockResolvedValue([
-      { code: 'C1-1', name: '等差数列', parent_code: 'C1', source: 'crawled', status: 'draft' }
+      { code: '等差数列的通项公式_65001a', name: '等差数列的通项公式', parent_code: '第一节_等差数列_b699cb', source: 'crawled', status: 'draft' }
     ])
     const wrapper = mountPage()
     await flushPromises()
 
     await buttonByText(wrapper, '通过').trigger('click')
     await flushPromises()
-    expect(reviewKpNode).toHaveBeenCalledWith('C1-1', 'published')
+    expect(reviewKpNode).toHaveBeenCalledWith('等差数列的通项公式_65001a', 'published')
     expect(listKpNodes).toHaveBeenLastCalledWith('draft')
+  })
+
+  it('教师角色看不到「删除课程源」「回退本次」（后端只允许 admin/school）', async () => {
+    useAuthStore().user = { username: 'teacher@tes.edu', role: 'teacher' }
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const labels = wrapper.findAll('button').map((b) => b.text())
+    expect(labels).not.toContain('删除')
+    expect(labels).not.toContain('回退本次')
+    expect(labels).toContain('执行一次') // 教师仍可手动执行采集
   })
 
   it('后端拒绝时展示 detail，不误报成功', async () => {

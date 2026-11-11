@@ -297,9 +297,11 @@ async def parse_source(
 
 # ------------------------------------------------------------------ 知识点审核（M5-3/4）
 class KpUpsert(BaseModel):
-    code: str
+    # kp_node.code/parent_code 是 String(32)：在入口挡住超长码，避免 DB 抛
+    # DataError 变成 500（B 端联调 2026-11-11：解析结果自带 ≤32 的稳定 code）。
+    code: str = Field(..., min_length=1, max_length=32)
     name: str
-    parent_code: Optional[str] = None
+    parent_code: Optional[str] = Field(default=None, max_length=32)
     subject: Optional[str] = None
     grade: Optional[str] = None
     source: str = "llm"
@@ -315,10 +317,17 @@ async def upsert_kp_nodes(
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    """M5-3：抽取结果入库，新节点默认 draft，已存在的 code 不覆盖。"""
-    return await course_pipeline.upsert_kp_nodes(
+    """M5-3：抽取结果入库，新节点默认 draft，已存在的 code 不覆盖。
+
+    2026-11-11 B 端联调修复：此前漏了 ``commit``，服务层返回 ``created=1``
+    但 get_db 的会话在请求结束时直接 close（未提交的写入被回滚），
+    页面上「导入成功」后 draft 列表依旧为空、点审核 404。
+    """
+    out = await course_pipeline.upsert_kp_nodes(
         db, tenant_id=_tenant(user), items=[i.model_dump() for i in items]
     )
+    await db.commit()
+    return out
 
 
 @router.get("/kp-nodes")

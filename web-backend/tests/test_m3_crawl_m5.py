@@ -315,6 +315,75 @@ def test_parse_outline_handles_markdown():
     assert out["point_count"] == 2
 
 
+# ---------------------------------------------------------------- M5-2 B 端联调契约
+_PILOT_OUTLINE = """# 第一章 数列
+## 第一节 等差数列
+等差数列的通项公式
+等差数列的前n项和
+## 第二节 等比数列
+等比数列的通项公式
+# 第二章 立体几何
+## 第一节 空间向量
+空间向量的坐标运算
+"""
+
+
+def test_parse_outline_emits_stable_short_codes_for_all_layers():
+    """2026-11-11 B 端联调：/course/parse 必须给章/节/点都发 ≤32 的稳定 code。
+
+    旧版只给 ``code_hint``，CourseIntake.vue 却按 ``n.code`` 组装
+    POST /course/kp-nodes 载荷，整批候选 code=undefined 被 422 拦下。
+    这里的具体 code 值与前端 utils/courseOutline.test.js 的 fixture 同源，
+    作为跨语言契约锚点，任一侧改算法都会立刻暴露。
+    """
+    out = course_pipeline.parse_outline(_PILOT_OUTLINE)
+    assert out["chapter_count"] == 2
+    assert out["point_count"] == 4
+    assert out["chapters"][0]["code"] == "第一章_数列_4ef3ec"
+    assert out["chapters"][0]["sections"][0]["points"][0]["code"] == "等差数列的通项公式_65001a"
+
+    codes = []
+    for ch in out["chapters"]:
+        codes.append(ch["code"])
+        for sec in ch["sections"]:
+            codes.append(sec["code"])
+            for point in sec["points"]:
+                codes.append(point["code"])
+    assert len(codes) == 9  # 2 章 + 3 节 + 4 点，三层一个不丢
+    assert all(c and len(c) <= 32 for c in codes)  # kp_node.code = String(32)
+    assert len(set(codes)) == len(codes)          # 全局唯一
+    assert all(not any(x in c for x in "/#?%") for c in codes)  # REST 路径安全
+    again = course_pipeline.parse_outline(_PILOT_OUTLINE)
+    assert [c["code"] for c in again["chapters"]] == [c["code"] for c in out["chapters"]]
+
+
+def test_parse_outline_same_section_title_under_two_chapters_is_distinct():
+    raw = """# 第一章 力学
+## 小结
+牛顿第一定律
+# 第二章 热学
+## 小结
+比热容
+"""
+    out = course_pipeline.parse_outline(raw)
+    a = out["chapters"][0]["sections"][0]["code"]
+    b = out["chapters"][1]["sections"][0]["code"]
+    assert a != b  # 父 code 参与 hash，避免同名小节撞车
+
+
+def test_kp_upsert_schema_rejects_overlong_code():
+    """入口挡住超长 code，避免 DB DataError 变成 500。"""
+    from pydantic import ValidationError
+
+    from app.api.course import KpUpsert
+
+    assert KpUpsert(code="C1", name="数列").code == "C1"
+    with pytest.raises(ValidationError):
+        KpUpsert(code="x" * 33, name="数列")
+    with pytest.raises(ValidationError):
+        KpUpsert(code="C1", name="数列", parent_code="p" * 33)
+
+
 # ---------------------------------------------------------------- M5-3/4
 def test_kp_node_defaults_to_draft_and_review_publishes():
     async def scenario():

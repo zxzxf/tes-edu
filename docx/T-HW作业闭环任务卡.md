@@ -1,6 +1,6 @@
 # T-HW 作业闭环 · 可执行任务卡（M3/M4/M5 共 22 项：代码已落地、迁移已完成，待真实数据与真机验收）
 
-> 来源：`docx/学生Agent需求变更-任务方案书.md` v1.5（M0~M5 共 47 项）+ `docx/总任务清单与排期计划.md` v5.7（仪表盘：T-HW 47 项 / **25 完成（M0〜M2）/ 22 部分·待验收（M3〜M5）/ 0 未开始**）。
+> 来源：`docx/学生Agent需求变更-任务方案书.md` v1.5（M0~M5 共 47 项）+ `docx/总任务清单与排期计划.md` v5.8（仪表盘：T-HW 47 项 / **25 完成（M0〜M2）/ 22 部分·待验收（M3〜M5）/ 0 未开始**）。
 > 范围：本卡集覆盖**除 M0-2 外的 46 项**。每一项给出可直接开工的「步骤 + 验收 + 依赖 + 涉及文件/表 + 波次 + 估点」。
 > 估点口径：拆分自方案书 §7（研发 128 人日 + 联调 26 人日 ≈154），**含前后端联调**，仅作排期参考。
 >
@@ -12,7 +12,9 @@
 >
 > **2026-11-11 补记（v5.6 M4-2 修复与正式发版）**：M4-2 规则组卷器 14 场景生产库 dry-run **首次验收不通过**（基线 10 题误报「知识点题源不足」，根因：69 道选择题 100% 多标签、63 个 kp 仅 1 题，按 kp 分配配额与全局 hash 去重冲突）。`666aeb2` 改题目级贪心最大覆盖 + 5 个真实分布单测（本地 582 passed），`2254e3f` 难度配比改按档位缺口紧迫度优先 + 1 个回归单测（本地 583 passed）。14 场景重跑：A/J/M/N 全部出卷成功、A 覆盖 40 kp，C/D/F/G 题源不足仍显式报错，B（7/10）/ L（6/10）经核验为客观题源不足，E 难度 1 由「实际 0」改善为「实际 3」；全程 rollback 零落库。**已正式发版 137**（镜像 `d404e001`，回滚点 `bak-20261111`），healthz / Kafka / 登录 JWT / 网关鉴权链全绿，线上 worker 已从新镜像加载新算法。**22 项计数仍为 25 完成 / 22 部分·待验收 / 0 未开始**，B 端组卷页与真机呈现未验。详见《总任务清单与排期计划》v5.6。**【v5.7 订正】v5.6 的「M5 灌真实数据」建议已于 11-11 执行。**
 >
-> **2026-11-11 补记（v5.7 M5 课程采集链路真实数据验收）**：用仓库真实素材（人教A版教材题 4 道 / 435 点大纲 / 高考细标题库包）经事务回滚式 dry-run 后真实落库，**五张空表全部灌满**：`course_source` 3（file/url/bank_pack，黑名单源阻断）、`crawl_job` 3、`crawl_run` 5（3 ok / 2 stopped）、`exam_paper_intake` 2（P1 卷 + P2 拆题各 1）、`kp_node` 4（全 draft）；另 +4 道 `auto_crawl` draft 教材题、+1 张未发布采集卷。`published` 池仍 213 行、已发布卷仍 6 张、`kb_knowledge_points` 仍 435 行，**未污染线上可用数据**。M5-4 审核发布与 `rollback_run` 一键回退均在事务内验证后 rollback（不留痕）。**22 项计数仍为 25 完成 / 22 部分·待验收 / 0 未开始**：B 端页面、教师审核流前端、LLM 抽取环节、真机呈现未验。回滚用官方 `rollback_run(run_id=6/7)`，元数据按 `【M5验收20261111】` / `M5V-` 前缀清理。脚本与素材落 137 `/opt/deploy/m5_sources/`、`/opt/deploy/_m5_pipeline.py` / `_m5_verify.py`。详见《总任务清单与排期计划》v5.7。
+> **2026-11-11 补记（v5.7 M5 课程采集链路真实数据验收）**：用仓库真实素材（人教A版教材题 4 道 / 435 点大纲 / 高考细标题库包）经事务回滚式 dry-run 后真实落库，**五张空表全部灌满**：`course_source` 3（file/url/bank_pack，黑名单源阻断）、`crawl_job` 3、`crawl_run` 5（3 ok / 2 stopped）、`exam_paper_intake` 2（P1 卷 + P2 拆题各 1）、`kp_node` 4（全 draft）；另 +4 道 `auto_crawl` draft 教材题、+1 张未发布采集卷。`published` 池仍 213 行、已发布卷仍 6 张、`kb_knowledge_points` 仍 435 行，**未污染线上可用数据**。M5-4 审核发布与 `rollback_run` 一键回退均在事务内验证后 rollback（不留痕）。**22 项计数仍为 25 完成 / 22 部分·待验收 / 0 未开始**：B 端页面、教师审核流前端、LLM 抽取环节、真机呈现未验。回滚用官方 `rollback_run(run_id=6/7)`，元数据按 `【M5验收20261111】` / `M5V-` 前缀清理。脚本与素材落 137 `/opt/deploy/m5_sources/`、`/opt/deploy/_m5_pipeline.py` / `_m5_verify.py`。详见《总任务清单与排期计划》v5.7。**【v5.8 订正】B 端页面 / 教师审核流前端已于 11-11 联调通过，详见下方 v5.8 补记。**
+>
+> **2026-11-11 补记（v5.8 B 端采集/审核页联调验收）**：按用户指定账号 `pilot@school01.edu / demo1234`（role=`school`、tenant=`school_pilot_01`）走 137 edu-lb → 网关 → web-backend → 106 PG 做真实 HTTP 端到端联调，**基线 16/18 → 最终 24/24 全绿**。抓出并修复 4 个真实缺陷：① `CourseIntake.vue` 用 `n.code` + `n.children` 拍平，而 `/course/parse` 真实响应是 `chapters[].sections[].points[]` 且只有 `code_hint` → 导入 code 全空、知识点层丢失；② `POST /course/kp-nodes` **漏 `await db.commit()`**，返回 `created=1` 却未落库、审核 404；③ 教师可见「删除源 / 回退本次」按钮但后端只允许 ADMIN/SCHOOL（403）；④ 空 cron `''` 被判非法（400）。另修中文 code URL 编码、学科硬编码数学、403 中文提示。后端给章/节/点签发稳定短 `code`（≤32、幂等、URL 安全）并补 `max_length=32` 校验，前端新增 `utils/courseOutline.js` 纯函数按真实三层拍平（兼容旧镜像）。测试：前端 **18 文件 / 161 passed**（新增 14 例 + 重写 14 例，fixture 取后端实跑输出）、后端 **591 passed**（新增 `test_course_kp_api.py` 5 例 HTTP+sqlite 真库闭环）。**已正式发版 137**：后端 `bak-20261111b`（解析 code）/ `bak-20261111c`（补 commit）、前端 `edu-web-front:bak-20261111b`（`index-Co-hrkFA.js`），均带网络别名，healthz / JWT / 网关鉴权链全绿。验收写闭环：`BLI20261111A` 导入 → draft 可见 → 通过（DAG 命中 1）→ 已发布可见 → 退回；题目 `id=262` 通过 / 退回；教师 403 与 school 404 角色闸门对照通过；finally 精确清理后 **NO_RESIDUE=True**（`kp_residue=0 / dag_residue=0 / published_questions=213`）。**两项事实订正**：v5.7 的 `kb_knowledge_points` 435 行已过时（当前 439，`M5V-TB-` 4 点后来被发布、id 438~441），`kp_node` 现为 published 4 / draft 0；`crawl_job` 4 / `crawl_run` 7 系 active 定时任务持续产出。**22 项计数仍为 25 完成 / 22 部分·待验收 / 0 未开始**：本轮补的是 M5-1/3/4 卡的前端联调维度，未验维度收敛为 LLM 抽取环节、App 真机呈现与 M3/M4 剩余 12 张卡。脚本落 137 `/opt/deploy/_b_*.py`。详见《总任务清单与排期计划》v5.8。
 >
 > 波次（取自主计划 §4.1 启动策略）：**W10** M0 → **W11** M1 → **W12** M2 → **W13** M4 → **W14** M3 → **W15** M5。与方案书 §9.2 首期 MVP（高三·数学·纯选择题卷）对齐：W10~W13 中 `paper_type=pure_choice` / `qtype=choice` 路径优先。
 
@@ -588,7 +590,7 @@
 - **验收（可测）**：建 1 个文件源 + 1 个 URL 源 → 列表可见；启停状态切换生效。
 - **涉及**：`course_source`、教师端页面。
 - **波次/估点**：W15 / ≈3d
-- **状态**：✅ 已完成：`course_source`（迁移 0015）+ `GET/POST/DELETE /admin/course/sources`、`POST /sources/{id}/status`；教师页 `CourseIntake.vue` 支持增删、启停、文件/URL/题库包三类源。**【2026-11-11 生产实测】** 建 3 个真实源（file / url / bank_pack），合规黑名单「禁止转载」被前置阻断且未落库，源启停 `active↔paused` 生效、列表返回 3 行；`course_source` 0→3。
+- **状态**：✅ 已完成：`course_source`（迁移 0015）+ `GET/POST/DELETE /admin/course/sources`、`POST /sources/{id}/status`；教师页 `CourseIntake.vue` 支持增删、启停、文件/URL/题库包三类源。**【2026-11-11 生产实测】** 建 3 个真实源（file / url / bank_pack），合规黑名单「禁止转载」被前置阻断且未落库，源启停 `active↔paused` 生效、列表返回 3 行；`course_source` 0→3。**【v5.8 B 端联调】** `pilot@school01.edu` 登录 GET `/course/sources` 返回 3 行、`/menu/my` 含 `/ops/course-intake`；教师角色不再显示「删除」（后端 403 已复现），school 角色对不存在 id 返回 404 证明过闸门；新建任务空 cron 归一 `null` 后不再 400。
 
 ## 卡 M5-2｜课程解析 pipeline
 - **归口**：agent-backend（解析）
@@ -601,7 +603,7 @@
 - **验收（可测）**：喂一份教材 PDF/大纲 → 输出结构化章节树。
 - **涉及**：`course_source.parser`、解析 pipeline。
 - **波次/估点**：W15 / ≈4d
-- **状态**：✅ 已完成：`services/course_pipeline.py` 按 `source_type` 选解析器，输出章节树 + 候选知识点；`POST /admin/course/parse` 不落库先看结构化大纲。**【2026-11-11 生产实测】** 喂真实 435 点人教A版大纲 md（标题层级归一后）→ **5 册 / 19 节 / 435 个候选知识点**；原始 md 直喂得 1 章 / 437 点；纯函数不落库。
+- **状态**：✅ 已完成：`services/course_pipeline.py` 按 `source_type` 选解析器，输出章节树 + 候选知识点；`POST /admin/course/parse` 不落库先看结构化大纲。**【2026-11-11 生产实测】** 喂真实 435 点人教A版大纲 md（标题层级归一后）→ **5 册 / 19 节 / 435 个候选知识点**；原始 md 直喂得 1 章 / 437 点；纯函数不落库。**【v5.8 联调修复】** 此前响应只有 `code_hint` 导致前端按 `n.code` 组装的导入载荷全空：现给章/节/点都签发稳定短 `code`（`slug_sha1(父code/标题)` ≤32、幂等、URL 安全），旧字段保留兼容；`POST /course/parse` 实测 2 章 / 3 节 / 4 点共 9 个 code 全合法且唯一。
 
 ## 卡 M5-3｜知识点拆分与挂载
 - **归口**：agent-backend（LLM 抽取）+ web-backend（`kp_node`）
@@ -614,7 +616,7 @@
 - **验收（可测）**：抽取的知识点去重后入库；重复知识点不重复建节点；新节点 `status=draft`。
 - **涉及**：`kp_node`、`kb_knowledge_points`、`resolve_kp_codes`（唯一写侧）。
 - **波次/估点**：W15 / ≈4d
-- **状态**：✅ 已完成：`upsert_kp_nodes` 先走 `mastery.resolve_kp_codes`——已进 DAG 的归并（`merged`），新节点 `status=draft`，不再造第二套 code 体系。**【2026-11-11 生产实测】** 4 个真实教材考点（新 code）+ 2 个 DAG 已有 code → `created=4 / merged=2 / skipped=0`，幂等复跑 `created=0 / skipped=4 / merged=2`；4 个新节点全 `draft` 且在 `kb_knowledge_points` 命中 0；`kp_node` 0→4。（本轮用真实大纲的确定性候选点，**未跑 LLM 抽取**，该环节仍待验）
+- **状态**：✅ 已完成：`upsert_kp_nodes` 先走 `mastery.resolve_kp_codes`——已进 DAG 的归并（`merged`），新节点 `status=draft`，不再造第二套 code 体系。**【2026-11-11 生产实测】** 4 个真实教材考点（新 code）+ 2 个 DAG 已有 code → `created=4 / merged=2 / skipped=0`，幂等复跑 `created=0 / skipped=4 / merged=2`；4 个新节点全 `draft` 且在 `kb_knowledge_points` 命中 0；`kp_node` 0→4。（本轮用真实大纲的确定性候选点，**未跑 LLM 抽取**，该环节仍待验）**【v5.8 联调修复】** B 端导入链路实测发现 `POST /course/kp-nodes` 路由**漏 `await db.commit()`**：服务层返回 `created=1` 但会话 close 时回滚，页面显示「导入成功」后 draft 列表仍空、点审核 404。已补 commit 并新增 `tests/test_course_kp_api.py` 5 例 HTTP+sqlite 真库闭环（导入 → 列表可见 → 审核 → 可退回、幂等、超长 code 422）；前端 `utils/courseOutline.js` 按真实三层拍平，9 个候选父子成链、code 全 ≤32。137 端到端复验导入 `BLI20261111A` 后 draft 可见、发布写 DAG、退回恢复，清理后零残留。
 
 ## 卡 M5-4｜知识点审核与发布
 - **归口**：web-frontend（审核流）+ web-backend
@@ -626,7 +628,7 @@
 - **验收（可测）**：`draft` 知识点学生端图谱不可见；审核后可见。
 - **涉及**：`kp_node.status`、审核流。
 - **波次/估点**：W15 / ≈3d
-- **状态**：✅ 已完成：`POST /admin/course/kp-nodes/{code}/review`；`draft` 不进学生图谱，审核通过写 `kb_knowledge_points` 后可见，可退回。**【2026-11-11 生产实测】** 事务内验证：发布后 DAG 命中 1、`kp_node.status=published`，退回 `draft` 后命中 0；验证后整体 rollback，`kb_knowledge_points` 仍 435 行不受污染。**B 端审核页 / 教师审核流前端未验。**
+- **状态**：✅ 已完成：`POST /admin/course/kp-nodes/{code}/review`；`draft` 不进学生图谱，审核通过写 `kb_knowledge_points` 后可见，可退回。**【2026-11-11 生产实测】** 事务内验证：发布后 DAG 命中 1、`kp_node.status=published`，退回 `draft` 后命中 0；验证后整体 rollback。（当时 `kb_knowledge_points` 435 行；**v5.8 订正**：当前 439 行，M5 的 4 个 `M5V-TB-` 教材点后来被发布各写入 1 行，非本轮联调造成。）**【v5.8 B 端联调已通过】** `pilot@school01.edu` 走 HTTP：`BLI20261111A` 导入 → draft 列表可见 → 「通过」返回 `published_to_kb=True` 且 DAG 命中 1 → 「已发布」筛选可见 → 「退回」恢复 draft；题目审核流 `id=262` 通过 / 退回同步验过；中文 code 已在 `api/admin.js` 做 `encodeURIComponent`。所有写入 finally 精确清理，`NO_RESIDUE=True`。**LLM 抽取环节与 App 端真机呈现仍未验。**
 
 ## 卡 M5-5｜采集合规与预算
 - **归口**：web-backend（合规校验 + 预算）

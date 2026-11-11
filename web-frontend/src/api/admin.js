@@ -187,7 +187,9 @@ export function upsertKpNodes(items) {
   return client.post('/course/kp-nodes', items)
 }
 export function reviewKpNode(code, status) {
-  return client.post(`/course/kp-nodes/${code}/review`, { status })
+  // code 允许中文（后端按标题生成稳定短码），必须编码后再拼进 REST 路径，
+  // 否则中文/特殊字符会被浏览器截断或误解析（B 端联调 2026-11-11）。
+  return client.post(`/course/kp-nodes/${encodeURIComponent(code)}/review`, { status })
 }
 
 // M2-9 / G1 答案双源交叉校验：答案是判分唯一依据，没验证过的答案不许发布

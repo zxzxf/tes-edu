@@ -40,7 +40,7 @@
             <td><span class="tes-pill" :class="s.status === 'active' ? 'success' : 'warn'">{{ s.status === 'active' ? '已启用' : '已暂停' }}</span></td>
             <td>
               <button class="ghost" :disabled="busy" @click="toggleSource(s)">{{ s.status === 'active' ? '暂停' : '启用' }}</button>
-              <button class="ghost danger" :disabled="busy" @click="removeSource(s)">删除</button>
+              <button v-if="canManage" class="ghost danger" :disabled="busy" @click="removeSource(s)">删除</button>
             </td>
           </tr>
         </tbody>
@@ -122,7 +122,7 @@
             <td>{{ r.paper_id ? '#' + r.paper_id : '—' }}</td>
             <td>
               <button
-                v-if="r.status !== 'running'"
+                v-if="canManage && r.status !== 'running'"
                 class="ghost danger"
                 :disabled="busy"
                 @click="rollback(r)"
@@ -137,8 +137,8 @@
     <section class="tes-card">
       <div class="head"><b>课程解析 pipeline（M5-2）</b></div>
       <label class="block">
-        <span>粘贴教材/大纲文本</span>
-        <textarea v-model="outlineText" rows="6" placeholder="第一章 数列\n第一节 等差数列\n…"></textarea>
+        <span>粘贴教材/大纲文本（支持 <code># 章</code> / <code>## 节</code>，或「第X章 / 第X节」）</span>
+        <textarea v-model="outlineText" rows="6" placeholder="# 第一章 数列&#10;## 第一节 等差数列&#10;等差数列的通项公式&#10;等差数列的前n项和"></textarea>
       </label>
       <div class="row">
         <label>
@@ -151,9 +151,25 @@
             <option value="bank">题库包</option>
           </select>
         </label>
+        <label>
+          <span>学科（后端解析结果不带学科）</span>
+          <select v-model="kpSubject">
+            <option value="数学">数学</option>
+            <option value="物理">物理</option>
+            <option value="化学">化学</option>
+            <option value="语文">语文</option>
+            <option value="英语">英语</option>
+          </select>
+        </label>
         <button class="ghost" :disabled="busy" @click="parseOutline">解析</button>
-        <button v-if="parsed" class="tes-btn-primary" :disabled="busy" @click="importParsed">导入知识点候选</button>
+        <button v-if="parsed" class="tes-btn-primary" :disabled="busy" @click="importParsed">
+          导入 {{ candidateCount }} 个候选
+        </button>
       </div>
+      <p v-if="parsed" class="hint">
+        解析出 {{ parsed.chapter_count }} 章 / {{ parsed.point_count }} 个知识点，
+        按「章 → 节 → 知识点」三层拍平为 {{ candidateCount }} 个 draft 候选，审核通过后才进学生端图谱。
+      </p>
       <pre v-if="parsed" class="outline">{{ JSON.stringify(parsed, null, 2) }}</pre>
     </section>
 
@@ -189,7 +205,9 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useAuthStore } from '../stores/auth'
+import { flattenOutline } from '../utils/courseOutline'
 import {
   createCourseSource,
   createCrawlJob,
@@ -223,10 +241,18 @@ const job = reactive({ name: '', source_id: null, path: 'P2', schedule: '', budg
 
 const outlineText = ref('')
 const outlineType = ref('textbook')
+const kpSubject = ref('数学')
 const parsed = ref(null)
+const candidateCount = computed(() => flattenOutline(parsed.value, kpSubject.value).length)
+
+// 后端 delete /course/sources 与 rollback /course/runs 只允许 ADMIN/SCHOOL：
+// 教师角色看到按钮点下去只会 403（B 端联调 2026-11-11 实测），这里按角色收敛。
+const auth = useAuthStore()
+const canManage = computed(() => ['admin', 'school'].includes(auth.user?.role))
 
 function errText(e) {
   const d = e?.response?.data?.detail
+  if (d === 'insufficient role') return '权限不足：该操作仅管理员 / 学校管理员可执行'
   if (typeof d === 'string') return d
   if (d?.message) return d.message
   return e?.message || '请求失败'
@@ -279,7 +305,9 @@ async function loadJobs() {
 
 async function addJob() {
   await guard(async () => {
-    await createCrawlJob({ ...job })
+    // 空 cron 必须归一成 null：后端 create_job 对任何非空串都跑 parse_cron，
+    // 直接传 '' 会被判成「非法 5 段 cron」而 400（页面却写着「可空」）。
+    await createCrawlJob({ ...job, schedule: (job.schedule || '').trim() || null })
     job.name = ''
     jobs.value = await listCrawlJobs()
     msg.value = '采集任务已创建（cron 非法会被后端拒绝）'
@@ -339,31 +367,22 @@ async function parseOutline() {
       text: outlineText.value,
       source_type: outlineType.value
     })
-    msg.value = `解析出 ${parsed.value.chapter_count} 章 / ${parsed.value.point_count} 个候选知识点`
+    msg.value = `解析出 ${parsed.value.chapter_count} 章 / ${parsed.value.point_count} 个知识点，可导入 ${candidateCount.value} 个候选`
   })
 }
 
 async function importParsed() {
   await guard(async () => {
-    const items = []
-    const walk = (nodes, parent) => {
-      for (const n of nodes || []) {
-        items.push({
-          code: n.code,
-          name: n.title || n.name,
-          parent_code: parent || null,
-          subject: parsed.value.subject || '数学',
-          source: 'crawled'
-        })
-        walk(n.children || n.sections || [], n.code)
-      }
-    }
-    walk(parsed.value.chapters || parsed.value.outline || [], null)
+    // 拍平规则按后端 /course/parse 的真实三层结构（chapters/sections/points），
+    // code 用后端签发的稳定短码；见 utils/courseOutline.js 与联调回归单测。
+    const items = flattenOutline(parsed.value, kpSubject.value)
     if (!items.length) throw new Error('没有可导入的知识点候选')
-    await upsertKpNodes(items)
+    const out = await upsertKpNodes(items)
     kpStatus.value = 'draft'
     kpNodes.value = await listKpNodes('draft')
-    msg.value = `已导入 ${items.length} 个候选（draft，待审核）`
+    const created = out?.created ?? items.length
+    const merged = out?.merged ?? 0
+    msg.value = `已提交 ${items.length} 个候选：新建 ${created} 个、与已发布知识点合并 ${merged} 个（draft，待审核）`
   })
 }
 

@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -40,15 +41,59 @@ def _slug(text_value: str, fallback: str) -> str:
     return base or fallback
 
 
+def _candidate_code(text_value: str, kind: str, parent_code: str = "") -> str:
+    """生成可直接写入 ``kp_node.code`` 的稳定 code（String(32)）。
+
+    2026-11-11 B 端联调修复：此前解析结果只有 ``code_hint``（名称 slug），
+    ``CourseIntake.vue`` 却按 ``n.code`` 构造 POST /course/kp-nodes 的 payload，
+    导致整批候选 ``code=undefined`` 被 422 拦下、且 ``points`` 层未被遍历。
+    这里由后端给每个章/节/点都发一个确定性的短 code：
+    - 同一份大纲重复解析 → 同一 code，前端重复导入时 upsert 幂等跳过；
+    - 父 code 参与 hash → 不同章节下的同名小节不撞车（KpNode.code 全局唯一）；
+    - 只含字母/数字/中文/下划线 → 可直接放进 REST 路径，无需转义。
+    """
+    slug = _slug(text_value, kind)
+    digest = hashlib.sha1(f"{parent_code}/{text_value}".encode("utf-8")).hexdigest()[:6]
+    return f"{slug}_{digest}"[:32]
+
+
+def _new_chapter(title: str) -> Dict[str, Any]:
+    t = title[:200]
+    return {
+        "title": t, "code_hint": _slug(t, "ch"),
+        "code": _candidate_code(t, "ch"), "sections": [],
+    }
+
+
+def _new_section(title: str, chapter: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    t = title[:200]
+    return {
+        "title": t, "code_hint": _slug(t, "sec"),
+        "code": _candidate_code(t, "sec", (chapter or {}).get("code", "")), "points": [],
+    }
+
+
+def _new_point(name: str, section: Dict[str, Any]) -> Dict[str, Any]:
+    t = name[:200]
+    return {
+        "name": t, "code_hint": _slug(t, "point"),
+        "code": _candidate_code(t, "point", section["code"]),
+    }
+
+
 def parse_outline(raw: str, *, source_type: str = "textbook") -> Dict[str, Any]:
     """把原始文本切成 ``章节树 + 候选知识点``。
 
     输出::
 
         {"parser": "textbook",
-         "chapters": [{"title", "code_hint", "sections": [
-             {"title", "code_hint", "points": [{"name", "code_hint"}]}]}],
-         "point_count": n}
+         "chapters": [{"title", "code_hint", "code", "sections": [
+             {"title", "code_hint", "code",
+              "points": [{"name", "code_hint", "code"}]}]}],
+         "chapter_count": n, "point_count": m}
+
+    ``code`` 是给 ``POST /course/kp-nodes`` 直接消费的稳定短码（≤32 字符），
+    前端不再自行拼装；旧的 ``code_hint`` 保留兼容其它调用方。
     """
     parser = PARSER_BY_TYPE.get((source_type or "").strip().lower(), "text")
     chapters: List[Dict[str, Any]] = []
@@ -67,16 +112,13 @@ def parse_outline(raw: str, *, source_type: str = "textbook") -> Dict[str, Any]:
                 name = line.strip(" \t·-•")
                 if not name or len(name) < 2:
                     continue
-                current_sec["points"].append({
-                    "name": name[:200],
-                    "code_hint": _slug(name, "point"),
-                })
+                current_sec["points"].append(_new_point(name, current_sec))
         buffer = []
 
     def push_section(title: str) -> None:
         nonlocal current_sec
         flush_points()
-        current_sec = {"title": title[:200], "code_hint": _slug(title, "sec"), "points": []}
+        current_sec = _new_section(title, current_ch)
         if current_ch is not None:
             current_ch["sections"].append(current_sec)
 
@@ -87,28 +129,24 @@ def parse_outline(raw: str, *, source_type: str = "textbook") -> Dict[str, Any]:
             level, title = len(md.group(1)), md.group(2).strip()
             if level == 1:
                 flush_points()
-                current_ch = {
-                    "title": title[:200], "code_hint": _slug(title, "ch"), "sections": [],
-                }
+                current_ch = _new_chapter(title)
                 chapters.append(current_ch)
                 current_sec = None
             else:
                 if current_ch is None:
-                    current_ch = {"title": "（未命名章节）", "code_hint": "ch", "sections": []}
+                    current_ch = _new_chapter("（未命名章节）")
                     chapters.append(current_ch)
                 push_section(title)
             continue
         if _CHAPTER_RE.match(line):
             flush_points()
-            current_ch = {
-                "title": line.strip()[:200], "code_hint": _slug(line, "ch"), "sections": [],
-            }
+            current_ch = _new_chapter(line.strip())
             chapters.append(current_ch)
             current_sec = None
             continue
         if _SECTION_RE.match(line):
             if current_ch is None:
-                current_ch = {"title": "（未命名章节）", "code_hint": "ch", "sections": []}
+                current_ch = _new_chapter("（未命名章节）")
                 chapters.append(current_ch)
             push_section(line.strip())
             continue
@@ -116,7 +154,7 @@ def parse_outline(raw: str, *, source_type: str = "textbook") -> Dict[str, Any]:
             if current_sec is None:
                 # 无小标题的正文：建立一个「正文」小节，避免整章知识点全丢
                 if current_ch is None:
-                    current_ch = {"title": "（未命名章节）", "code_hint": "ch", "sections": []}
+                    current_ch = _new_chapter("（未命名章节）")
                     chapters.append(current_ch)
                 push_section("正文")
             buffer.append(line)
