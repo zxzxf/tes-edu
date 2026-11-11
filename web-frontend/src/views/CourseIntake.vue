@@ -117,7 +117,10 @@
           <tr v-for="r in metrics.recent.slice(0, 10)" :key="r.id">
             <td>{{ r.id }}</td>
             <td>{{ r.job_id }}</td>
-            <td>{{ r.status }}</td>
+            <td>
+              {{ r.status }}
+              <span v-if="r.error" class="tes-err" :title="r.error">{{ r.error.length > 16 ? r.error.slice(0, 16) + '…' : r.error }}</span>
+            </td>
             <td>{{ r.inserted }} / {{ r.duplicated }} / {{ r.failed }}</td>
             <td>{{ r.paper_id ? '#' + r.paper_id : '—' }}</td>
             <td>
@@ -412,4 +415,5 @@ onMounted(() => {
 .outline { background: #f7f8fa; padding: 12px; border-radius: 8px; max-height: 320px; overflow: auto; font-size: 12px; }
 .stat { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; }
 .ghost.danger { color: #c62828; }
+.tes-err { display: block; margin-top: 2px; font-size: 11px; color: #b42318; }
 </style>

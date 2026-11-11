@@ -590,7 +590,7 @@
 - **验收（可测）**：建 1 个文件源 + 1 个 URL 源 → 列表可见；启停状态切换生效。
 - **涉及**：`course_source`、教师端页面。
 - **波次/估点**：W15 / ≈3d
-- **状态**：✅ 已完成：`course_source`（迁移 0015）+ `GET/POST/DELETE /admin/course/sources`、`POST /sources/{id}/status`；教师页 `CourseIntake.vue` 支持增删、启停、文件/URL/题库包三类源。**【2026-11-11 生产实测】** 建 3 个真实源（file / url / bank_pack），合规黑名单「禁止转载」被前置阻断且未落库，源启停 `active↔paused` 生效、列表返回 3 行；`course_source` 0→3。**【v5.8 B 端联调】** `pilot@school01.edu` 登录 GET `/course/sources` 返回 3 行、`/menu/my` 含 `/ops/course-intake`；教师角色不再显示「删除」（后端 403 已复现），school 角色对不存在 id 返回 404 证明过闸门；新建任务空 cron 归一 `null` 后不再 400。
+- **状态**：✅ 已完成：`course_source`（迁移 0015）+ `GET/POST/DELETE /admin/course/sources`、`POST /sources/{id}/status`；教师页 `CourseIntake.vue` 支持增删、启停、文件/URL/题库包三类源。**【2026-11-11 生产实测】** 建 3 个真实源（file / url / bank_pack），合规黑名单「禁止转载」被前置阻断且未落库，源启停 `active↔paused` 生效、列表返回 3 行；`course_source` 0→3。**【v5.8 B 端联调】** `pilot@school01.edu` 登录 GET `/course/sources` 返回 3 行、`/menu/my` 含 `/ops/course-intake`；教师角色不再显示「删除」（后端 403 已复现），school 角色对不存在 id 返回 404 证明过闸门；新建任务空 cron 归一 `null` 后不再 400。**【v5.9 采集任务可用】** 此前「执行一次」只会写 `fetched=0/inserted=0` 的空运行（全仓库无「读 `CourseSource.uri` 内容」的函数，`run_job` 只接调用方显式 items）；现已新增 `crawl_fetch.py`（SSRF 安全抓取 + 本地文件根 `/opt/course-sources` + bank 题库包中→英映射），`run_job(items=None)` 自动从源抓取+解析+入库，137 真验 `bank_pack` 源 P2 运行 `fetched/inserted=123/123`、P1 `dup=123` 去重；补 `DELETE /jobs/{id}` 端点与前端运行日志 error 展示；容器挂载 `/opt/course-sources(ro)`。计数仍 25/22/0。
 
 ## 卡 M5-2｜课程解析 pipeline
 - **归口**：agent-backend（解析）

@@ -25,6 +25,9 @@ from app.models.ops import CrawlJob, CrawlRun, CourseSource
 
 log = logging.getLogger(__name__)
 
+#: 采集源抓取与解析（让「采集任务」真正能采：从源读内容 -> 解析成 items）。
+from app.services import crawl_fetch  # noqa: E402
+
 #: 版权/内容合规黑名单（M5-5）。业务给正式清单前，这里只放「明确不可采集」的源，
 #: 命中即阻断——**默认放行**，否则任何新源都要等人工改代码才能用。
 COMPLIANCE_BLOCKLIST: Tuple[str, ...] = (
@@ -276,6 +279,36 @@ async def create_job(
     return row
 
 
+async def _resolve_items_from_source(
+    db: AsyncSession, job: CrawlJob
+) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """从采集源抓取内容并解析成题目 items（供 UI「执行一次」/ 定时调度复用）。
+
+    返回 ``(items, reason)``：``reason`` 非空表示未能产出结构化题——要么源抓取
+    失败（记 failed），要么是非结构化内容需 LLM 抽取（记 ok + 原因，不再静默 0）。
+    """
+    if not job.source_id:
+        return [], None
+    src = (
+        await db.execute(
+            select(CourseSource).where(
+                CourseSource.id == job.source_id,
+                CourseSource.tenant_id == job.tenant_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if src is None:
+        return [], f"采集源 {job.source_id} 不存在或不属于本租户"
+    try:
+        content = await crawl_fetch.fetch_source_content(src)
+    except Exception as exc:  # noqa: BLE001 抓取异常要落进运行日志，不能让任务静默崩
+        return [], f"源抓取失败：{exc}"
+    items, reason = crawl_fetch.parse_items(content, src.source_type)
+    if reason:
+        return [], reason
+    return items, None
+
+
 async def run_job(
     db: AsyncSession,
     job: CrawlJob,
@@ -299,7 +332,18 @@ async def run_job(
         job.status = "stopped"
         return run
 
-    rows = list(items or [])
+    rows: List[Dict[str, Any]] = []
+    if items is None:
+        # 调用方没显式给 items（UI「执行一次」/ 定时调度都走这里）：
+        # 真正从采集源抓取内容并解析，而不是静默记一条 fetched=0 的空运行。
+        resolved, reason = await _resolve_items_from_source(db, job)
+        if reason:
+            run.error = reason
+            if reason.startswith(("源抓取失败", "采集源", "不支持的源")):
+                run.status = "failed"
+        rows = resolved
+    else:
+        rows = list(items)
     run.fetched = len(rows)
     inserted = duplicated = failed = 0
     paper_id = None

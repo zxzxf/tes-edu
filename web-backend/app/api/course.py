@@ -9,7 +9,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -230,6 +230,31 @@ async def run_job(
     await db.commit()
     await db.refresh(job)
     return _job_out(job, run)
+
+
+@router.delete("/jobs/{job_id}", status_code=204)
+async def delete_job(
+    job_id: int,
+    user=Depends(require_role(Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    """M3-8：删除采集任务（连同其运行日志，避免孤儿 run 记录）。"""
+    job = (
+        await db.execute(
+            select(CrawlJob).where(
+                CrawlJob.id == job_id, CrawlJob.tenant_id == _tenant(user)
+            )
+        )
+    ).scalar_one_or_none()
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    await db.execute(
+        delete(CrawlRun).where(
+            CrawlRun.job_id == job_id, CrawlRun.tenant_id == _tenant(user)
+        )
+    )
+    await db.delete(job)
+    await db.commit()
 
 
 @router.post("/jobs/{job_id}/retry", response_model=JobOut)
