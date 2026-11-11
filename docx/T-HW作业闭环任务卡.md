@@ -1,16 +1,18 @@
 # T-HW 作业闭环 · 可执行任务卡（M3/M4/M5 共 22 项：代码已落地、迁移已完成，待真实数据与真机验收）
 
-> 来源：`docx/学生Agent需求变更-任务方案书.md` v1.5（M0~M5 共 47 项）+ `docx/总任务清单与排期计划.md` v5.6（仪表盘：T-HW 47 项 / **25 完成（M0〜M2）/ 22 部分·待验收（M3〜M5）/ 0 未开始**）。
+> 来源：`docx/学生Agent需求变更-任务方案书.md` v1.5（M0~M5 共 47 项）+ `docx/总任务清单与排期计划.md` v5.7（仪表盘：T-HW 47 项 / **25 完成（M0〜M2）/ 22 部分·待验收（M3〜M5）/ 0 未开始**）。
 > 范围：本卡集覆盖**除 M0-2 外的 46 项**。每一项给出可直接开工的「步骤 + 验收 + 依赖 + 涉及文件/表 + 波次 + 估点」。
 > 估点口径：拆分自方案书 §7（研发 128 人日 + 联调 26 人日 ≈154），**含前后端联调**，仅作排期参考。
 >
 > **2026-11-03 落地状态（历史记录）**：M3/M4/M5 共 22 项代码已全部落地并通过本地回归（`web-backend` 549、`web-frontend` 137、App 单测 144）。当时记录「137 上的 4 个迁移（0014~0017）未执行、未做真机 / 真实题库验收」，因此暂不把总清单仪表盘计为"已交付"。
 >
-> **2026-11-11 订正（连 137 → 106 生产库只读核实）**：迁移 `0014`~`0020` 共 7 个**全部已执行**（特征列 / 表齐全 + 14/14 迁移专属索引在位 + 回填数据佐证 `wrong_questions` 40 行 / `question_type` 非空 38 / `options` 非空 26 / 备份表 29 行），**无需补跑**。22 项仍不计「已交付」的唯一原因是**真实题库 / 真机数据验收未做**：`question_kp`、`course_source`、`crawl_job`、`crawl_run`、`kp_node`、`exam_paper_intake` 六张业务表均 0 行，仅 `exam_solutions` 8 / `exam_papers` 6 / `exam_paper_questions` 32 行有少量数据。详见《总任务清单与排期计划》v5.4。**【v5.5 订正】`question_kp` 已回填 474 行，其余 5 张表仍 0 行。** **【v5.6 订正】M4-2 服务端已验收并发版，其余 5 张表仍 0 行。**
+> **2026-11-11 订正（连 137 → 106 生产库只读核实）**：迁移 `0014`~`0020` 共 7 个**全部已执行**（特征列 / 表齐全 + 14/14 迁移专属索引在位 + 回填数据佐证 `wrong_questions` 40 行 / `question_type` 非空 38 / `options` 非空 26 / 备份表 29 行），**无需补跑**。22 项仍不计「已交付」的唯一原因是**真实题库 / 真机数据验收未做**：`question_kp`、`course_source`、`crawl_job`、`crawl_run`、`kp_node`、`exam_paper_intake` 六张业务表均 0 行，仅 `exam_solutions` 8 / `exam_papers` 6 / `exam_paper_questions` 32 行有少量数据。详见《总任务清单与排期计划》v5.4。**【v5.5 订正】`question_kp` 已回填 474 行，其余 5 张表仍 0 行。** **【v5.6 订正】M4-2 服务端已验收并发版，其余 5 张表仍 0 行。** **【v5.7 订正】M5 五张空表已全部灌入真实数据，详见下方 v5.7 补记。**
 >
-> **2026-11-11 补记（v5.5 真实题库数据验收）**：`question_kp` 已由 0 → **474 行**（官方 `bind_from_course_kb` 回填 `school_pilot_01`，dry-run 先行、幂等复跑 created=0），**M3-3 / M3-4 / M3-5 服务端数据侧验收通过**：覆盖度 0.5829、数学 123/123 全覆盖、88 道未绑定题全为物理题（符合「物理降优先级不做细标」既定决策）；6 卷中 5 卷按卷图谱正常出图，`paper=31` 为 demo 中文标签卷 0 节点（非缺陷）；推题接口剔除多限定条件候选生效。**22 项计数仍为 25 完成 / 22 部分·待验收 / 0 未开始**——App 端真机呈现及其余 19 项尚未验收，M5 相关 4 表与 `kp_node` 仍 0 行。详见《总任务清单与排期计划》v5.5。 **【v5.6 订正】M4-2 已验收上线，其余项由 19 减为 18。**
+> **2026-11-11 补记（v5.5 真实题库数据验收）**：`question_kp` 已由 0 → **474 行**（官方 `bind_from_course_kb` 回填 `school_pilot_01`，dry-run 先行、幂等复跑 created=0），**M3-3 / M3-4 / M3-5 服务端数据侧验收通过**：覆盖度 0.5829、数学 123/123 全覆盖、88 道未绑定题全为物理题（符合「物理降优先级不做细标」既定决策）；6 卷中 5 卷按卷图谱正常出图，`paper=31` 为 demo 中文标签卷 0 节点（非缺陷）；推题接口剔除多限定条件候选生效。**22 项计数仍为 25 完成 / 22 部分·待验收 / 0 未开始**——App 端真机呈现及其余 19 项尚未验收，M5 相关 4 表与 `kp_node` 仍 0 行。详见《总任务清单与排期计划》v5.5。 **【v5.6 订正】M4-2 已验收上线，其余项由 19 减为 18。** **【v5.7 订正】M5 全 6 项已验收，其余项由 18 减为 12。**
 >
-> **2026-11-11 补记（v5.6 M4-2 修复与正式发版）**：M4-2 规则组卷器 14 场景生产库 dry-run **首次验收不通过**（基线 10 题误报「知识点题源不足」，根因：69 道选择题 100% 多标签、63 个 kp 仅 1 题，按 kp 分配配额与全局 hash 去重冲突）。`666aeb2` 改题目级贪心最大覆盖 + 5 个真实分布单测（本地 582 passed），`2254e3f` 难度配比改按档位缺口紧迫度优先 + 1 个回归单测（本地 583 passed）。14 场景重跑：A/J/M/N 全部出卷成功、A 覆盖 40 kp，C/D/F/G 题源不足仍显式报错，B（7/10）/ L（6/10）经核验为客观题源不足，E 难度 1 由「实际 0」改善为「实际 3」；全程 rollback 零落库。**已正式发版 137**（镜像 `d404e001`，回滚点 `bak-20261111`），healthz / Kafka / 登录 JWT / 网关鉴权链全绿，线上 worker 已从新镜像加载新算法。**22 项计数仍为 25 完成 / 22 部分·待验收 / 0 未开始**，B 端组卷页与真机呈现未验。详见《总任务清单与排期计划》v5.6。
+> **2026-11-11 补记（v5.6 M4-2 修复与正式发版）**：M4-2 规则组卷器 14 场景生产库 dry-run **首次验收不通过**（基线 10 题误报「知识点题源不足」，根因：69 道选择题 100% 多标签、63 个 kp 仅 1 题，按 kp 分配配额与全局 hash 去重冲突）。`666aeb2` 改题目级贪心最大覆盖 + 5 个真实分布单测（本地 582 passed），`2254e3f` 难度配比改按档位缺口紧迫度优先 + 1 个回归单测（本地 583 passed）。14 场景重跑：A/J/M/N 全部出卷成功、A 覆盖 40 kp，C/D/F/G 题源不足仍显式报错，B（7/10）/ L（6/10）经核验为客观题源不足，E 难度 1 由「实际 0」改善为「实际 3」；全程 rollback 零落库。**已正式发版 137**（镜像 `d404e001`，回滚点 `bak-20261111`），healthz / Kafka / 登录 JWT / 网关鉴权链全绿，线上 worker 已从新镜像加载新算法。**22 项计数仍为 25 完成 / 22 部分·待验收 / 0 未开始**，B 端组卷页与真机呈现未验。详见《总任务清单与排期计划》v5.6。**【v5.7 订正】v5.6 的「M5 灌真实数据」建议已于 11-11 执行。**
+>
+> **2026-11-11 补记（v5.7 M5 课程采集链路真实数据验收）**：用仓库真实素材（人教A版教材题 4 道 / 435 点大纲 / 高考细标题库包）经事务回滚式 dry-run 后真实落库，**五张空表全部灌满**：`course_source` 3（file/url/bank_pack，黑名单源阻断）、`crawl_job` 3、`crawl_run` 5（3 ok / 2 stopped）、`exam_paper_intake` 2（P1 卷 + P2 拆题各 1）、`kp_node` 4（全 draft）；另 +4 道 `auto_crawl` draft 教材题、+1 张未发布采集卷。`published` 池仍 213 行、已发布卷仍 6 张、`kb_knowledge_points` 仍 435 行，**未污染线上可用数据**。M5-4 审核发布与 `rollback_run` 一键回退均在事务内验证后 rollback（不留痕）。**22 项计数仍为 25 完成 / 22 部分·待验收 / 0 未开始**：B 端页面、教师审核流前端、LLM 抽取环节、真机呈现未验。回滚用官方 `rollback_run(run_id=6/7)`，元数据按 `【M5验收20261111】` / `M5V-` 前缀清理。脚本与素材落 137 `/opt/deploy/m5_sources/`、`/opt/deploy/_m5_pipeline.py` / `_m5_verify.py`。详见《总任务清单与排期计划》v5.7。
 >
 > 波次（取自主计划 §4.1 启动策略）：**W10** M0 → **W11** M1 → **W12** M2 → **W13** M4 → **W14** M3 → **W15** M5。与方案书 §9.2 首期 MVP（高三·数学·纯选择题卷）对齐：W10~W13 中 `paper_type=pure_choice` / `qtype=choice` 路径优先。
 
@@ -586,7 +588,7 @@
 - **验收（可测）**：建 1 个文件源 + 1 个 URL 源 → 列表可见；启停状态切换生效。
 - **涉及**：`course_source`、教师端页面。
 - **波次/估点**：W15 / ≈3d
-- **状态**：✅ 已完成：`course_source`（迁移 0015）+ `GET/POST/DELETE /admin/course/sources`、`POST /sources/{id}/status`；教师页 `CourseIntake.vue` 支持增删、启停、文件/URL/题库包三类源。
+- **状态**：✅ 已完成：`course_source`（迁移 0015）+ `GET/POST/DELETE /admin/course/sources`、`POST /sources/{id}/status`；教师页 `CourseIntake.vue` 支持增删、启停、文件/URL/题库包三类源。**【2026-11-11 生产实测】** 建 3 个真实源（file / url / bank_pack），合规黑名单「禁止转载」被前置阻断且未落库，源启停 `active↔paused` 生效、列表返回 3 行；`course_source` 0→3。
 
 ## 卡 M5-2｜课程解析 pipeline
 - **归口**：agent-backend（解析）
@@ -599,7 +601,7 @@
 - **验收（可测）**：喂一份教材 PDF/大纲 → 输出结构化章节树。
 - **涉及**：`course_source.parser`、解析 pipeline。
 - **波次/估点**：W15 / ≈4d
-- **状态**：✅ 已完成：`services/course_pipeline.py` 按 `source_type` 选解析器，输出章节树 + 候选知识点；`POST /admin/course/parse` 不落库先看结构化大纲。
+- **状态**：✅ 已完成：`services/course_pipeline.py` 按 `source_type` 选解析器，输出章节树 + 候选知识点；`POST /admin/course/parse` 不落库先看结构化大纲。**【2026-11-11 生产实测】** 喂真实 435 点人教A版大纲 md（标题层级归一后）→ **5 册 / 19 节 / 435 个候选知识点**；原始 md 直喂得 1 章 / 437 点；纯函数不落库。
 
 ## 卡 M5-3｜知识点拆分与挂载
 - **归口**：agent-backend（LLM 抽取）+ web-backend（`kp_node`）
@@ -612,7 +614,7 @@
 - **验收（可测）**：抽取的知识点去重后入库；重复知识点不重复建节点；新节点 `status=draft`。
 - **涉及**：`kp_node`、`kb_knowledge_points`、`resolve_kp_codes`（唯一写侧）。
 - **波次/估点**：W15 / ≈4d
-- **状态**：✅ 已完成：`upsert_kp_nodes` 先走 `mastery.resolve_kp_codes`——已进 DAG 的归并（`merged`），新节点 `status=draft`，不再造第二套 code 体系。
+- **状态**：✅ 已完成：`upsert_kp_nodes` 先走 `mastery.resolve_kp_codes`——已进 DAG 的归并（`merged`），新节点 `status=draft`，不再造第二套 code 体系。**【2026-11-11 生产实测】** 4 个真实教材考点（新 code）+ 2 个 DAG 已有 code → `created=4 / merged=2 / skipped=0`，幂等复跑 `created=0 / skipped=4 / merged=2`；4 个新节点全 `draft` 且在 `kb_knowledge_points` 命中 0；`kp_node` 0→4。（本轮用真实大纲的确定性候选点，**未跑 LLM 抽取**，该环节仍待验）
 
 ## 卡 M5-4｜知识点审核与发布
 - **归口**：web-frontend（审核流）+ web-backend
@@ -624,7 +626,7 @@
 - **验收（可测）**：`draft` 知识点学生端图谱不可见；审核后可见。
 - **涉及**：`kp_node.status`、审核流。
 - **波次/估点**：W15 / ≈3d
-- **状态**：✅ 已完成：`POST /admin/course/kp-nodes/{code}/review`；`draft` 不进学生图谱，审核通过写 `kb_knowledge_points` 后可见，可退回。
+- **状态**：✅ 已完成：`POST /admin/course/kp-nodes/{code}/review`；`draft` 不进学生图谱，审核通过写 `kb_knowledge_points` 后可见，可退回。**【2026-11-11 生产实测】** 事务内验证：发布后 DAG 命中 1、`kp_node.status=published`，退回 `draft` 后命中 0；验证后整体 rollback，`kb_knowledge_points` 仍 435 行不受污染。**B 端审核页 / 教师审核流前端未验。**
 
 ## 卡 M5-5｜采集合规与预算
 - **归口**：web-backend（合规校验 + 预算）
@@ -637,7 +639,7 @@
 - **验收（可测）**：命中合规黑名单的源 → 采集被阻断；预算超限 → 自动停 + 告警。
 - **涉及**：合规校验、`crawl_job.budget_limit`。
 - **波次/估点**：W15 / ≈4d
-- **状态**：✅ 已完成：`COMPLIANCE_BLOCKLIST` 默认放行、命中即阻断；`budget_limit` 超限立即停并写 `budget_stop/stopped`；采集行带 source 追溯，run 级一键回退（已审核内容保留）。
+- **状态**：✅ 已完成：`COMPLIANCE_BLOCKLIST` 默认放行、命中即阻断；`budget_limit` 超限立即停并写 `budget_stop/stopped`；采集行带 source 追溯，run 级一键回退（已审核内容保留）。**【2026-11-11 生产实测】** 黑名单源「禁止转载」创建即 `ValueError` 阻断；`budget_limit=1` 喂 4 题 → `stopped / budget_stop=True`、仅 1 题进 allowed，卷不会被截成半张；`rollback_run` 事务内返回 `removed_questions=2 / removed_papers=1 / intake_rows=1` 且只删目标 run 数据（P2 的 2 道题保留），验证后 rollback。
 
 ## 卡 M5-6｜采集可观测
 - **归口**：web-backend（日志/指标）
@@ -650,7 +652,7 @@
 - **验收（可测）**：跑一个采集 → 日志与指标可见；手动触发重试成功。
 - **涉及**：采集日志、指标 API。
 - **波次/估点**：W15 / ≈3d
-- **状态**：✅ 已完成：`GET /admin/course/metrics` 返回成功率/去重率/失败与超预算计数 + 最近运行日志；`POST /courses/jobs/{id}/retry` 手动重试，失败原因可追溯。
+- **状态**：✅ 已完成：`GET /admin/course/metrics` 返回成功率/去重率/失败与超预算计数 + 最近运行日志；`POST /courses/jobs/{id}/retry` 手动重试，失败原因可追溯。**【2026-11-11 生产实测】** `crawl_run` 0→5（P1 ok / P2 ok / 重跑 ok / 预算 stopped / 重试 stopped），`run_metrics` → `success_rate=0.6`、`dedup_rate=0.4286`、`recent` 5 条；重跑同批 `duplicated=2`，预算耗尽重试被拒并写 `error` 可追溯。
 
 ---
 
