@@ -1,12 +1,15 @@
 # T-HW 作业闭环 · 可执行任务卡（M3/M4/M5 共 22 项：代码已落地、迁移已完成，待真实数据与真机验收）
 
-> 来源：`docx/学生Agent需求变更-任务方案书.md` v1.5（M0~M5 共 47 项）+ `docx/总任务清单与排期计划.md` v5.4（仪表盘：T-HW 47 项 / **25 完成（M0〜M2）/ 22 部分·待验收（M3〜M5）/ 0 未开始**）。
+> 来源：`docx/学生Agent需求变更-任务方案书.md` v1.5（M0~M5 共 47 项）+ `docx/总任务清单与排期计划.md` v5.5（仪表盘：T-HW 47 项 / **25 完成（M0〜M2）/ 22 部分·待验收（M3〜M5）/ 0 未开始**）。
 > 范围：本卡集覆盖**除 M0-2 外的 46 项**。每一项给出可直接开工的「步骤 + 验收 + 依赖 + 涉及文件/表 + 波次 + 估点」。
 > 估点口径：拆分自方案书 §7（研发 128 人日 + 联调 26 人日 ≈154），**含前后端联调**，仅作排期参考。
 >
 > **2026-11-03 落地状态（历史记录）**：M3/M4/M5 共 22 项代码已全部落地并通过本地回归（`web-backend` 549、`web-frontend` 137、App 单测 144）。当时记录「137 上的 4 个迁移（0014~0017）未执行、未做真机 / 真实题库验收」，因此暂不把总清单仪表盘计为"已交付"。
 >
-> **2026-11-11 订正（连 137 → 106 生产库只读核实）**：迁移 `0014`~`0020` 共 7 个**全部已执行**（特征列 / 表齐全 + 14/14 迁移专属索引在位 + 回填数据佐证 `wrong_questions` 40 行 / `question_type` 非空 38 / `options` 非空 26 / 备份表 29 行），**无需补跑**。22 项仍不计「已交付」的唯一原因是**真实题库 / 真机数据验收未做**：`question_kp`、`course_source`、`crawl_job`、`crawl_run`、`kp_node`、`exam_paper_intake` 六张业务表均 0 行，仅 `exam_solutions` 8 / `exam_papers` 6 / `exam_paper_questions` 32 行有少量数据。详见《总任务清单与排期计划》v5.4。
+> **2026-11-11 订正（连 137 → 106 生产库只读核实）**：迁移 `0014`~`0020` 共 7 个**全部已执行**（特征列 / 表齐全 + 14/14 迁移专属索引在位 + 回填数据佐证 `wrong_questions` 40 行 / `question_type` 非空 38 / `options` 非空 26 / 备份表 29 行），**无需补跑**。22 项仍不计「已交付」的唯一原因是**真实题库 / 真机数据验收未做**：`question_kp`、`course_source`、`crawl_job`、`crawl_run`、`kp_node`、`exam_paper_intake` 六张业务表均 0 行，仅 `exam_solutions` 8 / `exam_papers` 6 / `exam_paper_questions` 32 行有少量数据。详见《总任务清单与排期计划》v5.4。**【v5.5 订正】`question_kp` 已回填 474 行，其余 5 张表仍 0 行。**
+>
+> **2026-11-11 补记（v5.5 真实题库数据验收）**：`question_kp` 已由 0 → **474 行**（官方 `bind_from_course_kb` 回填 `school_pilot_01`，dry-run 先行、幂等复跑 created=0），**M3-3 / M3-4 / M3-5 服务端数据侧验收通过**：覆盖度 0.5829、数学 123/123 全覆盖、88 道未绑定题全为物理题（符合「物理降优先级不做细标」既定决策）；6 卷中 5 卷按卷图谱正常出图，`paper=31` 为 demo 中文标签卷 0 节点（非缺陷）；推题接口剔除多限定条件候选生效。**22 项计数仍为 25 完成 / 22 部分·待验收 / 0 未开始**——App 端真机呈现及其余 19 项尚未验收，M5 相关 4 表与 `kp_node` 仍 0 行。详见《总任务清单与排期计划》v5.5。
+>
 > 波次（取自主计划 §4.1 启动策略）：**W10** M0 → **W11** M1 → **W12** M2 → **W13** M4 → **W14** M3 → **W15** M5。与方案书 §9.2 首期 MVP（高三·数学·纯选择题卷）对齐：W10~W13 中 `paper_type=pure_choice` / `qtype=choice` 路径优先。
 
 ---
@@ -488,7 +491,7 @@
 - **验收（可测）**：绑 1 题到 2 个 kp → `question_kp` 2 行；覆盖度看板显示该 kp 题量。
 - **涉及**：`question_kp`、标注工具。**注意 kp_code 写侧唯一入口 `resolve_kp_codes`，禁改。**
 - **波次/估点**：W14 / ≈2d
-- **状态**：✅ 已完成：`question_kp` 表（迁移 0015）+ `services/question_kp.py`；`POST /exam/question-kp/bind`、`/backfill`、`GET /coverage`，未绑定题进待标注队列；`kp_code` 写侧统一走 `mastery.resolve_kp_codes`。
+- **状态**：✅ 已完成：`question_kp` 表（迁移 0015）+ `services/question_kp.py`；`POST /exam/question-kp/bind`、`/backfill`、`GET /coverage`，未绑定题进待标注队列；`kp_code` 写侧统一走 `mastery.resolve_kp_codes`。 **【2026-11-11 生产实测】** 真实题库回填 474 行（数学 123/123 绑定），覆盖率 0.5829、`by_kp` 题量正确、未绑定 88 题（全物理）进待标注队列；幂等复跑 created=0。卡面数据侧验收通过，App 端真机仍待验。
 
 ## 卡 M3-4｜知识体系可视化
 - **归口**：web-frontend（图谱页）+ student-app（GraphScreen 复用）
@@ -500,7 +503,7 @@
 - **验收（可测）**：打开某卷图谱 → 显示该卷所有题的知识点及依赖关系。
 - **涉及**：`GraphScreen`、`kb_knowledge_points`、`kb_kp_prerequisites`。
 - **波次/估点**：W14 / ≈3d
-- **状态**：✅ 已完成：`graph.paper_graph_db` 聚合卷内 kp 并高亮前驱后继，教师 `/admin/exam/papers/{id}/graph`、学生 `/student/exams/{paper_id}/graph`；App `GraphScreen` 支持按卷维度，`AppBridge.postPaperGraph` 承接跳转。
+- **状态**：✅ 已完成：`graph.paper_graph_db` 聚合卷内 kp 并高亮前驱后继，教师 `/admin/exam/papers/{id}/graph`、学生 `/student/exams/{paper_id}/graph`；App `GraphScreen` 支持按卷维度，`AppBridge.postPaperGraph` 承接跳转。 **【2026-11-11 生产实测】** 6 卷中 5 卷出图（nodes 36~65 / `in_paper` 16~31 / `unresolved=[]`）；`paper=31`（demo 中文标签卷）0 节点属数据口径，非代码缺陷。App 端真机仍待验。
 
 ## 卡 M3-5｜触类旁通推题
 - **归口**：agent-backend（复用 `similar`）+ web-backend
@@ -513,7 +516,7 @@
 - **验收（可测）**：对某等比题推题 → 返回同知识点同条件变式，不含多限定条件的干扰题。
 - **涉及**：`similar`、`extra_conditions`、`question_kp`。
 - **波次/估点**：W14 / ≈2d
-- **状态**：✅ 已完成：`services/similar_kp.py` 复用 agent 侧 `extra_conditions`，把「题库题比学生题面多限定条件」的候选一律剔除；学生端点 `/student/exams/{paper_id}/similar`。
+- **状态**：✅ 已完成：`services/similar_kp.py` 复用 agent 侧 `extra_conditions`，把「题库题比学生题面多限定条件」的候选一律剔除；学生端点 `/student/exams/{paper_id}/similar`。 **【2026-11-11 生产实测】** paper=32 seq=1 绑到 2 个 code、返回 3 候选且 `excluded=1`（多限定条件题被剔除），确认下游用上 `question_kp`；seq=2 同条件题不足返回 0 条属正常。
 
 ## 卡 M3-6｜错题 → 知识点 → 背诵卡联动
 - **归口**：web-backend + student-app（背诵卡 SM-2）
