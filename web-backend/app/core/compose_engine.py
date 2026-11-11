@@ -5,9 +5,11 @@
 1. **候选过滤**由服务薄层做（published / 非 quarantine / 有答案 / 卷型题型白名单）；
    本模块只处理已过滤的候选集。
 2. **同卷 content_hash 不重复** —— :func:`pick_questions` 里 ``used_hashes`` 去重。
-3. **权重**：题目级贪心最大覆盖（每轮选「新增覆盖知识点最多」的题，一题多标签
-   天然规避共享题去重冲突）→ 其次难度配比 →
-   同类题优先 ``teacher > import > crawl > reviewed > llm_generated``。
+3. **权重**：传了 ``difficulty_mix`` 时**难度配比优先**——按档位缺口紧迫度
+   （还欠题数 / 该档剩余可选题数）先补稀缺档，避免覆盖贪心把共享题抽走后
+   补不上；未传时完全按题目级贪心最大覆盖（每轮选「新增覆盖知识点最多」的
+   题，一题多标签天然规避共享题去重冲突）。同类题优先
+   ``teacher > import > crawl > reviewed > llm_generated``。
 4. **题源不足显式报错** —— :class:`ComposeError` 带上缺哪个知识点/难度档。
 5. **难度比例可配置**，抽不满时 :func:`summarize_distribution` 回报实际分布与缺口。
 
@@ -233,9 +235,12 @@ def pick_questions(
     集合 = quota 的具名键**（``UNSPECIFIED_KP`` 表示不限，覆盖目标扩展为整池
     出现过的一切 kp）。不再强求每个 kp 恰好抽到 ``quota[k]`` 道。
 
-    每轮从「尚未选中的题」里挑得分最高的一题：
-      1. 主价值 **新增覆盖数**：能填补多少个「还没覆盖够」的目标 kp；
-      2. 次价值 **难度缺口**：优先补当前未满足的难度档（传了 mix 时）；
+    每轮从「尚未选中的题」里挑得分最高的一题（字典序，小者胜）：
+      1. **难度缺口紧迫度**（传了 ``difficulty_mix`` 时为主价值）：
+         ``(该档还欠题数) / (该档剩余可选题数)``。题源越稀缺的档越要先抽；
+         若只用二值「该档是否还欠题」，多档同时欠时所有题同分，排序会退化成
+         覆盖主导，稀缺档仍会被挤空。未传 mix 时该项恒为 0，排序完全由覆盖决定。
+      2. **新增覆盖数**：能填补多少个「还没覆盖够」的目标 kp；
       3. tie-break：题源优先级 → 难度适中 → content_hash
          （沿用 :func:`_sort_for_pick` 的同口径偏好）。
 
@@ -322,13 +327,23 @@ def pick_questions(
         if not avail:
             break
 
+        # 各难度档还剩多少题可选。难度配比的真实难点是「多档同时欠题」：
+        # 此时二值缺口判断让所有题同分，覆盖增益高的多标签题会把稀缺档挤空
+        # （2026-11-11 M4-2 生产验收 E 场景：难度 1 需 5 实际 0）。用
+        # 缺口/剩余题量的紧迫度，让题源越少的档越优先被抽。
+        avail_by_diff: Dict[int, int] = {}
+        for e in avail:
+            avail_by_diff[e["diff"]] = avail_by_diff.get(e["diff"], 0) + 1
+
         def score(e):
+            d = e["diff"]
+            gap = diff_want.get(d, 0) - diff_got.get(d, 0)
+            urgency = gap / avail_by_diff.get(d, 1) if gap > 0 else 0.0
             gain = sum(
                 1 for kp in e["kps"]
                 if kp in kp_need and covered[kp] < kp_need[kp]
             )
-            d_gain = 1 if diff_want.get(e["diff"], 0) > diff_got.get(e["diff"], 0) else 0
-            return (-gain, -d_gain, e["rank"])
+            return (-urgency, -gain, e["rank"])
 
         best = min(avail, key=score)
         used.add(best["key"])

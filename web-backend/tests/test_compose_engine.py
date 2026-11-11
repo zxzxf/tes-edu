@@ -196,3 +196,24 @@ def test_realistic_difficulty_mix_does_not_overdraw():
     picked = pick_questions(pool, {"": 10}, difficulty_mix={1: 3, 3: 3, 5: 4})
     assert len(picked) == 10
     assert len({q["content_hash"] for q in picked}) == 10
+
+
+def test_difficulty_mix_scarce_band_is_picked_first():
+    """难度配比权重微调回归：稀缺难度档优先于「覆盖更多 kp」的多标签题。
+
+    2026-11-11 M4-2 生产验收 E 场景（mix={1:5,3:5}）曾出现「难度 1 需 5、
+    实际 0」：覆盖增益是主价值时，带 4 个 kp 的题每轮都压过只有 1 个 kp 的
+    稀缺难度题，把后者全挤掉。仅把二值 d_gain 提到 gain 前也无效——多档同时
+    欠题时所有题 d_gain 都是 1，第二项 gain 仍决定胜负。现在按缺口紧迫度排序，
+    稀缺档必须先被抽满。
+    """
+    pool = (
+        [_q(f"easy{i}", [f"EASY-{i}"], diff=1) for i in range(2)]
+        + [_q(f"wide{i}", [f"W-{i}-{j}" for j in range(4)], diff=3) for i in range(6)]
+    )
+    picked = pick_questions(pool, {"": 4}, difficulty_mix={1: 2, 3: 2})
+    dist = summarize_distribution(picked, difficulty_mix={1: 2, 3: 2})
+    assert dist["by_difficulty"].get(1, 0) == 2      # 稀缺档被优先抽满
+    assert dist["by_difficulty"].get(3, 0) == 2
+    assert not dist["shortfall"]
+    assert len({q["content_hash"] for q in picked}) == 4
