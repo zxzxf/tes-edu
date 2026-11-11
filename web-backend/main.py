@@ -18,7 +18,6 @@ from app.api import (
     analytics,
     auth,
     compliance,
-    course,
     exam,
     exam_learning,
     grading,
@@ -39,6 +38,7 @@ from app.api import (
 )
 from app.core.config import settings
 from app.core.db import get_db
+from app.crawl_service.api import router as crawl_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("web-backend")
@@ -103,7 +103,7 @@ async def lifespan(app: FastAPI):
 
     # 3) M3-8 定时采集：后台每分钟检查到期 cron 任务（单进程单 worker）
     if settings.crawl_scheduler_enabled:
-        from app.services.crawl import scheduler_loop
+        from app.crawl_service.scheduler import scheduler_loop
 
         _worker_tasks.append(
             asyncio.create_task(
@@ -217,7 +217,7 @@ app.include_router(student_profile.router, prefix="/api/admin")  # M0-3 学生�
 app.include_router(student_profile.student_router, prefix="/api/student")  # M0-3 学生查自己的年级（/profile/me）
 app.include_router(exam_learning.router, prefix="/api/admin")  # M3 解析/题↔知识点/按卷图谱（教师端）
 app.include_router(exam_learning.student_router, prefix="/api/student")  # M3 解析/按卷图谱/同条件推题（学生端）
-app.include_router(course.router, prefix="/api/admin")  # M5 课程源/采集/解析/知识点审核
+app.include_router(crawl_router, prefix="/api/admin")  # M5 课程源/采集/解析/知识点审核（crawl_service 子包）
 
 # T-B5：C 端直连挂载（网关 /login 与 /learning/ 路由按原路径转发、不做前缀改写，
 # 2026-10-24 部署时发现单挂 /api/admin 会导致网关侧 404，故补根路径双挂载）。

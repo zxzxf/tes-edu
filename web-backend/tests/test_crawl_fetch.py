@@ -11,8 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services import crawl_fetch as cf
-from app.services.crawl_intake import normalize_item
+from app.crawl_service import fetcher as cf
+from app.crawl_service.intake import normalize_item
 
 
 # ----------------------------------------------------------------- 映射

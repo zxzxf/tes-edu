@@ -9,7 +9,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.models.course_kb import Base, CourseQuestion
 from app.models.ops import CrawlJob, CrawlRun, DrillCard, KpNode, WrongQuestion
-from app.services import course_pipeline, crawl, drill_link
+from app.services import course_pipeline, drill_link
+from app.crawl_service import scheduler as crawl
 
 
 def _engine():
@@ -375,7 +376,7 @@ def test_kp_upsert_schema_rejects_overlong_code():
     """入口挡住超长 code，避免 DB DataError 变成 500。"""
     from pydantic import ValidationError
 
-    from app.api.course import KpUpsert
+    from app.crawl_service.api import KpUpsert
 
     assert KpUpsert(code="C1", name="数列").code == "C1"
     with pytest.raises(ValidationError):

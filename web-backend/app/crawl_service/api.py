@@ -16,8 +16,8 @@ from app.core.db import get_db
 from app.core.rbac import Role
 from app.core.security import require_role
 from app.models.ops import CrawlJob, CrawlRun, CourseSource, KpNode
-from app.services import crawl as crawl_svc
-from app.services import crawl_intake
+from app.crawl_service import scheduler as crawl_svc
+from app.crawl_service import intake as crawl_intake
 from app.services import course_pipeline
 
 router = APIRouter(prefix="/course", tags=["course"])

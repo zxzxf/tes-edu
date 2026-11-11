@@ -23,10 +23,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.course_kb import CourseQuestion
 from app.models.ops import CrawlJob, CrawlRun, CourseSource
 
+#: 入库逻辑（去重 / P1 整卷 / P2 拆题 / 回退）归属采集域，随子包一起抽离。
+from app.crawl_service import intake as crawl_intake  # noqa: E402
+
 log = logging.getLogger(__name__)
 
 #: 采集源抓取与解析（让「采集任务」真正能采：从源读内容 -> 解析成 items）。
-from app.services import crawl_fetch  # noqa: E402
+from app.crawl_service import fetcher as crawl_fetch  # noqa: E402
 
 #: 版权/内容合规黑名单（M5-5）。业务给正式清单前，这里只放「明确不可采集」的源，
 #: 命中即阻断——**默认放行**，否则任何新源都要等人工改代码才能用。
@@ -361,8 +364,6 @@ async def run_job(
 
     if allowed:
         try:
-            from app.services import crawl_intake
-
             result = await crawl_intake.intake(
                 db, job, items=allowed, run_id=run.id,
             )

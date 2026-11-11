@@ -11,7 +11,9 @@ from sqlalchemy.pool import StaticPool
 from app.api import exam
 from app.models.course_kb import Base, CourseQuestion
 from app.models.ops import CrawlJob, CrawlRun, ExamPaper, ExamPaperQuestion
-from app.services import crawl, crawl_intake, llm_paper
+from app.crawl_service import scheduler as crawl
+from app.crawl_service import intake as crawl_intake
+from app.services import llm_paper
 
 
 def _engine():
