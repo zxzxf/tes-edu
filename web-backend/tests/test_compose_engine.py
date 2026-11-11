@@ -127,3 +127,72 @@ def test_allocate_by_kp_caps_at_availability():
     # 要的比总可用量还多时，只能给到可用上限
     quota = allocate_by_kp({"KP1": 1, "KP2": 1}, 9)
     assert sum(quota.values()) == 2
+
+
+# ------------------------------------------------- 真实多标签分布（M4-2 生产验收回归）
+def _realistic_pool(n=60):
+    """复现生产题库分布：一题挂 3~6 个 kp、其中大量 kp 只出现在一道题里。
+
+    2026-11-11 生产验收实测：69 道选择题 100% 带 2~4 个知识点、共 131 个 kp、
+    63 个 kp 只有 1 道题。旧算法「按 kp 分配配额 + 逐 kp 抽题 + 全局 hash 去重」
+    在这种分布下会让同一道题被多个配额 kp 争抢，题量稍大就误报「题源不足」，
+    连「高三·数学·纯选择·10 题」的基线场景都出不了卷。
+    """
+    hot = [f"HOT-{i}" for i in range(8)]  # 少量被多题共享的 kp
+    pool = []
+    for i in range(n):
+        solo = [f"SOLO-{i:03d}-{j}" for j in range(2 + i % 3)]      # 2~4 个独占 kp
+        share = [hot[i % 8], hot[(i + 3) % 8]][:1 + i % 2]          # 1~2 个共享 kp
+        pool.append(_q(f"h{i:03d}", solo + share, diff=1 + i % 5))
+    return pool
+
+
+def test_realistic_multilabel_no_kp_10_questions():
+    """基线回归：不限 kp 出 10 题不再误报题源不足，且贪心确实在做最大覆盖。"""
+    pool = _realistic_pool()
+    quota = build_quota(pool, [], count=10)
+    picked = pick_questions(pool, quota)
+    assert len(picked) == 10
+    hashes = [q["content_hash"] for q in picked]
+    assert len(set(hashes)) == len(hashes)           # 同卷 content_hash 不重复
+    covered = {k for q in picked for k in q["knowledge_points"]}
+    # 10 道题至少覆盖 20 个不同 kp（平均每题带来 >=2 个新点），证明是最大覆盖而非随便抽
+    assert len(covered) >= 2 * len(picked)
+
+
+def test_realistic_multilabel_specified_kps_are_covered():
+    """指定多个 kp 时先各保底覆盖、再整池补足到 count，不再报『需 N 实际 1』。"""
+    pool = _realistic_pool()
+    wanted = ["HOT-0", "HOT-1", "SOLO-000-0"]
+    quota = build_quota(pool, wanted, count=10)
+    picked = pick_questions(pool, quota)
+    assert len(picked) == 10
+    covered = {k for q in picked for k in q["knowledge_points"]}
+    assert set(wanted).issubset(covered)
+    assert len({q["content_hash"] for q in picked}) == 10
+
+
+def test_realistic_pool_short_still_raises():
+    """整池题目真的不够时仍显式报错，绝不静默凑卷（卡面第 4 条）。"""
+    pool = _realistic_pool()
+    quota = build_quota(pool, [], count=999)
+    with pytest.raises(ComposeError) as ei:
+        pick_questions(pool, quota)
+    assert "题源不足" in str(ei.value)
+    assert ei.value.shortfall
+
+
+def test_realistic_unknown_kp_still_reported():
+    """目标 kp 完全无题时点名报错，不静默少一个点。"""
+    pool = _realistic_pool()
+    with pytest.raises(ComposeError) as ei:
+        pick_questions(pool, {"NO_SUCH_KP": 3})
+    assert "NO_SUCH_KP" in str(ei.value)
+
+
+def test_realistic_difficulty_mix_does_not_overdraw():
+    """带难度配比的多标签场景也能抽满，且 hash 唯一（难度是软约束不阻断出卷）。"""
+    pool = _realistic_pool()
+    picked = pick_questions(pool, {"": 10}, difficulty_mix={1: 3, 3: 3, 5: 4})
+    assert len(picked) == 10
+    assert len({q["content_hash"] for q in picked}) == 10

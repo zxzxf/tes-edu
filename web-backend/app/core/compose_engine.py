@@ -4,8 +4,9 @@
 
 1. **候选过滤**由服务薄层做（published / 非 quarantine / 有答案 / 卷型题型白名单）；
    本模块只处理已过滤的候选集。
-2. **同卷 content_hash 不重复** —— :func:`pick_questions` 里 ``seen`` 去重。
-3. **权重**：知识点覆盖优先（每个目标点先保底 1 题）→ 其次难度配比 →
+2. **同卷 content_hash 不重复** —— :func:`pick_questions` 里 ``used_hashes`` 去重。
+3. **权重**：题目级贪心最大覆盖（每轮选「新增覆盖知识点最多」的题，一题多标签
+   天然规避共享题去重冲突）→ 其次难度配比 →
    同类题优先 ``teacher > import > crawl > reviewed > llm_generated``。
 4. **题源不足显式报错** —— :class:`ComposeError` 带上缺哪个知识点/难度档。
 5. **难度比例可配置**，抽不满时 :func:`summarize_distribution` 回报实际分布与缺口。
@@ -16,7 +17,7 @@
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 #: 题源优先级：数值越小越优先（卡面 v1.4 定案 teacher > import > crawl > llm_generated）
 SOURCE_PRIORITY: Dict[str, int] = {
@@ -121,7 +122,8 @@ def build_quota(
 
     - 有 ``required_kps``：每个目标点**至少 1 题**；无题的点直接报错点名，
       不静默少一个点。
-    - 无 ``required_kps``：按全池题量均分（用于"随便出一套"）。
+    - 无 ``required_kps``：返回「整池选 count 道」标记（``UNSPECIFIED_KP``），
+      具体覆盖哪些知识点交给 :func:`pick_questions` 的题目级贪心最大覆盖决定。
     """
     count = max(0, int(count or 0))
     req = [str(k) for k in (required_kps or []) if k]
@@ -132,12 +134,13 @@ def build_quota(
             by_kp.setdefault(kp, []).append(q)
 
     if not req:
-        if not by_kp:
-            # 整池都没有知识点标签（存量导入题常见）：按「不限知识点」整池配额。
-            # 否则 quota 为空 -> 一道题都抽不出来，教师只看到「可用题 0 道」。
-            return {UNSPECIFIED_KP: min(count, len(pool or []))}
-        counts = {kp: len(rows) for kp, rows in by_kp.items()}
-        return allocate_by_kp(counts, count)
+        # 不限知识点：不再把配额摊到每个 kp。
+        # 真实题库「一题多标签」是常态（2026-11-11 生产验收：69 道选择题 100%
+        # 带 2~4 个 kp，131 个 kp 中 63 个只有 1 道题）。按 kp 分配配额会让
+        # sum(各 kp 可选题量) 远大于实际题数，且冷门单点 kp 抢占配额后与
+        # pick_questions 的全局 content_hash 去重冲突——题量一大必然误报
+        # 「题源不足」。改为整池选 count 道，覆盖目标由贪心动态决定。
+        return {UNSPECIFIED_KP: count} if count > 0 else {}
 
     missing = [kp for kp in req if not by_kp.get(kp)]
     if missing:
@@ -214,60 +217,133 @@ def pick_questions(
     *,
     difficulty_mix: Optional[Mapping[int, int]] = None,
 ) -> List[Any]:
-    """按配额抽题。
+    """按「题目级贪心最大覆盖」抽题。
 
-    - 每个知识点内部：先按 ``difficulty_mix`` 尽量满足难度配比，再按
-      :func:`_sort_for_pick` 的偏好补足；
-    - **同卷 content_hash 不重复**（跨知识点共享去重）；
-    - 某个知识点池子不够时抛 :class:`ComposeError`（含缺口维度），
-      由调用方决定是降题量还是报 409——绝不静默少抽。
+    为什么不再「按 kp 配额逐个抽」
+    ------------------------------
+    真实题库一题常带多个知识点。旧实现先由 :func:`build_quota` 给每个 kp
+    分题数配额，再逐个 kp 从 ``by_kp[kp]`` 抽题、用全局 ``content_hash``
+    去重——同一道题被计入多个 kp 池，前面的 kp 抽走共享题后，后面的 kp
+    必然抽不满而抛「题源不足」。生产上「高三·数学·纯选择·10 题」这种最
+    普通的基线场景都出不了卷（2026-11-11 M4-2 验收实测）。
+
+    新语义
+    ------
+    ``quota`` 解释为：**总题数 = sum(quota.values())** + **需优先覆盖的知识点
+    集合 = quota 的具名键**（``UNSPECIFIED_KP`` 表示不限，覆盖目标扩展为整池
+    出现过的一切 kp）。不再强求每个 kp 恰好抽到 ``quota[k]`` 道。
+
+    每轮从「尚未选中的题」里挑得分最高的一题：
+      1. 主价值 **新增覆盖数**：能填补多少个「还没覆盖够」的目标 kp；
+      2. 次价值 **难度缺口**：优先补当前未满足的难度档（传了 mix 时）；
+      3. tie-break：题源优先级 → 难度适中 → content_hash
+         （沿用 :func:`_sort_for_pick` 的同口径偏好）。
+
+    天然保证：
+      - 同卷 ``content_hash`` 不重复（每轮选题对象并跳过已用 hash）；
+      - 指定 kp 先各保底覆盖，再用整池补足到总题数；
+      - **只在整池去重后题目真的不够、或目标 kp 完全无题时**才抛
+        :class:`ComposeError`，不再因多标签共享去重误报。
     """
     quota = {k: int(v or 0) for k, v in (quota or {}).items() if v}
     if not quota:
         return []
 
-    by_kp: Dict[str, List[Any]] = {}
-    for q in pool or []:
-        for kp in _kps(q):
-            by_kp.setdefault(kp, []).append(q)
+    pool = list(pool or [])
+    total_want = sum(quota.values())
 
-    used_hashes: set = set()
-    picked: List[Any] = []
-    short: List[str] = []
+    # 覆盖目标：具名 kp 用其配额值作软目标（至少 1）；不限 kp 则覆盖整池所有 kp。
+    explicit = [k for k in quota if k != UNSPECIFIED_KP]
+    if explicit:
+        kp_need: Dict[str, int] = {k: max(1, int(quota[k])) for k in explicit}
+    else:
+        kp_need = {}
+        for q in pool:
+            for kp in _kps(q):
+                kp_need[kp] = 1
 
-    def _take(candidates: Iterable[Any], want: int) -> int:
-        taken = 0
-        for q in _sort_for_pick(list(candidates)):
-            if taken >= want:
-                break
-            h = str(_get(q, "content_hash", "") or "")
-            key = h or f"__obj_{id(q)}"
-            if key in used_hashes:
-                continue
-            used_hashes.add(key)
-            picked.append(q)
-            taken += 1
-        return taken
+    # 目标 kp 完全无题 -> 点名报错（不静默少点）
+    present = {kp for q in pool for kp in _kps(q)}
+    missing = [k for k in kp_need if k not in present]
+    if missing:
+        detail = "；".join(f"知识点 {k} 无题" for k in missing)
+        raise ComposeError(f"题源不足：{detail}", missing_kps=missing)
 
-    for kp, want in quota.items():
-        rows = list(pool or []) if kp == UNSPECIFIED_KP else (by_kp.get(kp) or [])
-        label = "题库" if kp == UNSPECIFIED_KP else f"知识点 {kp}"
-        if not rows:
-            short.append(f"{label}无题（需 {want} 道）")
+    # 难度配比：统计各档期望，抽题时优先补还欠的档（软约束，不强制凑满）
+    diff_want: Dict[int, int] = {}
+    for d, n in (difficulty_mix or {}).items():
+        try:
+            di = int(d)
+            ni = int(n or 0)
+        except (TypeError, ValueError):
             continue
-        got = 0
-        if difficulty_mix:
-            for diff, n in sorted(difficulty_mix.items()):
-                target = min(int(n or 0), want - got)
-                if target <= 0:
-                    continue
-                subset = [q for q in rows if str(_get(q, "difficulty", "")) == str(diff)]
-                got += _take(subset, target)
-        if got < want:
-            got += _take(rows, want - got)
-        if got < want:
-            short.append(f"{label}题源不足（需 {want}，实际 {got}）")
+        if ni > 0:
+            diff_want[di] = diff_want.get(di, 0) + ni
+    diff_got: Dict[int, int] = {d: 0 for d in diff_want}
 
-    if short:
-        raise ComposeError("；".join(short), shortfall=short)
+    def _key(q: Any) -> str:
+        h = str(_get(q, "content_hash", "") or "")
+        return h or f"__obj_{id(q)}"
+
+    def _diff(q: Any) -> int:
+        d = _get(q, "difficulty", None)
+        try:
+            return int(d) if d is not None else 0
+        except (TypeError, ValueError):
+            return 0
+
+    def _rank(q: Any):
+        """与 _sort_for_pick 同口径的稳定偏好键。"""
+        d = _get(q, "difficulty", None)
+        try:
+            dist = abs(int(d) - 3) if d is not None else 2
+        except (TypeError, ValueError):
+            dist = 2
+        return (_source_rank(q), dist, str(_get(q, "content_hash", "") or ""))
+
+    # 预计算每题元信息，循环里只做增量评分
+    entries = [
+        {
+            "q": q,
+            "key": _key(q),
+            "kps": set(_kps(q)),
+            "diff": _diff(q),
+            "rank": _rank(q),
+        }
+        for q in pool
+    ]
+
+    used: set = set()
+    picked: List[Any] = []
+    covered: Dict[str, int] = {k: 0 for k in kp_need}
+
+    while len(picked) < total_want:
+        avail = [e for e in entries if e["key"] not in used]
+        if not avail:
+            break
+
+        def score(e):
+            gain = sum(
+                1 for kp in e["kps"]
+                if kp in kp_need and covered[kp] < kp_need[kp]
+            )
+            d_gain = 1 if diff_want.get(e["diff"], 0) > diff_got.get(e["diff"], 0) else 0
+            return (-gain, -d_gain, e["rank"])
+
+        best = min(avail, key=score)
+        used.add(best["key"])
+        picked.append(best["q"])
+        for kp in best["kps"]:
+            if kp in covered:
+                covered[kp] += 1
+        if best["diff"] in diff_got:
+            diff_got[best["diff"]] += 1
+
+    if len(picked) < total_want:
+        label = "、".join(explicit) if explicit else "题库"
+        msg = (
+            f"题源不足：{label} 可用题仅 {len(picked)} 道（需 {total_want} 道）。"
+            "请降低题量、放宽知识点/难度筛选或改用其他卷型"
+        )
+        raise ComposeError(msg, shortfall=[f"总量 {len(picked)}/{total_want}"])
     return picked
