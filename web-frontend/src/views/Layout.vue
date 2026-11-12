@@ -1,6 +1,7 @@
 <template>
-  <div class="tes-layout">
-    <aside class="tes-side">
+  <div class="app-shell">
+    <!-- 顶部一级导航：品牌 + 一级业务域 + 用户区 -->
+    <header class="app-top">
       <div class="brand">
         <span class="brand-mark">T</span>
         <span class="brand-text">
@@ -9,84 +10,120 @@
         </span>
       </div>
 
-      <nav class="nav" ref="navEl">
-        <!-- 概览无对应后端菜单节点（所有角色可见），常驻首位 -->
-        <router-link to="/dashboard" class="nav-item" title="概览">
-          <span class="nav-ico">🏠</span>
-          <span class="nav-label">概览</span>
-        </router-link>
-        <!-- T-AM7：其余导航按 /menu/my 授权动态渲染；无前端页面的菜单
-             （如 /system/* 管理页）经映射表过滤，不出死链 -->
-        <template v-for="g in navGroups" :key="g.key">
-          <!-- 分组标题可点：收起/展开本组菜单（caret 用 ::after，保持 text 仍是纯标题） -->
-          <button
-            type="button"
-            class="nav-group"
-            :class="{ closed: isClosed(g.key) }"
-            :title="g.label"
-            :aria-expanded="isClosed(g.key) ? 'false' : 'true'"
-            @click="toggleGroup(g.key)"
-          >
-            <span class="nav-group-label">{{ g.label }}</span>
-          </button>
-          <template v-if="!isClosed(g.key)">
-            <router-link
-              v-for="item in g.items"
-              :key="item.to"
-              :to="item.to"
-              class="nav-item"
-              :title="item.label"
-            >
-              <span class="nav-ico">{{ item.icon }}</span>
-              <span class="nav-label">{{ item.label }}</span>
-            </router-link>
-          </template>
-        </template>
+      <nav class="top-nav" aria-label="一级导航">
+        <button
+          v-for="d in domains"
+          :key="d.key"
+          type="button"
+          class="top-tab"
+          :class="{ on: d.key === currentDomain.key }"
+          :title="d.label"
+          @click="go(d)"
+        >{{ d.label }}</button>
       </nav>
 
-      <div class="side-foot">
-        <div class="fire">🔥 为梦想而战</div>
-        <div class="ver">v0.1.0 · 让每一分努力都被看见</div>
+      <div class="top-right">
+        <span class="role-chip">{{ roleText }}</span>
+        <span class="user-chip">
+          <span class="avatar">{{ (user?.username || 'U').slice(0, 1).toUpperCase() }}</span>
+          {{ user?.username }}
+        </span>
+        <button class="logout" @click="onLogout">退出</button>
       </div>
-    </aside>
+    </header>
 
-    <div class="tes-main">
-      <header class="tes-top">
+    <div class="app-body">
+      <!-- 左侧二级菜单：只显示当前一级域，授权菜单 + 采集工作域共用一套渲染 -->
+      <aside class="app-side">
+        <button
+          type="button"
+          class="side-title nav-group"
+          :class="{ closed: isClosed(currentDomain.key) }"
+          :title="currentDomain.label"
+          :aria-expanded="isClosed(currentDomain.key) ? 'false' : 'true'"
+          @click="toggleGroup(currentDomain.key)"
+        >
+          <span class="nav-group-label">{{ currentDomain.label }}</span>
+          <span class="side-count">{{ readyCount }} 项可用</span>
+        </button>
+
+        <nav class="side-nav nav" ref="navEl">
+          <template v-if="!isClosed(currentDomain.key)">
+            <template v-for="it in currentDomain.items" :key="it.label">
+              <router-link
+                v-if="!it.planned"
+                :to="it.path || it.to"
+                class="side-item nav-item"
+                :title="it.label"
+              >
+                <span class="side-left">
+                  <span v-if="it.icon" class="nav-ico">{{ it.icon }}</span>
+                  <span class="side-label nav-label">{{ it.label }}</span>
+                </span>
+                <span v-if="it.m5" class="m5">{{ it.m5 }}</span>
+              </router-link>
+              <div
+                v-else
+                class="side-item planned"
+                :title="`${it.m5 || ''} 规划中，尚未接入`"
+              >
+                <span class="side-left">
+                  <span class="side-label nav-label">{{ it.label }}</span>
+                </span>
+                <span class="plan-tag">规划中</span>
+              </div>
+            </template>
+          </template>
+        </nav>
+
+        <div class="side-foot">
+          <div class="fire">🔥 为梦想而战</div>
+          <div class="ver">v0.1.0 · 让每一分努力都被看见</div>
+        </div>
+      </aside>
+
+      <!-- 右侧工作区：面包屑 + 页面 -->
+      <main class="app-main">
         <div class="crumb">
-          <span class="crumb-home">首页</span>
+          <span>首页</span>
           <span class="crumb-sep">/</span>
-          <span class="crumb-cur">{{ currentTitle }}</span>
+          <span>{{ currentDomain.label }}</span>
+          <span class="crumb-sep">/</span>
+          <b>{{ currentTitle }}</b>
+          <span v-if="crumbM5" class="crumb-m5">{{ crumbM5 }}</span>
         </div>
-        <div class="top-right">
-          <span class="role-chip">{{ roleText }}</span>
-          <span class="user-chip">
-            <span class="avatar">{{ (user?.username || 'U').slice(0, 1).toUpperCase() }}</span>
-            {{ user?.username }}
-          </span>
-          <button class="logout" @click="onLogout">退出</button>
+        <div class="app-content">
+          <router-view />
         </div>
-      </header>
-
-      <section class="tes-content">
-        <router-view />
-      </section>
+      </main>
     </div>
   </div>
 </template>
 
 <script setup>
+/**
+ * 全站统一三段式壳子（2026-11-12）：顶部一级导航 + 左侧二级菜单 + 右侧工作区。
+ *
+ * 之前主站是「左侧紫渐变侧栏 + 右上白顶栏」，采集工作台另有一套 CrawlLayout，
+ * 两套布局割裂。现在两者合并：一级域 = 概览 + 后端 /menu/my 的 DIR 分组 +
+ * 采集工作台三个业务域；左侧只渲染当前域的二级项，采集规划项继续灰显「规划中」。
+ * 视觉沿用 Tes Edu 设计系统（紫渐变顶栏、橙粉品牌色、白卡片、粉白底），
+ * 不引入新配色。采集子路由仍由后端 require_role/require_perm 兜底。
+ */
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { toNavGroups } from '../utils/menu'
+import { CRAWL_NAV, findCrawlNav } from '../utils/crawlNav'
+// 六页采集工作台的 cw-* 页面样式原先由 CrawlLayout 注入；统一壳子后改由本壳子
+// 承载（cw- 前缀只作用于采集页，不污染主站其它页面）。
+import '../styles/crawlPages.css'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const user = auth.user
-const currentTitle = computed(() => route.meta.title || 'Tes Edu')
 
-// T-AM7：角色文案补齐五角色（原静态表缺 region_admin/school）
 const roleText = computed(() => {
   const map = {
     admin: '管理员', region_admin: '区域管理员', school: '学校',
@@ -95,12 +132,73 @@ const roleText = computed(() => {
   return map[user?.role] || user?.role || ''
 })
 
-// 动态菜单分组（源自 /menu/my 授权；BUTTON 节点与无前端页面的菜单已过滤）
 const navGroups = computed(() => toNavGroups(auth.menuTree))
+// 无采集菜单授权的账号不显示三个采集域，避免「看得见、点了被守卫弹回」
+const canCrawl = computed(() => auth.hasRouteAccess('/course-intake/workbench'))
+
+/** 一级域：概览常驻 + 授权菜单分组 + 采集三域（顺序即顶栏顺序） */
+const domains = computed(() => {
+  const list = [{
+    key: 'home',
+    label: '概览',
+    items: [{ label: '概览', to: '/dashboard', path: '/dashboard', icon: '🏠' }],
+  }]
+  for (const g of navGroups.value) {
+    list.push({
+      key: g.key,
+      label: g.label,
+      items: g.items.map((it) => ({ ...it, path: it.to })),
+    })
+  }
+  if (canCrawl.value) {
+    for (const g of CRAWL_NAV) {
+      list.push({
+        key: `crawl-${g.key}`,
+        label: g.label,
+        crawl: true,
+        items: g.items.map((it) => ({ ...it, to: it.path })),
+      })
+    }
+  }
+  return list
+})
+
+/** 当前一级域：采集子页精确命中优先（否则 /ops/course-intake 会抢走高亮） */
+const currentDomain = computed(() => {
+  const path = route.path
+  const crawlHit = domains.value.find(
+    (d) => d.crawl && d.items.some((it) => it.path === path)
+  )
+  if (crawlHit) return crawlHit
+  const hit = domains.value.find((d) => !d.crawl && d.items.some((it) => {
+    const p = it.path || it.to
+    return p && (path === p || path.startsWith(`${p}/`))
+  }))
+  return hit || domains.value[0]
+})
+
+const readyCount = computed(
+  () => currentDomain.value.items.filter((it) => !it.planned).length
+)
+const crawlItem = computed(
+  () => currentDomain.value.crawl ? findCrawlNav(route.path).item : null
+)
+const currentTitle = computed(
+  () => crawlItem.value?.label || route.meta.title || currentDomain.value.label
+)
+const crumbM5 = computed(() => crawlItem.value?.m5 || '')
+
+function firstReady(d) {
+  const hit = d.items.find((it) => !it.planned && (it.path || it.to))
+  return hit ? (hit.path || hit.to) : null
+}
+function go(d) {
+  const to = firstReady(d)
+  if (to && to !== route.path) router.push(to)
+}
 
 // 菜单项可能超出侧栏高度（.nav 独立滚动）：路由变化 / 菜单加载完成后，
-// 把当前激活项滚入可见区，避免深链进入时「看不到自己在哪」。
-// 只滚动 .nav 容器自身，不用 scrollIntoView（后者会连带滚动页面主区）。
+// 把当前激活项滚入可见区。只滚动 .nav 容器自身，不连带滚动主区。
 const navEl = ref(null)
 function revealActive() {
   const nav = navEl.value
@@ -118,8 +216,8 @@ function revealActive() {
   }
 }
 
-// 分组折叠：点标题收起本组菜单（默认全展开）。key 用后端 menu_id，换角色/换租户
-// 不会串组；只记视觉偏好，不进 store。localStorage 不可用时静默降级为不持久化。
+// 分组折叠：点侧栏域标题收起本域二级菜单（默认全展开）。key 用 domain.key，
+// 换角色/换租户不会串组；只记视觉偏好，不进 store。localStorage 不可用静默降级。
 const GROUPS_KEY = 'tes_nav_closed_groups'
 const closedGroups = ref([])
 try {
@@ -144,19 +242,14 @@ function toggleGroup(key) {
     : [...closedGroups.value, key]
   persistGroups()
 }
-// 深链/程序跳转进来时，若目标项所在分组正好被收起，自动展开该组，
-// 否则「看不到自己在哪」；用户手动收起的分组不受影响（只在命中当前路由时开）
+// 深链进入被收起的域时自动展开该域，否则「看不到自己在哪」
 function openActiveGroup() {
-  const path = route.path
-  const hit = navGroups.value.find((g) =>
-    g.items.some((it) => path === it.to || path.startsWith(`${it.to}/`))
-  )
-  if (hit && isClosed(hit.key)) {
-    closedGroups.value = closedGroups.value.filter((k) => k !== hit.key)
+  const key = currentDomain.value.key
+  if (isClosed(key)) {
+    closedGroups.value = closedGroups.value.filter((k) => k !== key)
     persistGroups()
   }
 }
-// 首屏（深链直达）/ 菜单加载完 / 路由变化：先确保目标项所在分组是展开的，再校准滚动
 onMounted(() => {
   openActiveGroup()
   nextTick(revealActive)
@@ -177,185 +270,152 @@ function onLogout() {
 </script>
 
 <style scoped>
-.tes-layout { display: flex; height: 100vh; overflow: hidden; }
+.app-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-/* ---------- 侧栏：深邃渐变，青春活力 ---------- */
-.tes-side {
-  width: 232px;
+/* ---------- 顶栏：沿用原侧栏紫渐变，一级导航由侧栏移到这里 ---------- */
+.app-top {
+  height: 60px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, #241b3a 0%, #3a1e5c 58%, #5b2a8c 100%);
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  padding: 22px 16px;
-  position: relative;
-  min-height: 0; /* 关键：允许内部 nav 收缩出滚动区，防止菜单过多被 100vh+overflow:hidden 裁掉 */
-}
-.tes-side::after {
-  content: "";
-  position: absolute;
-  top: -40px; right: -40px;
-  width: 160px; height: 160px;
-  background: radial-gradient(circle, rgba(255, 122, 69, .55), transparent 70%);
-  filter: blur(8px);
-}
-.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; flex-shrink: 0; min-width: 0; }
-.brand-mark {
-  width: 40px; height: 40px;
-  flex-shrink: 0;
-  display: grid; place-items: center;
-  border-radius: 12px;
-  background: var(--brand-grad);
-  font-weight: 900; font-size: 20px; color: #fff;
-  box-shadow: 0 6px 16px rgba(255, 61, 129, .45);
-}
-.brand-text { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
-.brand-text b { font-size: 17px; letter-spacing: .5px; }
-.brand-text i { font-style: normal; font-size: 11px; color: rgba(255,255,255,.6); }
-
-/* 导航区：独立滚动，菜单再多也不撑破侧栏、不遮挡页脚 */
-.nav {
-  display: flex; flex-direction: column; gap: 4px;
-  position: relative; z-index: 1;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  margin: 0 -6px;      /* 抵消滚动条宽度，保持视觉居中 */
-  padding: 0 6px;
-  scrollbar-width: thin;                 /* Firefox */
-  scrollbar-color: rgba(255,255,255,.28) transparent;
-}
-/* WebKit 细滚动条：不占宽度、悬停才显眼 */
-.nav::-webkit-scrollbar { width: 5px; }
-.nav::-webkit-scrollbar-track { background: transparent; }
-.nav::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,.22);
-  border-radius: 999px;
-}
-.nav:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,.38); }
-
-.nav-group {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  width: 100%;
-  font: inherit;              /* 覆盖 button 默认字体，保持 11px 全大写感 */
-  font-size: 11px; font-weight: 700; letter-spacing: 1px;
-  color: rgba(255, 255, 255, .45);
-  background: transparent;
-  border: 0;
-  padding: 14px 14px 6px;
-  text-align: left;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: color .18s;
-}
-.nav-group:hover { color: rgba(255, 255, 255, .8); }
-.nav-group:focus-visible { outline: 2px solid rgba(255, 255, 255, .6); outline-offset: -2px; border-radius: 8px; }
-.nav-group-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* caret 用伪元素，保证 .nav-group 的 text 仍是纯标题（title 提示与测试口径一致） */
-.nav-group::after {
-  content: "▾";
-  flex-shrink: 0;
-  font-size: 9px;
-  opacity: .75;
-  transition: transform .18s;
-}
-.nav-group.closed::after { transform: rotate(-90deg); }
-/* 首个分组标题无需上方大间距，避免滚动时顶部空洞 */
-.nav > .nav-group:first-of-type { padding-top: 4px; }
-.nav-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 11px 14px;
-  border-radius: 12px;
-  color: rgba(255, 255, 255, .72);
-  font-size: 14px; font-weight: 600;
-  text-decoration: none;
-  transition: background .2s, color .2s, transform .12s;
-  flex-shrink: 0;   /* 关键：不被 flex 压缩变形，保持等高可点 */
-  min-width: 0;
-}
-.nav-item:hover { background: rgba(255, 255, 255, .08); color: #fff; }
-.nav-item.router-link-active {
-  background: var(--brand-grad);
+  gap: 20px;
+  padding: 0 22px;
+  background: linear-gradient(90deg, #241b3a 0%, #3a1e5c 58%, #5b2a8c 100%);
   color: #fff;
-  box-shadow: 0 8px 18px rgba(255, 61, 129, .35);
 }
-.nav-ico { font-size: 17px; width: 22px; text-align: center; flex-shrink: 0; }
-/* 长菜单名（如「系统服务(MCP厂商)」）省略号截断，悬停看 title 全文 */
-.nav-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
+.brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.brand-mark {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  border-radius: 11px;
+  background: var(--brand-grad);
+  font-weight: 900; font-size: 18px; color: #fff;
+  box-shadow: 0 6px 16px rgba(255, 61, 129, .45);
 }
+.brand-text { display: flex; flex-direction: column; line-height: 1.2; white-space: nowrap; }
+.brand-text b { font-size: 15px; letter-spacing: .5px; }
+.brand-text i { font-style: normal; font-size: 11px; color: rgba(255, 255, 255, .6); }
 
-.side-foot { margin-top: 12px; flex-shrink: 0; position: relative; z-index: 1; }
-.fire {
-  font-size: 13px; font-weight: 700; color: #ffd0a3;
-  background: rgba(255, 255, 255, .08);
-  border: 1px solid rgba(255, 255, 255, .12);
-  border-radius: 999px;
-  padding: 8px 14px; text-align: center;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.top-nav {
+  display: flex; align-items: center; gap: 4px;
+  flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
 }
-.ver {
-  font-size: 11px; color: rgba(255, 255, 255, .45);
-  margin-top: 10px; text-align: center;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.top-nav::-webkit-scrollbar { display: none; }
+.top-tab {
+  font: inherit; font-size: 14px; font-weight: 600;
+  color: rgba(255, 255, 255, .72);
+  background: transparent; border: 0;
+  padding: 8px 14px; border-radius: 10px;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  transition: background .18s, color .18s;
 }
+.top-tab:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+.top-tab.on { background: var(--brand-grad); color: #fff; box-shadow: 0 6px 16px rgba(255, 61, 129, .35); }
 
-/* ---------- 主区 ---------- */
-.tes-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.tes-top {
-  height: 64px; flex-shrink: 0;
-  background: rgba(255, 255, 255, .85);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--line);
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 28px;
-}
-.crumb { display: flex; align-items: center; gap: 10px; font-size: 14px; }
-.crumb-home { color: var(--muted); }
-.crumb-sep { color: var(--line-strong); }
-.crumb-cur { font-weight: 800; }
-.top-right { display: flex; align-items: center; gap: 12px; }
+.top-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .role-chip {
   font-size: 12px; font-weight: 700;
   padding: 4px 12px; border-radius: 999px;
   background: #eef9f3; color: var(--success);
 }
-.user-chip { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+.user-chip { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13px; white-space: nowrap; }
 .avatar {
-  width: 30px; height: 30px; border-radius: 50%;
+  width: 28px; height: 28px; border-radius: 50%;
   display: grid; place-items: center;
-  background: var(--brand-grad); color: #fff; font-size: 13px; font-weight: 800;
+  background: var(--brand-grad); color: #fff; font-size: 12px; font-weight: 800;
 }
 .logout {
   background: #fff; color: var(--danger);
   border: 1.5px solid #ffd6de; border-radius: 10px;
-  padding: 6px 14px; font-size: 13px;
+  padding: 6px 12px; font-size: 13px; cursor: pointer;
 }
 .logout:hover { background: #fff0f3; }
 
-.tes-content { flex: 1; overflow: auto; padding: 28px; }
+.app-body { flex: 1; display: flex; min-height: 0; }
 
-/* ---------- 窄屏自适应：侧栏收窄，优先保证菜单可滚动可达 ---------- */
+/* ---------- 左侧二级菜单：白底，选中态沿用品牌浅粉 ---------- */
+.app-side {
+  width: 208px; flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column;
+  padding: 16px 12px; min-height: 0;
+}
+.side-title {
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 10px 12px;
+  font: inherit; font-size: 14px; font-weight: 800; color: var(--ink);
+  background: transparent; border: 0; text-align: left; cursor: pointer;
+}
+.side-title:hover { color: var(--brand-2); }
+.side-title:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 8px; }
+.nav-group-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-title::after {
+  content: "▾"; flex-shrink: 0; font-size: 9px; opacity: .6;
+  margin-left: 6px; transition: transform .18s;
+}
+.side-title.closed::after { transform: rotate(-90deg); }
+.side-count { font-size: 11px; font-weight: 600; color: var(--muted); margin-left: auto; white-space: nowrap; }
+.side-nav {
+  display: flex; flex-direction: column; gap: 3px;
+  overflow-y: auto; overflow-x: hidden; min-height: 0; flex: 1 1 auto;
+  scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent;
+}
+.side-nav::-webkit-scrollbar { width: 5px; }
+.side-nav::-webkit-scrollbar-track { background: transparent; }
+.side-nav::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; }
+.side-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; border-radius: 10px;
+  color: var(--ink-2); font-size: 13px; font-weight: 600;
+  text-decoration: none; flex-shrink: 0;
+  transition: background .18s, color .18s;
+}
+.side-item:hover { background: var(--bg-2); color: var(--ink); }
+.side-item.router-link-active { background: var(--brand-grad-soft); color: var(--brand-2); }
+.side-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.nav-ico { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+.side-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.m5 { font-size: 10px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.side-item.router-link-active .m5 { color: var(--brand-2); }
+.side-item.planned { color: var(--muted); cursor: not-allowed; }
+.side-item.planned:hover { background: transparent; color: var(--muted); }
+.plan-tag { font-size: 10px; padding: 2px 6px; border-radius: 6px; background: var(--bg-2); white-space: nowrap; }
+.side-foot { margin-top: auto; padding: 12px 8px 0; flex-shrink: 0; }
+.fire {
+  font-size: 12px; font-weight: 700; color: var(--brand-2);
+  background: var(--bg-2); border-radius: 999px;
+  padding: 7px 10px; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ver { font-size: 11px; color: var(--muted); margin-top: 8px; text-align: center; }
+
+/* ---------- 右侧工作区 ---------- */
+.app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.crumb {
+  height: 46px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 24px;
+  background: rgba(255, 255, 255, .85);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px; color: var(--muted);
+}
+.crumb b { color: var(--ink); }
+.crumb-sep { color: var(--line-strong); }
+.crumb-m5 { margin-left: auto; font-size: 11px; color: var(--muted); }
+.app-content { flex: 1; overflow: auto; padding: 24px 28px; }
+
 @media (max-width: 1280px) {
-  .tes-side { width: 208px; padding: 18px 12px; }
-  .nav-item { padding: 10px 12px; gap: 10px; font-size: 13.5px; }
-  .nav-ico { width: 20px; font-size: 16px; }
-  .brand { margin-bottom: 20px; gap: 10px; }
-  .brand-mark { width: 36px; height: 36px; font-size: 18px; }
-  .brand-text b { font-size: 15px; }
-  .tes-content { padding: 22px; }
+  .app-top { gap: 12px; padding: 0 14px; }
+  .top-tab { padding: 7px 10px; font-size: 13px; }
+  .app-side { width: 186px; }
+  .app-content { padding: 20px 22px; }
 }
 @media (max-width: 1100px) {
-  .tes-side { width: 186px; }
-  .nav-item { padding: 9px 10px; gap: 8px; font-size: 13px; }
-  .brand-text i { display: none; } /* 副标题先让位，保住菜单空间 */
-  .side-foot .ver { display: none; }
+  .app-side { width: 168px; padding: 14px 8px; }
+  .brand-text i, .role-chip, .side-foot .ver { display: none; }
+  .side-item { padding: 9px 10px; font-size: 12.5px; }
 }
 </style>

@@ -5,12 +5,13 @@ import CrawlLayout from '../views/CrawlLayout.vue'
 import Workbench from '../views/crawl/Workbench.vue'
 
 describe('系统化采集工作台路由', () => {
-  it('六个子页挂在 CrawlLayout 下，且不经主站 Layout（无双层壳子）', () => {
+  it('六个子页与主站共用统一三段式 Layout（无双层壳子、无独立 CrawlLayout）', () => {
     for (const p of ['workbench', 'sources', 'jobs', 'parse', 'review', 'runs']) {
       const r = router.resolve(`/course-intake/${p}`)
       const comps = r.matched.map((m) => m.components?.default)
-      expect(comps).toContain(CrawlLayout)
-      expect(comps).not.toContain(Layout)
+      expect(comps).toContain(Layout)
+      expect(comps.filter((c) => c === Layout)).toHaveLength(1)
+      expect(comps).not.toContain(CrawlLayout)
     }
   })
 

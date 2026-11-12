@@ -15,9 +15,8 @@ import Reports from '../views/Reports.vue'
 import Compliance from '../views/Compliance.vue'
 import Practice from '../views/Practice.vue'
 import ErrorDistribution from '../views/ErrorDistribution.vue'
-// 系统化任务采集工作台：独立顶层壳子（顶栏一级 + 左侧二级 + 右侧工作区），
-// 不经过主站 Layout，避免出现双层侧栏。原 CourseIntake.vue 保留作回滚/单测基线。
-import CrawlLayout from '../views/CrawlLayout.vue'
+// 系统化任务采集工作台六页：2026-11-12 起与主站共用同一个三段式壳子 Layout，
+// 不再是两套布局（旧 CrawlLayout.vue 保留作回滚/单测基线，不参与路由）。
 import CrawlWorkbench from '../views/crawl/Workbench.vue'
 import CrawlSources from '../views/crawl/Sources.vue'
 import CrawlJobs from '../views/crawl/Jobs.vue'
@@ -70,12 +69,12 @@ const routes = [
       { path: 'tenant', name: 'tenant', component: Tenant, meta: { title: '学校管理' } }
     ]
   },
-  // 系统化任务采集工作台（M5）：顶层独立路由，自带 CrawlLayout 壳子。
-  // 主站侧栏菜单 /ops/course-intake 仍映射 /course-intake，点进去重定向到工作台；
-  // 工作台提供「返回主站」入口。子路由由 auth.hasRouteAccess 按父路径前缀放行。
+  // 系统化任务采集工作台（M5）：与主站共用同一个三段式壳子 Layout，
+  // 切换时壳子实例复用、无双层侧栏。主站菜单 /ops/course-intake 仍映射
+  // /course-intake，点进去重定向到工作台；子路由由 auth.hasRouteAccess 按父路径前缀放行。
   {
     path: '/course-intake',
-    component: CrawlLayout,
+    component: Layout,
     redirect: '/course-intake/workbench',
     meta: { title: '课程采集与知识点' },
     children: [

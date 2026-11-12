@@ -34,7 +34,7 @@
       </router-link>
     </div>
 
-    <p class="muted">提示：当前后端为骨架占位，页面数据来自内存示例；接入 PostgreSQL 后展示真实数据。</p>
+    <p class="muted">提示：统计与列表数据来自后端实时接口；课程源、采集任务与知识点审核请从「系统化任务采集」进入。</p>
   </div>
 </template>
 
@@ -61,7 +61,12 @@ const statList = reactive([
   { num: 0, lbl: '待审内容', color: '#7c4dff' },
 ])
 
-const modules = [
+// 系统化任务采集入口置顶：三段式壳子合入主站后，概览页应能一眼进入工作台，
+// 不必再去侧栏找二级菜单。无采集菜单授权的账号不显示，避免点了被守卫弹回。
+const modules = computed(() => [
+  ...(auth.hasRouteAccess('/course-intake/workbench')
+    ? [{ to: '/course-intake/workbench', label: '系统化任务采集', icon: '🧩', grad: 'linear-gradient(135deg,#ff3d81,#7c4dff)' }]
+    : []),
   { to: '/knowledge', label: '教研内容管理', icon: '📚', grad: 'linear-gradient(135deg,#ff7a45,#ff3d81)' },
   { to: '/analytics', label: '学情看板', icon: '📈', grad: 'linear-gradient(135deg,#1fb6ff,#7c4dff)' },
   { to: '/wrong-questions', label: '错题本', icon: '📕', grad: 'linear-gradient(135deg,#ff5e62,#ff8e53)' },
@@ -70,7 +75,7 @@ const modules = [
   { to: '/reports', label: '家长周报', icon: '💌', grad: 'linear-gradient(135deg,#ff8e53,#ffb020)' },
   { to: '/compliance', label: '合规审核', icon: '🛡️', grad: 'linear-gradient(135deg,#5b6cff,#1fb6ff)' },
   { to: '/practice', label: '在线练习', icon: '🎯', grad: 'linear-gradient(135deg,#ff3d81,#7c4dff)' },
-]
+])
 
 onMounted(async () => {
   try {
