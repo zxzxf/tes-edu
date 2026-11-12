@@ -49,9 +49,14 @@
 
         <nav class="side-nav nav" ref="navEl">
           <template v-if="!isClosed(currentDomain.key)">
-            <template v-for="it in currentDomain.items" :key="it.label">
+            <template
+              v-for="it in currentDomain.items"
+              :key="it.divider ? `divider-${it.key}` : (it.path || it.to || it.label)"
+            >
+              <!-- 授权菜单的 DIR 分组在概览域里降为二级分组标题，不占顶栏一级域 -->
+              <div v-if="it.divider" class="side-divider">{{ it.label }}</div>
               <router-link
-                v-if="!it.planned"
+                v-else-if="!it.planned"
                 :to="it.path || it.to"
                 class="side-item nav-item"
                 :title="it.label"
@@ -88,8 +93,10 @@
           <span>首页</span>
           <span class="crumb-sep">/</span>
           <span>{{ currentDomain.label }}</span>
-          <span class="crumb-sep">/</span>
-          <b>{{ currentTitle }}</b>
+          <template v-if="currentTitle !== currentDomain.label">
+            <span class="crumb-sep">/</span>
+            <b>{{ currentTitle }}</b>
+          </template>
           <span v-if="crumbM5" class="crumb-m5">{{ crumbM5 }}</span>
         </div>
         <div class="app-content">
@@ -105,8 +112,9 @@
  * 全站统一三段式壳子（2026-11-12）：顶部一级导航 + 左侧二级菜单 + 右侧工作区。
  *
  * 之前主站是「左侧紫渐变侧栏 + 右上白顶栏」，采集工作台另有一套 CrawlLayout，
- * 两套布局割裂。现在两者合并：一级域 = 概览 + 后端 /menu/my 的 DIR 分组 +
- * 采集工作台三个业务域；左侧只渲染当前域的二级项，采集规划项继续灰显「规划中」。
+ * 两套布局割裂。现在两者合并：顶栏一级域 = 概览 + 采集工作台三个业务域；
+ * 后端 /menu/my 的 DIR 分组（区域运营等）降为概览域左侧的二级分组标题，
+ * 排在常驻「概览」项下面。左侧只渲染当前域的二级项，采集规划项继续灰显「规划中」。
  * 视觉沿用 Tes Edu 设计系统（紫渐变顶栏、橙粉品牌色、白卡片、粉白底），
  * 不引入新配色。采集子路由仍由后端 require_role/require_perm 兜底。
  */
@@ -136,20 +144,18 @@ const navGroups = computed(() => toNavGroups(auth.menuTree))
 // 无采集菜单授权的账号不显示三个采集域，避免「看得见、点了被守卫弹回」
 const canCrawl = computed(() => auth.hasRouteAccess('/course-intake/workbench'))
 
-/** 一级域：概览常驻 + 授权菜单分组 + 采集三域（顺序即顶栏顺序） */
+/**
+ * 一级域：概览 + 采集三域（顺序即顶栏顺序）。
+ * 后端 /menu/my 的 DIR 分组（区域运营 / 系统设置…）不再占顶栏一级域，
+ * 而是降为「概览」域左侧菜单里的二级分组标题，排在常驻「概览」项下面。
+ */
 const domains = computed(() => {
-  const list = [{
-    key: 'home',
-    label: '概览',
-    items: [{ label: '概览', to: '/dashboard', path: '/dashboard', icon: '🏠' }],
-  }]
+  const homeItems = [{ label: '概览', to: '/dashboard', path: '/dashboard', icon: '🏠' }]
   for (const g of navGroups.value) {
-    list.push({
-      key: g.key,
-      label: g.label,
-      items: g.items.map((it) => ({ ...it, path: it.to })),
-    })
+    homeItems.push({ divider: true, key: g.key, label: g.label })
+    for (const it of g.items) homeItems.push({ ...it, path: it.to })
   }
+  const list = [{ key: 'home', label: '概览', items: homeItems }]
   if (canCrawl.value) {
     for (const g of CRAWL_NAV) {
       list.push({
@@ -178,7 +184,7 @@ const currentDomain = computed(() => {
 })
 
 const readyCount = computed(
-  () => currentDomain.value.items.filter((it) => !it.planned).length
+  () => currentDomain.value.items.filter((it) => !it.planned && !it.divider).length
 )
 const crawlItem = computed(
   () => currentDomain.value.crawl ? findCrawlNav(route.path).item : null
@@ -189,7 +195,7 @@ const currentTitle = computed(
 const crumbM5 = computed(() => crawlItem.value?.m5 || '')
 
 function firstReady(d) {
-  const hit = d.items.find((it) => !it.planned && (it.path || it.to))
+  const hit = d.items.find((it) => !it.planned && !it.divider && (it.path || it.to))
   return hit ? (hit.path || hit.to) : null
 }
 function go(d) {
@@ -283,7 +289,11 @@ function onLogout() {
   background: linear-gradient(90deg, #241b3a 0%, #3a1e5c 58%, #5b2a8c 100%);
   color: #fff;
 }
-.brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.brand {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  padding-right: 20px;
+  border-right: 1px solid rgba(255, 255, 255, .16);
+}
 .brand-mark {
   width: 36px; height: 36px;
   display: grid; place-items: center;
@@ -324,13 +334,15 @@ function onLogout() {
   width: 28px; height: 28px; border-radius: 50%;
   display: grid; place-items: center;
   background: var(--brand-grad); color: #fff; font-size: 12px; font-weight: 800;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .32);
 }
+/* 退出改成顶栏幽灵按钮：白底红字实心块在深紫顶栏里过于抢眼 */
 .logout {
-  background: #fff; color: var(--danger);
-  border: 1.5px solid #ffd6de; border-radius: 10px;
+  background: rgba(255, 255, 255, .10); color: rgba(255, 255, 255, .9);
+  border: 1px solid rgba(255, 255, 255, .28); border-radius: 10px;
   padding: 6px 12px; font-size: 13px; cursor: pointer;
 }
-.logout:hover { background: #fff0f3; }
+.logout:hover { background: #fff; color: var(--danger); border-color: #ffd6de; }
 
 .app-body { flex: 1; display: flex; min-height: 0; }
 
@@ -366,7 +378,14 @@ function onLogout() {
 .side-nav::-webkit-scrollbar { width: 5px; }
 .side-nav::-webkit-scrollbar-track { background: transparent; }
 .side-nav::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; }
+.side-divider {
+  margin-top: 6px; padding: 14px 12px 5px;
+  border-top: 1px solid var(--line);
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  color: var(--muted); flex-shrink: 0;
+}
 .side-item {
+  position: relative;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 10px 12px; border-radius: 10px;
   color: var(--ink-2); font-size: 13px; font-weight: 600;
@@ -375,6 +394,10 @@ function onLogout() {
 }
 .side-item:hover { background: var(--bg-2); color: var(--ink); }
 .side-item.router-link-active { background: var(--brand-grad-soft); color: var(--brand-2); }
+.side-item.router-link-active::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
+  width: 3px; border-radius: 0 3px 3px 0; background: var(--brand-grad);
+}
 .side-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .nav-ico { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
 .side-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -406,6 +429,10 @@ function onLogout() {
 .crumb-sep { color: var(--line-strong); }
 .crumb-m5 { margin-left: auto; font-size: 11px; color: var(--muted); }
 .app-content { flex: 1; overflow: auto; padding: 24px 28px; }
+/* 超宽屏不把卡片/表格拉到无限宽：页面内容限宽并居中（只作用于 .tes-page /
+   .cw-page 根容器，不改各页内部网格，也不影响需要整宽的页面） */
+.app-content :deep(.tes-page) { max-width: 1280px; margin-inline: auto; }
+.app-content :deep(.cw-page) { margin-inline: auto; }
 
 @media (max-width: 1280px) {
   .app-top { gap: 12px; padding: 0 14px; }
@@ -417,5 +444,12 @@ function onLogout() {
   .app-side { width: 168px; padding: 14px 8px; }
   .brand-text i, .role-chip, .side-foot .ver { display: none; }
   .side-item { padding: 9px 10px; font-size: 12.5px; }
+}
+@media (max-width: 900px) {
+  .brand { padding-right: 12px; }
+  .app-top { gap: 10px; }
+  .app-side { width: 150px; }
+  .crumb { padding: 0 16px; }
+  .app-content { padding: 18px 16px; }
 }
 </style>

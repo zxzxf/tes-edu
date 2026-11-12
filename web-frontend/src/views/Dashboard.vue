@@ -18,7 +18,17 @@
       </div>
     </div>
 
-    <!-- 功能模块 -->
+    <!-- M5 主链路单独做主推入口：不混进快速入口网格，避免 9 张卡片在 4 列下末行只剩 1 张 -->
+    <router-link v-if="crawlEntry" :to="crawlEntry.to" class="crawl-entry">
+      <span class="ce-ico">🧩</span>
+      <span class="ce-text">
+        <b>系统化任务采集</b>
+        <i>课程源 → 采集任务 → 解析审核 → 去重入库，M5 全链路工作台</i>
+      </span>
+      <span class="ce-go">进入工作台 <span aria-hidden="true">→</span></span>
+    </router-link>
+
+    <!-- 功能模块：8 张卡片，4 列 × 2 行整齐排布 -->
     <h2 class="sec-title">快速入口</h2>
     <div class="tes-grid cols-4 modules">
       <router-link
@@ -61,12 +71,14 @@ const statList = reactive([
   { num: 0, lbl: '待审内容', color: '#7c4dff' },
 ])
 
-// 系统化任务采集入口置顶：三段式壳子合入主站后，概览页应能一眼进入工作台，
-// 不必再去侧栏找二级菜单。无采集菜单授权的账号不显示，避免点了被守卫弹回。
-const modules = computed(() => [
-  ...(auth.hasRouteAccess('/course-intake/workbench')
-    ? [{ to: '/course-intake/workbench', label: '系统化任务采集', icon: '🧩', grad: 'linear-gradient(135deg,#ff3d81,#7c4dff)' }]
-    : []),
+// 采集工作台是 M5 主链路，独立主推入口（无采集授权则不显示，避免点了被守卫弹回）。
+// 与快速入口网格分开，网格固定 8 张卡片，4×2 排版不因主推项变成 9 张而露出单卡空行。
+const crawlEntry = computed(() =>
+  auth.hasRouteAccess('/course-intake/workbench')
+    ? { to: '/course-intake/workbench' }
+    : null
+)
+const modules = [
   { to: '/knowledge', label: '教研内容管理', icon: '📚', grad: 'linear-gradient(135deg,#ff7a45,#ff3d81)' },
   { to: '/analytics', label: '学情看板', icon: '📈', grad: 'linear-gradient(135deg,#1fb6ff,#7c4dff)' },
   { to: '/wrong-questions', label: '错题本', icon: '📕', grad: 'linear-gradient(135deg,#ff5e62,#ff8e53)' },
@@ -75,7 +87,7 @@ const modules = computed(() => [
   { to: '/reports', label: '家长周报', icon: '💌', grad: 'linear-gradient(135deg,#ff8e53,#ffb020)' },
   { to: '/compliance', label: '合规审核', icon: '🛡️', grad: 'linear-gradient(135deg,#5b6cff,#1fb6ff)' },
   { to: '/practice', label: '在线练习', icon: '🎯', grad: 'linear-gradient(135deg,#ff3d81,#7c4dff)' },
-])
+]
 
 onMounted(async () => {
   try {
@@ -118,7 +130,35 @@ onMounted(async () => {
 .hero-text p { margin: 0; font-size: 13px; opacity: .9; }
 .hero-fire { font-size: 56px; filter: drop-shadow(0 6px 12px rgba(0,0,0,.2)); z-index: 1; }
 
-.stats { margin-bottom: 30px; }
+.stats { margin-bottom: 20px; }
+
+/* 主推入口：横向一条，与下方卡片网格拉开层级，末行不再留单卡 */
+.crawl-entry {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px 22px; margin-bottom: 28px;
+  border-radius: var(--r-lg);
+  background: linear-gradient(100deg, #fff 0%, #fff 52%, var(--bg-2) 100%);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none; color: var(--ink);
+  transition: transform .18s ease, box-shadow .25s ease, border-color .2s ease;
+}
+.crawl-entry:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: var(--brand);
+}
+.ce-ico {
+  width: 46px; height: 46px; flex-shrink: 0;
+  border-radius: 14px; display: grid; place-items: center;
+  font-size: 22px; background: var(--brand-grad); color: #fff;
+  box-shadow: 0 6px 16px rgba(255, 61, 129, .28);
+}
+.ce-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ce-text b { font-size: 15px; font-weight: 800; }
+.ce-text i { font-style: normal; font-size: 12.5px; color: var(--ink-2); }
+.ce-go { margin-left: auto; flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--brand-2); }
+.ce-go span { margin-left: 4px; }
 
 .sec-title { font-size: 18px; margin: 6px 0 16px; }
 .modules { margin-bottom: 26px; }
@@ -149,4 +189,10 @@ onMounted(async () => {
 .m-go { font-size: 12px; font-weight: 700; color: var(--brand-2); }
 
 .muted { color: var(--muted); font-size: 13px; margin-top: 8px; }
+
+@media (max-width: 700px) {
+  .crawl-entry { padding: 14px 16px; gap: 12px; }
+  .ce-text i { display: none; }
+  .ce-go span { display: none; }
+}
 </style>

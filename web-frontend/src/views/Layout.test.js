@@ -46,11 +46,13 @@ async function mountLayout(role, menus, initialPath = '/dashboard') {
 const navLabels = (wrapper) =>
   wrapper.findAll('a.nav-item .nav-label').map((el) => el.text())
 const groupLabels = (wrapper) =>
-  wrapper.findAll('.nav-group .nav-group-label').map((el) => el.text())
+  wrapper.findAll('nav.side-nav .nav-group .nav-group-label').map((el) => el.text())
 const navHrefs = (wrapper) =>
   wrapper.findAll('a.nav-item').map((el) => el.attributes('href'))
 const topTabs = (wrapper) =>
   wrapper.findAll('.top-tab').map((el) => el.text())
+const dividers = (wrapper) =>
+  wrapper.findAll('.side-divider').map((el) => el.text())
 const clickTab = async (wrapper, label) => {
   const tab = wrapper.findAll('.top-tab').find((el) => el.text() === label)
   await tab.trigger('click')
@@ -58,31 +60,37 @@ const clickTab = async (wrapper, label) => {
 }
 
 describe('Layout 全站三段式（顶栏一级域 + 左侧二级 + 右侧工作区）', () => {
-  it('顶栏渲染一级域，当前域高亮，左侧只显示当前域二级菜单', async () => {
+  it('顶栏只有概览 + 采集三域，授权分组降为概览下的二级标题', async () => {
     const { wrapper } = await mountLayout('teacher', TEACHER_MENUS)
-    expect(topTabs(wrapper)).toEqual([
-      '概览', '系统设置', '区域运营', '业务中心', '解析审核', '运行监控',
-    ])
+    expect(topTabs(wrapper)).toEqual(['概览', '业务中心', '解析审核', '运行监控'])
+    expect(topTabs(wrapper)).not.toContain('区域运营')
+    expect(topTabs(wrapper)).not.toContain('系统设置')
     expect(wrapper.find('.top-tab.on').text()).toBe('概览')
-    expect(navLabels(wrapper)).toEqual(['概览'])
-    expect(groupLabels(wrapper)).toEqual(['概览'])
+    expect(dividers(wrapper)).toEqual(['系统设置', '区域运营'])
+    // 分组标题必须排在常驻「概览」项下面
+    const children = wrapper.find('nav.side-nav').element.children
+    expect(children[0].textContent).toContain('概览')
+    expect(children[1].classList.contains('side-divider')).toBe(true)
+    expect(groupLabels(wrapper)).toEqual([])
     expect(wrapper.find('.crumb').text()).toContain('概览')
-    // 三段式结构齐备
     expect(wrapper.find('.app-top').exists()).toBe(true)
     expect(wrapper.find('.app-side').exists()).toBe(true)
     expect(wrapper.find('.app-main').exists()).toBe(true)
   })
 
-  it('切换到区域运营域：按授权渲染二级项，剔除 BUTTON 与无页面菜单', async () => {
+  it('概览域左侧按授权渲染全部二级项，剔除 BUTTON 与无页面菜单', async () => {
     const { wrapper } = await mountLayout('teacher', TEACHER_MENUS, '/knowledge')
-    expect(wrapper.find('.top-tab.on').text()).toBe('区域运营')
+    expect(wrapper.find('.top-tab.on').text()).toBe('概览')
     expect(navLabels(wrapper)).toEqual([
+      '概览',
+      '菜单管理', '区域管理', '系统服务(MCP厂商)',
       '学校管理', '教研内容管理', '学情看板', '课程采集与知识点',
     ])
     expect(navHrefs(wrapper)).toEqual([
+      '/dashboard', '/system/menu', '/system/region', '/system/vendor',
       '/tenant', '/knowledge', '/analytics', '/course-intake',
     ])
-    expect(groupLabels(wrapper)).toEqual(['区域运营'])
+    expect(dividers(wrapper)).toEqual(['系统设置', '区域运营'])
     expect(wrapper.text()).not.toContain('生成组卷')
   })
 
@@ -91,15 +99,16 @@ describe('Layout 全站三段式（顶栏一级域 + 左侧二级 + 右侧工作
     expect(wrapper.find('.role-chip').text()).toBe('区域管理员')
   })
 
-  it('家长视角：无采集授权则不显示采集域，区域运营只显示家长周报', async () => {
+  it('家长视角：无采集授权则顶栏只有概览，区域运营在左侧概览下', async () => {
     const parentMenus = [
       { menu_id: 'm_ops', parent_id: null, menu_name: '区域运营', menu_type: 'DIR', path: '/ops', sort: 2 },
       { menu_id: 'm_ops_reports', parent_id: 'm_ops', menu_name: '家长周报', menu_type: 'MENU', path: '/ops/reports', sort: 7 },
     ]
     const { wrapper } = await mountLayout('parent', parentMenus, '/reports')
-    expect(topTabs(wrapper)).toEqual(['概览', '区域运营'])
-    expect(navLabels(wrapper)).toEqual(['家长周报'])
-    expect(navHrefs(wrapper)).toEqual(['/reports'])
+    expect(topTabs(wrapper)).toEqual(['概览'])
+    expect(dividers(wrapper)).toEqual(['区域运营'])
+    expect(navLabels(wrapper)).toEqual(['概览', '家长周报'])
+    expect(navHrefs(wrapper)).toEqual(['/dashboard', '/reports'])
   })
 
   it('二级项与域标题带 title（长文案截断后可悬浮查看全文）', async () => {
@@ -109,8 +118,13 @@ describe('Layout 全站三段式（顶栏一级域 + 左侧二级 + 右侧工作
     for (const el of items) {
       expect(el.attributes('title')).toBe(el.find('.nav-label').text())
     }
-    const title = wrapper.find('.nav-group')
+    const title = wrapper.find('.side-title')
     expect(title.attributes('title')).toBe(title.find('.nav-group-label').text())
+    // 分组标题是纯文本，不是链接、不产生死链
+    for (const el of wrapper.findAll('.side-divider')) {
+      expect(el.element.tagName).not.toBe('A')
+      expect(el.attributes('href')).toBeUndefined()
+    }
   })
 
   it('菜单再多也只渲染一个滚动容器 .nav（溢出靠滚动而非裁切）', async () => {
@@ -127,8 +141,8 @@ describe('Layout 全站三段式（顶栏一级域 + 左侧二级 + 右侧工作
     ]
     const { wrapper } = await mountLayout('admin', many, '/knowledge')
     expect(wrapper.findAll('.nav')).toHaveLength(1)
-    expect(wrapper.findAll('a.nav-item')).toHaveLength(10)
-    expect(wrapper.findAll('.nav-group')).toHaveLength(1)
+    expect(wrapper.findAll('a.nav-item')).toHaveLength(11) // 常驻概览 + 10 项
+    expect(wrapper.findAll('.side-divider')).toHaveLength(1)
     const hrefs = navHrefs(wrapper)
     expect(new Set(hrefs).size).toBe(hrefs.length)
   })
@@ -141,6 +155,10 @@ describe('Layout 全站三段式（顶栏一级域 + 左侧二级 + 右侧工作
     expect(navLabels(wrapper)).toContain('解析预览')
     expect(navLabels(wrapper)).toContain('知识点审核')
     expect(wrapper.find('.crumb').text()).toContain('解析审核')
+    // 点回概览：左侧恢复授权菜单分组
+    await clickTab(wrapper, '概览')
+    expect(router.currentRoute.value.path).toBe('/dashboard')
+    expect(dividers(wrapper)).toEqual(['系统设置', '区域运营'])
   })
 
   it('采集域规划项灰显且不是链接，不产生死链', async () => {
@@ -166,41 +184,41 @@ describe('Layout 二级菜单折叠', () => {
     const { wrapper, router } = await mountLayout('teacher', TEACHER_MENUS, '/knowledge')
     expect(navLabels(wrapper)).toContain('教研内容管理')
 
-    const g = wrapper.find('.nav-group')
+    const g = wrapper.find('.side-title')
     expect(g.classes()).not.toContain('closed')
     expect(g.attributes('aria-expanded')).toBe('true')
     await g.trigger('click')
-    expect(wrapper.find('.nav-group').classes()).toContain('closed')
-    expect(wrapper.find('.nav-group').attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('.side-title').classes()).toContain('closed')
+    expect(wrapper.find('.side-title').attributes('aria-expanded')).toBe('false')
     expect(navLabels(wrapper)).toEqual([])
-    expect(JSON.parse(localStorage.getItem('tes_nav_closed_groups'))).toEqual(['m_ops'])
+    expect(dividers(wrapper)).toEqual([])
+    expect(JSON.parse(localStorage.getItem('tes_nav_closed_groups'))).toEqual(['home'])
 
-    // 折叠状态按域记：切到系统设置域，其菜单照常显示
-    await router.push('/system/menu')
+    // 折叠状态按域记：切到采集域，其菜单照常显示
+    await router.push('/course-intake/workbench')
     await flushPromises()
-    expect(wrapper.find('.top-tab.on').text()).toBe('系统设置')
-    expect(navLabels(wrapper)).toEqual(['菜单管理', '区域管理', '系统服务(MCP厂商)'])
+    expect(wrapper.find('.top-tab.on').text()).toBe('业务中心')
+    expect(navLabels(wrapper)).toEqual(['采集工作台', '课程源管理', '采集任务'])
   })
 
   it('再点一次恢复，退出按钮可用', async () => {
     const { wrapper } = await mountLayout('teacher', TEACHER_MENUS, '/knowledge')
-    const g = wrapper.find('.nav-group')
-    await g.trigger('click')
-    await wrapper.find('.nav-group').trigger('click')
+    await wrapper.find('.side-title').trigger('click')
+    await wrapper.find('.side-title').trigger('click')
     expect(navLabels(wrapper)).toContain('教研内容管理')
     expect(JSON.parse(localStorage.getItem('tes_nav_closed_groups'))).toEqual([])
     expect(wrapper.find('.logout').text()).toBe('退出')
   })
 
-  it('刷新沿用折叠状态；深链进入被收起的域时自动展开该域', async () => {
-    localStorage.setItem('tes_nav_closed_groups', JSON.stringify(['m_ops', 'm_sys']))
+  it('折叠状态按域隔离；深链进入被收起的域时自动展开该域', async () => {
+    localStorage.setItem('tes_nav_closed_groups', JSON.stringify(['crawl-review']))
 
     const w1 = await mountLayout('teacher', TEACHER_MENUS, '/dashboard')
-    expect(navLabels(w1.wrapper)).toEqual(['概览'])
+    expect(navLabels(w1.wrapper)).toContain('教研内容管理')
 
-    const w2 = await mountLayout('teacher', TEACHER_MENUS, '/knowledge')
-    expect(navLabels(w2.wrapper)).toContain('教研内容管理')
-    expect(w2.wrapper.find('.nav-group').attributes('aria-expanded')).toBe('true')
-    expect(JSON.parse(localStorage.getItem('tes_nav_closed_groups'))).toEqual(['m_sys'])
+    const w2 = await mountLayout('teacher', TEACHER_MENUS, '/course-intake/parse')
+    expect(navLabels(w2.wrapper)).toContain('解析预览')
+    expect(w2.wrapper.find('.side-title').attributes('aria-expanded')).toBe('true')
+    expect(JSON.parse(localStorage.getItem('tes_nav_closed_groups'))).toEqual([])
   })
 })
