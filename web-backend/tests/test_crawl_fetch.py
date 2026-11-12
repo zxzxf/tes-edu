@@ -178,3 +178,84 @@ def test_fetch_parse_normalize_closed_loop(tmp_path, monkeypatch):
     assert norm["stem"] == "集合 A∩B"
     assert norm["source_tag"] == "auto_crawl"
     assert norm["status"] == "draft"
+
+
+# ------------------------------------------- 抓取加固（2026-11-12 真站点验收）
+class _FakeResp:
+    def __init__(self, status_code=200, headers=None, text="ok"):
+        self.status_code = status_code
+        self.headers = headers or {}
+        self.text = text
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+
+def _install_fake_client(monkeypatch, responses, captured):
+    """把 httpx.AsyncClient 换成可控假客户端（单测不联网）。"""
+    import httpx
+
+    class FakeClient:
+        def __init__(self, **kw):
+            captured["kwargs"] = kw
+            captured["urls"] = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get(self, url):
+            captured["urls"].append(url)
+            return responses.pop(0) if len(responses) > 1 else responses[0]
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
+
+
+def test_safe_fetch_url_browser_ua_and_manual_redirect(monkeypatch):
+    """带浏览器 UA（避免 403）+ 关闭自动重定向（逐跳 SSRF 复查）。"""
+    captured = {}
+    _install_fake_client(monkeypatch, [_FakeResp(text="<html>ok</html>")], captured)
+    monkeypatch.setattr(cf, "_resolve_safe", lambda u: u)
+    assert asyncio.run(cf.safe_fetch_url("https://example.com/page")) == "<html>ok</html>"
+    kw = captured["kwargs"]
+    assert "Mozilla" in kw["headers"]["User-Agent"]
+    assert kw["follow_redirects"] is False
+
+
+def test_safe_fetch_url_blocks_private_redirect(monkeypatch):
+    """302 到云元数据必须在发出第二跳之前被拦（旧 follow_redirects 会绕过）。"""
+    captured = {}
+    _install_fake_client(
+        monkeypatch,
+        [
+            _FakeResp(302, {"location": "http://169.254.169.254/latest/meta-data/"}),
+            _FakeResp(text="SHOULD_NOT_REACH"),
+        ],
+        captured,
+    )
+    monkeypatch.setattr(
+        cf.socket, "getaddrinfo",
+        lambda host, *a, **kw: [(2, 1, 6, "", ("93.184.216.34", 0))],
+    )
+    with pytest.raises(ValueError, match="私网|元数据|本地"):
+        asyncio.run(cf.safe_fetch_url("https://example.com/page"))
+    assert len(captured["urls"]) == 1, "私网重定向不应产生第二次请求"
+
+
+def test_safe_fetch_url_follows_public_redirect(monkeypatch):
+    """公网重定向仍正常跟随，且每跳都过闸门。"""
+    captured = {}
+    _install_fake_client(
+        monkeypatch,
+        [_FakeResp(302, {"location": "/final.html"}), _FakeResp(text="FINAL")],
+        captured,
+    )
+    monkeypatch.setattr(cf, "_resolve_safe", lambda u: u)
+    assert asyncio.run(cf.safe_fetch_url("https://example.com/start")) == "FINAL"
+    assert captured["urls"] == [
+        "https://example.com/start",
+        "https://example.com/final.html",
+    ]

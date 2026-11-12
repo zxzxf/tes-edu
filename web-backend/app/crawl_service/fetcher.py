@@ -21,7 +21,7 @@ import re
 import socket
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 log = logging.getLogger(__name__)
 
@@ -103,15 +103,47 @@ def _resolve_safe(url: str) -> str:
     return url
 
 
+#: 常规浏览器 UA。2026-11-12 137 真站点验收实测：w3schools 对
+#: httpx 默认 UA（python-httpx/x.y）直接 403，带浏览器 UA 即 200 / 282KB。
+_FETCH_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+}
+_MAX_REDIRECTS = 5
+_REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
+
+
 async def safe_fetch_url(url: str, timeout: float = 20.0) -> str:
-    """SSRF 安全抓取公网 URL 文本（需 httpx）。"""
-    _resolve_safe(url)
+    """SSRF 安全抓取公网 URL 文本（需 httpx）。
+
+    两处加固（2026-11-12 真站点验收发现）：
+    * 带浏览器 UA，避免公开站点把 python-httpx 默认 UA 当爬虫直接 403；
+    * **关闭自动重定向**，改为逐跳手动复查 SSRF。旧版 ``follow_redirects=True``
+      只校验初始 URL，站点 302 到 ``169.254.169.254`` 即可绕过闸门打到云元数据，
+      是出站防护的真实缺口；现在每一跳都过 ``_resolve_safe``。
+    """
     import httpx
 
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        return resp.text
+    current = url
+    async with httpx.AsyncClient(
+        timeout=timeout, follow_redirects=False, headers=_FETCH_HEADERS
+    ) as client:
+        for _ in range(_MAX_REDIRECTS + 1):
+            _resolve_safe(current)
+            resp = await client.get(current)
+            loc = (
+                resp.headers.get("location")
+                if resp.status_code in _REDIRECT_CODES else None
+            )
+            if loc:
+                current = urljoin(current, loc)
+                continue
+            resp.raise_for_status()
+            return resp.text
+    raise ValueError(f"采集源重定向次数超过上限 {_MAX_REDIRECTS}")
 
 
 def read_local_file(uri: str) -> str:
