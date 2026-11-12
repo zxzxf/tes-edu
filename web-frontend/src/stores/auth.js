@@ -69,7 +69,15 @@ export const useAuthStore = defineStore('auth', () => {
    */
   function hasRouteAccess(path) {
     if (!menusLoaded.value || menus.value.length === 0) return true
-    return allowedRoutes.value.has(path)
+    const allowed = allowedRoutes.value
+    if (allowed.has(path)) return true
+    // 已授权页面的子路由（如 /course-intake/workbench）与父页面同源，
+    // 视为同一功能域放行；真正的安全边界仍是后端 require_role/require_perm。
+    // 系统化采集工作台拆页后靠这条规则进入，无需为每个子页新增后端菜单节点。
+    for (const base of allowed) {
+      if (base !== '/' && path.startsWith(`${base}/`)) return true
+    }
+    return false
   }
 
   function logout() {

@@ -15,7 +15,15 @@ import Reports from '../views/Reports.vue'
 import Compliance from '../views/Compliance.vue'
 import Practice from '../views/Practice.vue'
 import ErrorDistribution from '../views/ErrorDistribution.vue'
-import CourseIntake from '../views/CourseIntake.vue'
+// 系统化任务采集工作台：独立顶层壳子（顶栏一级 + 左侧二级 + 右侧工作区），
+// 不经过主站 Layout，避免出现双层侧栏。原 CourseIntake.vue 保留作回滚/单测基线。
+import CrawlLayout from '../views/CrawlLayout.vue'
+import CrawlWorkbench from '../views/crawl/Workbench.vue'
+import CrawlSources from '../views/crawl/Sources.vue'
+import CrawlJobs from '../views/crawl/Jobs.vue'
+import CrawlParse from '../views/crawl/Parse.vue'
+import CrawlReview from '../views/crawl/Review.vue'
+import CrawlRuns from '../views/crawl/Runs.vue'
 import SystemMenu from '../views/SystemMenu.vue'
 import SystemRole from '../views/SystemRole.vue'
 import SystemRegion from '../views/SystemRegion.vue'
@@ -50,7 +58,6 @@ const routes = [
       { path: 'reports', name: 'reports', component: Reports, meta: { title: '家长周报' } },
       { path: 'compliance', name: 'compliance', component: Compliance, meta: { title: '合规审核' } },
       { path: 'practice', name: 'practice', component: Practice, meta: { title: '在线练习（过程采集）' } },
-      { path: 'course-intake', name: 'course-intake', component: CourseIntake, meta: { title: '课程采集与知识点' } },
       // T-AM3/T-AM4/T-AM5/T-AM6 管理页：授权可达性由 auth.hasRouteAccess 按 /menu/my 判定
       // （见 utils/menu.js 的 MENU_ROUTE_MAP），此处不硬编码角色
       { path: 'system/menu', name: 'system-menu', component: SystemMenu, meta: { title: '菜单管理' } },
@@ -61,6 +68,23 @@ const routes = [
       { path: 'system/model-config', name: 'system-model-config', component: ModelConfig, meta: { title: '模型配置（BYOM）' } },
       { path: 'system/user', name: 'system-user', component: SystemUser, meta: { title: '用户管理' } },
       { path: 'tenant', name: 'tenant', component: Tenant, meta: { title: '学校管理' } }
+    ]
+  },
+  // 系统化任务采集工作台（M5）：顶层独立路由，自带 CrawlLayout 壳子。
+  // 主站侧栏菜单 /ops/course-intake 仍映射 /course-intake，点进去重定向到工作台；
+  // 工作台提供「返回主站」入口。子路由由 auth.hasRouteAccess 按父路径前缀放行。
+  {
+    path: '/course-intake',
+    component: CrawlLayout,
+    redirect: '/course-intake/workbench',
+    meta: { title: '课程采集与知识点' },
+    children: [
+      { path: 'workbench', name: 'crawl-workbench', component: CrawlWorkbench, meta: { title: '采集工作台' } },
+      { path: 'sources', name: 'crawl-sources', component: CrawlSources, meta: { title: '课程源管理' } },
+      { path: 'jobs', name: 'crawl-jobs', component: CrawlJobs, meta: { title: '采集任务' } },
+      { path: 'parse', name: 'crawl-parse', component: CrawlParse, meta: { title: '解析预览' } },
+      { path: 'review', name: 'crawl-review', component: CrawlReview, meta: { title: '知识点审核' } },
+      { path: 'runs', name: 'crawl-runs', component: CrawlRuns, meta: { title: '运行日志' } },
     ]
   }
 ]

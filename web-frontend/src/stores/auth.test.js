@@ -108,3 +108,29 @@ describe('auth store：动态授权', () => {
     expect(localStorage.getItem('perms')).toBe(null)
   })
 })
+
+describe('auth store：系统化采集工作台子路由（2026-11-12）', () => {
+  const WITH_INTAKE = [
+    { menu_id: 'm_ops', parent_id: null, menu_name: '区域运营', menu_type: 'DIR', path: '/ops', sort: 1 },
+    { menu_id: 'm_intake', parent_id: 'm_ops', menu_name: '课程采集与知识点', menu_type: 'MENU', path: '/ops/course-intake', sort: 1 },
+  ]
+
+  it('父路径 /course-intake 已授权时，六个子页面同源放行', async () => {
+    getMyMenus.mockResolvedValue(WITH_INTAKE)
+    const auth = freshStore()
+    await auth.loadMenus()
+
+    expect(auth.hasRouteAccess('/course-intake')).toBe(true)
+    for (const p of ['workbench', 'sources', 'jobs', 'parse', 'review', 'runs']) {
+      expect(auth.hasRouteAccess(`/course-intake/${p}`)).toBe(true)
+    }
+  })
+
+  it('未授权域的子路径仍被拦回首页', async () => {
+    getMyMenus.mockResolvedValue(WITH_INTAKE)
+    const auth = freshStore()
+    await auth.loadMenus()
+    expect(auth.hasRouteAccess('/system/role')).toBe(false)
+    expect(auth.hasRouteAccess('/system/role/edit')).toBe(false)
+  })
+})
