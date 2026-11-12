@@ -31,6 +31,9 @@ log = logging.getLogger(__name__)
 #: 采集源抓取与解析（让「采集任务」真正能采：从源读内容 -> 解析成 items）。
 from app.crawl_service import fetcher as crawl_fetch  # noqa: E402
 
+#: M5-2：非结构化网页 -> 结构化题目的 LLM 抽取（默认关，见 config）。
+from app.crawl_service import llm_extract  # noqa: E402
+
 #: 版权/内容合规黑名单（M5-5）。业务给正式清单前，这里只放「明确不可采集」的源，
 #: 命中即阻断——**默认放行**，否则任何新源都要等人工改代码才能用。
 COMPLIANCE_BLOCKLIST: Tuple[str, ...] = (
@@ -307,6 +310,16 @@ async def _resolve_items_from_source(
     except Exception as exc:  # noqa: BLE001 抓取异常要落进运行日志，不能让任务静默崩
         return [], f"源抓取失败：{exc}"
     items, reason = crawl_fetch.parse_items(content, src.source_type)
+    if crawl_fetch.needs_llm(reason):
+        # M5-2：HTML/纯文本没有结构化题目，交给 LLM 抽取环节。
+        # 默认关闭时 extract_items 会返回「需 LLM 抽取环节：未启用」的原因，
+        # 依旧不静默 0 条；开启后失败原因写进 run.error 可追溯。
+        items, reason = await llm_extract.extract_items(
+            content,
+            source_type=src.source_type,
+            db=db,
+            tenant_id=job.tenant_id,
+        )
     if reason:
         return [], reason
     return items, None
@@ -342,7 +355,11 @@ async def run_job(
         resolved, reason = await _resolve_items_from_source(db, job)
         if reason:
             run.error = reason
-            if reason.startswith(("源抓取失败", "采集源", "不支持的源")):
+            # 抓取/模型调用失败属真故障（failed）；「需 LLM 抽取环节」标记、
+            # 「未启用」「页面无题」属业务性空结果，保持 ok + 原因可追溯。
+            if reason.startswith((
+                "源抓取失败", "采集源", "不支持的源", "LLM 抽取失败",
+            )):
                 run.status = "failed"
         rows = resolved
     else:

@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -119,6 +120,44 @@ def test_read_local_file_blocks_traversal(tmp_path, monkeypatch):
     monkeypatch.setattr(cf, "COURSE_SOURCE_ROOT", str(root))
     with pytest.raises(ValueError):
         cf.read_local_file(str(outside))
+
+
+# ----------------------------------------------------------------- 源类型路由
+def test_fetch_source_content_web_url_goes_ssrf(monkeypatch):
+    """web + http(s) URL 必须走 SSRF 安全抓取，不再误读本地文件（M5-2 前置修复）。"""
+    seen = {}
+
+    async def fake_fetch(url, timeout=20.0):
+        seen["url"] = url
+        seen["timeout"] = timeout
+        return "<html>网页正文</html>"
+
+    monkeypatch.setattr(cf, "safe_fetch_url", fake_fetch)
+    src = SimpleNamespace(source_type="web", uri="https://www.pep.com.cn/")
+    content = asyncio.run(cf.fetch_source_content(src))
+    assert content == "<html>网页正文</html>"
+    assert seen["url"] == "https://www.pep.com.cn/"
+
+
+def test_fetch_source_content_web_local_path_still_reads_file(tmp_path, monkeypatch):
+    """历史 web 源指向本地文件时保持兼容，不破坏存量数据。"""
+    monkeypatch.setattr(cf, "COURSE_SOURCE_ROOT", str(tmp_path))
+    f = tmp_path / "page.html"
+    f.write_text("<html>本地缓存页</html>", encoding="utf-8")
+    src = SimpleNamespace(source_type="web", uri=str(f))
+    assert "本地缓存页" in asyncio.run(cf.fetch_source_content(src))
+
+
+def test_fetch_source_content_url_rejects_non_http():
+    src = SimpleNamespace(source_type="url", uri="ftp://example.com/x")
+    with pytest.raises(ValueError):
+        asyncio.run(cf.fetch_source_content(src))
+
+
+def test_parse_items_needs_llm_marker():
+    items, reason = cf.parse_items("<html>正文</html>", "web")
+    assert items == [] and cf.needs_llm(reason)
+    assert "尚未接入" not in reason, "功能已落地，文案不应再写「尚未接入」"
 
 
 # ----------------------------------------------------------------- 闭环

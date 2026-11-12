@@ -5,10 +5,11 @@
 的空运行记录——「采集任务」形同虚设。
 
 本模块补齐：从源抓取内容 -> 解析成题目 items -> 交回 ``run_job`` 入库。
-- ``file`` / ``bank_pack``：读服务器本地文件（限定 ``COURSE_SOURCE_ROOT``，防穿越）；
+- ``file`` / ``bank_pack`` / ``bank``：读服务器本地文件（限定 ``COURSE_SOURCE_ROOT``，防穿越）；
 - ``url`` / ``web``：SSRF 安全抓取公网 http/https 文本；
 - ``bank`` 系列：JSON 数组 -> 中文字段映射成 ``normalize_item`` 认的英文字段；
-- 非结构化 HTML/纯文本：如实返回「需 LLM 抽取（尚未接入）」，不再静默 0。
+- 非结构化 HTML/纯文本：返回 ``NEEDS_LLM`` 标记，由编排层（``_resolve_items_from_source``）
+  决定是否交给 ``llm_extract`` 抽取（M5-2），**不静默 0 条**。
 """
 from __future__ import annotations
 
@@ -26,6 +27,16 @@ log = logging.getLogger(__name__)
 
 # 本地 file/bank_pack 读取只允许落在这个根目录下（防目录穿越）
 COURSE_SOURCE_ROOT = os.getenv("COURSE_SOURCE_ROOT", "/opt/course-sources").rstrip("/")
+
+#: 非结构化内容的标记前缀（M5-2）：``parse_items`` 不负责调模型，只如实打标，
+#: 由 async 编排层 ``_resolve_items_from_source`` 决定是否转交 ``llm_extract``。
+#: 用常量而非散落字符串，避免编排层靠中文子串硬匹配（易漂移）。
+NEEDS_LLM = "需 LLM 抽取环节"
+
+
+def needs_llm(reason: Optional[str]) -> bool:
+    """该解析结果是否应交给 LLM 抽取（M5-2 编排判断）。"""
+    return bool(reason) and NEEDS_LLM in reason
 
 # 题库包里常见的中文字段 -> normalize_item 认的英文字段
 _BANK_CN_TO_EN = {
@@ -168,11 +179,11 @@ def parse_items(content: str, source_type: str) -> Tuple[List[Dict[str, Any]], O
         if not isinstance(data, list):
             return [], "题库包顶层不是题目数组"
         return [map_bank_record(r) for r in data if isinstance(r, dict)], None
-    # file / url / web：先尝试 JSON，否则报需 LLM 抽取
+    # file / url / web：先尝试 JSON，否则打 NEEDS_LLM 标记交给编排层
     try:
         data = json.loads(content)
     except json.JSONDecodeError:
-        return [], "非结构化内容（HTML/纯文本），需 LLM 抽取环节（尚未接入）"
+        return [], f"{NEEDS_LLM}：非结构化内容（HTML/纯文本）"
     if isinstance(data, list):
         return [map_bank_record(r) for r in data if isinstance(r, dict)], None
     if isinstance(data, dict):
@@ -180,14 +191,22 @@ def parse_items(content: str, source_type: str) -> Tuple[List[Dict[str, Any]], O
             if isinstance(data.get(key), list):
                 items = [map_bank_record(r) for r in data[key] if isinstance(r, dict)]
                 return items, None
-    return [], "内容未解析出题目数组，需 LLM 抽取环节（尚未接入）"
+    return [], f"{NEEDS_LLM}：内容未解析出题目数组"
 
 
 async def fetch_source_content(source: Any, *, timeout: float = 20.0) -> str:
-    """按 ``source.source_type`` 抓取源内容文本。"""
+    """按 ``source.source_type`` 抓取源内容文本。
+
+    ``web`` 源此前被错误地归进 ``read_local_file``（网页 URL 也被当成本地路径读，
+    必然失败）。这里改成按 uri 判别：http(s) 走 SSRF 安全抓取，本地路径仍读本地
+    文件——既补齐网页抓取能力，又不让历史上指向本地文件的 web 源失效。
+    ``url`` 源保持严格 SSRF（非 http(s) 直接由 ``_resolve_safe`` 拒绝）。
+    """
     st = (getattr(source, "source_type", None) or "file").lower()
-    uri = getattr(source, "uri", None) or ""
+    uri = (getattr(source, "uri", None) or "").strip()
     if st == "url":
+        return await safe_fetch_url(uri, timeout=timeout)
+    if st == "web" and uri.lower().startswith(("http://", "https://")):
         return await safe_fetch_url(uri, timeout=timeout)
     if st in ("file", "bank_pack", "bank", "web"):
         return read_local_file(uri)

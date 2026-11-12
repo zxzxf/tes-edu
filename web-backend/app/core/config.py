@@ -35,6 +35,20 @@ class Settings(BaseSettings):
     crawl_scheduler_enabled: bool = True
     crawl_scheduler_interval: int = 60
 
+    # ---- M5-2 非结构化源（url/web）的「网页 -> 题目」LLM 抽取 ----
+    # **默认关**：LLM 抽取有 token 成本，且必须显式确认模型通道已就绪；
+    # 关闭时非结构化源仍如实记录「需 LLM 抽取」原因，不静默 0 条、绝不编造题目。
+    crawl_llm_extract_enabled: bool = False
+    # 单次抽取成本控制：清洗后正文最多送多少字符、最多抽多少题、模型超时秒数。
+    crawl_llm_max_chars: int = 20000
+    crawl_llm_max_items: int = 20
+    crawl_llm_timeout: float = 90.0
+    # 全局模型通道兜底（租户 BYOM 未配置时使用；密钥只走环境变量，不进 git）。
+    # 留空 = 仅用租户 BYOM；都没有则明确报「未配置模型」而不是静默成功。
+    crawl_llm_base_url: str = ""
+    crawl_llm_api_key: str = ""
+    crawl_llm_model: str = ""
+
     # 学生端读缓存（Redis）。留空 = 全部直查 DB（本地单测/未部署 Redis 时的降级路径）。
     # 137 上由 web-backend.env 注入 redis://:<pw>@redis:6379/0，与网关共用同一实例。
     redis_url: str = ""

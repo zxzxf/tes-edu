@@ -603,7 +603,7 @@
 - **验收（可测）**：喂一份教材 PDF/大纲 → 输出结构化章节树。
 - **涉及**：`course_source.parser`、解析 pipeline。
 - **波次/估点**：W15 / ≈4d
-- **状态**：✅ 已完成：`services/course_pipeline.py` 按 `source_type` 选解析器，输出章节树 + 候选知识点；`POST /admin/course/parse` 不落库先看结构化大纲。**【2026-11-11 生产实测】** 喂真实 435 点人教A版大纲 md（标题层级归一后）→ **5 册 / 19 节 / 435 个候选知识点**；原始 md 直喂得 1 章 / 437 点；纯函数不落库。**【v5.8 联调修复】** 此前响应只有 `code_hint` 导致前端按 `n.code` 组装的导入载荷全空：现给章/节/点都签发稳定短 `code`（`slug_sha1(父code/标题)` ≤32、幂等、URL 安全），旧字段保留兼容；`POST /course/parse` 实测 2 章 / 3 节 / 4 点共 9 个 code 全合法且唯一。
+- **状态**：✅ 已完成：`services/course_pipeline.py` 按 `source_type` 选解析器，输出章节树 + 候选知识点；`POST /admin/course/parse` 不落库先看结构化大纲。**【2026-11-11 生产实测】** 喂真实 435 点人教A版大纲 md（标题层级归一后）→ **5 册 / 19 节 / 435 个候选知识点**；原始 md 直喂得 1 章 / 437 点；纯函数不落库。**【v5.8 联调修复】** 此前响应只有 `code_hint` 导致前端按 `n.code` 组装的导入载荷全空：现给章/节/点都签发稳定短 `code`（`slug_sha1(父code/标题)` ≤32、幂等、URL 安全），旧字段保留兼容；`POST /course/parse` 实测 2 章 / 3 节 / 4 点共 9 个 code 全合法且唯一。**【v5.10 网页题目抽取，2026-11-12】** 新增 `app/crawl_service/llm_extract.py` 接通「网页→结构化题目」：`parse_items` 遇 HTML 打 `NEEDS_LLM` 标记 → async 编排层转交抽取（HTML 清洗+截断 → 提示词严禁编造 → 稳健 JSON 解析 → 复用 `map_bank_record`/`normalize_item` 的 schema 校验）→ items 交回 `intake` 入库 draft；`web` 源修复为 http(s) 走 SSRF 抓取（本地路径兼容）。默认 `CRAWL_LLM_EXTRACT_ENABLED=false`，未启用/失败均写 `run.error` 不静默 0 条。新增 31 例测试，完整套件 **642 passed**；**尚未在 137 用真实模型跑真网页**，视频源仍未接。
 
 ## 卡 M5-3｜知识点拆分与挂载
 - **归口**：agent-backend（LLM 抽取）+ web-backend（`kp_node`）
