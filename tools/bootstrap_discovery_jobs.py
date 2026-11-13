@@ -15,7 +15,8 @@
 环境变量（均可选，含默认值）：
   DISCOVERY_QUERIES   逗号分隔的检索约束；每条建一个发现任务。
                       （2026-11-13 默认："高中数学 真题 解析,高中物理 实验 习题"）
-  DISCOVERY_SCHEDULE  5 段 cron；默认 "0 22 * * *"（每晚 22:00）。
+  DISCOVERY_SCHEDULE  5 段 cron；默认 "0 14 * * *"（北京时间每晚 22:00。
+                      注意：调度器按 UTC 计算 cron，故北京时间 22:00 对应 UTC 14:00）。
   DISCOVERY_TENANT    租户；默认 "school_pilot_01"（与演示联调租户一致）。
   DISCOVERY_BUDGET    budget_limit（仅作任务元数据，discovery 运行不消耗预算）；默认 100。
 """
@@ -40,7 +41,7 @@ def _env_list(name: str, default: str) -> list[str]:
 QUERIES = _env_list(
     "DISCOVERY_QUERIES", "高中数学 真题 解析,高中物理 实验 习题"
 )
-SCHEDULE = os.getenv("DISCOVERY_SCHEDULE", "0 22 * * *").strip()
+SCHEDULE = os.getenv("DISCOVERY_SCHEDULE", "0 14 * * *").strip()
 TENANT = os.getenv("DISCOVERY_TENANT", "school_pilot_01").strip()
 BUDGET = int(os.getenv("DISCOVERY_BUDGET", "100") or "100")
 
