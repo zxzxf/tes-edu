@@ -23,8 +23,14 @@ WORKDIR /app
 # fastapi / uvicorn 已由 web-backend 基础镜像提供；这里仅装 playwright 与 chromium 运行时。
 # --with-deps 通过 apt 安装 chromium 所需的系统库（libnss3 等），web-backend 基础镜像基于
 # Debian 13 且构建时即经 apt 装过依赖，故 apt 源可达。
-RUN pip install --no-cache-dir playwright \
-    && playwright install --with-deps chromium
+# 注意：playwright 自带 node 运行时依赖 libatomic.so.1，Debian 13 下 --with-deps 未自动补齐，
+# 须在 playwright install 之前先显式安装，否则 node 启动即报 libatomic.so.1 缺失而退出。
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libatomic1 \
+    && pip install --no-cache-dir playwright \
+    && playwright install --with-deps chromium \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY app.py ./
 
