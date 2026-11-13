@@ -40,10 +40,11 @@ _QUESTION_HINTS = (
 _QUESTION_PATTERN = re.compile(
     r"(?:^|\n)\s*(?:\d+[\.\)]|[（(]\d+[)）]|[A-E][\.、])"
 )
-#: 可信教育域名种子（无搜索引擎 API 时兜底；命中即纳入候选探索范围）
+#: 可信教育域名种子（无搜索引擎 API 时兜底；必须为可解析且根路径允许 GET 的规范域名）。
+#: 裸域 pep.com.cn 不解析、zxxk.com 根路径 405，故统一用 www. 规范主机名。
 DEFAULT_SEED_DOMAINS = (
-    "pep.com.cn",       # 人教社
-    "zxxk.com",         # 学科网
+    "www.pep.com.cn",   # 人教社
+    "www.zxxk.com",     # 学科网
     "gaokao.com",       # 高考网
 )
 _TAG_RE = re.compile(r"<[^>]+>")
