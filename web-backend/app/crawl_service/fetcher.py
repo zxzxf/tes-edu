@@ -54,6 +54,43 @@ _BANK_CN_TO_EN = {
     "知识点": "knowledge_points",
 }
 
+_SUBTITLE_EXTENSIONS = frozenset({".srt", ".vtt", ".txt"})
+_SUBTITLE_TIMESTAMP = re.compile(
+    r"^(?:\d{2}:)?\d{2}:\d{2}[.,]\d{3}\s+-->\s+"
+    r"(?:\d{2}:)?\d{2}:\d{2}[.,]\d{3}(?:\s+.*)?$"
+)
+
+
+def validate_video_transcript_uri(uri: str) -> None:
+    """The video source currently accepts transcript files, not raw media."""
+    path = urlsplit(uri).path if uri.lower().startswith(("http://", "https://")) else uri
+    if Path(path).suffix.lower() not in _SUBTITLE_EXTENSIONS:
+        raise ValueError("视频源需提供 .srt/.vtt/.txt 字幕或转写文本；原始视频需先经 ASR 转写")
+
+
+def clean_video_transcript(content: str) -> str:
+    """SRT/VTT cue text -> plain text for the existing LLM extractor."""
+    lines: List[str] = []
+    previous = ""
+    raw_lines = (content or "").splitlines()
+    for index, raw in enumerate(raw_lines):
+        line = raw.strip()
+        if not line or line.upper() == "WEBVTT":
+            continue
+        if line.isdigit():
+            following = next(
+                (part.strip() for part in raw_lines[index + 1:] if part.strip()),
+                "",
+            )
+            if _SUBTITLE_TIMESTAMP.match(following):
+                continue
+        if _SUBTITLE_TIMESTAMP.match(line):
+            continue
+        if line != previous:
+            lines.append(line)
+        previous = line
+    return "\n".join(lines)
+
 
 def _is_safe_host(host: str) -> bool:
     """阻断 SSRF：localhost / 私网 / 链路本地 / 云元数据。域名放行交解析后复查。"""
@@ -236,10 +273,20 @@ async def fetch_source_content(source: Any, *, timeout: float = 20.0) -> str:
     """
     st = (getattr(source, "source_type", None) or "file").lower()
     uri = (getattr(source, "uri", None) or "").strip()
+    if st == "video":
+        validate_video_transcript_uri(uri)
+        if uri.lower().startswith(("http://", "https://")):
+            content = await safe_fetch_url(uri, timeout=timeout)
+        else:
+            content = read_local_file(uri)
+        transcript = clean_video_transcript(content)
+        if not transcript:
+            raise ValueError("视频字幕或转写文本为空")
+        return transcript
     if st == "url":
         return await safe_fetch_url(uri, timeout=timeout)
     if st == "web" and uri.lower().startswith(("http://", "https://")):
         return await safe_fetch_url(uri, timeout=timeout)
     if st in ("file", "bank_pack", "bank", "web"):
         return read_local_file(uri)
-    raise ValueError(f"不支持的源类型：{st}（video 抽取未接入）")
+    raise ValueError(f"不支持的源类型：{st}")

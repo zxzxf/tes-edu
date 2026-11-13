@@ -110,6 +110,9 @@ async function run(j) {
   await guard(async () => {
     const out = await runCrawlJob(j.id)
     rows.value = await listCrawlJobs()
+    if (out.last_run_status === 'failed' || out.last_run_status === 'stopped') {
+      throw new Error(out.last_run_error || '采集任务未完成')
+    }
     msg.value = out.last_paper_id
       ? `已执行：本次产出卷 #${out.last_paper_id}（草稿）`
       : '已执行（P2 只入题库，未成卷）'
@@ -117,8 +120,11 @@ async function run(j) {
 }
 async function retry(j) {
   await guard(async () => {
-    await retryCrawlJob(j.id)
+    const out = await retryCrawlJob(j.id)
     rows.value = await listCrawlJobs()
+    if (out.last_run_status === 'failed' || out.last_run_status === 'stopped') {
+      throw new Error(out.last_run_error || '采集任务重试未完成')
+    }
     msg.value = '已重试'
   })
 }

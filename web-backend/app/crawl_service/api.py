@@ -141,6 +141,8 @@ class JobOut(BaseModel):
     next_run_at: Optional[str] = None
     # M4-4：最近一次 P1 采集建出的卷（P2 / 未跑过为空）
     last_paper_id: Optional[int] = None
+    last_run_status: Optional[str] = None
+    last_run_error: Optional[str] = None
 
 
 def _job_out(r: CrawlJob, run: Optional[CrawlRun] = None) -> JobOut:
@@ -150,6 +152,8 @@ def _job_out(r: CrawlJob, run: Optional[CrawlRun] = None) -> JobOut:
         status=r.status,
         next_run_at=r.next_run_at.isoformat() if r.next_run_at else None,
         last_paper_id=run.paper_id if run is not None else None,
+        last_run_status=run.status if run is not None else None,
+        last_run_error=run.error if run is not None else None,
     )
 
 

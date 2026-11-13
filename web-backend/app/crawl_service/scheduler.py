@@ -16,10 +16,12 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from urllib.parse import unquote, urlsplit
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.course_kb import CourseQuestion
 from app.models.ops import CrawlJob, CrawlRun, CourseSource
 
@@ -40,6 +42,13 @@ COMPLIANCE_BLOCKLIST: Tuple[str, ...] = (
     "copyright-reserved.example",
     "禁止转载",
     "未经授权",
+)
+# 业务提供正式授权清单后，通过 CRAWL_COMPLIANCE_ALLOWLIST 注入；每项可以是
+# URL 前缀或主机名。留空时保持原有「默认放行 + 黑名单」行为。
+COMPLIANCE_ALLOWLIST: Tuple[str, ...] = tuple(
+    item.strip()
+    for item in settings.crawl_compliance_allowlist.split(",")
+    if item.strip()
 )
 
 #: 采集路径（M4-4）
@@ -146,12 +155,59 @@ def budget_exceeded(job: CrawlJob) -> bool:
     return int(job.spent or 0) >= limit
 
 
+def _allowlist_matches(uri: str, rule: str) -> bool:
+    """判断来源是否匹配授权规则。
+
+    URL 规则按前缀匹配，主机名规则只匹配自身及子域名，避免
+    ``allowed.example`` 误放行 ``not-allowed.example``；本地路径规则按目录前缀匹配。
+    """
+    value = (uri or "").strip()
+    candidate = (rule or "").strip()
+    if not value or not candidate:
+        return False
+    value_lower = value.lower()
+    candidate_lower = candidate.lower()
+    if "://" in candidate_lower:
+        source = urlsplit(value)
+        allowed = urlsplit(candidate)
+        if (source.scheme.lower(), source.netloc.lower()) != (
+            allowed.scheme.lower(), allowed.netloc.lower()
+        ):
+            return False
+        if source.username or source.password or allowed.username or allowed.password:
+            return False
+        # Decode before comparing: a server may resolve /math/../private or
+        # encoded separators to a path outside the authorized prefix.
+        source_path = unquote(source.path)
+        allowed_path = unquote(allowed.path)
+        if any(part in (".", "..") for part in source_path.split("/")):
+            return False
+        prefix = allowed_path.rstrip("/")
+        if not (source_path == prefix or source_path.startswith(prefix + "/")):
+            return False
+        return not allowed.query or source.query == allowed.query
+
+    parts = urlsplit(value)
+    if parts.scheme in ("http", "https") and parts.hostname:
+        host = parts.hostname.lower().rstrip(".")
+        host_rule = candidate_lower.rstrip(".")
+        return host == host_rule or host.endswith("." + host_rule)
+
+    path_rule = candidate_lower.rstrip("/")
+    return value_lower == path_rule or value_lower.startswith(path_rule + "/")
+
+
 def compliance_reject(uri: str) -> Optional[str]:
-    """命中合规黑名单时返回原因；放行返回 None（只做保守的前置阻断）。"""
+    """按黑名单和可选授权清单校验来源，返回拒绝原因或 ``None``。"""
     haystack = (uri or "").lower()
     for word in COMPLIANCE_BLOCKLIST:
         if word.lower() in haystack:
             return f"来源命中合规黑名单「{word}」，禁止采集"
+
+    if COMPLIANCE_ALLOWLIST and not any(
+        _allowlist_matches(uri, rule) for rule in COMPLIANCE_ALLOWLIST
+    ):
+        return "来源不在合规授权清单内，禁止采集"
     return None
 
 
@@ -181,6 +237,8 @@ async def create_source(
     reason = compliance_reject(uri)
     if reason:
         raise ValueError(reason)
+    if source_type.lower() == "video":
+        crawl_fetch.validate_video_transcript_uri(uri)
     row = CourseSource(
         tenant_id=tenant_id,
         name=name,
@@ -305,6 +363,11 @@ async def _resolve_items_from_source(
     ).scalar_one_or_none()
     if src is None:
         return [], f"采集源 {job.source_id} 不存在或不属于本租户"
+    if getattr(src, "status", "active") != "active":
+        return [], f"源已暂停：采集源 {job.source_id} 未启用"
+    compliance_reason = compliance_reject(src.uri)
+    if compliance_reason:
+        return [], f"源合规校验失败：{compliance_reason}"
     try:
         content = await crawl_fetch.fetch_source_content(src)
     except Exception as exc:  # noqa: BLE001 抓取异常要落进运行日志，不能让任务静默崩
@@ -358,7 +421,8 @@ async def run_job(
             # 抓取/模型调用失败属真故障（failed）；「需 LLM 抽取环节」标记、
             # 「未启用」「页面无题」属业务性空结果，保持 ok + 原因可追溯。
             if reason.startswith((
-                "源抓取失败", "采集源", "不支持的源", "LLM 抽取失败",
+                "源抓取失败", "源已暂停", "源合规校验失败",
+                "采集源", "不支持的源", "LLM 抽取失败",
             )):
                 run.status = "failed"
         rows = resolved
@@ -460,7 +524,7 @@ async def scheduler_loop(
 ) -> None:
     """后台调度循环（随 web-backend 启动；单进程单 worker）。
 
-    只做「到点触发」，真正的拉取/解析由 ``run_job(items=...)`` 的调用方提供。
+    到点调用 ``run_job``，由任务绑定的课程源完成拉取和解析。
     没配 schedule 的任务永远不会被这里捞到——手动执行仍走 POST /run。
     """
     import asyncio

@@ -154,6 +154,59 @@ def test_fetch_source_content_url_rejects_non_http():
         asyncio.run(cf.fetch_source_content(src))
 
 
+def test_video_subtitle_source_fetches_and_removes_timestamps(monkeypatch):
+    async def fake_fetch(url, timeout=20.0):
+        assert url == "https://media.example.edu/lesson.vtt"
+        return (
+            "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n"
+            "已知集合 A = {1, 2}\n\n00:00:04.000 --> 00:00:06.000\n"
+            "求集合 A 的元素个数，答案是 2。"
+        )
+
+    monkeypatch.setattr(cf, "safe_fetch_url", fake_fetch)
+    source = SimpleNamespace(source_type="video", uri="https://media.example.edu/lesson.vtt")
+    content = asyncio.run(cf.fetch_source_content(source))
+    assert "已知集合" in content and "答案是 2" in content
+    assert "00:00:" not in content and "WEBVTT" not in content
+    items, reason = cf.parse_items(content, "video")
+    assert items == [] and cf.needs_llm(reason)
+
+
+def test_video_local_subtitle_stays_inside_source_root(tmp_path, monkeypatch):
+    monkeypatch.setattr(cf, "COURSE_SOURCE_ROOT", str(tmp_path))
+    subtitle = tmp_path / "lesson.srt"
+    subtitle.write_text(
+        "1\n00:00:01,000 --> 00:00:03,000\n题目：1+1=?\n\n"
+        "2\n00:00:04,000 --> 00:00:06,000\n答案：2\n",
+        encoding="utf-8",
+    )
+    source = SimpleNamespace(source_type="video", uri=str(subtitle))
+    content = asyncio.run(cf.fetch_source_content(source))
+    assert content.splitlines() == ["题目：1+1=?", "答案：2"]
+
+
+def test_video_transcript_keeps_numeric_answer_line():
+    transcript = cf.clean_video_transcript(
+        "1\n00:00:01,000 --> 00:00:03,000\n1+1 等于几？\n"
+        "2\n\n2\n00:00:04,000 --> 00:00:06,000\n答案如上。"
+    )
+    assert transcript.splitlines() == ["1+1 等于几？", "2", "答案如上。"]
+
+
+def test_video_media_requires_asr_before_any_fetch(monkeypatch):
+    called = []
+
+    async def fake_fetch(url, timeout=20.0):
+        called.append(url)
+        return "binary"
+
+    monkeypatch.setattr(cf, "safe_fetch_url", fake_fetch)
+    source = SimpleNamespace(source_type="video", uri="https://media.example.edu/lesson.mp4")
+    with pytest.raises(ValueError, match="ASR"):
+        asyncio.run(cf.fetch_source_content(source))
+    assert called == []
+
+
 def test_parse_items_needs_llm_marker():
     items, reason = cf.parse_items("<html>正文</html>", "web")
     assert items == [] and cf.needs_llm(reason)

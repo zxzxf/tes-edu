@@ -78,6 +78,36 @@ describe('系统化采集页面拆分', () => {
     expect(wrapper.find('.cw-ghost-danger').exists()).toBe(true)
   })
 
+  it('课程源页可登记视频字幕来源', async () => {
+    const wrapper = await mountPage(Sources)
+    const type = wrapper.find('select')
+    expect(type.find('option[value="video"]').exists()).toBe(true)
+    await type.setValue('video')
+    const inputs = wrapper.findAll('input')
+    await inputs[0].setValue('数学课程')
+    await inputs[1].setValue('https://media.example.edu/lesson.vtt')
+    await wrapper.find('.tes-btn-primary').trigger('click')
+    await flushPromises()
+    expect(createCourseSource).toHaveBeenCalledWith(expect.objectContaining({
+      source_type: 'video', uri: 'https://media.example.edu/lesson.vtt',
+    }))
+  })
+
+  it('采集任务执行失败时直接显示运行原因', async () => {
+    listCrawlJobs.mockResolvedValue([{
+      id: 7, name: '字幕采集', source_id: 2, path: 'P2',
+      status: 'paused', spent: 0, budget_limit: 10,
+    }])
+    runCrawlJob.mockResolvedValue({
+      id: 7, last_run_status: 'failed', last_run_error: '源合规校验失败：未授权',
+    })
+    const wrapper = await mountPage(Jobs)
+    const runButton = wrapper.findAll('button').find((button) => button.text() === '执行一次')
+    await runButton.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.err').text()).toContain('未授权')
+  })
+
   it('工作台按 metrics 与 draft 知识点汇总待办', async () => {
     getCrawlMetrics.mockResolvedValue({
       ...EMPTY_METRICS, runs: 9, dedup_rate: 0.18, failed: 2,

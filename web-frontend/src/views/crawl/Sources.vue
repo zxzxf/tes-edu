@@ -4,6 +4,7 @@
     <p class="cw-hint">
       登记教材、题库包、网页或视频素材。<code>file</code>/<code>bank_pack</code> 读取服务器
       <code>COURSE_SOURCE_ROOT</code> 下的文件；<code>url</code>/<code>web</code> 走 SSRF 安全抓取公网页面。
+      视频类型使用字幕或转写文本（SRT/VTT/TXT）。
       新建后默认暂停，需手动启用。
     </p>
     <p v-if="error" class="err">{{ error }}</p>
@@ -23,6 +24,7 @@
             <option value="web">网页（公网 URL）</option>
             <option value="bank">题库（JSON 数组）</option>
             <option value="bank_pack">题库包（JSON）</option>
+            <option value="video">视频字幕（SRT/VTT/TXT）</option>
           </select>
         </label>
         <label class="cw-grow"><span>地址 / 路径</span><input v-model.trim="form.uri" placeholder="https://… 或 bank_数学.json" /></label>

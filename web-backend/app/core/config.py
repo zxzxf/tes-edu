@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     crawl_llm_api_key: str = ""
     crawl_llm_model: str = ""
 
+    # M5-5 版权授权清单：逗号分隔的 URL 前缀或主机名。
+    # 留空保持历史兼容行为，仅执行保守黑名单；配置后只允许清单内来源。
+    crawl_compliance_allowlist: str = ""
+
     # 学生端读缓存（Redis）。留空 = 全部直查 DB（本地单测/未部署 Redis 时的降级路径）。
     # 137 上由 web-backend.env 注入 redis://:<pw>@redis:6379/0，与网关共用同一实例。
     redis_url: str = ""

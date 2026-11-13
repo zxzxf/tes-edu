@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import StaticPool
 
 from app.models.course_kb import Base, CourseQuestion
-from app.models.ops import CrawlJob, CrawlRun, DrillCard, KpNode, WrongQuestion
+from app.models.ops import CourseSource, CrawlJob, CrawlRun, DrillCard, KpNode, WrongQuestion
 from app.services import course_pipeline, drill_link
 from app.crawl_service import scheduler as crawl
 
@@ -174,6 +174,114 @@ def test_crawl_dedup_by_content_hash():
 def test_compliance_blocklist_rejects_source():
     assert crawl.compliance_reject("http://copyright-reserved.example/x") is not None
     assert crawl.compliance_reject("https://example.com/textbook") is None
+
+
+def test_compliance_allowlist_rejects_unlisted_source(monkeypatch):
+    monkeypatch.setattr(
+        crawl,
+        "COMPLIANCE_ALLOWLIST",
+        ("https://approved.example.edu/",),
+    )
+    assert crawl.compliance_reject("https://approved.example.edu/math") is None
+    reason = crawl.compliance_reject("https://other.example.edu/math")
+    assert reason is not None
+    assert "授权清单" in reason
+
+
+def test_compliance_blocklist_wins_over_allowlist(monkeypatch):
+    monkeypatch.setattr(
+        crawl,
+        "COMPLIANCE_ALLOWLIST",
+        ("https://copyright-reserved.example/",),
+    )
+    reason = crawl.compliance_reject("https://copyright-reserved.example/x")
+    assert reason is not None
+    assert "黑名单" in reason
+
+
+def test_compliance_allowlist_url_prefix_has_boundary(monkeypatch):
+    monkeypatch.setattr(
+        crawl,
+        "COMPLIANCE_ALLOWLIST",
+        ("https://approved.example.edu",),
+    )
+    reason = crawl.compliance_reject("https://approved.example.edu.evil/math")
+    assert reason is not None
+    assert "授权清单" in reason
+
+
+@pytest.mark.parametrize("uri", [
+    "https://approved.example.edu/math/../private",
+    "https://approved.example.edu/math/%2e%2e/private",
+])
+def test_compliance_allowlist_url_path_cannot_escape_prefix(monkeypatch, uri):
+    monkeypatch.setattr(
+        crawl, "COMPLIANCE_ALLOWLIST", ("https://approved.example.edu/math",)
+    )
+    assert "授权清单" in crawl.compliance_reject(uri)
+
+
+@pytest.mark.parametrize("source_status,allowlist,expected", [
+    ("active", ("approved.example.edu",), "授权清单"),
+    ("paused", (), "已暂停"),
+])
+def test_existing_source_is_checked_before_fetch(
+    monkeypatch, source_status, allowlist, expected
+):
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            source = CourseSource(
+                tenant_id="school-1", name="旧源", source_type="url",
+                uri="https://unapproved.example.edu/questions", status=source_status,
+            )
+            db.add(source)
+            await db.flush()
+            job = _job(source_id=source.id)
+            db.add(job)
+            await db.commit()
+            called = []
+
+            async def fake_fetch(_source):
+                called.append(True)
+                return "[]"
+
+            monkeypatch.setattr(crawl, "COMPLIANCE_ALLOWLIST", allowlist)
+            monkeypatch.setattr(crawl.crawl_fetch, "fetch_source_content", fake_fetch)
+            run = await crawl.run_job(db, job)
+            assert run.status == "failed"
+            assert expected in run.error
+            assert run.fetched == 0
+            assert called == []
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_video_media_source_is_rejected_at_creation():
+    async def scenario():
+        with pytest.raises(ValueError, match="ASR"):
+            await crawl.create_source(
+                None, tenant_id="school-1", name="原始视频",
+                source_type="video", uri="https://media.example.edu/lesson.mp4",
+            )
+
+    asyncio.run(scenario())
+
+
+def test_job_response_includes_failed_run_reason():
+    from app.crawl_service.api import _job_out
+
+    job = _job()
+    run = CrawlRun(
+        job_id=job.id, tenant_id=job.tenant_id, status="failed",
+        error="源合规校验失败：来源不在授权清单内",
+    )
+    response = _job_out(job, run)
+    assert response.last_run_status == "failed"
+    assert "授权清单" in response.last_run_error
 
 
 def test_retry_rejected_when_budget_exhausted():
