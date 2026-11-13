@@ -35,10 +35,13 @@ RUN sed -i 's#deb.debian.org#mirrors.aliyun.com#g' /etc/apt/sources.list.d/debia
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY app.py ./
+# 注意：基础镜像 edu-web-backend:real 自带 /app/app/ 包，若文件名取 app.py 会被同名包
+# 屏蔽（import app 命中包而非模块），故本服务文件命名为 render_service.py，CMD 对应
+# 引用 render_service:app。
+COPY render_service.py ./
 
 # web-backend 基础镜像默认以 root 运行；chromium 已加 --no-sandbox，root 可接受
 # （本服务仅内网可达，由 web-backend 经 edu-net 调用，不暴露宿主机端口）。
 EXPOSE 8000
 
-CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["python", "-m", "uvicorn", "render_service:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
