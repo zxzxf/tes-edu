@@ -192,14 +192,21 @@ class AuthInterceptor(private val session: SessionStore) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val token = session.token
         val req = chain.request()
-        if (token.isNullOrBlank() || req.url.encodedPath.endsWith("/login")) {
-            return chain.proceed(req)
+        // 登录接口本身（/login）不带 token——网关该路由 mode 为空不鉴权。
+        val isLogin = req.url.encodedPath.endsWith("/login")
+        val authed = if (!token.isNullOrBlank() && !isLogin) {
+            req.newBuilder().header("Authorization", "Bearer $token").build()
+        } else {
+            req
         }
-        return chain.proceed(
-            req.newBuilder()
-                .header("Authorization", "Bearer $token")
-                .build()
-        )
+        val response = chain.proceed(authed)
+        // 仅对"需要鉴权的接口"的 401 视为登录态失效：登录接口自身 401 是凭证错误，
+        // 由 LoginManager.login 捕获，不在此触发过期弹窗（否则会把登录失败当成过期）。
+        if (response.code == 401 && !isLogin) {
+            session.token = null        // 清掉失效 token，下次请求不再带它
+            AuthBus.markExpired()       // 通知 UI 弹登录遮罩
+        }
+        return response
     }
 }
 

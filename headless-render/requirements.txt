@@ -1,0 +1,5 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+# playwright 由基础镜像 mcr.microsoft.com/playwright/python 预装（含 chromium + 系统依赖），
+# 这里仅声明版本以便本地/其他镜像显式安装。
+playwright>=1.49

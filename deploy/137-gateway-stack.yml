@@ -122,6 +122,26 @@ services:
     networks:
       - edu-net
 
+  # 独立 headless 渲染服务（M5-7-8）：供 web-backend 的 discovery 抓取 JS 重度
+  # 站点正文。仅内网可达（不映射宿主机端口），由 web-backend 经 edu-net 调用
+  # http://headless-render:8000/render。开启 discovery 的 headless 开关后才会被用到。
+  headless-render:
+    build:
+      context: ./headless-render
+      dockerfile: Dockerfile
+    image: edu-headless-render:latest
+    container_name: edu-headless-render
+    # 仅内网可达；端口须与 web-backend.env 的 DISCOVERY_RENDER_URL 一致
+    expose:
+      - "8000"
+    environment:
+      RENDER_TIMEOUT: "25"
+    restart: unless-stopped
+    # chromium 低频（每晚 discovery 触发）足够；限制内存避免拖垮 2G 宿主机
+    mem_limit: 768m
+    cpus: 1.0
+    networks:
+      - edu-net
 
   web-front:
     # B 端 Web 管理后台前端（Vue3 + Vite，nginx 静态托管）——T-E1 2026-10-24 上线

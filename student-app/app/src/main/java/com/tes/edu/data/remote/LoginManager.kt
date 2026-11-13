@@ -1,56 +1,69 @@
 package com.tes.edu.data.remote
 
 /**
- * 统一登录入口（占位账号换 JWT）。
+ * 统一登录入口。
  *
- * 坑（2026-10-27 修复）：此前只有图谱页（GraphViewModel.ensureLogin）会登录，
- * 输入/触类/拍照三个模块直接打 App 端点（网关 jwt_c 模式）——
- * 冷启动没有 token 就 401 "missing token"（输入模块报 401 的根因）。
- * 所有需要身份的请求都必须经 [withAuth] 先确保登录。
+ * 2026-11-13 起：登录页已落地，[ensureLogin] 不再静默用演示账号自动登录——
+ * 未登录必须走登录页（[com.tes.edu.ui.screens.LoginScreen]）。[login] 是登录页
+ * 调用的真实账号密码登录。
  *
- * ⚠️ 本文件注释里禁止出现「斜杠+星号」连写（例如把端点写成 /api/app 加通配星号）：
- * Kotlin 块注释**支持嵌套**（与 Java 不同），注释体内的该序列会被当成再开一层注释，
- * 导致外层 KDoc 永不闭合，编译报 "Unclosed comment"（2026-10-27 踩过）。
+ * ⚠️ 本文件注释里禁止出现「斜杠+星号」连写（例如把端点写成 /api/app 加通配星）：
+ * Kotlin 块注释支持嵌套（与 Java 不同），注释体内的该序列会被当成再开一层注释，
+ * 导致外层 KDoc 永不闭合，编译报 "Unclosed comment"（之前踩过）。
  */
 object LoginManager {
-    /** 占位演示账号（P2 接真实用户库后替换为登录页输入）。 */
+    /** 演示账号（开发/联调用，登录页提供一键填充）。接真实用户库后可移除。 */
     const val DEV_USERNAME = "student@tes.edu"
     const val DEV_PASSWORD = "demo1234"
 
     /**
-     * 无 token 时用占位账号换 JWT 并落盘；返回是否已具备登录态。
+     * 是否具备登录态：有落盘 token 即视为已登录。
      *
-     * - 已有 token：直接 true；
-     * - 无 token：登录成功 true / 失败 false；
-     * - 无 Android 环境（JVM 单测，[AppContextProvider] 未 init）：视为已登录
-     *   放行——单测注入的 fake ApiService 照常被调用，不因鉴权挂测试。
+     * - 有 Android 环境（[AppContextProvider] 已 init）：检查 token；
+     * - 无 Android 环境（JVM 单测）：访问 Context 会抛异常，视为已登录放行——
+     *   注入的 fake ApiService 照常被调用，不因鉴权挂测试。
      */
-    suspend fun ensureLogin(): Boolean {
-        val session = try {
-            SessionStore(AppContextProvider.context)
-        } catch (e: Exception) {
-            return true // JVM 单测环境：无 Context，放行给注入的 fake
-        }
-        // token 与流水号都在才算登录态完备。老版本只落了 token（登录响应当年
-        // 不带 user_id），这种"半截登录态"要补一次登录把流水号换回来，
-        // 否则同步会静默落到写死的占位学号上——表面上一切正常，数据却是别人的。
-        if (!session.token.isNullOrBlank() && !session.studentId.isNullOrBlank()) return true
+    fun hasSession(): Boolean = try {
+        !SessionStore(AppContextProvider.context).token.isNullOrBlank()
+    } catch (e: Exception) {
+        true // JVM 单测环境：无 Context，放行给注入的 fake
+    }
+
+    /**
+     * 确保登录态：沿用 [hasSession] 判断。无 token 时返回 false，由调用方把失败
+     * 抛给 UI（AppRoot 据此展示整页登录或登录遮罩）。
+     */
+    suspend fun ensureLogin(): Boolean = hasSession()
+
+    /**
+     * 真实账号密码登录（登录页调用，本次实现）。
+     *
+     * 成功后落盘 token / role / student_id，重建 Retrofit 让后续请求带上新 token，
+     * 并清过期标记、自增 restored 供页面刷新。失败（网络 / 凭证错误）返回 false，
+     * 错误文案由 UI 展示。
+     */
+    suspend fun login(username: String, password: String): Boolean {
         return try {
-            val res = ApiClient.instance.login(LoginRequest(DEV_USERNAME, DEV_PASSWORD))
+            val res = ApiClient.instance.login(LoginRequest(username.trim(), password))
+            val session = SessionStore(AppContextProvider.context)
             session.token = res.accessToken
             session.role = res.role
             // T-WB1：把登录带回来的流水号存下来，错题/背诵同步就按这个 id 走。
             session.studentId = res.userId
             ApiClient.rebuild() // 重建 Retrofit，让 AuthInterceptor 带上新 token
+            AuthBus.onReloginSuccess()
             true
         } catch (e: Exception) {
-            // 已有 token 时补登录失败，不该把登录态打掉：放行，同步回落占位学号
-            !session.token.isNullOrBlank()
+            false
         }
     }
 
     /** 确保登录后执行请求；登录失败时直接返回失败结果，不发请求（避免必 401）。 */
     suspend fun <T> withAuth(block: suspend () -> T): Result<T> =
         if (ensureLogin()) runCatching { block() }
-        else Result.failure(IllegalStateException("登录失败，请检查网络后重试"))
+        else {
+            // 无登录态：标记过期，让 UI 弹出登录（AppRoot 据此路由到登录页/遮罩）
+            AuthBus.markExpired()
+            Result.failure(IllegalStateException("登录失败，请检查网络后重试"))
+        }
 }

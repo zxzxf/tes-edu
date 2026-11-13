@@ -512,6 +512,53 @@ def test_discovery_headless_render_path(monkeypatch):
     asyncio.run(scenario())
 
 
+# ----------------------------------------------------------- 定时触发（M5-7 调度闭环）
+def test_nightly_cron_matches_22h_only():
+    """'0 22 * * *' 只命中 22:00，不命中其它时刻（bootstrap 脚本默认 cron）。"""
+    from datetime import datetime, timezone
+
+    assert crawl.matches_cron("0 22 * * *", datetime(2026, 11, 13, 22, 0, tzinfo=timezone.utc))
+    assert not crawl.matches_cron("0 22 * * *", datetime(2026, 11, 13, 9, 0, tzinfo=timezone.utc))
+    assert not crawl.matches_cron("0 22 * * *", datetime(2026, 11, 13, 22, 5, tzinfo=timezone.utc))
+
+
+def test_discovery_job_nightly_schedule_is_due_at_22h():
+    """discovery 任务 + 夜间 cron 激活后：next_run_at 已算、到点被调度循环捞到。"""
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = await crawl.create_job(
+                db, tenant_id="school-1", name="自主发现｜数学",
+                source_id=None, job_kind="discovery", query="数学",
+                schedule="0 22 * * *",
+            )
+            # create_job 默认 paused（不算 next_run_at 也行，但应已算）
+            assert job.next_run_at is not None
+            await crawl.set_job_status(db, "school-1", job.id, "active")
+            await db.commit()
+            # 重新取一遍，确认 DB 里的 next_run_at 已落库
+            jid = job.id
+            persisted = (await db.execute(
+                select(CrawlJob).where(CrawlJob.id == jid)
+            )).scalar_one()
+            assert persisted.status == "active"
+            assert persisted.next_run_at is not None
+
+            # 在 next_run_at 这一刻：应被 due_jobs 捞到（即会被定时执行）
+            due_at_run = await crawl.due_jobs(db, now=persisted.next_run_at)
+            assert any(j.id == jid for j in due_at_run)
+            # 在非 22:00 的时刻：不应被捞到
+            from datetime import datetime, timedelta, timezone
+            off = persisted.next_run_at - timedelta(hours=1)
+            due_off = await crawl.due_jobs(db, now=off)
+            assert all(j.id != jid for j in due_off)
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
 def test_make_renderer_selection(monkeypatch):
     """渲染后端选择：关 + 无服务 -> None；配 render_url -> 可调用（优先外部服务）。"""
     monkeypatch.setattr(disc.settings, "discovery_headless_enabled", False)

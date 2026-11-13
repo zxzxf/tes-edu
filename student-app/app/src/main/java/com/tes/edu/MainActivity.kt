@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -21,7 +22,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +41,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.tes.edu.data.remote.AppContextProvider
+import com.tes.edu.data.remote.AuthBus
+import com.tes.edu.data.remote.SessionStore
 import com.tes.edu.ui.screens.CameraScreen
 import com.tes.edu.ui.screens.ExamScreen
 import com.tes.edu.ui.screens.ExplainScreen
@@ -43,6 +51,8 @@ import com.tes.edu.ui.screens.InputScreen
 import com.tes.edu.ui.screens.ReviewScreen
 import com.tes.edu.ui.screens.Screen
 import com.tes.edu.ui.screens.SimilarScreen
+import com.tes.edu.ui.screens.LoginModal
+import com.tes.edu.ui.screens.LoginScreen
 import com.tes.edu.ui.theme.TesEduColors
 import com.tes.edu.ui.theme.TesEduTheme
 import android.app.AlertDialog
@@ -96,6 +106,21 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppRoot() {
+    // 冷启动是否已有登录态（有 token 即视为已登录）
+    var loggedIn by remember {
+        mutableStateOf(!SessionStore(AppContextProvider.context).token.isNullOrBlank())
+    }
+    // 登录态失效（401 触发）：浮登录遮罩
+    val expired by AuthBus.expired.collectAsState()
+    // 重新登录成功自增：重进当前页让 LaunchedEffect 重新拉数
+    val restored by AuthBus.sessionRestored.collectAsState()
+
+    // —— 未登录：整页登录 ——
+    if (!loggedIn) {
+        LoginScreen(onSuccess = { loggedIn = true })
+        return
+    }
+
     val navController: NavHostController = rememberNavController()
     val items = listOf(
         Screen.Exam,
@@ -116,31 +141,60 @@ fun AppRoot() {
         }
     }
 
-    Scaffold(
-        containerColor = TesEduColors.Bg,
-        bottomBar = {
-            TesBottomBar(
-                items = items,
-                currentRoute = currentRoute,
-                onSelect = { screen -> go(screen.route) }
-            )
+    // 重新登录成功后，重新进入当前页（restoreState=false 强制重组，触发数据重拉）
+    LaunchedEffect(restored) {
+        if (restored > 0) {
+            val route = navController.currentDestination?.route
+            if (route != null) {
+                navController.navigate(route) {
+                    popUpTo(navController.graph.startDestinationId) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = false
+                }
+            }
         }
-    ) { padding ->
-        NavHost(
-            navController,
-            // 作业闭环是这一版的主链路：冷启动直接落在「作业」，
-            // 没有下发卷时该页给空态并引导去错题本。
-            startDestination = Screen.Exam.route,
-            modifier = Modifier.padding(padding)
-        ) {
-            // 结果页的图谱已在题卡内就地展开，作业页不再需要跨页跳转
-            composable(Screen.Exam.route) { ExamScreen() }
-            composable(Screen.Input.route) { InputScreen() }
-            composable(Screen.Camera.route) { CameraScreen(onNavigate = go) }
-            composable(Screen.Explain.route) { ExplainScreen() }
-            composable(Screen.Similar.route) { SimilarScreen(onNavigate = go) }
-            composable(Screen.Graph.route) { GraphScreen(onNavigate = go) }
-            composable(Screen.Review.route) { ReviewScreen(onNavigate = go) }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = TesEduColors.Bg,
+            bottomBar = {
+                TesBottomBar(
+                    items = items,
+                    currentRoute = currentRoute,
+                    onSelect = { screen -> go(screen.route) }
+                )
+            }
+        ) { padding ->
+            NavHost(
+                navController,
+                // 作业闭环是这一版的主链路：冷启动直接落在「作业」，
+                // 没有下发卷时该页给空态并引导去错题本。
+                startDestination = Screen.Exam.route,
+                modifier = Modifier.padding(padding)
+            ) {
+                // 结果页的图谱已在题卡内就地展开，作业页不再需要跨页跳转
+                composable(Screen.Exam.route) { ExamScreen() }
+                composable(Screen.Input.route) { InputScreen() }
+                composable(Screen.Camera.route) { CameraScreen(onNavigate = go) }
+                composable(Screen.Explain.route) { ExplainScreen() }
+                composable(Screen.Similar.route) { SimilarScreen(onNavigate = go) }
+                composable(Screen.Graph.route) { GraphScreen(onNavigate = go) }
+                composable(Screen.Review.route) { ReviewScreen(onNavigate = go) }
+            }
+        }
+
+        // —— 登录过期：浮登录遮罩（强制重登录）——
+        if (expired) {
+            LoginModal(
+                // 登录成功后过期标记已在 LoginManager.login 内清除，这里无需额外处理
+                onSuccess = {},
+                onDismiss = {
+                    // 主动退回整页登录：清过期标记 + 收起主界面
+                    AuthBus.onReloginSuccess()
+                    loggedIn = false
+                }
+            )
         }
     }
 }
