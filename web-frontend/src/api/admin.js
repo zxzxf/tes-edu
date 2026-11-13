@@ -148,6 +148,10 @@ export function setCourseSourceStatus(sourceId, status) {
 export function deleteCourseSource(sourceId) {
   return client.delete(`/course/sources/${sourceId}`)
 }
+// M5-7 待审源审核：approve=转 active 并启用草稿采集任务；reject=清理待审源与草稿任务
+export function reviewCourseSource(sourceId, action) {
+  return client.post(`/course/sources/${sourceId}/review`, { action })
+}
 
 // M3-8/M4-4 采集任务（path=P1 整卷入库 / P2 拆题入库）
 export function listCrawlJobs() {

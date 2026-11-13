@@ -442,6 +442,9 @@ class CourseSource(Base):
     created_by = Column(String(64))
     created_at = Column(DateTime(timezone=True), default=_utcnow)
     updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+    #: M5-7 课程源定时自主发现：自动发现标记与审核状态
+    auto_discovered = Column(Boolean, nullable=False, default=False)
+    review_status = Column(String(16), default=None)  # pending_review/approved/rejected
 
 
 class CrawlJob(Base):
@@ -455,6 +458,10 @@ class CrawlJob(Base):
     name = Column(String(255), nullable=False)
     path = Column(String(16), nullable=False, default="P2")
     schedule = Column(String(64))
+    #: M5-7 任务类型：harvest=常规采集；discovery=自主发现候选源（不入库题）
+    job_kind = Column(String(16), nullable=False, default="harvest")
+    #: M5-7 自主发现检索约束（学科/年级/教材版本等自然语言）
+    query = Column(Text, default=None)
     budget_limit = Column(Integer, nullable=False, default=100)
     spent = Column(Integer, nullable=False, default=0)
     status = Column(String(16), nullable=False, default="paused")
@@ -484,6 +491,8 @@ class CrawlRun(Base):
     #: M4-4 P1 整卷入库时本次建出的卷 id（P2 为空）；指标页可直达该卷
     paper_id = Column(Integer, index=True)
     error = Column(Text)
+    #: M5-7 运行来源标记：manual=手动执行 / scheduled=定时触发 / discovery=自主发现
+    origin = Column(String(16), nullable=False, default="manual")
 
 
 class ExamPaperIntake(Base):

@@ -212,16 +212,13 @@ def compliance_reject(uri: str) -> Optional[str]:
 
 
 # ------------------------------------------------------------------ DB 薄层
-async def list_sources(db: AsyncSession, tenant_id: str) -> List[CourseSource]:
-    return list(
-        (
-            await db.execute(
-                select(CourseSource)
-                .where(CourseSource.tenant_id == tenant_id)
-                .order_by(CourseSource.id.desc())
-            )
-        ).scalars().all()
-    )
+async def list_sources(
+    db: AsyncSession, tenant_id: str, review_status: Optional[str] = None
+) -> List[CourseSource]:
+    stmt = select(CourseSource).where(CourseSource.tenant_id == tenant_id)
+    if review_status:
+        stmt = stmt.where(CourseSource.review_status == review_status)
+    return list((await db.execute(stmt.order_by(CourseSource.id.desc()))).scalars().all())
 
 
 async def create_source(
@@ -317,13 +314,21 @@ async def create_job(
     tenant_id: str,
     name: str,
     source_id: Optional[int],
-    path: str,
-    schedule: Optional[str],
-    budget_limit: int,
+    path: str = "P2",
+    schedule: Optional[str] = None,
+    budget_limit: int = 100,
+    job_kind: str = "harvest",
+    query: Optional[str] = None,
     created_by: Optional[str] = None,
 ) -> CrawlJob:
-    if path not in (PATH_P1, PATH_P2):
-        raise ValueError("path 只能是 P1/P2")
+    if job_kind not in ("harvest", "discovery"):
+        raise ValueError("job_kind 只能是 harvest/discovery")
+    if job_kind == "discovery":
+        # 发现任务不绑定源、默认 P2，可无 schedule（手动跑也行）
+        path = path or "P2"
+    else:
+        if path not in (PATH_P1, PATH_P2):
+            raise ValueError("path 只能是 P1/P2")
     if schedule and parse_cron(schedule) is None:
         raise ValueError("schedule 不是合法的 5 段 cron")
     row = CrawlJob(
@@ -335,6 +340,8 @@ async def create_job(
         budget_limit=max(1, int(budget_limit or 1)),
         spent=0,
         status="paused",
+        job_kind=job_kind,
+        query=query,
         created_by=created_by,
         next_run_at=next_run_at(schedule) if schedule else None,
     )
@@ -393,13 +400,20 @@ async def run_job(
     job: CrawlJob,
     *,
     items: Optional[Sequence[Dict[str, Any]]] = None,
+    origin: Optional[str] = None,
 ) -> CrawlRun:
-    """执行一次采集：去重入库 ``draft``，超预算立即停（M3-8）。
+    """执行一次采集：去重入库 ``draft``，超预算立即停（M3-8 / M5-7）。
 
     ``items`` 为待入库的题库行（由解析器产出）。为空时只记一条「无新内容」的运行，
     这样调度器照样有可观测日志（M5-6），不会「跑了但什么都没记」。
+    ``origin`` 标记运行来源：manual（手动）/ scheduled（定时）/ discovery（自主发现）。
     """
-    run = CrawlRun(job_id=job.id, tenant_id=job.tenant_id, status="running")
+    run = CrawlRun(
+        job_id=job.id,
+        tenant_id=job.tenant_id,
+        status="running",
+        origin=("discovery" if job.job_kind == "discovery" else (origin or "manual")),
+    )
     db.add(run)
     await db.flush()
 
@@ -413,6 +427,16 @@ async def run_job(
 
     rows: List[Dict[str, Any]] = []
     if items is None:
+        # M5-7 自主发现任务：不入库题，只扫描外部站点生成待审源 + 草稿任务
+        if job.job_kind == "discovery":
+            from app.crawl_service import discovery as crawl_disc
+
+            await crawl_disc.run_discovery(db, job, run=run)
+            run.finished_at = _utcnow()
+            run.status = "ok"
+            job.last_run_at = _utcnow()
+            job.next_run_at = next_run_at(job.schedule) if job.schedule else None
+            return run
         # 调用方没显式给 items（UI「执行一次」/ 定时调度都走这里）：
         # 真正从采集源抓取内容并解析，而不是静默记一条 fetched=0 的空运行。
         resolved, reason = await _resolve_items_from_source(db, job)
@@ -511,7 +535,7 @@ async def run_due_jobs(
     runs: List[CrawlRun] = []
     for job in await due_jobs(db, now):
         try:
-            runs.append(await run_job(db, job))
+            runs.append(await run_job(db, job, origin="scheduled"))
             await db.commit()
         except Exception as exc:  # noqa: BLE001 调度器不能因单任务死掉
             await db.rollback()

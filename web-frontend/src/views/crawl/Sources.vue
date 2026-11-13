@@ -31,16 +31,31 @@
         <button class="tes-btn-primary" :disabled="busy" @click="add">新增</button>
       </div>
       <table v-if="rows.length" class="tes-table">
-        <thead><tr><th>名称</th><th>类型</th><th>地址</th><th>状态</th><th>操作</th></tr></thead>
+        <thead><tr><th>名称</th><th>类型</th><th>地址</th><th>状态</th><th>审核</th><th>操作</th></tr></thead>
         <tbody>
           <tr v-for="s in rows" :key="s.id">
-            <td>{{ s.name }}</td>
+            <td>
+              {{ s.name }}
+              <span v-if="s.auto_discovered" class="tes-pill info" title="由定时自主发现任务创建">自动发现</span>
+            </td>
             <td>{{ s.source_type }}</td>
             <td class="cw-mono">{{ s.uri }}</td>
             <td><span class="tes-pill" :class="s.status === 'active' ? 'success' : 'warn'">{{ s.status === 'active' ? '已启用' : '已暂停' }}</span></td>
             <td>
-              <button class="ghost" :disabled="busy" @click="toggle(s)">{{ s.status === 'active' ? '暂停' : '启用' }}</button>
-              <button v-if="canManage" class="ghost cw-ghost-danger" :disabled="busy" @click="remove(s)">删除</button>
+              <span v-if="s.review_status === 'pending_review'" class="tes-pill warn">待审</span>
+              <span v-else-if="s.review_status === 'approved'" class="tes-pill success">已通过</span>
+              <span v-else-if="s.review_status === 'rejected'" class="tes-pill danger">已驳回</span>
+              <span v-else class="cw-muted">—</span>
+            </td>
+            <td>
+              <template v-if="s.review_status === 'pending_review'">
+                <button class="tes-btn-primary" :disabled="busy" @click="review(s, 'approve')">通过</button>
+                <button class="ghost cw-ghost-danger" :disabled="busy" @click="review(s, 'reject')">驳回</button>
+              </template>
+              <template v-else>
+                <button class="ghost" :disabled="busy" @click="toggle(s)">{{ s.status === 'active' ? '暂停' : '启用' }}</button>
+                <button v-if="canManage" class="ghost cw-ghost-danger" :disabled="busy" @click="remove(s)">删除</button>
+              </template>
             </td>
           </tr>
         </tbody>
@@ -61,6 +76,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useCrawlRequest } from '../../composables/useCrawlRequest'
 import {
   createCourseSource, deleteCourseSource, listCourseSources, setCourseSourceStatus,
+  reviewCourseSource,
 } from '../../api/admin'
 
 const { busy, error, msg, guard } = useCrawlRequest()
@@ -90,6 +106,13 @@ async function toggle(s) {
 async function remove(s) {
   await guard(async () => {
     await deleteCourseSource(s.id)
+    rows.value = await listCourseSources()
+  })
+}
+async function review(s, action) {
+  await guard(async () => {
+    await reviewCourseSource(s.id, action)
+    msg.value = action === 'approve' ? '待审源已通过，草稿采集任务已启用' : '待审源已驳回并清理'
     rows.value = await listCourseSources()
   })
 }

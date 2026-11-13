@@ -1,0 +1,307 @@
+"""M5-7 课程源定时自主发现：自动发现候选源 + 待教师审核。
+
+覆盖：
+  * 纯函数（网络隔离）：ssrf_safe / domain_allowed / classify_content / discover_candidates；
+  * 服务层：discovery 任务 run_job 自动建待审源 + 草稿任务；
+  * 审核：approve_source 转 active 并启用草稿任务；reject_source 清理；
+  * API 模型：_job_out / _source_out 暴露 job_kind/query/auto_discovered/review_status；
+  * 闸门：拒绝私网/未授权 URL。
+"""
+import asyncio
+
+import pytest
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from app.crawl_service import discovery as disc
+from app.crawl_service import scheduler as crawl
+from app.crawl_service.api import _job_out, _source_out
+from app.models.course_kb import Base
+from app.models.ops import CourseSource, CrawlJob, CrawlRun
+
+
+def _engine():
+    from sqlalchemy import event
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:", poolclass=StaticPool,
+        connect_args={"check_same_thread": False},
+    )
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _register(dbapi_conn, _record):
+        dbapi_conn.create_function(
+            "btrim", 1, lambda s: s.strip() if isinstance(s, str) else s
+        )
+
+    return engine
+
+
+async def _bootstrap(engine):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+# ----------------------------------------------------------- 纯函数（无网络）
+def test_classify_content_categories():
+    q = "选择题 填空题 解答题 1. 2+3= A.4 B.5 答案 解析 真题 考点"
+    cat, conf = disc.classify_content(q)
+    assert cat == "textbook" and conf >= 0.4  # 命中多个题面特征词
+
+    empty = disc.classify_content("<html>欢迎访问本站</html>")
+    assert empty[1] < 0.4  # 低价值，不建源
+
+    web = disc.classify_content("关于我们 联系我们 版权声明 网站地图")
+    assert web[0] == "web"
+
+
+def test_discover_candidates_seeds_and_search():
+    # 无搜索引擎：返回种子域名首页
+    seeds = disc.discover_candidates("高中数学", seeds=("math.example.edu",))
+    assert seeds == ["https://math.example.edu/"]
+
+    # 有搜索引擎：合并搜索结果 + 种子，去重保序
+    def search(q):
+        return ["https://found.example/1", "https://math.example.edu/"]
+
+    out = disc.discover_candidates("高中数学", search=search,
+                                   seeds=("math.example.edu",))
+    assert out[0] == "https://found.example/1"
+    assert out.count("https://math.example.edu/") == 1  # 去重
+
+
+def test_domain_allowed_respects_allowlist():
+    assert disc.domain_allowed("http://x.com", []) is True  # 空白名单默认放行
+    assert disc.domain_allowed("http://edu.example.com/math", ["example.com"]) is True
+    assert disc.domain_allowed("http://other.com", ["example.com"]) is False
+
+
+def test_ssrf_safe_blocks_private(monkeypatch):
+    import app.crawl_service.fetcher as fm
+
+    def fake_resolve(u):
+        if "127.0.0.1" in u or "localhost" in u:
+            raise ValueError("private address blocked")
+        return None
+
+    monkeypatch.setattr(fm, "_resolve_safe", fake_resolve)
+    ok, reason = disc.ssrf_safe("http://127.0.0.1/admin")
+    assert ok is False and "private" in (reason or "")
+    ok2, _ = disc.ssrf_safe("http://public.example/")
+    assert ok2 is True
+
+
+# ----------------------------------------------------------- 集成（待审源 + 草稿任务）
+def test_discovery_job_creates_pending_source_and_draft(monkeypatch):
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = await crawl.create_job(
+                db, tenant_id="school-1", name="晚10点自主发现", source_id=None,
+                job_kind="discovery", query="高中数学 习题", schedule="0 22 * * *",
+                budget_limit=20,
+            )
+            await db.commit()
+            assert job.job_kind == "discovery"
+
+            # 网络隔离：强制闸门通过 + fake 抓取返回含题 HTML
+            monkeypatch.setattr(disc, "ssrf_safe", lambda u: (True, None))
+            monkeypatch.setattr(disc, "domain_allowed", lambda u, a: True)
+            html = "选择题 填空题 解答题 1. 2+3= A.4 B.5 答案 解析 真题 考点"
+
+            import app.crawl_service.fetcher as fm
+
+            async def fake_fetch(url, timeout=20):
+                return html
+
+            monkeypatch.setattr(fm, "safe_fetch_url", fake_fetch)
+
+            run = await crawl.run_job(db, job, origin="manual")
+            await db.commit()
+            assert run.status == "ok"
+            assert run.origin == "discovery"  # 发现任务一律 discovery 溯源
+
+            srcs = (await db.execute(
+                select(CourseSource).where(CourseSource.auto_discovered == True)  # noqa: E712
+            )).scalars().all()
+            assert len(srcs) >= 1
+            assert all(s.review_status == "pending_review" and s.status == "paused"
+                       for s in srcs)
+
+            drafts = (await db.execute(
+                select(CrawlJob).where(
+                    CrawlJob.job_kind == "harvest",
+                    CrawlJob.source_id == srcs[0].id,
+                )
+            )).scalars().all()
+            assert len(drafts) == 1
+            assert drafts[0].status == "paused"
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_create_job_rejects_bad_kind_and_forces_p2_for_discovery():
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            with pytest.raises(ValueError, match="job_kind"):
+                await crawl.create_job(
+                    db, tenant_id="school-1", name="bad", source_id=None,
+                    job_kind="magic",
+                )
+            # discovery 任务可创建（path 对其无意义，仅透传）
+            job = await crawl.create_job(
+                db, tenant_id="school-1", name="d", source_id=None,
+                job_kind="discovery", query="数学",
+            )
+            await db.commit()
+            assert job.job_kind == "discovery"
+            assert job.query == "数学"
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_review_approve_activates_source_and_draft(monkeypatch):
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = await crawl.create_job(
+                db, tenant_id="school-1", name="d", source_id=None,
+                job_kind="discovery", query="数学", budget_limit=10,
+            )
+            await db.commit()
+            monkeypatch.setattr(disc, "ssrf_safe", lambda u: (True, None))
+            monkeypatch.setattr(disc, "domain_allowed", lambda u, a: True)
+            html = "选择题 填空题 解答题 答案 解析 真题 考点"
+            import app.crawl_service.fetcher as fm
+
+            async def fake_fetch(url, timeout=20):
+                return html
+
+            monkeypatch.setattr(fm, "safe_fetch_url", fake_fetch)
+            await crawl.run_job(db, job)
+            await db.commit()
+            src = (await db.execute(
+                select(CourseSource).where(CourseSource.auto_discovered == True)  # noqa: E712
+            )).scalars().first()
+            assert src is not None
+
+            approved = await disc.approve_source(db, "school-1", src.id)
+            await db.commit()
+            assert approved.review_status == "approved"
+            assert approved.status == "active"
+            draft = (await db.execute(
+                select(CrawlJob).where(CrawlJob.source_id == src.id)
+            )).scalars().first()
+            assert draft.status == "active"
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_review_reject_cleans_source_and_draft(monkeypatch):
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = await crawl.create_job(
+                db, tenant_id="school-1", name="d", source_id=None,
+                job_kind="discovery", query="数学", budget_limit=10,
+            )
+            await db.commit()
+            monkeypatch.setattr(disc, "ssrf_safe", lambda u: (True, None))
+            monkeypatch.setattr(disc, "domain_allowed", lambda u, a: True)
+            html = "选择题 填空题 解答题 答案 解析 真题 考点"
+            import app.crawl_service.fetcher as fm
+
+            async def fake_fetch(url, timeout=20):
+                return html
+
+            monkeypatch.setattr(fm, "safe_fetch_url", fake_fetch)
+            await crawl.run_job(db, job)
+            await db.commit()
+            src = (await db.execute(
+                select(CourseSource).where(CourseSource.auto_discovered == True)  # noqa: E712
+            )).scalars().first()
+
+            ok = await disc.reject_source(db, "school-1", src.id)
+            await db.commit()
+            assert ok is True
+            remaining = (await db.execute(
+                select(CourseSource).where(CourseSource.id == src.id)
+            )).scalars().first()
+            assert remaining is None  # 待审源已清理
+            drafts = (await db.execute(
+                select(CrawlJob).where(CrawlJob.source_id == src.id)
+            )).scalars().all()
+            assert drafts == []  # 关联草稿任务也清理
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_discovery_rejects_unauthorized_candidate(monkeypatch):
+    """闸门生效：未授权域名的候选不建源。"""
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = await crawl.create_job(
+                db, tenant_id="school-1", name="d", source_id=None,
+                job_kind="discovery", query="数学", schedule="0 22 * * *",
+            )
+            await db.commit()
+            monkeypatch.setattr(disc, "ssrf_safe", lambda u: (True, None))
+            # 只允许 example.edu，种子里 pep/zxxk/gaokao 全被拒
+            monkeypatch.setattr(disc, "domain_allowed",
+                                lambda u, a: "example.edu" in u)
+            html = "选择题 填空题 解答题 答案 解析 真题 考点"
+            import app.crawl_service.fetcher as fm
+
+            async def fake_fetch(url, timeout=20):
+                return html
+
+            monkeypatch.setattr(fm, "safe_fetch_url", fake_fetch)
+            run = await crawl.run_job(db, job)
+            await db.commit()
+            assert "拒绝" in (run.error or "")
+            srcs = (await db.execute(
+                select(CourseSource).where(CourseSource.auto_discovered == True)  # noqa: E712
+            )).scalars().all()
+            assert srcs == []
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+# ----------------------------------------------------------- API 模型字段
+def test_job_out_includes_kind_and_query():
+    job = CrawlJob(
+        id=1, tenant_id="school-1", name="d", job_kind="discovery",
+        query="高中数学", path="P2", budget_limit=5, spent=0, status="paused",
+    )
+    out = _job_out(job)
+    assert out.job_kind == "discovery" and out.query == "高中数学"
+
+
+def test_source_out_includes_discovery_markers():
+    src = CourseSource(
+        id=1, tenant_id="school-1", name="x", source_type="url", uri="u",
+        parser="web", status="paused", auto_discovered=True,
+        review_status="pending_review",
+    )
+    out = _source_out(src)
+    assert out.auto_discovered is True
+    assert out.review_status == "pending_review"

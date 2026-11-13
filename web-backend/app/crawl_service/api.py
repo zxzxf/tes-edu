@@ -18,6 +18,7 @@ from app.core.security import require_role
 from app.models.ops import CrawlJob, CrawlRun, CourseSource, KpNode
 from app.crawl_service import scheduler as crawl_svc
 from app.crawl_service import intake as crawl_intake
+from app.crawl_service import discovery as crawl_disc
 from app.services import course_pipeline
 
 router = APIRouter(prefix="/course", tags=["course"])
@@ -43,6 +44,9 @@ class SourceOut(BaseModel):
     parser: str
     status: str
     ingested_at: Optional[str] = None
+    #: M5-7 自主发现标记与审核状态
+    auto_discovered: bool = False
+    review_status: Optional[str] = None
 
 
 def _source_out(r: CourseSource) -> SourceOut:
@@ -50,15 +54,18 @@ def _source_out(r: CourseSource) -> SourceOut:
         id=r.id, name=r.name, source_type=r.source_type, uri=r.uri,
         parser=r.parser, status=r.status,
         ingested_at=r.ingested_at.isoformat() if r.ingested_at else None,
+        auto_discovered=bool(r.auto_discovered),
+        review_status=r.review_status,
     )
 
 
 @router.get("/sources", response_model=List[SourceOut])
 async def list_sources(
+    review_status: Optional[str] = Query(None, pattern="^(pending_review|approved|rejected)$"),
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = await crawl_svc.list_sources(db, _tenant(user))
+    rows = await crawl_svc.list_sources(db, _tenant(user), review_status=review_status)
     return [_source_out(r) for r in rows]
 
 
@@ -101,6 +108,33 @@ async def set_source_status(
     return _source_out(row)
 
 
+class SourceReview(BaseModel):
+    action: str = Field(..., pattern="^(approve|reject)$")
+
+
+@router.post("/sources/{source_id}/review", response_model=SourceOut)
+async def review_source(
+    source_id: int,
+    body: SourceReview,
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    """M5-7 待审源审核：approve=转 active + 启用草稿采集任务；reject=清理待审源与草稿任务。"""
+    if body.action == "approve":
+        row = await crawl_disc.approve_source(db, _tenant(user), source_id)
+    else:
+        ok = await crawl_disc.reject_source(db, _tenant(user), source_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="auto-discovered source not found")
+        await db.commit()
+        return SourceOut(id=source_id, name="", source_type="", uri="", parser="", status="deleted")
+    if row is None:
+        raise HTTPException(status_code=404, detail="auto-discovered source not found")
+    await db.commit()
+    await db.refresh(row)
+    return _source_out(row)
+
+
 @router.delete("/sources/{source_id}", status_code=204)
 async def delete_source(
     source_id: int,
@@ -127,6 +161,10 @@ class JobCreate(BaseModel):
     path: str = "P2"
     schedule: Optional[str] = None
     budget_limit: int = Field(default=100, ge=1)
+    #: M5-7 自主发现任务：缺省 harvest；discovery 表示定时搜外部资源建待审源
+    job_kind: str = "harvest"
+    #: M5-7 自主发现检索约束（学科/年级/教材版本等自然语言）
+    query: Optional[str] = None
 
 
 class JobOut(BaseModel):
@@ -139,6 +177,9 @@ class JobOut(BaseModel):
     spent: int
     status: str
     next_run_at: Optional[str] = None
+    #: M5-7 任务类型与检索约束
+    job_kind: Optional[str] = "harvest"
+    query: Optional[str] = None
     # M4-4：最近一次 P1 采集建出的卷（P2 / 未跑过为空）
     last_paper_id: Optional[int] = None
     last_run_status: Optional[str] = None
@@ -151,6 +192,7 @@ def _job_out(r: CrawlJob, run: Optional[CrawlRun] = None) -> JobOut:
         schedule=r.schedule, budget_limit=r.budget_limit, spent=r.spent,
         status=r.status,
         next_run_at=r.next_run_at.isoformat() if r.next_run_at else None,
+        job_kind=r.job_kind, query=r.query,
         last_paper_id=run.paper_id if run is not None else None,
         last_run_status=run.status if run is not None else None,
         last_run_error=run.error if run is not None else None,
@@ -186,6 +228,8 @@ async def create_job(
             path=body.path,
             schedule=body.schedule,
             budget_limit=body.budget_limit,
+            job_kind=body.job_kind,
+            query=body.query,
             created_by=user.get("user_id"),
         )
     except ValueError as exc:
@@ -230,7 +274,7 @@ async def run_job(
     ).scalar_one_or_none()
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
-    run = await crawl_svc.run_job(db, job)
+    run = await crawl_svc.run_job(db, job, origin="manual")
     await db.commit()
     await db.refresh(job)
     return _job_out(job, run)

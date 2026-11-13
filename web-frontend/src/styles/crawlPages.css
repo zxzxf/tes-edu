@@ -13,6 +13,7 @@
 .cw-mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 .cw-outline { background: #f7f8fa; padding: 12px; border-radius: 8px; max-height: 300px; overflow: auto; font-size: 12px; }
 .cw-ghost-danger { color: #c62828; }
+.cw-muted { color: var(--muted); font-size: 12px; }
 .cw-err { display: block; margin-top: 2px; font-size: 11px; color: #b42318; }
 .cw-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
 .cw-stat { background: var(--bg-2); border-radius: var(--r-md); padding: 14px 16px; }
