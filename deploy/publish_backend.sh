@@ -123,6 +123,8 @@ recreate_web() {
          --env-file ${REMOTE_DIR}/web-backend.env \
          -e \"JWT_PRIVATE_KEY=\${PEM}\" \
          -e \"VENDOR_CREDENTIAL_KEY=\${VCK}\" \
+         -v /opt/deploy/m5_sources:/opt/deploy/m5_sources:ro \
+         -e "COURSE_SOURCE_ROOT=/opt/deploy/m5_sources" \
          edu-web-backend:real uvicorn main:app --host 0.0.0.0 --port 8000; \
        echo 'started'"
 }
