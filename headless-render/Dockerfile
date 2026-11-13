@@ -25,7 +25,10 @@ WORKDIR /app
 # Debian 13 且构建时即经 apt 装过依赖，故 apt 源可达。
 # 注意：playwright 自带 node 运行时依赖 libatomic.so.1，Debian 13 下 --with-deps 未自动补齐，
 # 须在 playwright install 之前先显式安装，否则 node 启动即报 libatomic.so.1 缺失而退出。
-RUN apt-get update \
+# 另：137 国内服务器直连 deb.debian.org 极慢（chromium 依赖装了 30+ 分钟未完），
+# 构建前先把 apt 源切到阿里云镜像，否则装不动。
+RUN sed -i 's#deb.debian.org#mirrors.aliyun.com#g' /etc/apt/sources.list.d/debian.sources 2>/dev/null; \
+    apt-get update \
     && apt-get install -y --no-install-recommends libatomic1 \
     && pip install --no-cache-dir playwright \
     && playwright install --with-deps chromium \
