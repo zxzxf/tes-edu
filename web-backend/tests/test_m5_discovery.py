@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.crawl_service import discovery as disc
 from app.crawl_service import scheduler as crawl
+from app.crawl_service import search_client as sc
 from app.crawl_service.api import _job_out, _source_out
 from app.models.course_kb import Base
 from app.models.ops import CourseSource, CrawlJob, CrawlRun
@@ -70,6 +71,95 @@ def test_discover_candidates_seeds_and_search():
                                    seeds=("math.example.edu",))
     assert out[0] == "https://found.example/1"
     assert out.count("https://math.example.edu/") == 1  # 去重
+
+
+# ----------------------------------------------------------- 搜索引擎客户端
+def test_build_search_client_disabled_and_missing_key(monkeypatch):
+    # 未启用 -> None（discovery 退化种子）
+    monkeypatch.setattr(sc.settings, "search_api_enabled", False)
+    assert sc.build_search_client() is None
+    # 启用但无 key -> 仍 None
+    monkeypatch.setattr(sc.settings, "search_api_enabled", True)
+    monkeypatch.setattr(sc.settings, "search_api_key", "")
+    assert sc.build_search_client() is None
+
+
+def test_build_search_client_enabled(monkeypatch):
+    monkeypatch.setattr(sc.settings, "search_api_enabled", True)
+    monkeypatch.setattr(sc.settings, "search_api_key", "k-test")
+    monkeypatch.setattr(sc.settings, "search_api_provider", "serper")
+    monkeypatch.setattr(sc.settings, "search_api_url", "")
+    monkeypatch.setattr(sc.settings, "search_api_max_results", 7)
+    client = sc.build_search_client()
+    assert client is not None
+    assert client.provider == "serper"
+    assert client.url == sc.DEFAULT_SERPER_URL
+    assert client.max_results == 7
+
+
+def test_search_client_parse_serper_and_dedup():
+    payload = {
+        "organic_results": [
+            {"link": "https://a.example/paper?x=1#frag"},
+            {"link": "https://b.example/quiz"},
+            {"link": "https://a.example/paper?x=1#frag"},  # 重复
+            {"link": ""},  # 空链接忽略
+        ]
+    }
+
+    def fake_post(url, body, headers):
+        assert headers.get("X-API-KEY") == "k"
+        assert body["q"] == "高中数学"
+        return payload
+
+    client = sc.SearchClient("serper", "k", http_post=fake_post)
+    urls = client.search("高中数学")
+    assert urls == ["https://a.example/paper?x=1", "https://b.example/quiz"]
+
+
+def test_search_client_http_error_returns_empty():
+    def boom(url, body, headers):
+        raise RuntimeError("network down")
+
+    client = sc.SearchClient("serper", "k", http_post=boom)
+    assert client.search("anything") == []
+
+
+def test_discovery_uses_search_client(monkeypatch):
+    """搜索 API 接入后：搜索结果 URL 会进入候选并被建为待审源。"""
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = await crawl.create_job(
+                db, tenant_id="school-1", name="d", source_id=None,
+                job_kind="discovery", query="高中数学 真题", budget_limit=10,
+            )
+            await db.commit()
+            monkeypatch.setattr(disc, "ssrf_safe", lambda u: (True, None))
+            monkeypatch.setattr(disc, "domain_allowed", lambda u, a: True)
+            html = "选择题 填空题 解答题 答案 解析 真题 考点"
+            import app.crawl_service.fetcher as fm
+
+            async def fake_fetch(url, timeout=20):
+                return html
+
+            monkeypatch.setattr(fm, "safe_fetch_url", fake_fetch)
+
+            class FakeClient:
+                def search(self, q):
+                    return ["https://serp.result/paper-math-2024"]
+
+            monkeypatch.setattr(disc, "build_search_client", lambda: FakeClient())
+
+            run = await crawl.run_job(db, job)
+            await db.commit()
+            uris = (await db.execute(select(CourseSource.uri))).scalars().all()
+            assert "https://serp.result/paper-math-2024" in uris
+        await engine.dispose()
+
+    asyncio.run(scenario())
 
 
 def test_domain_allowed_respects_allowlist():

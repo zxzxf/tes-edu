@@ -53,6 +53,16 @@ class Settings(BaseSettings):
     # 留空保持历史兼容行为，仅执行保守黑名单；配置后只允许清单内来源。
     crawl_compliance_allowlist: str = ""
 
+    # M5-7 自主发现：搜索引擎 API（让 discovery 按 job.query 关键词真实搜索资源 URL，
+    # 替代仅靠可信域名种子抓首页的弱兜底；JS 重度站点静态抓首页拿不到题，靠搜索结果页补足）。
+    # 默认关：需配置 SEARCH_API_KEY 才真正启用；未启用时 discovery 退化为种子兜底（向后兼容）。
+    # 密钥只走环境变量（web-backend.env），绝不进 git / 镜像。
+    search_api_enabled: bool = False
+    search_api_provider: str = "serper"   # 当前仅实现 serper（Google 结果聚合）
+    search_api_key: str = ""
+    search_api_url: str = ""              # 留空用 provider 默认端点
+    search_api_max_results: int = 10
+
     # 学生端读缓存（Redis）。留空 = 全部直查 DB（本地单测/未部署 Redis 时的降级路径）。
     # 137 上由 web-backend.env 注入 redis://:<pw>@redis:6379/0，与网关共用同一实例。
     redis_url: str = ""

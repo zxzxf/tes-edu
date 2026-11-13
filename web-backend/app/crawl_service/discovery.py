@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.crawl_service import fetcher as crawl_fetch
+from app.crawl_service.search_client import build_search_client
 from app.models.ops import CourseSource, CrawlJob
 
 log = logging.getLogger(__name__)
@@ -232,7 +233,11 @@ async def run_discovery(
     fetch_fn = fetch_fn or crawl_fetch.safe_fetch_url
     query = (job.query or job.name or "").strip()
     allowlist = _discovery_allowlist()
-    candidates = discover_candidates(query)
+    # 接搜索引擎 API：按关键词拿真实结果页；未配置则退化为可信域名种子兜底。
+    search_client = build_search_client()
+    candidates = discover_candidates(
+        query, search=(search_client.search if search_client else None)
+    )
 
     discovered = created = rejected = 0
     created_urls: List[str] = []
