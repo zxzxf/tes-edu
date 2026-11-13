@@ -1,6 +1,9 @@
 <template>
   <router-view />
 
+  <!-- 登录时效弹窗：token 过期/失效时覆盖全站，重新登录后无感续接 -->
+  <LoginModal v-if="auth.sessionExpired" />
+
   <!-- 学习防疲劳提醒（#3）：达阈值弹窗，受 anti_fatigue 功能开关管控 -->
   <div v-if="af.showRemind" class="af-mask">
     <div class="af-modal">
@@ -20,9 +23,12 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFeatureStore } from './stores/features'
 import { useAntiFatigue } from './composables/useAntiFatigue'
+import { useAuthStore } from './stores/auth'
+import LoginModal from './components/LoginModal.vue'
 
 const feature = useFeatureStore()
 const af = useAntiFatigue()
+const auth = useAuthStore()
 const router = useRouter()
 
 onMounted(async () => {

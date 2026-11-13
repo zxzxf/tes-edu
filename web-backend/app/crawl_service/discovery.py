@@ -3,8 +3,10 @@
 本条只做"自动发现 + 待教师审核"，而非一上来放开自动采集与发布：
 
   ① 触发层  —— 复用既有 ``crawl_job``（``job_kind=discovery`` + 既有 cron）；
-  ② 发现层  —— 检索约束 → 候选 URL（搜索引擎 API 可选，无密钥走可信域名种子
-             + 站内链接探索兜底）→ 轻量抓取 + 启发式分类；
+  ② 发现层  —— 检索约束 → 候选 URL（搜索引擎 API 可选，无密钥走可信域名种子；
+             候选再经三层补足：① 搜索引擎结果页、② BFS 递归同域链接探索
+             ``discovery_crawl_depth``、③ headless 渲染 ``discovery_headless_enabled``
+             抓 JS 站点正文）→ 轻量抓取/渲染 + 启发式分类；
   ③ 治理闸门 —— 强制继承出站 SSRF 复查 / 版权白名单 / 启发式低价值丢弃；
   ④ 转交层  —— 通过闸门的候选自动建 ``course_source(auto_discovered,
              review_status=pending_review, status=paused)`` + 草稿 ``crawl_job``，
@@ -214,21 +216,91 @@ async def _create_pending_source(
     return src
 
 
+async def _render_via_service(url: str, svc: str, timeout: float) -> str:
+    """调用外部 headless 渲染服务：POST ``{"url": url}`` -> 渲染后的完整 HTML。
+
+    服务契约：返回 JSON ``{"html": "..."}`` 或纯文本渲染结果；渲染失败应返回
+    非 2xx 或空 html，本函数统一回退为空串（交由调用方按低价值处理）。
+    """
+    import json
+    import urllib.request
+
+    req = urllib.request.Request(
+        svc,
+        data=json.dumps({"url": url}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = resp.read().decode("utf-8", "replace")
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return raw  # 纯文本渲染结果（如直接返回 HTML）
+    if isinstance(data, dict):
+        return data.get("html") or data.get("content") or ""
+    return ""
+
+
+class _RenderPlaywright:
+    """可选本地 Playwright 渲染后端（需运行时安装 ``playwright`` + chromium）。"""
+
+    async def __call__(self, url: str) -> str:
+        from playwright.async_api import async_playwright
+
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(args=["--no-sandbox"])
+            page = await browser.new_page()
+            try:
+                await page.goto(url, wait_until="networkidle", timeout=20000)
+                return await page.content()
+            finally:
+                await browser.close()
+
+
+def _make_renderer():
+    """按配置构建 headless 渲染器（可 ``await(url) -> html``）；不可用返回 ``None``。
+
+    优先级：外部渲染服务 ``discovery_render_url`` > 本地 Playwright（可选依赖）。
+    两者皆不可用时返回 ``None``，``run_discovery`` 退化为静态 fetch（向后兼容）。
+    """
+    svc = getattr(settings, "discovery_render_url", "") or ""
+    if svc:
+        to = float(getattr(settings, "discovery_headless_timeout", 20.0) or 20.0)
+        return lambda url: _render_via_service(url, svc, to)
+    try:
+        __import__("playwright")
+    except Exception:  # noqa: BLE001 未安装则退化为静态抓取
+        log.warning(
+            "discovery_headless_enabled=true 但运行时未安装 playwright；"
+            "退化为静态抓取"
+        )
+        return None
+    return _RenderPlaywright()
+
+
 async def run_discovery(
     db: AsyncSession,
     job: CrawlJob,
     *,
     run=None,
     fetch_fn=None,
+    render_fn=None,
     max_candidates: int = 20,
     max_per_domain: int = 5,
 ) -> Dict[str, Any]:
     """执行一次自主发现（由 ``scheduler.run_job`` 在 ``job_kind=discovery`` 时调用）。
 
-    遍历种子 → 抓首页 → 站内链接探索 → 对每个候选过 SSRF/白名单闸门 →
-    抓样本 + 启发式分类 → 高置信度者建待审源 + 草稿任务。``fetch_fn`` 可注入
-    （测试用 fake fetch），默认 ``safe_fetch_url``。``run`` 为外层已建好的
-    ``CrawlRun``，用于溯源（origin=discovery）。返回统计摘要。
+    策略三层（均可独立开关，全部继承 SSRF/白名单闸门 + 启发式低价值丢弃）：
+      ① 搜索引擎 API（``build_search_client``）：按 ``job.query`` 关键词搜真实结果页；
+      ② 递归站内链接探索（``discovery_crawl_depth``）：BFS 沿同域链接纵深，
+         由 ``discovery_crawl_max_pages`` 设总页面预算防失控；
+      ③ headless 渲染（``discovery_headless_enabled``）：对 JS 重度站点渲染后取正文，
+         未配置渲染后端时静默退化为静态 fetch。
+
+    ``fetch_fn`` 可注入（测试 fake fetch）；``render_fn`` 可注入（测试 fake render，
+    亦可由 config 的 ``discovery_render_url`` / Playwright 自动构建）。``run`` 为外层
+    已建好的 ``CrawlRun``，用于溯源（origin=discovery）。返回统计摘要。
     """
     fetch_fn = fetch_fn or crawl_fetch.safe_fetch_url
     query = (job.query or job.name or "").strip()
@@ -239,54 +311,51 @@ async def run_discovery(
         query, search=(search_client.search if search_client else None)
     )
 
+    # 渲染后端：优先注入，否则按配置尝试外部渲染服务 / 本地 Playwright
+    renderer = render_fn
+    if renderer is None and getattr(settings, "discovery_headless_enabled", False):
+        renderer = _make_renderer()
+
+    depth = max(0, int(getattr(settings, "discovery_crawl_depth", 1) or 1))
+    max_pages = max(1, int(getattr(settings, "discovery_crawl_max_pages", 40) or 40))
+
     discovered = created = rejected = 0
     created_urls: List[str] = []
-    seen: set = set()
+    visited: set = set()
+    from collections import deque
 
-    for seed in candidates:
-        if discovered >= max_candidates:
-            break
-        ok, _reason = ssrf_safe(seed)
-        if not ok or not domain_allowed(seed, allowlist):
+    queue: "deque" = deque((c, 0) for c in candidates)
+    pages = 0
+    while queue and discovered < max_candidates and pages < max_pages:
+        url, level = queue.popleft()
+        if url in visited:
+            continue
+        visited.add(url)
+        pages += 1
+        ok, _reason = ssrf_safe(url)
+        if not ok or not domain_allowed(url, allowlist):
             rejected += 1
             continue
         try:
-            html = await fetch_fn(seed, timeout=20)
+            if renderer is not None:
+                html = await renderer(url)
+            else:
+                html = await fetch_fn(url, timeout=20)
         except Exception as exc:  # noqa: BLE001 单页失败不影响整体
-            log.warning("discovery fetch failed %s: %s", seed, exc)
+            log.warning("discovery fetch/render failed %s: %s", url, exc)
             rejected += 1
             continue
-        # 评估种子页本身
         cat, conf = classify_content(html, query)
         if conf >= 0.4 and cat in ("question", "textbook"):
-            if seed not in seen:
-                seen.add(seed)
-                await _create_pending_source(db, job, seed, cat)
-                created_urls.append(seed)
-                created += 1
-                discovered += 1
-        # 站内链接探索
-        for link in _extract_same_domain_links(html, seed, max_per_domain):
-            if discovered >= max_candidates:
-                break
-            lok, _lreason = ssrf_safe(link)
-            if not lok or not domain_allowed(link, allowlist):
-                rejected += 1
-                continue
-            try:
-                lhtml = await fetch_fn(link, timeout=20)
-            except Exception as exc:
-                log.warning("discovery fetch failed %s: %s", link, exc)
-                rejected += 1
-                continue
-            lcat, lconf = classify_content(lhtml, query)
-            if lconf >= 0.4 and lcat in ("question", "textbook"):
-                if link not in seen:
-                    seen.add(link)
-                    await _create_pending_source(db, job, link, lcat)
-                    created_urls.append(link)
-                    created += 1
-                    discovered += 1
+            await _create_pending_source(db, job, url, cat)
+            created_urls.append(url)
+            created += 1
+            discovered += 1
+        # 站内链接探索（BFS 纵深）：当前层未达最大深度才继续向下一层扩
+        if depth > 0 and level < depth:
+            for link in _extract_same_domain_links(html, url, max_per_domain):
+                if link not in visited:
+                    queue.append((link, level + 1))
         await db.flush()
 
     if run is not None:
@@ -294,7 +363,7 @@ async def run_discovery(
         run.inserted = created
         run.error = (
             f"自主发现：候选通过闸门 {discovered} / 新建待审源 {created} "
-            f"/ 拒绝 {rejected}"
+            f"/ 拒绝 {rejected}（depth={depth}, pages={pages}）"
         )
     return {
         "candidates": discovered,

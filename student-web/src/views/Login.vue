@@ -28,54 +28,20 @@
         <h2>同学，你好 👋</h2>
         <p class="form-tip">登录以进入你的学习工作台</p>
 
-        <label class="field">
-          <span>用户名</span>
-          <input v-model="username" placeholder="请输入用户名" />
-        </label>
-
-        <label class="field">
-          <span>密码</span>
-          <input v-model="password" type="password" placeholder="请输入密码" @keyup.enter="onLogin" />
-        </label>
-
-        <button class="submit" :disabled="loading" @click="onLogin">
-          {{ loading ? '登录中…' : '登 录' }}
-        </button>
-
-        <p v-if="error" class="error">⚠️ {{ error }}</p>
-        <p class="hint">与「学生 App」使用同一套账号</p>
+        <LoginForm @success="onSuccess" />
       </div>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import LoginForm from '../components/LoginForm.vue'
 
-const username = ref('')
-const password = ref('')
-const error = ref('')
-const loading = ref(false)
 const router = useRouter()
-const auth = useAuthStore()
 
-async function onLogin() {
-  error.value = ''
-  if (!username.value || !password.value) {
-    error.value = '请输入用户名和密码'
-    return
-  }
-  loading.value = true
-  try {
-    await auth.login(username.value, password.value)
-    router.push('/')
-  } catch (e) {
-    error.value = '登录失败：' + (e.response?.data?.detail || e.message)
-  } finally {
-    loading.value = false
-  }
+function onSuccess() {
+  router.push('/')
 }
 </script>
 
@@ -131,27 +97,6 @@ async function onLogin() {
 }
 .form-card h2 { font-size: 24px; }
 .form-tip { color: var(--muted); margin: 8px 0 26px; }
-.field { display: block; margin-bottom: 18px; }
-.field span { display: block; font-size: 13px; font-weight: 600; margin-bottom: 7px; color: var(--ink-2); }
-.field input {
-  width: 100%; box-sizing: border-box;
-  border: 1.5px solid var(--line-strong); border-radius: var(--r-md);
-  padding: 12px 14px; font-size: 15px; outline: none;
-  transition: border-color .15s;
-}
-.field input:focus { border-color: var(--brand-2); }
-.submit {
-  width: 100%;
-  background: var(--brand-grad);
-  color: #fff; border: none; border-radius: 14px;
-  padding: 13px; font-size: 16px; font-weight: 800; letter-spacing: 2px;
-  box-shadow: 0 10px 24px rgba(255, 61, 129, .32);
-  margin-top: 6px; cursor: pointer;
-}
-.submit:hover { filter: brightness(1.05); }
-.submit:disabled { background: #e9e4ef; color: #b3adc4; box-shadow: none; cursor: not-allowed; }
-.error { color: var(--danger); font-size: 13px; margin: 14px 0 0; }
-.hint { color: var(--muted); font-size: 12px; margin: 16px 0 0; text-align: center; }
 
 @media (max-width: 820px) {
   .hero { display: none; }

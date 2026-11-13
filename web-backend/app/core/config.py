@@ -63,6 +63,19 @@ class Settings(BaseSettings):
     search_api_url: str = ""              # 留空用 provider 默认端点
     search_api_max_results: int = 10
 
+    # M5-7-8 发现策略增强：递归站内探索 + headless 渲染（让 discovery 在 JS 重度站点
+    # 也能抓到真实题面，替代纯静态首页兜底）。均默认保守、向后兼容。
+    # 站内链接探索深度：1=只探首页直链（默认，等同旧行为）；2+=BFS 纵深；0=不探索。
+    discovery_crawl_depth: int = 1
+    # 单次 discovery 递归探索的总页面预算（防失控 / 控出网成本与耗时）。
+    discovery_crawl_max_pages: int = 40
+    # headless 渲染（抓 JS 站点正文）：默认关；开启需运行时具备渲染后端。
+    discovery_headless_enabled: bool = False
+    # 可选：外部 headless 渲染服务端点（POST {"url":...} -> {"html":...} 或纯文本 HTML）。
+    # 推荐用于生产：把 chromium 隔离在独立容器，避免拖垮 137 的 2G web-backend。
+    discovery_render_url: str = ""
+    discovery_headless_timeout: float = 20.0
+
     # 学生端读缓存（Redis）。留空 = 全部直查 DB（本地单测/未部署 Redis 时的降级路径）。
     # 137 上由 web-backend.env 注入 redis://:<pw>@redis:6379/0，与网关共用同一实例。
     redis_url: str = ""

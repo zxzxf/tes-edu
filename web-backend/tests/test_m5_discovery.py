@@ -376,6 +376,181 @@ def test_discovery_rejects_unauthorized_candidate(monkeypatch):
     asyncio.run(scenario())
 
 
+# ----------------------------------------------------------- M5-7-8 递归探索 + headless
+def test_discovery_recursive_crawl_depth(monkeypatch):
+    """BFS 纵深：depth=1 只探首页直链；depth>=2 继续探下一层同域链接。"""
+    async def scenario(depth: int) -> int:
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        fetched: list = []
+        async with factory() as db:
+            job = await crawl.create_job(
+                db, tenant_id="school-1", name="d", source_id=None,
+                job_kind="discovery", query="数学", budget_limit=50,
+            )
+            await db.commit()
+            monkeypatch.setattr(disc, "ssrf_safe", lambda u: (True, None))
+            monkeypatch.setattr(disc, "domain_allowed", lambda u, a: True)
+            # 固定单一种子，避免真实种子域干扰计数
+            monkeypatch.setattr(
+                disc, "discover_candidates",
+                lambda q, **kw: ["https://math.example.edu/"],
+            )
+            monkeypatch.setattr(disc.settings, "discovery_crawl_depth", depth)
+            monkeypatch.setattr(disc.settings, "discovery_crawl_max_pages", 100)
+
+            # 三层页面：首页 -> /sub -> /sub2，每层含一个同域链接
+            async def fake_fetch(url, timeout=20):
+                fetched.append(url)
+                if url.endswith("/sub2"):
+                    return "<html>导航</html>"
+                if url.endswith("/sub"):
+                    return '<html><a href="/sub2">下一级</a>导航</html>'
+                return '<html><a href="/sub">子页</a>导航</html>'
+
+            import app.crawl_service.fetcher as fm
+            monkeypatch.setattr(fm, "safe_fetch_url", fake_fetch)
+
+            run = CrawlRun(job_id=job.id, tenant_id=job.tenant_id,
+                          status="running", origin="discovery")
+            db.add(run)
+            await db.flush()
+            await disc.run_discovery(db, job, run=run)
+            await db.commit()
+            return len(fetched)
+        await engine.dispose()
+
+    got_d1 = asyncio.run(scenario(1))
+    got_d2 = asyncio.run(scenario(2))
+    # depth=1：首页 + /sub = 2 页；depth=2：再 + /sub2 = 3 页
+    assert got_d1 == 2, got_d1
+    assert got_d2 == 3, got_d2
+
+
+def test_discovery_respects_page_budget(monkeypatch):
+    """总页面预算 discovery_crawl_max_pages 必须掐住递归探索规模。"""
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = await crawl.create_job(
+                db, tenant_id="school-1", name="d", source_id=None,
+                job_kind="discovery", query="数学", budget_limit=50,
+            )
+            await db.commit()
+            monkeypatch.setattr(disc, "ssrf_safe", lambda u: (True, None))
+            monkeypatch.setattr(disc, "domain_allowed", lambda u, a: True)
+            monkeypatch.setattr(
+                disc, "discover_candidates",
+                lambda q, **kw: ["https://math.example.edu/"],
+            )
+            monkeypatch.setattr(disc.settings, "discovery_crawl_depth", 5)
+            monkeypatch.setattr(disc.settings, "discovery_crawl_max_pages", 2)
+
+            fetched: list = []
+
+            async def fake_fetch(url, timeout=20):
+                fetched.append(url)
+                return '<html><a href="/x">x</a>导航</html>'
+
+            import app.crawl_service.fetcher as fm
+            monkeypatch.setattr(fm, "safe_fetch_url", fake_fetch)
+
+            run = CrawlRun(job_id=job.id, tenant_id=job.tenant_id,
+                          status="running", origin="discovery")
+            db.add(run)
+            await db.flush()
+            await disc.run_discovery(db, job, run=run)
+            await db.commit()
+            return len(fetched)
+        await engine.dispose()
+
+    assert asyncio.run(scenario()) <= 2
+
+
+def test_discovery_headless_render_path(monkeypatch):
+    """headless 渲染注入后：经渲染拿到的 JS 正文被分类并建待审源，静态 fetch 不被调用。"""
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = await crawl.create_job(
+                db, tenant_id="school-1", name="d", source_id=None,
+                job_kind="discovery", query="数学", budget_limit=10,
+            )
+            await db.commit()
+            monkeypatch.setattr(disc, "ssrf_safe", lambda u: (True, None))
+            monkeypatch.setattr(disc, "domain_allowed", lambda u, a: True)
+            monkeypatch.setattr(
+                disc, "discover_candidates",
+                lambda q, **kw: ["https://spa.example.edu/"],
+            )
+            monkeypatch.setattr(disc.settings, "discovery_crawl_depth", 0)  # 只看首页
+
+            async def fake_render(url):
+                # 模拟 JS 渲染后产出的真实题面（静态抓取拿不到）
+                return "选择题 填空题 解答题 1. 2+3= A.4 B.5 答案 解析 真题 考点"
+
+            async def fetch_must_not_run(url, timeout=20):
+                raise AssertionError("headless 模式下不应走静态 fetch")
+
+            run = CrawlRun(job_id=job.id, tenant_id=job.tenant_id,
+                          status="running", origin="discovery")
+            db.add(run)
+            await db.flush()
+            await disc.run_discovery(
+                db, job, run=run, render_fn=fake_render, fetch_fn=fetch_must_not_run,
+            )
+            await db.commit()
+            uris = (await db.execute(select(CourseSource.uri))).scalars().all()
+            assert uris == ["https://spa.example.edu/"]
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_make_renderer_selection(monkeypatch):
+    """渲染后端选择：关 + 无服务 -> None；配 render_url -> 可调用（优先外部服务）。"""
+    monkeypatch.setattr(disc.settings, "discovery_headless_enabled", False)
+    monkeypatch.setattr(disc.settings, "discovery_render_url", "")
+    assert disc._make_renderer() is None
+
+    monkeypatch.setattr(disc.settings, "discovery_headless_enabled", True)
+    monkeypatch.setattr(disc.settings, "discovery_render_url",
+                        "http://render.internal/render")
+    r = disc._make_renderer()
+    assert callable(r)
+
+
+def test_render_via_service_parses(monkeypatch):
+    """外部渲染服务：JSON {"html":...} 与纯文本两种返回都能解析出 HTML。"""
+    import urllib.request as ureq
+
+    class _FakeResp:
+        def __init__(self, body: bytes):
+            self._b = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return self._b
+
+    body = '{"html":"<html>选择题 答案 解析</html>"}'.encode("utf-8")
+    monkeypatch.setattr(
+        ureq, "urlopen",
+        lambda req, timeout=0: _FakeResp(body),
+    )
+    out = asyncio.run(disc._render_via_service("https://x/", "http://r/", 5))
+    assert "<html>选择题" in out
+
+
 # ----------------------------------------------------------- API 模型字段
 def test_job_out_includes_kind_and_query():
     job = CrawlJob(
