@@ -59,18 +59,22 @@ async def search_questions(
     answerable: bool = False,
     limit: int = 50,
     tenant_id: Optional[str] = None,
+    tenant_ids: Optional[list] = None,
 ) -> List[CourseQuestion]:
     """按条件检索题目。
 
     ``tenant_id`` 非空时**只返回本租户题目**（M0-4 隔离验收）：教师端检索
-    绝不能捞到别校的题，包括别校草稿。传 None 保持旧行为，供一次性运维/脚本调用。
+    绝不能捞到别校的题，包括别校草稿。``tenant_ids`` 非空时按区域管理员口径
+    返回本区域全部租户（IN）。两者都为 None 表示平台级跨租户只读，供运维/脚本调用。
 
     M4-1 手动出卷的筛选器要按 年级/难度/题型/学科/kp 挑题，且只能挑
     ``published`` + 非隔离 + 有答案的题（``answerable=True``）；这些条件
     放在 SQL 里，避免把整库拉回内存再过滤。
     """
     stmt = select(CourseQuestion)
-    if tenant_id is not None:
+    if tenant_ids:
+        stmt = stmt.where(CourseQuestion.tenant_id.in_(tenant_ids))
+    elif tenant_id is not None:
         stmt = stmt.where(CourseQuestion.tenant_id == tenant_id)
     if grade:
         stmt = stmt.where(CourseQuestion.grade == grade)
@@ -104,16 +108,19 @@ async def search_questions(
 
 
 async def list_questions(
-    db, limit: int = 50, tenant_id: Optional[str] = None
+    db, limit: int = 50, tenant_id: Optional[str] = None, tenant_ids: Optional[list] = None
 ) -> List[CourseQuestion]:
     """最近录入优先：录题页要在首屏看到刚进来的题，按 id 倒序。
 
-    ``tenant_id`` 非空时只返回本租户题目（M0-4 隔离验收）；传 None 保持旧行为。
+    ``tenant_id`` 非空时只返回本租户题目（M0-4 隔离验收）；``tenant_ids`` 非空时
+    按区域管理员口径返回本区域全部租户（IN）；都为 None 表示平台级跨租户只读。
 
     存量导入行 id 小、created_at 可能为 NULL，用 id 排序比时间更稳。
     """
     stmt = select(CourseQuestion)
-    if tenant_id is not None:
+    if tenant_ids:
+        stmt = stmt.where(CourseQuestion.tenant_id.in_(tenant_ids))
+    elif tenant_id is not None:
         stmt = stmt.where(CourseQuestion.tenant_id == tenant_id)
     stmt = stmt.order_by(CourseQuestion.id.desc()).limit(limit)
     res = await db.execute(stmt)

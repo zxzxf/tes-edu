@@ -12,9 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.rbac import Role
-from app.core.security import business_tenant_id, read_tenant_id, require_role
+from app.core.security import business_tenant_id, require_role
 from app.models.schemas import WrongQuestion, WrongQuestionOut
 from app.services import ops
+from app.services.scope import resolve_read_scope
 
 router = APIRouter(prefix="/wrong-questions", tags=["wrong-questions"])
 
@@ -31,11 +32,14 @@ async def list_wrong(
     user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.PARENT, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    # 迁移 0023：列表按登录态租户隔离。平台级角色（admin / region_admin）
-    # 拿到 None = 跨租户只读，与 compliance、analytics 的口径一致；其余角色
-    # 锁本校，传任意 student_id 也翻不到别校的错题。
-    tenant_id = read_tenant_id(user)
-    rows = await ops.list_wrong(db, student_id, limit=limit, tenant_id=tenant_id)
+    # 迁移 0023：列表按登录态租户隔离。admin 全量；region_admin 按本区域
+    # 全部租户；其余角色锁本校。与 compliance、papers 的 resolve_read_scope 口径一致。
+    scope = await resolve_read_scope(user, db)
+    tenant_id = scope["tenant"] if scope["mode"] == "tenant" else None
+    tenant_ids = scope.get("tenants") if scope["mode"] == "tenants" else None
+    rows = await ops.list_wrong(
+        db, student_id, limit=limit, tenant_id=tenant_id, tenant_ids=tenant_ids
+    )
     return await ops.enrich_wrong(db, rows)
 
 

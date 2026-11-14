@@ -20,12 +20,12 @@ from app.core.rbac import Role
 from app.core.security import (
     FALLBACK_TENANT,
     is_platform_user,
-    read_tenant_id,
     require_role,
     write_tenant_id,
 )
 from app.models.schemas import ComplianceEventIn, ComplianceItem
 from app.services import compliance_queue, ops
+from app.services.scope import resolve_read_scope
 
 router = APIRouter(prefix="/compliance", tags=["compliance"])
 
@@ -40,9 +40,12 @@ async def list_items(
     user=Depends(require_role(*_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    """待审列表。平台级角色跨租户只读，其余**只看本租户**。"""
+    """待审列表。admin 全量；region_admin 按本区域全部租户；其余**只看本租户**。"""
+    scope = await resolve_read_scope(user, db)
+    tenant_id = scope["tenant"] if scope["mode"] == "tenant" else None
+    tenant_ids = scope.get("tenants") if scope["mode"] == "tenants" else None
     return await ops.list_compliance(
-        db, status=status, tenant_id=read_tenant_id(user)
+        db, status=status, tenant_id=tenant_id, tenant_ids=tenant_ids
     )
 
 

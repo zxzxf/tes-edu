@@ -24,6 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rbac import Role
+from app.core.security import FALLBACK_TENANT
 from app.models import rbac_models as m
 
 
@@ -48,7 +49,8 @@ async def resolve_scope(user: dict, db: AsyncSession) -> dict:
         )).scalar_one_or_none()
 
     if role == Role.REGION_ADMIN.value:
-        scope["region_id"] = user.get("region_id") or (row.region_id if row else None)
+        # DB 行 region 为权威（与 list_users 一致），网关注入头仅作兜底。
+        scope["region_id"] = (row.region_id if row else None) or user.get("region_id")
         if scope["region_id"]:
             ids = (await db.execute(
                 select(m.SysTenant.tenant_id).where(m.SysTenant.region_id == scope["region_id"])
@@ -56,9 +58,12 @@ async def resolve_scope(user: dict, db: AsyncSession) -> dict:
             scope["tenant_ids"] = list(ids)
         return scope
 
-    # school / teacher / parent：按租户收敛
-    scope["tenant_id"] = user.get("tenant_id") or (row.tenant_id if row else None)
-    scope["tenant_ids"] = [scope["tenant_id"]] if scope["tenant_id"] else None
+    # school / teacher / parent：DB 行租户为权威，忽略网关注入头，避免被误归到别校
+    # （此前 teacher@tes.edu 因 DB 租户漂移 + 头优先，错误看到别校数据）。
+    scope["tenant_id"] = (row.tenant_id if row else None) or user.get("tenant_id") or FALLBACK_TENANT
+    # 注意：单租户角色不要往 tenant_ids 塞 [tenant_id]，否则 resolve_read_scope
+    # 会把"单租户"误判成"区域管理员 IN 列表"模式（语义不同）。
+    scope["tenant_ids"] = None
     return scope
 
 
@@ -68,6 +73,37 @@ async def tenant_ids_in_region(db: AsyncSession, region_id: str) -> List[str]:
         select(m.SysTenant.tenant_id).where(m.SysTenant.region_id == region_id)
     )).scalars().all()
     return list(ids)
+
+
+async def resolve_read_scope(user: dict, db: AsyncSession) -> dict:
+    """读侧租户作用域描述符，供管理端列表接口下推过滤。
+
+    与 ``resolve_scope`` 同源，但把结果收敛成三种模式，便于各接口统一处理：
+      - ``{"mode": "all"}``                        -> admin，不加任何过滤（全量）
+      - ``{"mode": "tenant", "tenant": tid}``      -> school/teacher/parent，按本租户
+      - ``{"mode": "tenants", "tenants": [...]}`` -> region_admin，按本区域全部租户 IN
+
+    scoped 但两边都解析不出时退化为兜底租户（绝不放行全量，避免配置遗漏裸奔）。
+    """
+    scope = await resolve_scope(user, db)
+    if not scope["scoped"]:
+        return {"mode": "all"}
+    if scope["tenant_ids"]:
+        return {"mode": "tenants", "tenants": list(scope["tenant_ids"])}
+    if scope["tenant_id"]:
+        return {"mode": "tenant", "tenant": scope["tenant_id"]}
+    return {"mode": "tenant", "tenant": FALLBACK_TENANT}
+
+
+def where_tenant(stmt, column, rs: dict):
+    """把 ``resolve_read_scope`` 的结果下推到 SQLAlchemy 查询（读侧统一口径）。"""
+    mode = rs.get("mode")
+    if mode == "all":
+        return stmt
+    if mode == "tenants":
+        ids = rs.get("tenants") or ["__never_match__"]
+        return stmt.where(column.in_(ids))
+    return stmt.where(column == rs.get("tenant"))
 
 
 def assert_region_allowed(user: dict, target_region_id: Optional[str], scope_region_id: Optional[str]) -> None:

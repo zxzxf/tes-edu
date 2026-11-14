@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.rbac import Role
-from app.core.security import read_tenant_id, require_role
+from app.core.security import require_role
 from app.models.course_kb import (
     QuestionCreate,
     QuestionCreateResult,
@@ -14,6 +14,7 @@ from app.models.course_kb import (
 )
 from app.services import course_kb as svc
 from app.services import question_entry
+from app.services.scope import resolve_read_scope
 
 router = APIRouter(prefix="/questions", tags=["questions"])
 
@@ -21,15 +22,18 @@ router = APIRouter(prefix="/questions", tags=["questions"])
 _ENTRY_ROLES = (Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)
 
 
-def _tenant_of(user: dict) -> Optional[str]:
-    """题库读侧租户口径（本模块只有 list/search 两个读接口用它）。
+async def _resolve_scope_args(user: dict, db: AsyncSession) -> tuple:
+    """题库读侧租户口径（list/search 两个读接口共用）。
 
-    平台级角色（admin/region_admin）在 JWT 里带的是 ``platform`` 占位租户，
-    业务表中不存在该租户的题目，照常过滤会让超管的题目目录永远为空；
-    故平台级返回 None → service 层不加过滤（跨租户只读）。写侧（录题/审核）
-    走 question_entry / exam，仍按各自租户严格隔离。
+    admin 全量；region_admin 返回本区域全部租户（tenant_ids）；其余返回本租户。
+    返回 (tenant_id, tenant_ids)：恰其一为非空，service 层据此下推过滤。
     """
-    return read_tenant_id(user)
+    scope = await resolve_read_scope(user, db)
+    if scope["mode"] == "tenant":
+        return scope["tenant"], None
+    if scope["mode"] == "tenants":
+        return None, scope["tenants"]
+    return None, None
 
 
 @router.post("", response_model=QuestionCreateResult, summary="教师录单题（M0-1）")
@@ -76,8 +80,9 @@ async def list_questions(
     user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    """最近录入优先；**只返回本租户题目**（M0-4 隔离验收）。"""
-    return await svc.list_questions(db, limit=limit, tenant_id=_tenant_of(user))
+    """最近录入优先；admin 全量 / region_admin 本区域 / 其余本租户（M0-4 隔离）。"""
+    tenant_id, tenant_ids = await _resolve_scope_args(user, db)
+    return await svc.list_questions(db, limit=limit, tenant_id=tenant_id, tenant_ids=tenant_ids)
 
 
 @router.get("/search", response_model=List[QuestionOut])
@@ -95,7 +100,8 @@ async def search(
     user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    """关键词/学科/题型/知识点/年级/难度检索；**只在本租户题库内查**（M0-4）。"""
+    """关键词/学科/题型/知识点/年级/难度检索；admin 全量 / region_admin 本区域 / 其余本租户（M0-4）。"""
+    tenant_id, tenant_ids = await _resolve_scope_args(user, db)
     return await svc.search_questions(
         db,
         q=q,
@@ -108,5 +114,6 @@ async def search(
         status=status,
         answerable=answerable,
         limit=limit,
-        tenant_id=_tenant_of(user),
+        tenant_id=tenant_id,
+        tenant_ids=tenant_ids,
     )

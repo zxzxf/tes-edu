@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import masking
 from app.core.db import get_db
 from app.core.rbac import Role
-from app.core.security import require_role
+from app.core.security import is_platform_user, read_tenant_id, require_role
 from app.services import reports as reports_svc
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -35,7 +35,12 @@ async def weekly(
     user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.PARENT)),
     db: AsyncSession = Depends(get_db),
 ):
-    """学情周报（JSON）。数据真实计算自 student_mastery + student_events。"""
+    """学情周报（JSON）。数据真实计算自 student_mastery + student_events。
+
+    非平台角色强制按登录态租户过滤，忽略入参 ``tenant_id``，杜绝翻别校周报。
+    """
+    if not is_platform_user(user):
+        tenant_id = read_tenant_id(user)
     report = await reports_svc.compute_weekly_report(db, student_id, period_days, tenant_id)
     return masking.mask_free_text_fields(report, _FREETEXT_KEYS)
 
@@ -49,6 +54,8 @@ async def weekly_page(
     db: AsyncSession = Depends(get_db),
 ):
     """学情周报（HTML 页）。自包含、无外部依赖，家长在网关后直接打开即可查看。"""
+    if not is_platform_user(user):
+        tenant_id = read_tenant_id(user)
     report = await reports_svc.compute_weekly_report(db, student_id, period_days, tenant_id)
     report = masking.mask_free_text_fields(report, _FREETEXT_KEYS)
     return HTMLResponse(content=reports_svc._render_html(report))

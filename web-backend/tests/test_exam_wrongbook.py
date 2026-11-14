@@ -351,6 +351,7 @@ def test_wrong_list_role_whitelist_matches_menu():
     class _EmptyResult:
         def scalars(self): return self
         def all(self): return []
+        def scalar_one_or_none(self): return None
 
     class _EmptyDB:
         async def execute(self, stmt, params=None): return _EmptyResult()

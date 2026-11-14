@@ -140,8 +140,14 @@ def test_api_llm_usage_smoke(monkeypatch):
     app_local.dependency_overrides[get_db] = lambda: _FakeAsyncSession()
 
     client = TestClient(app_local)
-    resp = client.get(
+    # 仅 ADMIN 可见（全平台用量/成本属运营视图，teacher 不应看到）
+    resp_teacher = client.get(
         "/api/admin/llm-usage", headers={"X-User-Role": "teacher", "X-User-Id": "t1"}
+    )
+    assert resp_teacher.status_code == 403
+
+    resp = client.get(
+        "/api/admin/llm-usage", headers={"X-User-Role": "admin", "X-User-Id": "a1"}
     )
     assert resp.status_code == 200
     body = resp.json()

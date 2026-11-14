@@ -13,6 +13,7 @@ from app.core.db import get_db
 from app.core.rbac import Role
 from app.core.security import require_role
 from app.services import student_profile as svc
+from app.services.scope import resolve_read_scope
 from app.services.student_profile import DEFAULT_GRADE, GRADES
 
 router = APIRouter(prefix="/students", tags=["student-profile"])
@@ -58,10 +59,16 @@ async def list_profiles(
     user=Depends(require_role(*UPDATE_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = await svc.list_profiles(db, _tenant_of(user), grade=grade, limit=limit)
+    # admin 全量 / region_admin 本区域全部租户 / 其余本租户。
+    scope = await resolve_read_scope(user, db)
+    tenant_id = scope["tenant"] if scope["mode"] == "tenant" else None
+    tenant_ids = scope.get("tenants") if scope["mode"] == "tenants" else None
+    rows = await svc.list_profiles(
+        db, tenant_id=tenant_id, tenant_ids=tenant_ids, grade=grade, limit=limit
+    )
     return {
         "items": [svc.profile_out(r) for r in rows],
-        "counts": await svc.count_by_grade(db, _tenant_of(user)),
+        "counts": await svc.count_by_grade(db, tenant_id=tenant_id, tenant_ids=tenant_ids),
         "grades": list(GRADES),
         "default_grade": DEFAULT_GRADE,
     }

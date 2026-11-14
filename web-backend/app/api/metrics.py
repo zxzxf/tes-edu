@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.rbac import Role
-from app.core.security import require_role
+from app.core.security import is_platform_user, read_tenant_id, require_role
 from app.services import p2_metrics as metrics_svc
 
 router = APIRouter(prefix="/p2-metrics", tags=["p2-metrics"])
@@ -31,7 +31,11 @@ async def p2_metrics(
 
     返回：首轮直给率 / 提示有效推进率 / 单题平均交互轮次 / 规避率 / 放弃率 /
     规避+放弃率 / 挫败信号率 / 延迟迁移正确率，附 _counts 原始计数与 red_lines 红线。
+
+    非平台角色强制按登录态租户聚合，忽略入参 ``tenant_id``，杜绝跨校聚合。
     """
+    if not is_platform_user(user):
+        tenant_id = read_tenant_id(user)
     metrics = await metrics_svc.compute_p2_metrics_for(
         db, student_id, tenant_id, from_dt, to_dt, subject
     )

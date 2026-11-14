@@ -75,13 +75,14 @@ def exam_client():
     app.dependency_overrides.clear()
 
 
-def test_admin_试卷列表按兜底租户过滤而不是platform(exam_client):
+def test_admin_试卷列表全量不过滤租户(exam_client):
     client, db = exam_client
     r = client.get("/api/admin/exam/papers", headers=_headers("admin", PLATFORM_TENANT))
     assert r.status_code == 200, r.text
     assert r.json() == []
-    assert PILOT in db.params, db.params
+    # admin 全量：不加任何租户 where；platform 占位更不该进业务表
     assert PLATFORM_TENANT not in db.params, "平台占位不该进业务表 where 条件"
+    assert PILOT not in db.params, "admin 全量不应被压成兜底租户"
 
 
 def test_school_只看自己租户(exam_client):

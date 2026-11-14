@@ -50,18 +50,22 @@ async def list_wrong(
     student_id: str,
     limit: int = 100,
     tenant_id: Optional[str] = None,
+    tenant_ids: Optional[List[str]] = None,
 ) -> List[WrongQuestion]:
     """后台错题列表（迁移 0023 起带租户隔离）。
 
-    ``tenant_id=None`` 表示平台级跨租户只读（read_tenant_id 对 admin /
-    region_admin 返回 None）——**必须不加 where**，写成 ``col == None``
-    会被 SQLAlchemy 编译成 IS NULL，静默查空。其余角色只返回本租户的行。
+    - ``tenant_ids`` 非空：区域管理员口径，返回本区域全部租户（IN）。
+    - ``tenant_id`` 非空：单租户（其余角色）。
+    - 两者都空：平台级跨租户只读（admin）——**必须不加 where**，写成
+      ``col == None`` 会被 SQLAlchemy 编译成 IS NULL，静默查空。
     """
     stmt = select(WrongQuestion).where(
         WrongQuestion.student_id == student_id,
         WrongQuestion.deleted_at.is_(None),
     )
-    if tenant_id is not None:
+    if tenant_ids:
+        stmt = stmt.where(WrongQuestion.tenant_id.in_(tenant_ids))
+    elif tenant_id is not None:
         stmt = stmt.where(WrongQuestion.tenant_id == tenant_id)
     res = await db.execute(stmt.limit(limit))
     return list(res.scalars().all())
@@ -198,15 +202,20 @@ async def list_compliance(
     db: AsyncSession,
     status: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    tenant_ids: Optional[List[str]] = None,
     limit: int = 100,
 ) -> List[ComplianceItem]:
     """待审列表。
 
-    ``tenant_id=None`` 表示平台级角色跨租户只读，**必须是不加 where**，
-    绝不能写成 ``column == None``（会编译成 IS NULL，一条都查不到）。
+    - ``tenant_ids`` 非空：区域管理员口径，返回本区域全部租户（IN）。
+    - ``tenant_id`` 非空：单租户（其余角色）。
+    - 两者都空：平台级跨租户只读（admin）——**必须是不加 where**，
+      绝不能写成 ``column == None``（会编译成 IS NULL，一条都查不到）。
     """
     stmt = select(ComplianceItem)
-    if tenant_id is not None:
+    if tenant_ids:
+        stmt = stmt.where(ComplianceItem.tenant_id.in_(tenant_ids))
+    elif tenant_id is not None:
         stmt = stmt.where(ComplianceItem.tenant_id == tenant_id)
     if status:
         stmt = stmt.where(ComplianceItem.status == status)

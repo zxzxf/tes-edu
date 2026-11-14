@@ -95,10 +95,11 @@ def client():
             ))
             db.add(m.SysUserRole(user_id="u_teacher", role_id="role_teacher", tenant_id="platform"))
 
-            # 周报脱敏用例：题干夹带手机号
+            # 周报脱敏用例：题干夹带手机号（tenant 落教师默认租户，周报按登录态租户过滤后仍可取回）
             db.add(StudentEvent(
                 student_id="student_sec", event_type="solve", subject="数学",
                 question="应用题：爸爸手机号 13812345678，月租多少钱？",
+                tenant_id="school_pilot_01",
                 occurred_at=datetime.now(timezone.utc),
             ))
             await db.commit()

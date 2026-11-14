@@ -156,12 +156,17 @@ async def upsert(
 
 async def list_profiles(
     db: AsyncSession,
-    tenant_id: str,
     *,
+    tenant_id: Optional[str] = None,
+    tenant_ids: Optional[list] = None,
     grade: Optional[str] = None,
     limit: int = 200,
 ) -> List[StudentProfile]:
-    stmt = select(StudentProfile).where(StudentProfile.tenant_id == tenant_id)
+    stmt = select(StudentProfile)
+    if tenant_ids:
+        stmt = stmt.where(StudentProfile.tenant_id.in_(tenant_ids))
+    elif tenant_id is not None:
+        stmt = stmt.where(StudentProfile.tenant_id == tenant_id)
     g = normalize_grade(grade)
     if g:
         stmt = stmt.where(StudentProfile.grade == g)
@@ -173,15 +178,16 @@ async def list_profiles(
     return list(rows)
 
 
-async def count_by_grade(db: AsyncSession, tenant_id: str) -> dict:
+async def count_by_grade(
+    db: AsyncSession, tenant_id: Optional[str] = None, tenant_ids: Optional[list] = None
+) -> dict:
     """各年级人数（未配置年级的学生单独计，便于教师发现漏配）。"""
-    rows = (
-        await db.execute(
-            select(StudentProfile.grade, StudentProfile.student_id).where(
-                StudentProfile.tenant_id == tenant_id
-            )
-        )
-    ).all()
+    stmt = select(StudentProfile.grade, StudentProfile.student_id)
+    if tenant_ids:
+        stmt = stmt.where(StudentProfile.tenant_id.in_(tenant_ids))
+    elif tenant_id is not None:
+        stmt = stmt.where(StudentProfile.tenant_id == tenant_id)
+    rows = (await db.execute(stmt)).all()
     out = {g: 0 for g in GRADES}
     out["未配置"] = 0
     for grade, _sid in rows:

@@ -68,10 +68,10 @@ from app.core.grading_metrics import (
 from app.core.rbac import Role
 from app.core.security import (
     business_tenant_id,
-    read_tenant_id,
     require_role,
     tenant_key,
 )
+from app.services.scope import resolve_read_scope, where_tenant
 from app.models.course_kb import CourseQuestion
 from app.models.ops import (
     ExamAssignment,
@@ -149,12 +149,10 @@ async def list_review_questions(
     user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
-    # 题目审核列表：平台级角色跨租户只读（tenant 占位 platform 在库里没有题），
-    # 其余角色仍严格按本租户过滤。审核写接口在下方，仍用 _tenant_of 严格隔离。
-    tenant_id = read_tenant_id(user)
+    # 题目审核列表：admin 全量；region_admin 按本区域全部租户；其余按本租户。
+    scope = await resolve_read_scope(user, db)
     stmt = select(CourseQuestion)
-    if tenant_id is not None:
-        stmt = stmt.where(CourseQuestion.tenant_id == tenant_id)
+    stmt = where_tenant(stmt, CourseQuestion.tenant_id, scope)
     if status:
         stmt = stmt.where(CourseQuestion.status == status)
     rows = (await db.execute(stmt.order_by(CourseQuestion.id.desc()).limit(max(1, min(limit, 200))))).scalars().all()
@@ -601,13 +599,13 @@ async def list_papers(
     user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
-    tenant_id = business_tenant_id(user)
+    # admin 全量；region_admin 看本区域全部租户（此前 business_tenant_id 把
+    # region_admin 的 platform 占位压成 school_pilot_01，既漏看本区又误看异区）。
+    scope = await resolve_read_scope(user, db)
+    stmt = select(ExamPaper)
+    stmt = where_tenant(stmt, ExamPaper.tenant_id, scope)
     rows = (
-        await db.execute(
-            select(ExamPaper)
-            .where(ExamPaper.tenant_id == tenant_id)
-            .order_by(ExamPaper.created_at.desc())
-        )
+        await db.execute(stmt.order_by(ExamPaper.created_at.desc()))
     ).scalars().all()
     return [await _paper_out(db, p) for p in rows]
 
