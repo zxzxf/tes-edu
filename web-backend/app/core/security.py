@@ -84,3 +84,26 @@ def read_tenant_id(user: dict) -> Optional[str]:
 def write_tenant_id(user: dict) -> str:
     """写侧租户：保持严格隔离，平台级占位也只作用于自身，绝不跨租户写入。"""
     return user.get("tenant_id") or FALLBACK_TENANT
+
+
+def business_tenant_id(user: dict) -> str:
+    """业务表租户过滤值：把平台占位 ``platform`` 归一到兜底租户，**绝不返回 None**。
+
+    ``PLATFORM_TENANT="platform"`` 只是 JWT 里的占位值，业务表（exam_*、
+    course_kb 等）没有任何数据行。直接拿它做 where 条件，超管打开
+    /grading/metrics、批改待办就永远是 0 条（2026-11-14 线上实测）。
+
+    三个工具各管一段，别混用：
+
+    - ``read_tenant_id`` → ``None`` 表示平台级**跨租户只读**，只适合列表接口，
+      调用方必须显式「None 不加 where」；
+    - ``write_tenant_id`` → 严格写侧，平台占位原样保留；
+    - 本函数 → 给既有 service 层（``grading_metrics`` 里二十余处
+      ``col == tenant_id``）当参数用。传 None 会被 SQLAlchemy 编译成
+      ``IS NULL``，静默查空，比报错更难排查。
+
+    grading 域同时有详情 404 校验与改判/解冻写操作，用本函数保持
+    「跨租户不可见」红线，不让平台级角色意外改写别校数据。
+    """
+    tid = (user.get("tenant_id") or "").strip()
+    return FALLBACK_TENANT if not tid or tid == PLATFORM_TENANT else tid

@@ -39,7 +39,7 @@ from app.core.grade_guard import (
 )
 from app.core.permission import require_perm
 from app.core.rbac import Role
-from app.core.security import require_role
+from app.core.security import business_tenant_id, require_role
 from app.models.ops import (
     ExamAnswerFreeze,
     ExamGradingAlert,
@@ -82,7 +82,18 @@ def _iso(dt) -> Optional[str]:
 
 
 def _tenant(user: dict) -> str:
-    return user.get("tenant_id") or "school_pilot_01"
+    """本租户（含详情 404 校验、指标、护栏列表、告警流水）。
+
+    2026-11-14：此前是 ``user.tenant_id or "school_pilot_01"``，超管的
+    JWT 租户是占位值 ``platform``（非空），于是被当成真实租户过滤 ——
+    线上 /grading/tickets、/grading/metrics 对 admin 全部返回 0，
+    而库里 7 份提交 / 94 条 item 全在 school_pilot_01。
+    换成 ``business_tenant_id`` 后平台占位统一归一到兜底租户；
+    这里刻意**不**用 ``read_tenant_id``（返回 None 表示跨租户只读）：
+    grading 域含改判/解冻写操作，service 层也全是 ``col == tenant_id``，
+    传 None 会编译成 IS NULL 静默查空。
+    """
+    return business_tenant_id(user)
 
 
 # ======================================================== 旧「模块5」提交批改（保留）

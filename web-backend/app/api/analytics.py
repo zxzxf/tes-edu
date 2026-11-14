@@ -45,7 +45,11 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 @router.get("/summary", response_model=AnalyticsSummary)
 def summary(
     student_id: str = Query(...),
-    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.PARENT)),
+    # 2026-11-14：region_admin 的「学情看板」菜单可见，之前只放行
+    # admin/teacher/parent，点进去必 403；school 菜单已撤，仍不放行。
+    user=Depends(
+        require_role(Role.ADMIN, Role.TEACHER, Role.PARENT, Role.REGION_ADMIN)
+    ),
 ):
     # 占位：真实场景从 student_logs + pgvector 聚合薄弱点
     return AnalyticsSummary(
