@@ -247,9 +247,9 @@ onMounted(loadAll)
 <style scoped>
 .cw-table-wrap { overflow-x: auto; margin-top: 4px; -webkit-overflow-scrolling: touch; }
 /* 自动布局 + 单列最小宽度 + 单元格单行(nowrap)，内容超宽时整体横向滚动，保证数据完整不截断 */
-:deep(.tes-table) { table-layout: auto; min-width: 1272px; }
-:deep(.tes-table thead th) { white-space: nowrap; }
-:deep(.tes-table tbody td) { white-space: nowrap; }
+:deep(.tes-table) { table-layout: auto; min-width: 1452px; }
+:deep(.tes-table thead th) { white-space: nowrap; vertical-align: middle; padding: 10px 8px; }
+:deep(.tes-table tbody td) { white-space: nowrap; vertical-align: middle; line-height: 1.6; padding: 10px 8px; }
 :deep(.tes-table col.c-task) { width: 180px; }
 :deep(.tes-table col.c-kind) { width: 96px; }
 :deep(.tes-table col.c-src) { width: 220px; }
@@ -258,14 +258,14 @@ onMounted(loadAll)
 :deep(.tes-table col.c-budget) { width: 84px; }
 :deep(.tes-table col.c-query) { width: 200px; }
 :deep(.tes-table col.c-paper) { width: 104px; }
-:deep(.tes-table col.c-ops) { width: 220px; }
-.cw-query { color: #6b7280; font-size: 12px; vertical-align: top; }
+:deep(.tes-table col.c-ops) { width: 400px; }
+.cw-query { color: #6b7280; vertical-align: middle; }
 /* 长文本统一：单行省略号 + 悬停(title)显示全名 */
 .cw-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cw-clip.task { max-width: 180px; }
 .cw-clip.src { max-width: 220px; }
 .cw-clip.query { max-width: 200px; }
-.cw-ops { white-space: normal; }
+.cw-ops { white-space: nowrap; }
 .cw-ops .ghost { margin: 2px 4px 2px 0; }
 .warn-text { color: #dc2626; display: block; }
 .cw-mask {
