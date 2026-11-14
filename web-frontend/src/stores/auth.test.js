@@ -53,7 +53,8 @@ describe('auth store：动态授权', () => {
     await auth.login('teacher@tes.edu', 'demo1234')
 
     expect(auth.token).toBe('tk')
-    expect(auth.user).toEqual({ username: 'teacher@tes.edu', role: 'teacher' })
+    // T-AM10 多角色切换：login 后 user 带 roles 数组供切换器判断可切换角色
+    expect(auth.user).toEqual({ username: 'teacher@tes.edu', role: 'teacher', roles: [] })
     expect(getMyMenus).toHaveBeenCalledOnce()
     expect(auth.perms).toEqual(['exam:generate'])
   })

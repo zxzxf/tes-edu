@@ -50,9 +50,9 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { getWeeklyReport } from '../api/admin'
+import { getWeeklyReport, DEMO_STUDENT_ID } from '../api/admin'
 
-const sid = ref('student_001')
+const sid = ref(DEMO_STUDENT_ID)
 const week = ref('2026-W42')
 const periodDays = ref(7)
 const report = ref(null)

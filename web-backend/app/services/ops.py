@@ -3,6 +3,7 @@
 S5 追加：错题本 enrich —— 按 (content_hash, wrong_step_no) 取步骤的 correction，
 并取知识点卡的 understanding/memory，让错题本从"记一道错题"升级为"知道错在第几步、怎么改"。
 """
+import json
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -89,6 +90,23 @@ async def fetch_kp_cards(db: AsyncSession, names: Sequence[str]) -> Dict[str, Kn
     return {k.title: k for k in res.scalars().all() if k.title}
 
 
+def _parse_options(raw) -> Optional[List[dict]]:
+    """options 列是 Text（存 JSON 字符串），schema 却要求 List[dict]。
+
+    历史数据可能是空串、非法 JSON 或已经被上游解析好的 list；任何异常都退成
+    None，绝不能让一条脏数据把整个错题列表拖成 500。
+    """
+    if not raw:
+        return None
+    if isinstance(raw, (list, tuple)):
+        return [o for o in raw if isinstance(o, dict)]
+    try:
+        val = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return [o for o in val if isinstance(o, dict)] if isinstance(val, list) else None
+
+
 async def enrich_wrong(db: AsyncSession, rows: Sequence[WrongQuestion]) -> List[dict]:
     """错题本列表增强：原字段 + 错因中文名 + 该步正确做法 + 知识点卡。
 
@@ -118,10 +136,14 @@ async def enrich_wrong(db: AsyncSession, rows: Sequence[WrongQuestion]) -> List[
             "id": w.id,
             "student_id": w.student_id,
             "question": w.question,
-            "wrong_answer": w.wrong_answer,
-            "correct_answer": w.correct_answer,
-            "knowledge_point": w.knowledge_point,
+            "wrong_answer": w.wrong_answer or "",
+            "correct_answer": w.correct_answer or "",
+            "knowledge_point": w.knowledge_point or "",
             "created_at": w.created_at.isoformat() if w.created_at else None,
+            # 2026-11-14：题型 / 选项原本没进 dict，pydantic 静默填默认值，
+            # 后台列表里这两列恒 None，拿不到题源既有的题型信息。
+            "question_type": w.question_type,
+            "options": _parse_options(w.options),
             "content_hash": w.content_hash,
             "wrong_step_no": w.wrong_step_no,
             "error_type": w.error_type,

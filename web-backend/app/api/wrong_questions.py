@@ -22,10 +22,16 @@ router = APIRouter(prefix="/wrong-questions", tags=["wrong-questions"])
 @router.get("", response_model=List[WrongQuestionOut])
 async def list_wrong(
     student_id: str = Query(...),
-    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.PARENT)),
+    limit: int = Query(100, ge=1, le=500),
+    # 2026-11-14：region_admin 的授权矩阵里一直有「错题本」菜单（m_ops_wrong），
+    # 但接口白名单不含它 → 菜单可见、点进去 403 的死链。错题本与
+    # /analytics/summary、/analytics/error-distribution、/compliance 同属
+    # 平台级只读运营视图，按同一 A 方案放行 region_admin 只读（写入仍只给
+    # admin/teacher）；这比撤菜单更一致，也不必 DELETE 线上 sys_role_menu 行。
+    user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.PARENT, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = await ops.list_wrong(db, student_id)
+    rows = await ops.list_wrong(db, student_id, limit=limit)
     return await ops.enrich_wrong(db, rows)
 
 

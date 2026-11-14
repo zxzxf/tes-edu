@@ -96,7 +96,8 @@ describe('Layout 全站三段式（顶栏一级域 + 左侧二级 + 右侧工作
 
   it('角色文案显示五角色映射', async () => {
     const { wrapper } = await mountLayout('region_admin', TEACHER_MENUS)
-    expect(wrapper.find('.role-chip').text()).toBe('区域管理员')
+    // role-chip 现在是可切换的下拉按钮，文案带装饰箭头，断言角色映射而非整串相等
+    expect(wrapper.find('.role-chip').text()).toContain('区域管理员')
   })
 
   it('家长视角：无采集授权则顶栏只有概览，区域运营在左侧概览下', async () => {

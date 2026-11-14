@@ -4,12 +4,14 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import Dashboard from './Dashboard.vue'
 import { useAuthStore } from '../stores/auth'
+import { DEMO_STUDENT_ID, listWrongQuestions } from '../api/admin'
 
 // 首页统计走真实接口，单测里只关心排版，桩掉避免发起请求
 vi.mock('../api/admin', () => ({
   listKnowledge: vi.fn().mockResolvedValue([]),
   listWrongQuestions: vi.fn().mockResolvedValue([]),
   listCompliance: vi.fn().mockResolvedValue([]),
+  DEMO_STUDENT_ID: 'student@tes.edu',
 }))
 
 // 后端菜单 path → 前端路由的映射见 utils/menu.js MENU_ROUTE_MAP
@@ -74,6 +76,12 @@ describe('Dashboard 首页排版', () => {
     expect(entry.text()).toContain('系统化任务采集')
     // 主推入口不混进卡片网格，卡片里不应重复出现
     expect(labels(wrapper)).not.toContain('系统化任务采集')
+  })
+
+  it('错题数用真实演示学生查询，不再写死库里 0 行的 student_001', async () => {
+    await mountDashboard(ALL_MENUS)
+    expect(listWrongQuestions).toHaveBeenCalledWith(DEMO_STUDENT_ID)
+    expect(DEMO_STUDENT_ID).not.toBe('student_001')
   })
 
   it('菜单撤掉教师批改后，首页同步不再显示该卡片', async () => {

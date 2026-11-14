@@ -65,6 +65,11 @@ export async function downloadErrorDistributionCsv(params, filename) {
 }
 
 // 模块3 错题本
+// 后台没有学生列表接口（学生是 App 端流水账号，无 students 表），演示环境
+// 统一用这个真实有错题的账号。线上 student_001 一行数据都没有，写死它会让
+// 错题本页和首页「待关注错题」卡片恒为 0（2026-11-14 线上实测）。
+export const DEMO_STUDENT_ID = 'student@tes.edu'
+
 export function listWrongQuestions(studentId) {
   return client.get('/wrong-questions', { params: { student_id: studentId } })
 }

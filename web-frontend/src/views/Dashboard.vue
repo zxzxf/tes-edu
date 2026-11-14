@@ -51,7 +51,7 @@
 <script setup>
 import { reactive, computed, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { listKnowledge, listWrongQuestions, listCompliance } from '../api/admin'
+import { listKnowledge, listWrongQuestions, listCompliance, DEMO_STUDENT_ID } from '../api/admin'
 
 const auth = useAuthStore()
 const user = auth.user
@@ -96,12 +96,14 @@ const ALL_MODULES = [
 const modules = computed(() => ALL_MODULES.filter((m) => auth.hasRouteAccess(m.to)))
 
 onMounted(async () => {
-  // 三个统计接口分属不同权限域：school 角色对三者均无权限、region_admin 对
-  // 错题接口无权限。用 allSettled 让各卡独立结算，避免任一 403 拖垮全部统计卡
-  // （此前整批 reject 导致三卡全 0 且无任何提示）。
+  // 三个统计接口分属不同权限域：school 角色对三者均无权限。用 allSettled
+  // 让各卡独立结算，避免任一 403 拖垮全部统计卡（此前整批 reject 导致三卡全 0
+  // 且无任何提示）。错题接口 2026-11-14 已按 A 方案放行 region_admin 只读，
+  // 与 /analytics/summary、/compliance 一致，不再需要为它单独兜 403。
+  // 学生 ID 与错题本页共用 DEMO_STUDENT_ID：写死 student_001 时库里 0 行，卡片恒 0。
   const [k, w, c] = await Promise.allSettled([
     listKnowledge(),
-    listWrongQuestions('student_001'),
+    listWrongQuestions(DEMO_STUDENT_ID),
     listCompliance('pending'),
   ])
   const pick = (r) => (r.status === 'fulfilled' ? r.value.length : '—')

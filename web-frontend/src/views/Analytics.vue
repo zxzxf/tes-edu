@@ -21,8 +21,8 @@
 
 <script setup>
 import { ref } from 'vue'
-import { getAnalytics } from '../api/admin'
-const sid = ref('student_001')
+import { getAnalytics, DEMO_STUDENT_ID } from '../api/admin'
+const sid = ref(DEMO_STUDENT_ID)
 const data = ref(null)
 const error = ref('')
 

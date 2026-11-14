@@ -560,16 +560,31 @@ def test_discovery_job_nightly_schedule_is_due_at_22h():
 
 
 def test_make_renderer_selection(monkeypatch):
-    """渲染后端选择：关 + 无服务 -> None；配 render_url -> 可调用（优先外部服务）。"""
-    monkeypatch.setattr(disc.settings, "discovery_headless_enabled", False)
-    monkeypatch.setattr(disc.settings, "discovery_render_url", "")
-    assert disc._make_renderer() is None
+    """渲染后端恒指向 headless-render 服务：未配 render_url 用默认别名，配了优先外部地址。
 
-    monkeypatch.setattr(disc.settings, "discovery_headless_enabled", True)
+    137 上已部署 edu-headless-render、镜像不再带 chromium，实现改为无条件返回
+    渲染器（discovery_headless_enabled 开关已废弃）；单测同步改为断言实际选用的
+    服务地址，而不是期望 None。
+    """
+    seen = []
+
+    async def _fake_render(url, svc, timeout):
+        seen.append((url, svc, timeout))
+        return "<html>ok</html>"
+
+    monkeypatch.setattr(disc, "_render_via_service", _fake_render)
+    monkeypatch.setattr(disc.settings, "discovery_render_url", "")
+    renderer = disc._make_renderer()
+    assert callable(renderer)
+    asyncio.run(renderer("http://example.com/a"))
+    assert seen[0][1] == disc.DEFAULT_RENDER_SERVICE
+
     monkeypatch.setattr(disc.settings, "discovery_render_url",
                         "http://render.internal/render")
-    r = disc._make_renderer()
-    assert callable(r)
+    renderer = disc._make_renderer()
+    assert callable(renderer)
+    asyncio.run(renderer("http://example.com/b"))
+    assert seen[1][1] == "http://render.internal/render"
 
 
 def test_render_via_service_parses(monkeypatch):

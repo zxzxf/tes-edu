@@ -62,9 +62,14 @@ class WrongQuestion(BaseModel):
     id: Optional[int] = None
     student_id: str
     question: str
-    wrong_answer: str
-    correct_answer: str
-    knowledge_point: str
+    # 2026-11-14：这三列在 ORM 里都是可空 Column（wrong_questions 里的历史数据
+    # 确有 NULL——线上 46 条未软删错题中 12 条 correct_answer IS NULL）。
+    # 原先写成必填 str，POST 返回 ORM 对象 / GET 列表经 enrich_wrong 组装 dict
+    # 都会触发 ResponseValidationError → 500，前端却只显示「暂无数据」。
+    # 与 ORM 对齐为 Optional；enrich_wrong 另外用 "" 兜底，避免页面显示 null。
+    wrong_answer: Optional[str] = None
+    correct_answer: Optional[str] = None
+    knowledge_point: Optional[str] = None
     # 题型（choice/blank/subjective）：错题本按题型筛选
     question_type: Optional[str] = None
     # 选项（选择题用）：[{label, content}]，与 App 端 ExamOption 对齐；无选项则为空

@@ -5,14 +5,18 @@
     <div class="tes-toolbar">
       <input v-model="sid" placeholder="学生ID" />
       <button class="tes-btn-primary" @click="load">查询</button>
+      <span v-if="loaded && !error" class="hint">共 {{ list.length }} 条</span>
     </div>
+
+    <p v-if="error" class="err">{{ error }}</p>
 
     <div v-if="list.length" class="list">
       <div v-for="w in list" :key="w.id" class="tes-card item">
         <p class="q">{{ w.question }}</p>
         <p class="meta">
-          正确答案：<b>{{ w.correct_answer }}</b>
+          正确答案：<b>{{ w.correct_answer || '—' }}</b>
           <span v-if="w.knowledge_point">· 知识点：{{ w.knowledge_point }}</span>
+          <span v-if="w.question_type">· 题型：{{ qtypeLabel(w.question_type) }}</span>
         </p>
 
         <!-- S5：步骤级归因 + 该步正确做法 -->
@@ -33,19 +37,52 @@
         <p v-if="w.advice" class="advice">💡 建议：{{ w.advice }}</p>
       </div>
     </div>
-    <p v-else class="tes-empty">点「查询」查看该学生的错题（含步骤级错因与正确做法）。</p>
+    <p v-else-if="loaded && !error" class="tes-empty">该学生暂无错题。</p>
+    <p v-else-if="!error" class="tes-empty">点「查询」查看该学生的错题（含步骤级错因与正确做法）。</p>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { listWrongQuestions } from '../api/admin'
-const sid = ref('student_001')
+import { ref, onMounted } from 'vue'
+import { listWrongQuestions, DEMO_STUDENT_ID } from '../api/admin'
+
+const sid = ref(DEMO_STUDENT_ID)
 const list = ref([])
-async function load() { list.value = await listWrongQuestions(sid.value) }
+const error = ref('')
+const loaded = ref(false)
+
+const QTYPE_LABEL = { choice: '选择题', blank: '填空题', subjective: '解答题' }
+function qtypeLabel(t) { return QTYPE_LABEL[t] || t }
+
+function messageOf(err) {
+  const code = err?.response?.status
+  const detail = err?.response?.data?.detail
+  if (code === 403) return '权限不足（403）：当前角色无权查看错题本'
+  if (code === 401) return '登录已失效，请重新登录'
+  return `加载失败${code ? `（${code}）` : ''}：${detail || err?.message || '未知错误'}`
+}
+
+async function load() {
+  error.value = ''
+  loaded.value = false
+  try {
+    list.value = await listWrongQuestions(sid.value.trim() || DEMO_STUDENT_ID)
+  } catch (err) {
+    // 关键修复：client.js 只兜 401，403/500 曾变成 unhandled rejection，
+    // 组件保持空态，把权限不足 / 服务端异常伪装成「暂无数据」。
+    list.value = []
+    error.value = messageOf(err)
+  } finally {
+    loaded.value = true
+  }
+}
+
+onMounted(load)
 </script>
 
 <style scoped>
+.err { background: #fff1f0; color: #c0392b; padding: 10px 12px; border-radius: 12px; font-size: 13px; margin-bottom: 12px; }
+.hint { font-size: 13px; color: var(--muted, #888); }
 .item { margin-bottom: 14px; }
 .q { margin: 0 0 6px; font-size: 15px; font-weight: 600; color: var(--ink); }
 .meta { margin: 0 0 10px; font-size: 13px; color: var(--ink-2); }

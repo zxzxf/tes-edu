@@ -2,8 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import Analytics from './Analytics.vue'
 
-vi.mock('../api/admin', () => ({ getAnalytics: vi.fn() }))
-import { getAnalytics } from '../api/admin'
+vi.mock('../api/admin', () => ({
+  getAnalytics: vi.fn(),
+  DEMO_STUDENT_ID: 'student@tes.edu',
+}))
+import { getAnalytics, DEMO_STUDENT_ID } from '../api/admin'
 
 const DATA = {
   student_id: 'student_001',
@@ -27,7 +30,7 @@ describe('Analytics 学情看板页', () => {
     await queryButton(wrapper).trigger('click')
     await flushPromises()
 
-    expect(getAnalytics).toHaveBeenCalledWith('student_001')
+    expect(getAnalytics).toHaveBeenCalledWith(DEMO_STUDENT_ID)
     expect(wrapper.text()).toContain('72%')
     expect(wrapper.text()).toContain('二次函数')
   })

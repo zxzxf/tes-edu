@@ -281,3 +281,103 @@ def test_push_question_type_is_stored_and_returned():
         await engine.dispose()
 
     asyncio.run(scenario())
+
+
+# ---------------------------------------------------------------- 2026-11-14 后台错题列表 500
+
+def test_wrong_question_schema_allows_null_legacy_columns():
+    """POST 直接返回 ORM 对象，标答/作答/知识点为 NULL 时不能 ResponseValidationError。"""
+    out = WrongQuestionOut(student_id="s", question="q")
+    assert out.correct_answer is None
+    assert out.wrong_answer is None
+    assert out.knowledge_point is None
+
+
+def test_enrich_wrong_survives_null_answers_and_carries_qtype_options():
+    """线上 46 条未软删错题里 12 条 correct_answer IS NULL，曾让列表整批 500。
+
+    另外题型 / 选项此前没进 enrich dict，pydantic 静默填默认值导致后台恒拿不到。
+    """
+    async def scenario():
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:", poolclass=StaticPool,
+            connect_args={"check_same_thread": False},
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            db.add_all([
+                WrongQuestion(
+                    id=1, student_id="student@tes.edu", question="1+1=?",
+                    # 三列全 NULL：历史手工录入错题的真实形态
+                    wrong_answer=None, correct_answer=None, knowledge_point=None,
+                    question_type="choice",
+                    options='[{"label":"A","content":"1"}]', source="question",
+                ),
+                WrongQuestion(
+                    id=2, student_id="student@tes.edu", question="脏 options",
+                    correct_answer="B", options="{not-json",
+                ),
+            ])
+            await db.commit()
+
+            rows = await ops.list_wrong(db, "student@tes.edu")
+            assert len(rows) == 2
+            assert len(await ops.list_wrong(db, "student@tes.edu", limit=1)) == 1
+
+            enriched = await ops.enrich_wrong(db, rows)
+            outs = [WrongQuestionOut(**item) for item in enriched]
+            assert outs[0].correct_answer == ""
+            assert outs[0].wrong_answer == ""
+            assert outs[0].knowledge_point == ""
+            assert outs[0].question_type == "choice"
+            assert outs[0].options == [{"label": "A", "content": "1"}]
+            # 非法 JSON 退成 None，不能把整个列表拖成 500
+            assert outs[1].options is None
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_wrong_list_role_whitelist_matches_menu():
+    """region_admin 菜单里有错题本，接口必须放行；school 无菜单仍应 403。"""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api import wrong_questions as wq
+    from app.core.db import get_db
+
+    class _EmptyResult:
+        def scalars(self): return self
+        def all(self): return []
+
+    class _EmptyDB:
+        async def execute(self, stmt, params=None): return _EmptyResult()
+
+    app = FastAPI()
+    app.include_router(wq.router, prefix="/api/admin")
+    app.dependency_overrides[get_db] = lambda: _EmptyDB()
+    headers = lambda role: {"X-User-Id": "u_test", "X-User-Role": role}
+    try:
+        with TestClient(app) as client:
+            for role in ("admin", "teacher", "parent", "region_admin"):
+                r = client.get(
+                    "/api/admin/wrong-questions",
+                    params={"student_id": "s"}, headers=headers(role),
+                )
+                assert r.status_code == 200, (role, r.text)
+            for role in ("school", "student"):
+                r = client.get(
+                    "/api/admin/wrong-questions",
+                    params={"student_id": "s"}, headers=headers(role),
+                )
+                assert r.status_code == 403, (role, r.text)
+            # limit 有边界，不能让前端一次拉爆全表
+            r = client.get(
+                "/api/admin/wrong-questions",
+                params={"student_id": "s", "limit": 0}, headers=headers("admin"),
+            )
+            assert r.status_code == 422
+    finally:
+        app.dependency_overrides.clear()

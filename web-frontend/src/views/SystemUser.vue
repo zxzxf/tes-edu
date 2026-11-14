@@ -11,7 +11,7 @@
         <option :value="0">禁用</option>
       </select>
       <button class="tes-btn" @click="load">刷新</button>
-      <span class="tes-tag">{{ rows.length }} 个用户</span>
+      <span v-if="!error" class="tes-tag">{{ rows.length }} 个用户</span>
       <span v-if="loading" class="tes-tag">加载中…</span>
     </div>
 
@@ -53,7 +53,9 @@
       </table>
       </div>
     </div>
-    <p v-else-if="!loading" class="tes-empty">暂无用户，点击「新建用户」创建。</p>
+    <!-- 403/500 时只显示上面的错误条：此前错误条与「暂无用户」「0 个用户」
+         同屏出现，把权限不足伪装成「库里没有用户」，与真实原因自相矛盾。 -->
+    <p v-else-if="!loading && !error" class="tes-empty">暂无用户，点击「新建用户」创建。</p>
 
     <!-- 新建 / 编辑对话框 -->
     <div v-if="dialog" class="mask" @click.self="dialog = null">
