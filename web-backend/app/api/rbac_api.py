@@ -580,15 +580,44 @@ async def list_users(
     keyword: Optional[str] = None,
     status: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_role(Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(require_role(Role.ADMIN, Role.REGION_ADMIN, Role.SCHOOL, Role.TEACHER)),
 ):
-    """用户列表（admin / 学校管理员；支持用户名模糊查询 + 状态过滤）。
+    """用户列表（数据权限矩阵，按后台账号真实归属过滤）：
 
-    T-AM10：学校管理员可管理本校用户，区域管理员不可见（菜单与接口均不含用户管理）。
-    返回不含 password_hash；附带每个用户的 role_ids 便于前端回显。
+    - admin         平台超管：全平台用户
+    - region_admin  区域管理员：sys_user.region_id == 本区域 的用户
+    - school        学校：sys_user.tenant_id == 本账号所属租户（本校）用户
+    - teacher       教师：同 school，仅本租户（只读）；写接口仍受 UserWriteRoleDep 兜底
+    此处按"后台账号真实归属"过滤，不复用业务租户 FALLBACK（school_pilot_01）；
+    否则教师会被误归到其它学校，从而看到越权账号。受限角色若无法定位归属，
+    返回空集而非全量，杜绝越权泄露。
     """
+    # 当前登录账号的真实归属（DB 权威，避免网关 FALLBACK 误导）
+    me = (await db.execute(
+        select(m.SysUser).where(m.SysUser.user_id == user["user_id"])
+    )).scalar_one_or_none()
+    my_tenant = me.tenant_id if me else None
+    my_region = me.region_id if me else None
+
     stmt = select(m.SysUser)
     stmt = stmt.where(m.SysUser.username.notin_(HIDDEN_LIST_USERNAMES))
+
+    role = user.get("role")
+    if role == Role.ADMIN.value:
+        pass  # 全量
+    elif role == Role.REGION_ADMIN.value:
+        if my_region:
+            stmt = stmt.where(m.SysUser.region_id == my_region)
+        else:
+            stmt = stmt.where(m.SysUser.tenant_id == "__never_match__")
+    elif role in (Role.SCHOOL.value, Role.TEACHER.value):
+        if my_tenant:
+            stmt = stmt.where(m.SysUser.tenant_id == my_tenant)
+        else:
+            stmt = stmt.where(m.SysUser.tenant_id == "__never_match__")
+    else:
+        stmt = stmt.where(m.SysUser.tenant_id == "__never_match__")
+
     if keyword:
         stmt = stmt.where(m.SysUser.username.ilike(f"%{keyword.strip()}%"))
     if status is not None:

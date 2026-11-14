@@ -108,8 +108,8 @@ ROLE_MENU_MAP = {
         # 产品决策是撤菜单而非放宽接口，避免给它看得见用不了的死链。
         # 线上旧库的 sys_role_menu 行需另行 DELETE —— seed 的授权只补不删。
         and m[0] != "m_ops_grading"
-    ] + ["m_ops_exam_gen", "m_sys_feature", "m_sys_feature_manage", "m_sys_byom", "m_sys_byom_manage",
-         "m_ops_tenant_add", "m_ops_tenant_edit", "m_ops_tenant_del"],  # 区域管理员：区域运营 + 功能开关 + 模型配置（不含系统设置其余）；含学校增删改按钮码
+    ] + ["m_ops_exam_gen", "m_sys_user", "m_sys_feature", "m_sys_feature_manage", "m_sys_byom", "m_sys_byom_manage",
+         "m_ops_tenant_add", "m_ops_tenant_edit", "m_ops_tenant_del"],  # 区域管理员：区域运营 + 功能开关 + 模型配置 + 用户管理（仅菜单，只读看区域下用户；写接口仍受 UserWriteRoleDep 兜底）；含学校增删改按钮码
     "role_school": [
         "m_ops", "m_ops_tenant",
         "m_ops_exam", "m_ops_exam_dispatch", "m_ops_grading",
@@ -132,6 +132,7 @@ ROLE_MENU_MAP = {
         "m_ops_errordist", "m_ops_practice", "m_ops_questions",  # 教师：录题（M0-1）
         "m_ops_course",  # M5：课程采集/知识点审核
         "m_ops_exam_gen", "m_ops_grading_submit", "m_ops_grading_review",
+        "m_sys_user",  # 教师：用户管理（只读，列表仅本租户用户；写接口仍受 UserWriteRoleDep 兜底）
         "m_sys_feature", "m_sys_feature_manage",  # 教师：可管控本班功能显隐
     ],
     "role_parent": ["m_ops", "m_ops_reports"],
