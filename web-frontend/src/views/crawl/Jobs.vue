@@ -47,13 +47,13 @@
         </thead>
         <tbody>
           <tr v-for="j in rows" :key="j.id">
-            <td>{{ j.name }}</td>
+            <td><span class="cw-clip task" :title="j.name">{{ j.name }}</span></td>
             <td>
               <span class="tes-pill" :class="j.job_kind === 'discovery' ? 'info' : 'plain'">
                 {{ j.job_kind === 'discovery' ? '自主发现' : '常规采集' }}
               </span>
             </td>
-            <td>{{ sourceName(j.source_id) }}</td>
+            <td><span class="cw-clip src" :title="sourceName(j.source_id)">{{ sourceName(j.source_id) }}</span></td>
             <td>{{ j.path }}</td>
             <td>
               <span class="tes-pill" :class="j.status === 'active' ? 'success' : 'warn'">
@@ -62,8 +62,7 @@
             </td>
             <td>{{ j.spent }} / {{ j.budget_limit }}</td>
             <td class="cw-query">
-              <div v-if="!isOpen(j.id)" class="cw-query-clip" :title="j.query || '—'" @click="toggleOpen(j.id)">{{ clip(j.query) }}</div>
-              <div v-else class="cw-query-full" @click="toggleOpen(j.id)">{{ j.query || '—' }}<span class="cw-query-hint">（点击收起）</span></div>
+              <span class="cw-clip query" :title="j.query || '—'">{{ j.query || '—' }}</span>
             </td>
             <td>{{ j.last_paper_id ? '#' + j.last_paper_id : '—' }}</td>
             <td class="cw-ops">
@@ -155,20 +154,7 @@ function sourceName(id) {
   return sources.value.find((s) => s.id === id)?.name || '—'
 }
 
-// 检索约束过长时：折叠态单行省略号，点击展开全名
-const openIds = ref([])
-function isOpen(id) {
-  return openIds.value.includes(id)
-}
-function toggleOpen(id) {
-  const i = openIds.value.indexOf(id)
-  if (i >= 0) openIds.value.splice(i, 1)
-  else openIds.value.push(id)
-}
-function clip(s) {
-  if (!s) return '—'
-  return s.length > 22 ? s.slice(0, 22) + '…' : s
-}
+// 长字段显示不全时统一省略号 + 鼠标悬停(title)显示全名，无需点击
 async function loadAll() {
   await guard(async () => {
     sources.value = await listCourseSources()
@@ -274,10 +260,11 @@ onMounted(loadAll)
 :deep(.tes-table col.c-paper) { width: 104px; }
 :deep(.tes-table col.c-ops) { width: 220px; }
 .cw-query { color: #6b7280; font-size: 12px; vertical-align: top; }
-.cw-query-clip { max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.cw-query-clip:hover { color: #2563eb; }
-.cw-query-full { max-width: 320px; white-space: normal; overflow-wrap: anywhere; word-break: normal; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px; cursor: pointer; }
-.cw-query-hint { color: #94a3b8; font-size: 11px; }
+/* 长文本统一：单行省略号 + 悬停(title)显示全名 */
+.cw-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-clip.task { max-width: 180px; }
+.cw-clip.src { max-width: 220px; }
+.cw-clip.query { max-width: 200px; }
 .cw-ops { white-space: normal; }
 .cw-ops .ghost { margin: 2px 4px 2px 0; }
 .warn-text { color: #dc2626; display: block; }
