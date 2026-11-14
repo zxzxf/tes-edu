@@ -588,29 +588,51 @@ def test_make_renderer_selection(monkeypatch):
 
 
 def test_render_via_service_parses(monkeypatch):
-    """外部渲染服务：JSON {"html":...} 与纯文本两种返回都能解析出 HTML。"""
-    import urllib.request as ureq
+    """外部渲染服务：JSON {"html":...} 与纯文本两种返回都能解析出 HTML。
+
+    实现已改为 httpx 异步（不再用阻塞式 urllib），故这里 mock ``httpx.AsyncClient``。
+    """
+    import httpx
 
     class _FakeResp:
-        def __init__(self, body: bytes):
-            self._b = body
+        def __init__(self, body: str):
+            self._body = body
 
-        def __enter__(self):
+        def raise_for_status(self):
+            return None
+
+        @property
+        def text(self):
+            return self._body
+
+    class _FakeAsyncClient:
+        def __init__(self, payload: str):
+            self._payload = payload
+
+        async def __aenter__(self):
             return self
 
-        def __exit__(self, *a):
+        async def __aexit__(self, *a):
             return False
 
-        def read(self):
-            return self._b
+        async def post(self, svc, json=None):
+            return _FakeResp(self._payload)
 
-    body = '{"html":"<html>选择题 答案 解析</html>"}'.encode("utf-8")
+    # 情况一：JSON 包裹的 html
     monkeypatch.setattr(
-        ureq, "urlopen",
-        lambda req, timeout=0: _FakeResp(body),
+        httpx, "AsyncClient",
+        lambda *a, **kw: _FakeAsyncClient('{"html":"<html>选择题 答案 解析</html>"}'),
     )
     out = asyncio.run(disc._render_via_service("https://x/", "http://r/", 5))
     assert "<html>选择题" in out
+
+    # 情况二：纯文本 HTML（无 JSON 包裹）
+    monkeypatch.setattr(
+        httpx, "AsyncClient",
+        lambda *a, **kw: _FakeAsyncClient("<html>纯文本题面</html>"),
+    )
+    out2 = asyncio.run(disc._render_via_service("https://x/", "http://r/", 5))
+    assert "<html>纯文本题面" in out2
 
 
 # ----------------------------------------------------------- API 模型字段

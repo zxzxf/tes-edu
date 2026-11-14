@@ -18,6 +18,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -221,22 +222,29 @@ async def _create_pending_source(
 
 
 async def _render_via_service(url: str, svc: str, timeout: float) -> str:
-    """调用外部 headless 渲染服务：POST ``{"url": url}`` -> 渲染后的完整 HTML。
+    """调用外部 headless 渲染服务（**异步**，不阻塞事件循环）。
 
     服务契约：返回 JSON ``{"html": "..."}`` 或纯文本渲染结果；渲染失败应返回
     非 2xx 或空 html，本函数统一回退为空串（交由调用方按低价值处理）。
+
+    **关键修复（2026-11-14）**：旧实现用阻塞式 ``urllib.request.urlopen``，在
+    async 发现循环里每页最多卡 ``discovery_headless_timeout``（默认 20s），把整个
+    uvicorn 事件循环冻死——手动跑一次 discovery 就全员 503、被迫重启容器。改为
+    httpx 异步；内部吞掉异常返回空串，绝不让渲染服务抖动变成整轮发现的 0 候选
+    或把事件循环卡死。
     """
     import json
-    import urllib.request
 
-    req = urllib.request.Request(
-        svc,
-        data=json.dumps({"url": url}).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        raw = resp.read().decode("utf-8", "replace")
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(svc, json={"url": url})
+            resp.raise_for_status()
+            raw = resp.text
+    except Exception as exc:  # noqa: BLE001 渲染服务抖动不应致命
+        log.warning("discovery render http error %s: %s", url, exc)
+        return ""
     try:
         data = json.loads(raw)
     except ValueError:
@@ -318,66 +326,87 @@ async def run_discovery(
     discovered = created = rejected = skipped = 0
     created_urls: List[str] = []
     visited: set = set()
-    from collections import deque
 
-    queue: "deque" = deque((c, 0) for c in candidates)
-    pages = 0
-    while queue and discovered < max_candidates and pages < max_pages:
-        url, level = queue.popleft()
-        if url in visited:
-            continue
-        visited.add(url)
-        pages += 1
-        ok, _reason = ssrf_safe(url)
-        if not ok or not domain_allowed(url, allowlist):
-            rejected += 1
-            continue
-        try:
-            if renderer is not None:
-                # 渲染服务不可达 / 超时 / 返回空正文时回退静态抓取：否则只要
-                # chromium 抖一下，整轮发现就会把本可静态拿到的页面全判为拒绝。
-                try:
-                    html = await renderer(url)
-                except Exception as exc:  # noqa: BLE001
-                    log.warning(
-                        "discovery render failed %s, fallback to static: %s", url, exc
-                    )
-                    html = None
-                if not html:
+    # 并发抓取但串行落库：网络 I/O 一律走 async 协程（httpx / 异步渲染），
+    # 绝不再用阻塞式 urllib——否则每页最多卡 20s，把整个 uvicorn 事件循环
+    # 冻死，手动跑一次 discovery 就全员 503、被迫重启容器（2026-11-14 复现）。
+    # DB 操作（exists 查重 / 建源）保持串行，避免多协程共用同一 AsyncSession 竞态。
+    sem = asyncio.Semaphore(max(1, int(getattr(settings, "discovery_concurrency", 6) or 6)))
+
+    async def _fetch_one(url: str, level: int):
+        async with sem:
+            ok, _reason = ssrf_safe(url)
+            if not ok or not domain_allowed(url, allowlist):
+                return url, level, None, "rejected"
+            try:
+                if renderer is not None:
+                    # 渲染服务不可达 / 超时 / 返回空正文时回退静态抓取：否则只要
+                    # chromium 抖一下，整轮发现就会把本可静态拿到的页面全判为拒绝。
+                    try:
+                        html = await renderer(url)
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning(
+                            "discovery render failed %s, fallback to static: %s", url, exc
+                        )
+                        html = None
+                    if not html:
+                        html = await fetch_fn(url, timeout=20)
+                else:
                     html = await fetch_fn(url, timeout=20)
-            else:
-                html = await fetch_fn(url, timeout=20)
-        except Exception as exc:  # noqa: BLE001 单页失败不影响整体
-            log.warning("discovery fetch/render failed %s: %s", url, exc)
-            rejected += 1
-            continue
-        cat, conf = classify_content(html, query)
-        if conf >= 0.4 and cat in ("question", "textbook"):
-            # 幂等：每晚定时跑都会重新看到同一个门户页，若不去重就会不断
-            # 堆积同名待审源 + 草稿采集任务（2026-11-14 线上复现）。
-            # 同租户同 URL 已有源（待审/已通过）就跳过；被驳回的源会被物理删除，
-            # 因此后续仍可重新发现。
-            exists = (
-                await db.execute(
-                    select(CourseSource).where(
-                        CourseSource.tenant_id == job.tenant_id,
-                        CourseSource.uri == url,
+            except Exception as exc:  # noqa: BLE001 单页失败不影响整体
+                log.warning("discovery fetch/render failed %s: %s", url, exc)
+                return url, level, None, "failed"
+            return url, level, html, "ok"
+
+    # 按层 BFS：先并发抓完当前层，再串行做分类 / 查重 / 建源 / 派生下一层链接。
+    pages = 0
+    frontier: List[Tuple[str, int]] = [(c, 0) for c in candidates]
+    while frontier and discovered < max_candidates and pages < max_pages:
+        batch: List[Tuple[str, int]] = []
+        for url, level in frontier:
+            if url in visited:
+                continue
+            visited.add(url)
+            pages += 1
+            if pages > max_pages:
+                break
+            batch.append((url, level))
+        if not batch:
+            break
+        frontier = []
+        for url, level, html, _status in await asyncio.gather(
+            *(_fetch_one(u, lvl) for (u, lvl) in batch)
+        ):
+            if html is None:
+                rejected += 1
+                continue
+            cat, conf = classify_content(html, query)
+            if conf >= 0.4 and cat in ("question", "textbook"):
+                # 幂等：每晚定时跑都会重新看到同一个门户页，若不去重就会不断
+                # 堆积同名待审源 + 草稿采集任务（2026-11-14 线上复现）。
+                # 同租户同 URL 已有源（待审/已通过）就跳过；被驳回的源会被物理删除，
+                # 因此后续仍可重新发现。
+                exists = (
+                    await db.execute(
+                        select(CourseSource).where(
+                            CourseSource.tenant_id == job.tenant_id,
+                            CourseSource.uri == url,
+                        )
                     )
-                )
-            ).scalar_one_or_none()
-            if exists is not None:
-                skipped += 1
-            else:
-                await _create_pending_source(db, job, url, cat)
-                created_urls.append(url)
-                created += 1
-            discovered += 1
-        # 站内链接探索（BFS 纵深）：当前层未达最大深度才继续向下一层扩
-        if depth > 0 and level < depth:
-            for link in _extract_same_domain_links(html, url, max_per_domain):
-                if link not in visited:
-                    queue.append((link, level + 1))
-        await db.flush()
+                ).scalar_one_or_none()
+                if exists is not None:
+                    skipped += 1
+                else:
+                    await _create_pending_source(db, job, url, cat)
+                    created_urls.append(url)
+                    created += 1
+                discovered += 1
+            # 站内链接探索（BFS 纵深）：当前层未达最大深度才继续向下一层扩
+            if depth > 0 and level < depth:
+                for link in _extract_same_domain_links(html, url, max_per_domain):
+                    if link not in visited:
+                        frontier.append((link, level + 1))
+            await db.flush()
 
     if run is not None:
         run.fetched = discovered
