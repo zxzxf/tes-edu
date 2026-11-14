@@ -7,6 +7,11 @@ describe('errMsg（axios 错误 → 展示文案）', () => {
     expect(errMsg(e)).toBe('menu has children, delete them first')
   })
 
+  it('后端英文鉴权码 insufficient role 统一汉化', () => {
+    const e = { response: { data: { detail: 'insufficient role' } } }
+    expect(errMsg(e)).toBe('权限不足：该操作仅管理员 / 学校管理员可执行')
+  })
+
   it('pydantic 422 数组取首条并带定位', () => {
     const e = {
       response: {

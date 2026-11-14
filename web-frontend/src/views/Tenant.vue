@@ -7,7 +7,7 @@
       <button class="tes-btn-primary" v-has-permission="'system:tenant:add'" @click="openCreate">新建学校</button>
       <input class="tes-search" v-model.trim="keyword" placeholder="搜索学校名称 / ID" />
       <button class="tes-btn" @click="load">刷新</button>
-      <span class="tes-tag">{{ filtered.length }} 所学校</span>
+      <span class="tes-tag" v-if="!error">{{ filtered.length }} 所学校</span>
       <span v-if="loading" class="tes-tag">加载中…</span>
     </div>
 
@@ -37,7 +37,10 @@
         </tbody>
       </table>
     </div>
-    <p v-else-if="!loading" class="tes-empty">暂无学校，点击「新建学校」创建。</p>
+    <p v-else-if="!error && !loading" class="tes-empty">
+      <template v-if="canCreate">暂无学校，点击「新建学校」创建。</template>
+      <template v-else>暂无学校数据。</template>
+    </p>
 
     <!-- 新建 / 编辑对话框 -->
     <div v-if="dialog" class="mask" @click.self="dialog = null">
@@ -81,6 +84,11 @@ import {
   createTenant, deleteTenant, listRegions, listTenants, updateTenant,
 } from '../api/rbac'
 import { errMsg } from '../utils/errmsg'
+import { useAuthStore } from '../stores/auth'
+
+const auth = useAuthStore()
+// 是否有「新建学校」按钮权限：无权限用户隐藏按钮时，空态提示不再引导其点击
+const canCreate = computed(() => auth.hasPerm('system:tenant:add'))
 
 const rows = ref([])
 const regions = ref([])
