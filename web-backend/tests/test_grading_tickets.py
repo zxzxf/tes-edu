@@ -23,6 +23,7 @@ from app.api.grading import (
     _ticket_out,
     _verdict_flags,
 )
+from app.core import permission as perm_mod
 from app.core.db import get_db
 
 PILOT = "school_pilot_01"
@@ -190,10 +191,29 @@ def test_ticket_out_maps_fields():
 
 
 # -------------------------------------------------------------------------- 鉴权
+class _PermRows:
+    def all(self):
+        return [("grading:review",)]
+
+
+class _PermDB:
+    """批改写接口现在叠加 require_perm，给它一个持码的假权限库。"""
+
+    async def execute(self, stmt, params=None):
+        return _PermRows()
+
+
 def _client():
     app = FastAPI()
     app.include_router(api.router, prefix="/api/admin")
     app.dependency_overrides[get_db] = lambda: None
+    # require_perm 走 permission._get_db（独立于 get_db 的懒加载依赖），
+    # 不 override 会真的去连 106 库。这里只放 grading:review，够过按钮码校验，
+    # 好让测试用例继续验证「verdict Literal 拦非法值」这个业务口径。
+    async def _fake_perm_db():
+        yield _PermDB()
+
+    app.dependency_overrides[perm_mod._get_db] = _fake_perm_db
     return TestClient(app)
 
 

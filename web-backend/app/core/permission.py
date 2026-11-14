@@ -52,7 +52,14 @@ class PermissionEngine:
 
         解析顺序：
         1) admin 直接全权（["*:*"]），不查 DB。
-        2) 否则按 user -> roles -> role_menu -> menu.permission_code 聚合。
+        2) 否则按 user -> **激活角色** -> role_menu -> menu.permission_code 聚合。
+
+        2026-11-14（T-AM10 补漏）：``role`` 是 JWT 里的激活角色（切换角色后
+        由网关注入 X-User-Role），必须参与 SQL 过滤。此前 SQL 只按 user_id
+        聚合，把用户**所有角色**的按钮码取并集：线上 ``u_pilot_school`` 同时
+        挂 region_admin + school，切成 school 后仍持有 region_admin 的
+        ``system:tenant:*`` / ``exam:generate``。缓存 key 早就带了 role，
+        但查询没带 —— 切角色看似生效，实际是提权口子。
         """
         try:
             role_enum = Role(role)
@@ -74,26 +81,33 @@ class PermissionEngine:
             # 无 DB 降级：用静态兜底（仅过渡）
             return set(ROLE_PERMISSIONS.get(role_enum, []))
 
-        rows = await self._query_user_menu_codes(db, user_id)
+        rows = await self._query_user_menu_codes(db, user_id, role)
         perms = build_permission_set(rows)
         await cache.set_json(key, sorted(perms), settings.permission_cache_ttl)
         return perms
 
     @staticmethod
-    async def _query_user_menu_codes(db, user_id: str) -> list[dict]:
-        from sqlalchemy import select, text
+    async def _query_user_menu_codes(db, user_id: str, role: str) -> list[dict]:
+        """只取「当前激活角色」授权的按钮码，不做多角色并集。
 
-        # 经 sys_user_role -> sys_role_menu -> sys_menu 聚合 permission_code
+        ``/menu/my``（rbac_api.py）早已按 role_code 过滤菜单，本查询必须与它
+        同口径，否则前端看不见的按钮后端照样放行。admin 走 *:* 短路不查库。
+        """
+        from sqlalchemy import text
+
         stmt = text(
             """
             SELECT DISTINCT m.permission_code
             FROM sys_user_role ur
+            JOIN sys_role r ON r.role_id = ur.role_id
             JOIN sys_role_menu rm ON rm.role_id = ur.role_id
             JOIN sys_menu m ON m.menu_id = rm.menu_id
-            WHERE ur.user_id = :uid AND m.permission_code IS NOT NULL
+            WHERE ur.user_id = :uid
+              AND r.role_code = :role
+              AND m.permission_code IS NOT NULL
             """
         )
-        result = await db.execute(stmt, {"uid": user_id})
+        result = await db.execute(stmt, {"uid": user_id, "role": role})
         return [{"permission_code": r[0]} for r in result.all()]
 
     def has_perm(self, perms: Set[str], required: str) -> bool:

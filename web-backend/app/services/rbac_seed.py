@@ -87,12 +87,16 @@ MENUS = [
 # meta.role 的偏差属有意收口，以 DB 授权矩阵为唯一权威）。
 # 按钮级授权（T-AM7 起有业务按钮码）：
 #   exam:generate    组卷生成（与 exam.py require_perm 对齐：admin/teacher/region_admin）
-#   grading:submit   提交批改（与 grading.py require_perm 对齐：admin/teacher）
-#   grading:review   评分批改（与 grading.py PUT 对齐：admin/teacher）
-# school 对批改、school 对组卷均无按钮码；region_admin 连「教师批改」菜单都不授
-# （见下方 ROLE_MENU_MAP 注释）。注意这两个按钮码只保护旧模块5接口，工单的
-# 判定/改判/解冻走 TeacherDep 角色白名单，批改页也没有 v-has-permission，
-# 别把按钮授权当成已经生效的拦截。
+#   grading:submit   提交批改（admin/teacher/school）
+#   grading:review   评分批改（admin/teacher/school）
+# school 对组卷生成（exam:generate）无按钮码；region_admin 连「教师批改」菜单都不授
+# （见下方 ROLE_MENU_MAP 注释）。
+# 2026-11-14：这两个按钮码原先只保护旧模块5接口，工单判定/改判/解冻走
+# TeacherDep 角色白名单，批改页也没有 v-has-permission —— 授权矩阵撤销按钮码
+# 并不能真的拦住改分。现已在 grading.py 定义 GradingWriteDep 叠加 require_perm，
+# school 的菜单与 TeacherDep 都放行批改，故同步补授按钮码，避免造出「看得见、
+# 点不动」的新死链。seed_rbac 启动时对 sys_role_menu 做「只补不删」的 upsert，
+# 发版重启即自动补上这 2 对授权（2026-11-14 线上已核到 role_school 生效）。
 ROLE_MENU_MAP = {
     "role_admin": [m[0] for m in MENUS],  # 全菜单 + 全按钮
     "role_region_admin": [
@@ -109,6 +113,7 @@ ROLE_MENU_MAP = {
     "role_school": [
         "m_ops", "m_ops_tenant",
         "m_ops_exam", "m_ops_exam_dispatch", "m_ops_grading",
+        "m_ops_grading_submit", "m_ops_grading_review",  # 批改按钮码（与 GradingWriteDep 对齐）
         "m_ops_practice",
         "m_ops_course",  # M5：课程采集/知识点审核
         "m_sys_feature", "m_sys_feature_manage",  # 学校：可管控本校功能显隐

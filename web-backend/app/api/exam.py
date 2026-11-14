@@ -66,7 +66,7 @@ from app.core.grading_metrics import (
     SOURCE_UNKNOWN as M_SOURCE_UNKNOWN,
 )
 from app.core.rbac import Role
-from app.core.security import read_tenant_id, require_role
+from app.core.security import business_tenant_id, read_tenant_id, require_role
 from app.models.course_kb import CourseQuestion
 from app.models.ops import (
     ExamAssignment,
@@ -239,7 +239,7 @@ async def compose_paper(
     知识点覆盖优先 -> 难度配比 -> 题源优先级（teacher > import > crawl > llm_generated）。
     题源不足直接 409 并说明缺哪个维度，**不静默凑卷**。
     """
-    tenant_id = user.get("tenant_id") or "school_pilot_01"
+    tenant_id = business_tenant_id(user)
     if not is_known_paper_type(body.paper_type):
         raise HTTPException(status_code=400, detail=f"未知卷型 {body.paper_type!r}")
     if not course_types_for(body.paper_type):
@@ -369,7 +369,7 @@ async def create_manual_paper(
     - 每题可覆盖分值/答案（题库答案有误时不必先改题库，改的是本卷快照）；
     - ``publish=true`` 时走与 ``/publish`` 完全相同的闸门（结构/G1/G2），不绕过。
     """
-    tenant_id = user.get("tenant_id") or "school_pilot_01"
+    tenant_id = business_tenant_id(user)
     if not is_known_paper_type(body.paper_type):
         raise HTTPException(status_code=400, detail=f"未知卷型 {body.paper_type!r}")
     if not body.questions:
@@ -584,7 +584,7 @@ async def list_papers(
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    tenant_id = user.get("tenant_id") or "school_pilot_01"
+    tenant_id = business_tenant_id(user)
     rows = (
         await db.execute(
             select(ExamPaper)
@@ -687,6 +687,14 @@ async def _paper_or_404(db: AsyncSession, paper_id: int, user: Optional[dict] = 
     """取卷并做租户隔离：别校的卷一律 404（不区分「不存在」与「不是你校的」）。
 
     ``tenant_id`` 为 NULL 的是迁移前的老卷，允许放行（否则它们连自己学校都读不到）。
+
+    2026-11-14：租户取 ``business_tenant_id`` 而非 ``read_tenant_id``。超管 JWT
+    里的 ``platform`` 是**非空占位值**，旧写法 ``user.tenant_id or FALLBACK``
+    根本不触发兜底，于是拿 ``tenant_id == 'platform'`` 去查业务表：线上
+    ``GET /papers`` 返回 0 条、``GET /papers/{id}`` 一律 404，而 7 张卷全在
+    ``school_pilot_01``。这里刻意不做「平台级跨租户」：本函数同时被
+    publish / answer-checks confirm / assign 等**写操作**复用，放行跨租户读
+    等于连写一起放开。保持严格单租户，与 grading 域上轮修复同口径。
     """
     p = (
         await db.execute(select(ExamPaper).where(ExamPaper.id == paper_id))
@@ -694,7 +702,7 @@ async def _paper_or_404(db: AsyncSession, paper_id: int, user: Optional[dict] = 
     if not p:
         raise HTTPException(status_code=404, detail="paper not found")
     if user is not None:
-        tenant = user.get("tenant_id") or "school_pilot_01"
+        tenant = business_tenant_id(user)
         if p.tenant_id and p.tenant_id != tenant:
             raise HTTPException(status_code=404, detail="paper not found")
     return p
@@ -1079,7 +1087,7 @@ async def invalidate_paper(tenant_id: str, paper_id: int) -> None:
 
 
 def _tenant_of(user: dict) -> str:
-    return user.get("tenant_id") or "school_pilot_01"
+    return business_tenant_id(user)
 
 
 def _visible_to(a: ExamAssignment, user: dict, grade: Optional[str] = None) -> bool:

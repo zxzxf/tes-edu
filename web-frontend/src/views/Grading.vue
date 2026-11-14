@@ -45,8 +45,8 @@
           </span>
           <span v-if="f.release_count" class="tes-pill warn">复发 {{ f.release_count }} 次</span>
           <span class="grow"></span>
-          <button v-if="!f.acked_at" class="ghost small" @click="ackFreeze(f)">已知悉</button>
-          <button class="ghost small" @click="askRelease(f)">解冻…</button>
+          <button v-if="!f.acked_at" v-has-permission="GRADING_PERMS" class="ghost small" @click="ackFreeze(f)">已知悉</button>
+          <button v-has-permission="GRADING_PERMS" class="ghost small" @click="askRelease(f)">解冻…</button>
         </div>
         <p class="a-msg">{{ f.message }}</p>
         <p class="a-ans">
@@ -59,7 +59,7 @@
             placeholder="解冻理由（必填，例如：标答已修正为 sqrt(6)/3）"
             @keyup.enter="doRelease(f)"
           />
-          <button class="tes-btn-primary small" :disabled="releaseComment.trim().length < 2" @click="doRelease(f)">
+          <button v-has-permission="GRADING_PERMS" class="tes-btn-primary small" :disabled="releaseComment.trim().length < 2" @click="doRelease(f)">
             确认解冻
           </button>
           <button class="ghost small" @click="releasing = 0">取消</button>
@@ -175,8 +175,8 @@
             <p>{{ detail.analysis }}</p>
           </details>
 
-          <!-- 判定区 -->
-          <div class="judge">
+          <!-- 判定区：后端 GradingWriteDep 要求 grading 按钮码，前端同口径隐藏 -->
+          <div class="judge" v-has-permission="GRADING_PERMS">
             <div class="judge-btns">
               <button class="v-btn ok" :class="{ on: verdict === 'correct' }" @click="verdict = 'correct'">
                 算对
@@ -395,6 +395,10 @@ import {
   listGradingTickets,
   releaseGradingFreeze
 } from '../api/admin'
+
+// 与后端 grading.GradingWriteDep 同口径：持有任一码才显示批改写入口。
+// 只读角色仍可看待办/指标/留痕，但看不到「判定 / 认领 / 已知悉 / 解冻」按钮。
+const GRADING_PERMS = ['grading:submit', 'grading:review']
 
 const tabs = [
   { key: '', label: '全部' },

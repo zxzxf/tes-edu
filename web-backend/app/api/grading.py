@@ -129,6 +129,28 @@ async def review(
 TeacherDep = Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL))
 
 
+async def _grading_write_user(
+    user: dict = Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    _perm: dict = Depends(require_perm("grading:submit", "grading:review")),
+) -> dict:
+    """批改写操作：角色白名单 **且** 持有 grading 按钮码。
+
+    2026-11-14 补漏：``grading:submit`` / ``grading:review`` 此前只挂在旧模块5
+    的 ``POST /submit`` 与 ``PUT /{id}``，真正改成绩的工单判定/改判/解冻全走
+    ``TeacherDep`` 的粗粒度角色白名单。于是在「角色授权」页撤掉某角色的批改
+    按钮码，它照样能改分 —— 按钮授权形同虚设。这里叠加 require_perm，
+    让授权矩阵对**全部**批改写入口生效；读接口（待办/指标/护栏/流水）
+    仍只要求角色，无码角色可查看但点不动。
+
+    两个条件都要留：角色白名单挡住未来误授码给 parent/student 的情况，
+    按钮码则让 DB 授权可即时撤销（清 perm 缓存即生效）。
+    """
+    return user
+
+
+GradingWriteDep = Depends(_grading_write_user)
+
+
 # 待认领优先，同状态内新的在前 —— 教师打开页面先看到「没人动过」的
 _TODO_ORDER = case(
     (ExamGradingTicket.status == "pending", 0),
@@ -380,7 +402,7 @@ async def get_ticket(
 async def claim_ticket(
     ticket_id: int,
     body: Optional[GradingClaimRequest] = None,
-    user=TeacherDep,
+    user=GradingWriteDep,
     db: AsyncSession = Depends(get_db),
 ):
     """认领工单（可选流程）。已被他人认领时**不抢占**，返回 409 让对方先放手。"""
@@ -489,7 +511,7 @@ def _verdict_flags(verdict: str) -> tuple:
 async def judge_ticket(
     ticket_id: int,
     body: GradingJudgeRequest,
-    user=TeacherDep,
+    user=GradingWriteDep,
     db: AsyncSession = Depends(get_db),
 ):
     """教师判定（已判定过的再次提交 = 改判，同样留痕）。
@@ -669,7 +691,7 @@ async def list_freezes(
 @router.post("/freezes/{freeze_id}/ack", response_model=GradingFreezeOut)
 async def ack_freeze(
     freeze_id: int,
-    user=TeacherDep,
+    user=GradingWriteDep,
     db: AsyncSession = Depends(get_db),
 ):
     """标记告警已读（幂等）。只是「我知道了」，**不解除冻结**——
@@ -689,7 +711,7 @@ async def ack_freeze(
 async def release_freeze(
     freeze_id: int,
     body: GradingFreezeReleaseRequest,
-    user=TeacherDep,
+    user=GradingWriteDep,
     db: AsyncSession = Depends(get_db),
 ):
     """解冻（复核完成）：恢复自动判分，改判计数清零。
