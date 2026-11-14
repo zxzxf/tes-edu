@@ -28,7 +28,7 @@
       <span class="ce-go">进入工作台 <span aria-hidden="true">→</span></span>
     </router-link>
 
-    <!-- 功能模块：8 张卡片，4 列 × 2 行整齐排布 -->
+    <!-- 功能模块：按授权渲染（最多 8 张），4 列排布；无授权的入口不出现，避免点了被守卫弹回 -->
     <h2 class="sec-title">快速入口</h2>
     <div class="tes-grid cols-4 modules">
       <router-link
@@ -72,13 +72,18 @@ const statList = reactive([
 ])
 
 // 采集工作台是 M5 主链路，独立主推入口（无采集授权则不显示，避免点了被守卫弹回）。
-// 与快速入口网格分开，网格固定 8 张卡片，4×2 排版不因主推项变成 9 张而露出单卡空行。
+// 与快速入口网格分开，主推项不占卡片位，4 列排布不会因多一张卡露出单卡空行。
 const crawlEntry = computed(() =>
   auth.hasRouteAccess('/course-intake/workbench')
     ? { to: '/course-intake/workbench' }
     : null
 )
-const modules = [
+
+// 快捷入口与侧栏同源：按 /menu/my 授权过滤。此前 8 张卡片是硬编码的，
+// 菜单里已经撤掉的页面（如 region_admin 的「教师批改」、parent 的多数入口）
+// 仍会显示在首页，点了被路由守卫弹回概览且没有任何提示。
+// hasRouteAccess 在授权未就绪时返回 true，首屏不会闪空白；菜单拉回来后 computed 自动重算。
+const ALL_MODULES = [
   { to: '/knowledge', label: '教研内容管理', icon: '📚', grad: 'linear-gradient(135deg,#ff7a45,#ff3d81)' },
   { to: '/analytics', label: '学情看板', icon: '📈', grad: 'linear-gradient(135deg,#1fb6ff,#7c4dff)' },
   { to: '/wrong-questions', label: '错题本', icon: '📕', grad: 'linear-gradient(135deg,#ff5e62,#ff8e53)' },
@@ -88,6 +93,7 @@ const modules = [
   { to: '/compliance', label: '合规审核', icon: '🛡️', grad: 'linear-gradient(135deg,#5b6cff,#1fb6ff)' },
   { to: '/practice', label: '在线练习', icon: '🎯', grad: 'linear-gradient(135deg,#ff3d81,#7c4dff)' },
 ]
+const modules = computed(() => ALL_MODULES.filter((m) => auth.hasRouteAccess(m.to)))
 
 onMounted(async () => {
   // 三个统计接口分属不同权限域：school 角色对三者均无权限、region_admin 对
