@@ -241,19 +241,21 @@ onMounted(loadAll)
 </script>
 
 <style scoped>
-.cw-table-wrap { overflow-x: auto; margin-top: 4px; }
-:deep(.tes-table) { table-layout: fixed; }
+.cw-table-wrap { overflow-x: auto; margin-top: 4px; -webkit-overflow-scrolling: touch; }
+/* 自动布局 + 单列最小宽度 + 单元格单行(nowrap)，内容超宽时整体横向滚动，保证数据完整不截断 */
+:deep(.tes-table) { table-layout: auto; min-width: 1272px; }
 :deep(.tes-table thead th) { white-space: nowrap; }
-:deep(.tes-table col.c-task) { width: 16%; }
-:deep(.tes-table col.c-kind) { width: 84px; }
-:deep(.tes-table col.c-src) { width: 13%; }
-:deep(.tes-table col.c-path) { width: 60px; }
-:deep(.tes-table col.c-status) { width: 84px; }
-:deep(.tes-table col.c-budget) { width: 68px; }
+:deep(.tes-table tbody td) { white-space: nowrap; }
+:deep(.tes-table col.c-task) { width: 180px; }
+:deep(.tes-table col.c-kind) { width: 96px; }
+:deep(.tes-table col.c-src) { width: 220px; }
+:deep(.tes-table col.c-path) { width: 72px; }
+:deep(.tes-table col.c-status) { width: 96px; }
+:deep(.tes-table col.c-budget) { width: 84px; }
 :deep(.tes-table col.c-query) { width: 200px; }
-:deep(.tes-table col.c-paper) { width: 92px; }
-:deep(.tes-table col.c-ops) { width: 300px; }
-.cw-query { width: 200px; max-width: 200px; color: #6b7280; font-size: 12px; overflow-wrap: anywhere; word-break: normal; }
+:deep(.tes-table col.c-paper) { width: 104px; }
+:deep(.tes-table col.c-ops) { width: 220px; }
+.cw-query { white-space: normal; max-width: 240px; color: #6b7280; font-size: 12px; overflow-wrap: anywhere; word-break: normal; }
 .cw-ops { white-space: normal; }
 .cw-ops .ghost { margin: 2px 4px 2px 0; }
 .warn-text { color: #dc2626; display: block; }
