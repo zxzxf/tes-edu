@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import tenant_key
 from app.models.course_kb import CourseQuestion
 from app.models.ops import (
     StudentEvent,
@@ -184,12 +185,16 @@ async def record_wrong_question(db: AsyncSession, event: dict) -> bool:
     row = extract_wrong_question(event)
     if row is None:
         return False
+    # 迁移 0023：Kafka 判分事件同样要落租户；事件缺 tenant_id 时归一到兜底租户，
+    # 与交卷链路 / App 同步共用 security.tenant_key，不另写一套兜底。
+    tenant = tenant_key(event.get("tenant_id"))
     now = datetime.now(timezone.utc)
 
     existing = await _find_wrong(db, row["student_id"], row["content_hash"], row["wrong_step_no"])
     if existing is not None:
         # 重复消费：刷新时间与归因（后续判分可能更完整，如 llm 补判），不插新行
         existing.created_at = now
+        existing.tenant_id = existing.tenant_id or tenant
         if row["error_type"]:
             existing.error_type = row["error_type"]
         if row["evidence"]:
@@ -224,6 +229,7 @@ async def record_wrong_question(db: AsyncSession, event: dict) -> bool:
             question_type=row.get("question_type"),
             options=row.get("options") or None,
             created_at=now,
+            tenant_id=tenant,
         )
     )
     await db.commit()

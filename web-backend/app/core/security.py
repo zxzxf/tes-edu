@@ -86,6 +86,18 @@ def write_tenant_id(user: dict) -> str:
     return user.get("tenant_id") or FALLBACK_TENANT
 
 
+def tenant_key(tenant_id: Optional[str]) -> str:
+    """租户标识归一：**全项目唯一入口**（缓存键、写侧落库、后台过滤都走它）。
+
+    - ``None`` / 空串 / 网关注入缺失 → 兜底租户；
+    - ``platform`` 是 JWT 里的平台占位值，业务表没有任何数据行，
+      直接拿它做 key 或 where 会静默查空（2026-11-14 线上实测）；
+    - 其余真实租户原样返回，绝不把不同学校折叠到一起。
+    """
+    tid = (tenant_id or "").strip()
+    return FALLBACK_TENANT if (not tid or tid == PLATFORM_TENANT) else tid
+
+
 def business_tenant_id(user: dict) -> str:
     """业务表租户过滤值：把平台占位 ``platform`` 归一到兜底租户，**绝不返回 None**。
 
@@ -104,6 +116,8 @@ def business_tenant_id(user: dict) -> str:
 
     grading 域同时有详情 404 校验与改判/解冻写操作，用本函数保持
     「跨租户不可见」红线，不让平台级角色意外改写别校数据。
+
+    归一逻辑统一委托 ``tenant_key``：缓存键与业务表过滤必须用同一结果，
+    否则交卷写侧与结果读侧又会算出两套 key（2026-11-14 收口）。
     """
-    tid = (user.get("tenant_id") or "").strip()
-    return FALLBACK_TENANT if not tid or tid == PLATFORM_TENANT else tid
+    return tenant_key(user.get("tenant_id"))

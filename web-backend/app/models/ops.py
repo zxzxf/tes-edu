@@ -112,6 +112,10 @@ class WrongQuestion(Base):
     # 选项（选择题用）：标准化为 [{"label":..,"content":..}] 的 JSON 字符串，
     # 与 exam_paper_questions.options 同源；手工录入错题无选项则为空。
     options = Column(Text)
+    # 租户归属（迁移 0023）：后台错题列表按登录态租户过滤，跨租户不可查。
+    # 学生端 /learning/ 同步仍只按 student_id 隔离（App 的 JWT 租户可能为空），
+    # 但**所有写入口都必须带上本列**，否则新数据会被后台过滤漏掉。
+    tenant_id = Column(String(64), index=True)
 
 
 class DrillCard(Base):

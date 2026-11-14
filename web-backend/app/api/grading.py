@@ -588,17 +588,22 @@ async def judge_ticket(
             actor_id=user["user_id"],
             paper_id=t.paper_id,
         )
-        await wrongbook.sync_exam_wrong_question(db, t.student_id, item, q)
+        await wrongbook.sync_exam_wrong_question(
+            db, t.student_id, item, q, tenant_id=t.tenant_id or _tenant(user)
+        )
 
     await _recalc_submission(db, t.submission_id)
     await db.commit()
     # 人工改判会改逐题结论与汇总；accept_answer 还会改标答（题面 blank_count
     # 也可能变）。这两个缓存不清，学生端结果页会继续读到改判前的旧分数。
     from app.core import cache
+    # 与交卷/结果读侧共用同一套 key 生成函数（含租户归一），别在这里手拼字符串：
+    # 2026-11-14 前这里用 t.tenant_id 原值，平台占位/空租户时会失效到另一个 key。
+    from app.api.exam import _q_cache_key, _r_cache_prefix
 
     tenant = t.tenant_id or _tenant(user)
-    await cache.delete(f"exam:v1:q:{tenant}:{t.paper_id}")
-    await cache.delete_prefix(f"exam:v1:r:{tenant}:{t.paper_id}:")
+    await cache.delete(_q_cache_key(tenant, t.paper_id))
+    await cache.delete_prefix(_r_cache_prefix(tenant, t.paper_id))
     return await _ticket_detail(db, t.id)
 
 

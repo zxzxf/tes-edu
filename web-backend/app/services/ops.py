@@ -46,12 +46,23 @@ async def create_knowledge(db: AsyncSession, payload: dict) -> KnowledgePoint:
 
 # ---------------- 错题本 ----------------
 async def list_wrong(
-    db: AsyncSession, student_id: str, limit: int = 100
+    db: AsyncSession,
+    student_id: str,
+    limit: int = 100,
+    tenant_id: Optional[str] = None,
 ) -> List[WrongQuestion]:
+    """后台错题列表（迁移 0023 起带租户隔离）。
+
+    ``tenant_id=None`` 表示平台级跨租户只读（read_tenant_id 对 admin /
+    region_admin 返回 None）——**必须不加 where**，写成 ``col == None``
+    会被 SQLAlchemy 编译成 IS NULL，静默查空。其余角色只返回本租户的行。
+    """
     stmt = select(WrongQuestion).where(
         WrongQuestion.student_id == student_id,
         WrongQuestion.deleted_at.is_(None),
     )
+    if tenant_id is not None:
+        stmt = stmt.where(WrongQuestion.tenant_id == tenant_id)
     res = await db.execute(stmt.limit(limit))
     return list(res.scalars().all())
 
@@ -135,6 +146,7 @@ async def enrich_wrong(db: AsyncSession, rows: Sequence[WrongQuestion]) -> List[
         item = {
             "id": w.id,
             "student_id": w.student_id,
+            "tenant_id": w.tenant_id,
             "question": w.question,
             "wrong_answer": w.wrong_answer or "",
             "correct_answer": w.correct_answer or "",

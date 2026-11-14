@@ -70,6 +70,9 @@ class WrongQuestion(BaseModel):
     wrong_answer: Optional[str] = None
     correct_answer: Optional[str] = None
     knowledge_point: Optional[str] = None
+    # 租户归属（迁移 0023）：列表响应带出便于辨识；POST 时客户端即便传了
+    # tenant_id，也会被登录态覆盖，不允许借录入接口把数据写到别校。
+    tenant_id: Optional[str] = None
     # 题型（choice/blank/subjective）：错题本按题型筛选
     question_type: Optional[str] = None
     # 选项（选择题用）：[{label, content}]，与 App 端 ExamOption 对齐；无选项则为空

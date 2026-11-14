@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.rbac import Role
-from app.core.security import require_role
+from app.core.security import business_tenant_id, read_tenant_id, require_role
 from app.models.schemas import WrongQuestion, WrongQuestionOut
 from app.services import ops
 
@@ -31,7 +31,11 @@ async def list_wrong(
     user=Depends(require_role(Role.ADMIN, Role.TEACHER, Role.PARENT, Role.REGION_ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = await ops.list_wrong(db, student_id, limit=limit)
+    # 迁移 0023：列表按登录态租户隔离。平台级角色（admin / region_admin）
+    # 拿到 None = 跨租户只读，与 compliance、analytics 的口径一致；其余角色
+    # 锁本校，传任意 student_id 也翻不到别校的错题。
+    tenant_id = read_tenant_id(user)
+    rows = await ops.list_wrong(db, student_id, limit=limit, tenant_id=tenant_id)
     return await ops.enrich_wrong(db, rows)
 
 
@@ -41,4 +45,8 @@ async def add_wrong(
     user=Depends(require_role(Role.ADMIN, Role.TEACHER)),
     db: AsyncSession = Depends(get_db),
 ):
-    return await ops.create_wrong(db, w.model_dump(exclude={"id"}))
+    payload = w.model_dump(exclude={"id"})
+    # 租户以登录态为唯一权威：请求体里带 tenant_id 也不能写到别校；
+    # business_tenant_id 顺带把 platform 占位归一到真实兜底租户。
+    payload["tenant_id"] = business_tenant_id(user)
+    return await ops.create_wrong(db, payload)

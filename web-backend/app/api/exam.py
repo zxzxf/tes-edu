@@ -66,7 +66,12 @@ from app.core.grading_metrics import (
     SOURCE_UNKNOWN as M_SOURCE_UNKNOWN,
 )
 from app.core.rbac import Role
-from app.core.security import business_tenant_id, read_tenant_id, require_role
+from app.core.security import (
+    business_tenant_id,
+    read_tenant_id,
+    require_role,
+    tenant_key,
+)
 from app.models.course_kb import CourseQuestion
 from app.models.ops import (
     ExamAssignment,
@@ -109,6 +114,18 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/exam", tags=["exam"])
 student_router = APIRouter(prefix="/exams", tags=["student-exam"])
 
+#: 管理端（教师 / 超管 / 学校 / 区域管理员）统一角色闸门。
+#: 2026-11-14：region_admin 的授权矩阵里一直有「自动组卷」(m_ops_exam)、
+#: 「试卷下发」(m_ops_exam_dispatch) 两个菜单，还显式持有生成组卷按钮码
+#: m_ops_exam_gen；但 14 个管理端点的白名单只有 TEACHER/ADMIN/SCHOOL，
+#: 菜单点进去一律 403。按错题本 / analytics / compliance 的 A 方案放行
+#: region_admin（不撤菜单），避免"看得见用不了"。
+#: 所有端点仍走 _paper_or_404 / business_tenant_id 严格单租户校验——
+#: platform 占位归一到兜底租户，放行 region_admin 不等于跨租户读写。
+ExamManageDep = require_role(
+    Role.TEACHER, Role.ADMIN, Role.SCHOOL, Role.REGION_ADMIN
+)
+
 
 class QuestionReviewRequest(BaseModel):
     status: Literal["draft", "published", "quarantine"]
@@ -129,7 +146,7 @@ def _review_out(q: CourseQuestion) -> dict:
 async def list_review_questions(
     status: Optional[Literal["draft", "published", "quarantine"]] = None,
     limit: int = 50,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     # 题目审核列表：平台级角色跨租户只读（tenant 占位 platform 在库里没有题），
@@ -148,7 +165,7 @@ async def list_review_questions(
 async def review_question(
     question_id: int,
     body: QuestionReviewRequest,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     q = (await db.execute(select(CourseQuestion).where(
@@ -229,7 +246,7 @@ def _answer_acceptable(cq: CourseQuestion) -> bool:
 @router.post("/papers", response_model=ExamPaperOut, status_code=201)
 async def compose_paper(
     body: ExamPaperCreate,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     """M4-2 规则组卷：从 course_kb 按配额抽题成卷（答案随卷快照）。
@@ -300,7 +317,7 @@ class LlmPaperCreate(BaseModel):
 @router.post("/papers/llm-generate", status_code=201)
 async def llm_generate_paper(
     body: LlmPaperCreate,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     """M4-3：按主题调租户模型出草稿题（连同草稿卷），**一律不发布**。
@@ -360,7 +377,7 @@ async def llm_generate_paper(
 @router.post("/papers/manual", response_model=ExamPaperOut, status_code=201)
 async def create_manual_paper(
     body: ManualPaperCreate,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     """M4-1 手动出卷：教师按筛选结果选题 + 配分，保存为草稿卷。
@@ -473,7 +490,7 @@ async def create_manual_paper(
 async def copy_paper(
     paper_id: int,
     title: Optional[str] = None,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     """M4-5 复制/另存：新 id，引用同 question_id/content_hash，快照独立。
@@ -581,7 +598,7 @@ def _values_of(q: ExamPaperQuestion) -> list:
 
 @router.get("/papers", response_model=list[ExamPaperOut])
 async def list_papers(
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = business_tenant_id(user)
@@ -598,7 +615,7 @@ async def list_papers(
 @router.get("/papers/{paper_id}", response_model=ExamPaperOut)
 async def get_paper(
     paper_id: int,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     p = await _paper_or_404(db, paper_id, user)
@@ -711,7 +728,7 @@ async def _paper_or_404(db: AsyncSession, paper_id: int, user: Optional[dict] = 
 @router.get("/papers/{paper_id}/answer-checks", response_model=AnswerCheckListOut)
 async def get_answer_checks(
     paper_id: int,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     """答案校验结果（M2-9 / G1）。
@@ -729,7 +746,7 @@ async def get_answer_checks(
 async def run_answer_checks(
     paper_id: int,
     llm: bool = False,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     """重跑校验。``llm=true`` 时额外让租户模型独立求解一遍，**只作建议**。
@@ -747,7 +764,7 @@ async def run_answer_checks(
 async def confirm_answer_checks(
     paper_id: int,
     body: AnswerCheckConfirmRequest,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     """教师确认（可顺手修正答案）。
@@ -781,7 +798,7 @@ async def confirm_answer_checks(
 @router.get("/papers/{paper_id}/validation", response_model=PaperValidationOut)
 async def validate_paper_for_publish(
     paper_id: int,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     """发布前校验（dry-run：**不改试卷**；答案校验记录会顺手刷新落库）。
@@ -830,7 +847,7 @@ async def validate_paper_for_publish(
 @router.post("/papers/{paper_id}/publish", response_model=ExamPaperOut)
 async def publish_paper(
     paper_id: int,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     """发布。先跑卷型/题型/答案校验，不通过一律 409 拒绝（不发布半成品）。"""
@@ -950,7 +967,7 @@ async def publish_paper(
 async def assign_paper(
     paper_id: int,
     body: AssignmentCreate,
-    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    user: dict = Depends(ExamManageDep),
     db: AsyncSession = Depends(get_db),
 ):
     p = await _paper_or_404(db, paper_id, user)
@@ -1008,12 +1025,25 @@ async def _assignment_out(db: AsyncSession, a: ExamAssignment) -> AssignmentOut:
 # ---- 读缓存（Redis 可选）--------------------------------------------------
 # key 一律带 tenant_id：Redis 是网关/agent/web 共用的，试卷与成绩属于学校资产，
 # 少了这一维就是跨校串数据。缓存 miss / Redis 挂了都照常查 106 的 PG。
+#
+# 2026-11-14 收口：同一份结果曾经有三套 key —— 交卷写侧用
+# ``user.tenant_id or a.tenant_id or "school_pilot_01"``，结果读侧用
+# ``business_tenant_id(user)``，发布/改判失效侧用 ``p.tenant_id or ""``。
+# 学生 JWT 的租户是 ``platform`` 占位或网关注入为空时，三者会算出不同 key：
+# 交卷回填的缓存永远读不到、发布也失效不掉。这里在**所有 key 的生成入口**
+# 统一归一（含 grading.py 改判改走 _q_cache_key / _r_cache_prefix），
+# 调用方无论传卷租户、JWT 租户还是空串，都落到同一个键。
+def _cache_tenant(tenant_id: Optional[str]) -> str:
+    """缓存键租户归一：委托 security.tenant_key，与业务表过滤同一口径。"""
+    return tenant_key(tenant_id)
+
+
 def _q_cache_key(tenant_id: str, paper_id: int) -> str:
-    return f"exam:v1:q:{tenant_id}:{paper_id}"
+    return f"exam:v1:q:{_cache_tenant(tenant_id)}:{paper_id}"
 
 
 def _r_cache_prefix(tenant_id: str, paper_id: int) -> str:
-    return f"exam:v1:r:{tenant_id}:{paper_id}:"
+    return f"exam:v1:r:{_cache_tenant(tenant_id)}:{paper_id}:"
 
 
 def _r_cache_key(tenant_id: str, paper_id: int, submission_id: int) -> str:
@@ -1282,6 +1312,11 @@ async def submit_exam(
     """提交并确定性判分（0 token）。每学生每卷一次提交，重复提交返回既有结果。"""
     student_id = user["user_id"]
     a = await _assignment_for_student(db, assignment_id, user)
+    # 全链路唯一租户口径：提交落库、冻结校验、工单、背诵卡、结果缓存一律用它，
+    # 与结果读侧 _tenant_of(user)、缓存失效 _cache_tenant 对齐。旧代码在这里散落
+    # 四处 `user.get("tenant_id") or a.tenant_id`，学生 JWT 租户为空/platform 时
+    # 会算出与读侧不同的 key。
+    tenant = _tenant_of(user)
 
     # 幂等：已提交则直接返回历史结果
     existing = (
@@ -1307,9 +1342,7 @@ async def submit_exam(
     # M2-10 判分护栏：这道题的标答若已因反复改判被冻结，**所有题一律转人工**，
     # 不再自动判。一次批量查询覆盖整卷，不在循环里逐题查库。
     # 租户口径与开单一致（工单 tenant_id 用同一个表达式），否则冻结记录查不到。
-    frozen = await guard.frozen_reasons(
-        db, user.get("tenant_id") or a.tenant_id or "", qs
-    )
+    frozen = await guard.frozen_reasons(db, tenant, qs)
 
     items = []
     correct_count = 0
@@ -1329,7 +1362,7 @@ async def submit_exam(
         assignment_id=assignment_id,
         paper_id=a.paper_id,
         student_id=student_id,
-        tenant_id=user.get("tenant_id"),
+        tenant_id=tenant,
         client_id=body.client_id,
         status="manual_pending" if manual else "graded",
         score=correct_count,
@@ -1363,7 +1396,7 @@ async def submit_exam(
             continue
         db.add(
             ExamGradingTicket(
-                tenant_id=user.get("tenant_id") or a.tenant_id,
+                tenant_id=tenant,
                 submission_id=sub.id,
                 submission_item_id=obj.id,
                 assignment_id=assignment_id,
@@ -1385,7 +1418,9 @@ async def submit_exam(
         for _, obj in item_objs
         if obj.correct is False
     ]
-    await wrongbook.sync_exam_wrong_questions(db, student_id, wrong_pairs)
+    await wrongbook.sync_exam_wrong_questions(
+        db, student_id, wrong_pairs, tenant_id=tenant
+    )
 
     # M3-6：判错 -> 知识点 -> 背诵卡。按 kp 建/推卡（同 kp 只一张），
     # 失败不影响提交主链路（错题本已经落库，卡可以下次进错题页补）。
@@ -1406,7 +1441,7 @@ async def submit_exam(
             await drill_link.on_wrong_exam_items(
                 db,
                 student_id=student_id,
-                tenant_id=user.get("tenant_id") or a.tenant_id,
+                tenant_id=tenant,
                 wrong_rows=wrong_rows,
             )
         except Exception as exc:  # noqa: BLE001 卡片失败不阻断交卷
@@ -1414,9 +1449,9 @@ async def submit_exam(
 
     await db.commit()
     await db.refresh(sub)
-    # 结果首次产生：直接回填缓存，交卷后立刻进结果页不必再跑一遍 5–8 条跨云 SQL
-    tenant = user.get("tenant_id") or a.tenant_id or "school_pilot_01"
-    key = _r_cache_key(tenant, a.paper_id, sub.id)
+    # 结果首次产生：直接回填缓存，交卷后立刻进结果页不必再跑一遍 5–8 条跨云 SQL。
+    # key 的 tenant / paper_id 与 get_result、bundle 读侧逐字一致。
+    key = _r_cache_key(tenant, sub.paper_id or a.paper_id, sub.id)
     await cache.delete(key)
     result = await _result_out(db, sub)
     await cache.set_json(key, result.model_dump(), settings.exam_result_cache_ttl)
@@ -1548,7 +1583,7 @@ async def get_result(
 ):
     """取回判分结果（已提交才有）。"""
     # 先校验下发对本租户/本人可见：否则拿到别人学校的 assignment_id 就能翻成绩
-    await _assignment_for_student(db, assignment_id, user)
+    a = await _assignment_for_student(db, assignment_id, user)
     sub = (
         await db.execute(
             select(ExamSubmission).where(
@@ -1560,7 +1595,7 @@ async def get_result(
     if not sub:
         raise HTTPException(status_code=404, detail="not submitted yet")
     return await _result_cached(
-        db, sub, _tenant_of(user), sub.paper_id or 0
+        db, sub, _tenant_of(user), sub.paper_id or a.paper_id
     )
 
 

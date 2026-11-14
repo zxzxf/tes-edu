@@ -15,6 +15,7 @@ from typing import List, Optional, Sequence, Tuple
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import tenant_key
 from app.models.ops import ExamPaperQuestion, ExamSubmissionItem, StudentMastery, WrongQuestion
 
 SYNC_LIMIT = 200
@@ -91,11 +92,14 @@ async def _apply_exam_wrong(
     question: ExamPaperQuestion,
     row: Optional[WrongQuestion],
     now: datetime,
+    tenant_id: Optional[str] = None,
 ) -> None:
     """Apply one exam submission item to its wrongbook row (in caller's transaction).
 
     与单题版 `sync_exam_wrong_question` 完全同义，只是 `row` 由调用方预先查出、
     `now` 由调用方统一传入，从而支持批量场景下一次取所有行、内存里逐个应用。
+    ``tenant_id`` 由调用方传交卷链路的统一租户（迁移 0023），存量 NULL 行
+    也会顺手补上；不覆盖已有的真实租户。
     """
     if item.correct is None:
         return
@@ -103,8 +107,14 @@ async def _apply_exam_wrong(
     if row is None and item.correct:
         return
     if row is None:
-        row = WrongQuestion(student_id=student_id, client_id=client_id, source="exam")
+        row = WrongQuestion(
+            student_id=student_id,
+            client_id=client_id,
+            source="exam",
+            tenant_id=tenant_key(tenant_id),
+        )
         db.add(row)
+    row.tenant_id = row.tenant_id or tenant_key(tenant_id)
     if item.correct:
         row.deleted_at = now
         row.updated_at = now
@@ -132,6 +142,7 @@ async def sync_exam_wrong_question(
     student_id: str,
     item: ExamSubmissionItem,
     question: ExamPaperQuestion,
+    tenant_id: Optional[str] = None,
 ) -> None:
     """Keep one server-owned wrongbook row per exam item in the caller's transaction."""
     if item.correct is None:
@@ -143,13 +154,16 @@ async def sync_exam_wrong_question(
             WrongQuestion.client_id == client_id,
         ))
     ).scalars().first()
-    await _apply_exam_wrong(db, student_id, item, question, row, _utcnow())
+    await _apply_exam_wrong(
+        db, student_id, item, question, row, _utcnow(), tenant_id=tenant_id
+    )
 
 
 async def sync_exam_wrong_questions(
     db: AsyncSession,
     student_id: str,
     pairs: Sequence[Tuple[ExamSubmissionItem, ExamPaperQuestion]],
+    tenant_id: Optional[str] = None,
 ) -> None:
     """批量版：一次性 `IN` 查询取出所有既有行，内存里逐个应用。
 
@@ -172,7 +186,8 @@ async def sync_exam_wrong_questions(
     now = _utcnow()
     for item, question in pairs:
         await _apply_exam_wrong(
-            db, student_id, item, question, by_cid.get(f"exam:{item.id}"), now
+            db, student_id, item, question, by_cid.get(f"exam:{item.id}"),
+            now, tenant_id=tenant_id,
         )
 
 
@@ -185,7 +200,13 @@ async def list_sync(
     paper_id: Optional[int] = None,
     limit: int = SYNC_LIMIT,
 ) -> List[dict]:
-    """增量拉取：未删记录 + since 之后的 tombstone（让客户端能跟着删）。"""
+    """增量拉取：未删记录 + since 之后的 tombstone（让客户端能跟着删）。
+
+    这里**刻意不按 tenant_id 过滤**：学生是流水账号，App 的 JWT 租户可能
+    为空或 platform 占位，加过滤会让手机端增量同步突然拉不到自己的错题。
+    学生端隔离靠 student_id（学生角色被强制用自己的 user_id）；跨租户
+    防护放在后台列表 ops.list_wrong，那边才有任意指定 student_id 的风险。
+    """
     since = _from_ms(since_ms)
     limit = max(1, min(int(limit or SYNC_LIMIT), 500))
 
@@ -284,6 +305,7 @@ async def upsert_sync(
                 source=(it.get("source") or "app"),
                 created_at=_from_ms(incoming_ms) or now,
                 updated_at=now,
+                tenant_id=tenant_key(tenant_id),
             )
             db.add(row)
             continue
@@ -294,6 +316,10 @@ async def upsert_sync(
                 row.deleted_at = now
                 row.updated_at = now
             continue
+
+        # 迁移 0023：App 同步上来的行同样要落租户，供后台列表隔离使用；
+        # 已有真实租户的行不覆盖，只补历史 NULL。
+        row.tenant_id = row.tenant_id or tenant_key(tenant_id)
 
         existing_ms = _ms(row.updated_at) or _ms(row.created_at) or 0
         if incoming_ms and existing_ms and incoming_ms < existing_ms:
