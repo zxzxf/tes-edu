@@ -239,3 +239,44 @@ def test_weekly_report_masks_phone_in_free_text(client):
     assert "13812345678" not in body, "原始手机号不应出现在周报中"
     assert "138****5678" in body, "手机号应按前3后4脱敏"
     assert r.json()["student_id"] == "student_sec", "结构字段 student_id 不脱敏"
+
+
+# ---------------- 用户管理写操作：角色白名单纵深防御（2026-11-14） ----------------
+def test_user_write_role_guard_denies_teacher_even_with_button_code():
+    """线上 sys_role_menu 残留让 teacher 持有 system:user:* 四个按钮码，
+    而 require_perm 只查权限码、不校验角色 —— 写接口必须再叠加角色白名单。
+    """
+    from fastapi import HTTPException
+
+    from app.api import rbac_api
+
+    guard = rbac_api.UserWriteRoleDep.dependency
+    for role in ("teacher", "region_admin", "parent", "student"):
+        with pytest.raises(HTTPException) as exc:
+            guard(user={"user_id": "u", "role": role})
+        assert exc.value.status_code == 403
+    for role in ("admin", "school"):
+        u = {"user_id": "u", "role": role}
+        assert guard(user=u) == u
+
+
+def test_all_user_write_routes_carry_role_guard():
+    """四个写接口一个都不能漏挂；漏一个就等于把越权口子留着。"""
+    from app.api import rbac_api
+
+    guard = rbac_api.UserWriteRoleDep.dependency
+    expected = {
+        ("POST", "/user"),
+        ("PUT", "/user/{user_id}"),
+        ("DELETE", "/user/{user_id}"),
+        ("POST", "/user/{user_id}/reset-password"),
+    }
+    found = set()
+    for route in rbac_api.router.routes:
+        for method in getattr(route, "methods", None) or ():
+            key = (method, route.path)
+            if key in expected:
+                calls = [getattr(d, "call", None) for d in route.dependant.dependencies]
+                assert guard in calls, f"{key} 未叠加角色白名单"
+                found.add(key)
+    assert found == expected, found

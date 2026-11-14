@@ -38,6 +38,14 @@ router = APIRouter(tags=["rbac"])
 # 仅对列表隐藏，按 user_id 的更新/重置接口不受影响；如需按名查询也一并排除。
 HIDDEN_LIST_USERNAMES = {"admin@tes.edu"}
 
+# 用户管理写操作双闸门：各接口自己的按钮码 require_perm **且** 角色白名单。
+# 2026-11-14：线上 sys_role_menu 里 role_teacher 残留了 system:user:* 四个按钮码，
+# 而 require_perm 只查权限码、不校验角色，写接口也没有租户过滤 —— 教师实际能
+# 新建用户、重置包括超管在内任意账号的密码。叠加角色白名单做纵深防御，
+# 即使授权表以后再次残留也打不通写接口。
+# 与 GET /user 的白名单 ADMIN/SCHOOL 一致（学校管理员按设计可管本校用户）。
+UserWriteRoleDep = Depends(require_role(Role.ADMIN, Role.SCHOOL))
+
 
 # ---------------- 请求/响应模型 ----------------
 class TenantIn(BaseModel):
@@ -605,6 +613,7 @@ async def create_user(
     body: UserIn,
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_perm("system:user:add")),
+    _role: dict = UserWriteRoleDep,
 ):
     username = (body.username or "").strip()
     if not username or not body.password:
@@ -637,6 +646,7 @@ async def update_user(
     body: UserUpdateIn,
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_perm("system:user:edit")),
+    _role: dict = UserWriteRoleDep,
 ):
     u = (await db.execute(
         select(m.SysUser).where(m.SysUser.user_id == user_id)
@@ -673,6 +683,7 @@ async def delete_user(
     user_id: str,
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_perm("system:user:delete")),
+    _role: dict = UserWriteRoleDep,
 ):
     # 守卫：禁止删除当前登录账号，避免管理员把自己锁死（失去系统设置入口）
     if user_id == user["user_id"]:
@@ -697,6 +708,7 @@ async def reset_password(
     body: Optional[ResetPasswordIn] = None,
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_perm("system:user:resetpwd")),
+    _role: dict = UserWriteRoleDep,
 ):
     """密码重置：未传 password 则随机生成 12 位，返回明文供管理员告知用户。
 
