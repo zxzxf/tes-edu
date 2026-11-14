@@ -90,18 +90,18 @@ const modules = [
 ]
 
 onMounted(async () => {
-  try {
-    const [k, w, c] = await Promise.all([
-      listKnowledge(),
-      listWrongQuestions('student_001'),
-      listCompliance('pending'),
-    ])
-    statList[0].num = k.length
-    statList[1].num = w.length
-    statList[2].num = c.length
-  } catch (e) {
-    // 演示环境下忽略统计失败
-  }
+  // 三个统计接口分属不同权限域：school 角色对三者均无权限、region_admin 对
+  // 错题接口无权限。用 allSettled 让各卡独立结算，避免任一 403 拖垮全部统计卡
+  // （此前整批 reject 导致三卡全 0 且无任何提示）。
+  const [k, w, c] = await Promise.allSettled([
+    listKnowledge(),
+    listWrongQuestions('student_001'),
+    listCompliance('pending'),
+  ])
+  const pick = (r) => (r.status === 'fulfilled' ? r.value.length : '—')
+  statList[0].num = pick(k)
+  statList[1].num = pick(w)
+  statList[2].num = pick(c)
 })
 </script>
 

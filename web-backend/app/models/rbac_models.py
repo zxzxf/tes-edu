@@ -159,3 +159,32 @@ class McpServiceInstance(Base):
     isolation_mode = Column(String(16), default="logical")  # logical / physical
     status = Column(SmallInteger, default=1)
     created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+
+class SysDict(Base):
+    """数据字典（自关联树形：分类为根节点，条目为子节点）。
+
+    用于把"编码/标识"翻译成可读名称，例如用户管理列表里的角色编码
+    (role_region_admin) → 显示名（区域管理员）。前端按 dict_type 取某类字典的
+    {dict_code: dict_name} 映射，替代此前散落在各处的硬编码中文名。
+
+    - 父节点(dict_type 即分类本身，dict_code=分类码) 是"分类"；
+    - 子节点继承父节点的 dict_type，dict_code 为该类下的唯一键，dict_name 为显示名。
+    """
+
+    __tablename__ = "sys_dict"
+
+    dict_id = Column(String(64), primary_key=True)
+    parent_id = Column(String(64), index=True)  # 根(分类)节点为空
+    dict_type = Column(String(32), index=True, nullable=False)  # 分类码：role / user_status ...
+    dict_name = Column(String(128), nullable=False)  # 显示名称
+    dict_code = Column(String(64), nullable=False)  # 键（同类内唯一），如 role_region_admin / "1"
+    dict_value = Column(String(256))  # 可选附加值（默认同 dict_code）
+    sort = Column(Integer, default=0)
+    status = Column(SmallInteger, default=1)  # 1 启用 / 0 停用
+    remark = Column(Text)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("dict_type", "dict_code", name="uq_dict_type_code"),
+    )

@@ -31,6 +31,7 @@ import SystemFeature from '../views/SystemFeature.vue'
 import ModelConfig from '../views/ModelConfig.vue'
 import SystemUser from '../views/SystemUser.vue'
 import Tenant from '../views/Tenant.vue'
+import Dict from '../views/Dict.vue'
 
 // 路由访问控制（T-AM7）：不再用 meta.role 硬编码角色矩阵——授权以后端
 // sys_role_menu 聚合的 /menu/my 为唯一权威，守卫经 auth.hasRouteAccess 执行
@@ -66,7 +67,8 @@ const routes = [
       { path: 'system/feature', name: 'system-feature', component: SystemFeature, meta: { title: '功能开关' } },
       { path: 'system/model-config', name: 'system-model-config', component: ModelConfig, meta: { title: '模型配置（BYOM）' } },
       { path: 'system/user', name: 'system-user', component: SystemUser, meta: { title: '用户管理' } },
-      { path: 'tenant', name: 'tenant', component: Tenant, meta: { title: '学校管理' } }
+      { path: 'tenant', name: 'tenant', component: Tenant, meta: { title: '学校管理' } },
+      { path: 'system/dict', name: 'system-dict', component: Dict, meta: { title: '数据字典' } }
     ]
   },
   // 系统化任务采集工作台（M5）：与主站共用同一个三段式壳子 Layout，

@@ -122,13 +122,21 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [tenantRows, regionRows] = await Promise.all([listTenants(), listRegions()])
-    rows.value = tenantRows
-    regions.value = regionRows
+    // 学校列表是核心数据，优先独立加载，确保 school 角色（对 /region 无权限）
+    // 也能看到本校列表，不被辅助下拉接口拖垮。
+    rows.value = await listTenants()
   } catch (e) {
     error.value = errMsg(e, '学校加载失败')
-  } finally {
     loading.value = false
+    return
+  }
+  loading.value = false
+  // 区域下拉为辅助数据：school 无 /region 权限时单独降级，不拖垮学校列表展示。
+  try {
+    regions.value = await listRegions()
+  } catch (e) {
+    console.warn('区域下拉加载失败（不影响学校列表展示）', e)
+    regions.value = []
   }
 }
 

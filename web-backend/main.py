@@ -29,6 +29,7 @@ from app.api import (
     questions,
     reports,
     rbac_api,
+    dict_api,
     student_features,
     student_learning,
     student_profile,
@@ -208,6 +209,7 @@ app.include_router(compliance.router, prefix="/api/admin")
 app.include_router(questions.router, prefix="/api/admin")
 app.include_router(ingest.router, prefix="/api/admin")
 app.include_router(rbac_api.router, prefix="/api/admin")  # T-AM0/2/3/4/5 权限基座
+app.include_router(dict_api.router, prefix="/api/admin")  # T-DICT 数据字典（树形）
 app.include_router(vendor_api.router, prefix="/api/admin")  # T-AM6 MCP 厂商与数据服务实例
 app.include_router(byom_api.router, prefix="/api/admin")  # W6 BYOM 学校配置大模型（T-M3）
 app.include_router(student_features.student_router, prefix="/api/student")  # W3 学生端能力（项目/功能开关/防疲劳）

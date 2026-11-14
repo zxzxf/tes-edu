@@ -24,8 +24,20 @@
 
       <div class="top-right">
         <div class="role-switch">
-          <button class="role-chip" type="button" @click="toggleRoleMenu" :title="切换角色">
-            {{ roleText }} <span class="caret">▾</span>
+          <button
+            class="role-chip"
+            :class="{ pulse: canSwitch }"
+            type="button"
+            @click="toggleRoleMenu"
+            :title="canSwitch ? `点击切换角色（共 ${user?.roles?.length || 0} 个）` : '当前角色'"
+          >
+            <svg class="role-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M7 7h11l-3-3"/>
+              <path d="M17 17H6l3 3"/>
+            </svg>
+            <span class="role-name">{{ roleText }}</span>
+            <span v-if="canSwitch" class="role-count">{{ user?.roles?.length }}</span>
+            <span class="caret">▾</span>
           </button>
           <div v-if="roleMenuOpen" class="role-menu">
             <button
@@ -115,7 +127,10 @@
           <span v-if="crumbM5" class="crumb-m5">{{ crumbM5 }}</span>
         </div>
         <div class="app-content">
-          <router-view />
+          <!-- T-AM10：router-view 的 key 含当前激活角色，角色切换时强制重挂当前页，
+               使各页 onMounted 的鉴权数据拉取用新 token 重跑（否则停留在切换前的
+               旧角色 403 状态，需手动刷新才更新）。 -->
+          <router-view :key="route.path + '|' + (user?.role || '')" />
         </div>
       </main>
     </div>
@@ -133,7 +148,7 @@
  * 视觉沿用 Tes Edu 设计系统（紫渐变顶栏、橙粉品牌色、白卡片、粉白底），
  * 不引入新配色。采集子路由仍由后端 require_role/require_perm 兜底。
  */
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch, toRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { toNavGroups } from '../utils/menu'
@@ -145,15 +160,19 @@ import '../styles/crawlPages.css'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const user = auth.user
+// T-AM10：用 toRef 保持对 store.user 的响应式引用——直接 `const user = auth.user`
+// 只是首屏快照，switchRole 重写 user 后徽标/下拉不会刷新，且切回角色会被旧值挡掉。
+const user = toRef(auth, 'user')
 
 const roleText = computed(() => {
   const map = {
     admin: '管理员', region_admin: '区域管理员', school: '学校',
     teacher: '教师', parent: '家长',
   }
-  return map[user?.role] || user?.role || ''
+  return map[user.value?.role] || user.value?.role || ''
 })
+// 拥有多个角色的账号才提示可切换（单角色账号点击也无害，但无需脉冲/计数引导）
+const canSwitch = computed(() => (user.value?.roles?.length || 0) > 1)
 
 // T-AM10 多角色切换：点击角色徽标展开下拉，列出该账号全部角色，选择后切换激活角色。
 const roleMenuOpen = ref(false)
@@ -169,11 +188,16 @@ function toggleRoleMenu() {
 }
 async function chooseRole(code) {
   roleMenuOpen.value = false
-  if (!code || code === user?.role) return
-  await auth.switchRole(code)
-  // 切换后当前路由可能已不在新角色授权内（如从学校切到区域管理员时正在用户管理页），
-  // 不可达则回概览，避免停在 403 页面。
-  if (!auth.hasRouteAccess(route.path)) router.push('/dashboard')
+  if (!code || code === user.value?.role) return
+  try {
+    await auth.switchRole(code)
+    // 切换后当前路由可能已不在新角色授权内（如从学校切到区域管理员时正在用户管理页），
+    // 不可达则回概览，避免停在 403 页面。
+    if (!auth.hasRouteAccess(route.path)) router.push('/dashboard')
+  } catch (e) {
+    console.error('[role-switch] 切换失败', e)
+    alert('角色切换失败：' + (e?.response?.data?.detail || e?.message || '未知错误'))
+  }
 }
 
 const navGroups = computed(() => toNavGroups(auth.menuTree))
@@ -367,8 +391,31 @@ function onLogout() {
 }
 /* T-AM10 角色切换下拉 */
 .role-switch { position: relative; }
-.role-chip { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; border: 0; }
-.role-chip .caret { font-size: 9px; opacity: .7; }
+.role-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 13px; font-weight: 700;
+  padding: 6px 14px; border: 0; border-radius: 999px;
+  background: var(--brand-grad); color: #fff; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(255, 61, 129, .42);
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+.role-chip:hover { filter: brightness(1.06); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(255, 61, 129, .6); }
+.role-chip:active { transform: translateY(0); }
+.role-ico { opacity: .92; flex-shrink: 0; }
+.role-name { font-weight: 800; }
+.role-chip .caret { font-size: 9px; opacity: .85; margin-left: 1px; }
+.role-count {
+  font-size: 10px; font-weight: 800; line-height: 1;
+  padding: 2px 6px; border-radius: 999px;
+  background: rgba(255, 255, 255, .26); color: #fff; flex-shrink: 0;
+}
+/* 多角色时脉冲光圈，引导用户点击切换 */
+@keyframes rolePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 61, 129, .5); }
+  70%  { box-shadow: 0 0 0 9px rgba(255, 61, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 61, 129, 0); }
+}
+.role-chip.pulse { animation: rolePulse 2.2s ease-out infinite; }
 .role-backdrop { position: fixed; inset: 0; z-index: 40; }
 .role-menu {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 50;
@@ -497,7 +544,7 @@ function onLogout() {
 }
 @media (max-width: 1100px) {
   .app-side { width: 168px; padding: 14px 8px; }
-  .brand-text i, .role-chip, .side-foot .ver { display: none; }
+  .brand-text i, .side-foot .ver { display: none; }
   .side-item { padding: 9px 10px; font-size: 12.5px; }
 }
 @media (max-width: 900px) {
@@ -506,5 +553,6 @@ function onLogout() {
   .app-side { width: 150px; }
   .crumb { padding: 0 16px; }
   .app-content { padding: 18px 16px; }
+  .role-chip { display: none; }
 }
 </style>

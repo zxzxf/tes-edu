@@ -51,7 +51,9 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function switchRole(roleCode) {
     // 切换接口挂在 /api/admin 下（网关 rbac 模式），复用带鉴权的 client 实例。
-    const res = await client.post('/role/switch', { role: roleCode }).then((r) => r.data)
+    // 注意：client 的响应拦截器已解包一层（res => res.data），故此处直接拿响应体，
+    // 不可再 .then(r => r.data)，否则会双重解包得到 undefined。
+    const res = await client.post('/role/switch', { role: roleCode })
     token.value = res.access_token
     user.value = {
       username: user.value?.username,

@@ -75,13 +75,13 @@
           <label>租户（学校）
             <select v-model="form.tenant_id">
               <option :value="null">（平台级，不绑定学校）</option>
-              <option v-for="t in tenants" :key="t.tenant_id" :value="t.tenant_id">{{ t.name }}</option>
+              <option v-for="t in tenantOptions" :key="t.tenant_id" :value="t.tenant_id">{{ t.name }}</option>
             </select>
           </label>
           <label>区域
             <select v-model="form.region_id">
               <option :value="null">（不绑定区域）</option>
-              <option v-for="r in regions" :key="r.region_id" :value="r.region_id">{{ r.region_name }}</option>
+              <option v-for="r in regionOptions" :key="r.region_id" :value="r.region_id">{{ r.region_name }}</option>
             </select>
           </label>
         </div>
@@ -89,11 +89,16 @@
         <div class="form-block">
           <div class="block-title">分配角色</div>
           <div class="role-checks">
-            <label v-for="r in roles" :key="r.role_id" class="role-chk">
-              <input type="checkbox" :value="r.role_id" v-model="form.role_ids" />
+            <label
+              v-for="r in roleOptions" :key="r.role_id" class="role-chk"
+              :class="{ locked: r.locked }"
+              :title="r.locked ? '平台级角色，仅回显不可修改' : ''"
+            >
+              <input type="checkbox" :value="r.role_id" v-model="form.role_ids" :disabled="r.locked" />
               <b>{{ r.role_name }}</b><code>{{ r.role_code }}</code>
+              <span v-if="r.locked" class="lock-tip">平台级</span>
             </label>
-            <p v-if="!roles.length" class="muted">暂无可选角色</p>
+            <p v-if="!roleOptions.length" class="muted">暂无可选角色</p>
           </div>
         </div>
 
@@ -134,11 +139,12 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   createUser, deleteUser, listRegions, listRoles, listTenants, listUsers,
   resetUserPassword, updateUser,
 } from '../api/rbac'
+import { dictMap } from '../api/dict'
 import { errMsg } from '../utils/errmsg'
 
 const rows = ref([])
@@ -170,11 +176,66 @@ function blankForm() {
 }
 
 const roleMap = ref({})
+const roleDictMap = ref({})    // 数据字典：角色名映射（任意角色可读，优先使用）
+const regionDictMap = ref({})  // 数据字典：区域名映射（dict_code = region_id）
 const tenantMap = ref({})
 const regionMap = ref({})
-function roleName(id) { return roleMap.value[id]?.role_name || id }
+function roleName(id) {
+  // 优先用数据字典翻译（school 也能读到 /dict/map），失败回退到角色接口映射 / 原始编码
+  return roleDictMap.value[id] || roleMap.value[id]?.role_name || id
+}
 function tenantName(id) { return id ? (tenantMap.value[id]?.name || id) : '' }
-function regionName(id) { return id ? (regionMap.value[id]?.region_name || id) : '' }
+function regionName(id) {
+  // 区域名同样优先从数据字典读取：school 无权读 /region，regionMap 往往为空，
+  // 直接显示 rgn_east 这类原始编码；字典 /dict/map 对所有已登录角色开放。
+  return id ? (regionDictMap.value[id] || regionMap.value[id]?.region_name || id) : ''
+}
+
+// ---- 编辑 / 新建对话框的下拉选项 ----
+// school 对 /role、/region 是 403，roles/regions 均为空；而 /dict/map 对所有
+// 已登录角色开放，故用字典兜底生成选项，保证次级角色打开对话框也能看到数据。
+// admin 仍优先用接口返回的完整数据（含 role_code 等附加字段）。
+// 平台级角色：school 是租户级管理员，不应通过编辑用户给自己或他人授予平台级
+// 权限（否则可提权）。这些角色仍出现在选项里以正确回显已有授权，但 checkbox
+// 禁用；form.role_ids 从用户行初始化，保存时原角色不会被误删。
+const PLATFORM_ROLES = new Set(['role_admin', 'role_region_admin'])
+const roleOptions = computed(() => {
+  if (roles.value.length) {
+    return roles.value.map((r) => ({
+      role_id: r.role_id, role_name: r.role_name || r.role_id,
+      role_code: r.role_code || r.role_id, locked: false,
+    }))
+  }
+  return Object.entries(roleDictMap.value).map(([id, name]) => ({
+    role_id: id, role_name: name || id, role_code: id,
+    locked: PLATFORM_ROLES.has(id),
+  }))
+})
+
+const regionOptions = computed(() => {
+  if (regions.value.length) {
+    return regions.value.map((r) => ({
+      region_id: r.region_id, region_name: r.region_name || r.region_id,
+    }))
+  }
+  return Object.entries(regionDictMap.value).map(([id, name]) => ({
+    region_id: id, region_name: name || id,
+  }))
+})
+
+// /tenant 对 school 有意做租户隔离（只返回本校），但 /user 会返回其它租户的用户；
+// 编辑这类用户时 select 因无匹配 option 会显示空白。补一个「仅用于回显当前值」
+// 的 option，不扩大可切换的租户范围、不破坏后端隔离边界。
+const tenantOptions = computed(() => {
+  const list = tenants.value.map((t) => ({
+    tenant_id: t.tenant_id, name: t.name || t.tenant_id,
+  }))
+  const cur = form.value.tenant_id
+  if (cur && !list.some((t) => t.tenant_id === cur)) {
+    list.unshift({ tenant_id: cur, name: tenantMap.value[cur]?.name || cur })
+  }
+  return list
+})
 
 function fmtTime(v) {
   if (!v) return '—'
@@ -185,25 +246,52 @@ function fmtTime(v) {
 async function load() {
   loading.value = true
   error.value = ''
+  const params = {}
+  if (keyword.value) params.keyword = keyword.value
+  if (statusFilter.value !== null) params.status = statusFilter.value
   try {
-    const params = {}
-    if (keyword.value) params.keyword = keyword.value
-    if (statusFilter.value !== null) params.status = statusFilter.value
-    const [userRows, roleRows, tenantRows, regionRows] = await Promise.all([
-      listUsers(params),
-      listRoles(),
-      listTenants(),
-      listRegions(),
-    ])
-    rows.value = userRows
-    roles.value = roleRows
-    tenants.value = tenantRows
-    regions.value = regionRows
-    roleMap.value = Object.fromEntries(roleRows.map((r) => [r.role_id, r]))
-    tenantMap.value = Object.fromEntries(tenantRows.map((t) => [t.tenant_id, t]))
-    regionMap.value = Object.fromEntries(regionRows.map((r) => [r.region_id, r]))
+    // 用户列表是页面核心数据，优先独立拉取：学校管理员等对 /user 有权，
+    // 必须保证即便其它接口失败也能正常展示。
+    rows.value = await listUsers(params)
   } catch (e) {
     error.value = errMsg(e, '用户加载失败')
+    rows.value = []
+    loading.value = false
+    return
+  }
+  // 下拉辅助数据（角色/租户/区域）与用户列表解耦：部分角色（如学校管理员）
+  // 无权读取 /role、/region。用 allSettled 让有权限的接口各自成功——若用
+  // Promise.all，任一 403 会整批失败，连 /tenant 的映射也拿不到，租户列会
+  // 一起退化成 demo / school_pilot_01 这类原始编码。
+  try {
+    const [roleRes, tenantRes, regionRes] = await Promise.allSettled([
+      listRoles(), listTenants(), listRegions(),
+    ])
+    if (roleRes.status === 'fulfilled') {
+      roles.value = roleRes.value
+      roleMap.value = Object.fromEntries(roleRes.value.map((r) => [r.role_id, r]))
+    }
+    if (tenantRes.status === 'fulfilled') {
+      tenants.value = tenantRes.value
+      tenantMap.value = Object.fromEntries(tenantRes.value.map((t) => [t.tenant_id, t]))
+    }
+    if (regionRes.status === 'fulfilled') {
+      regions.value = regionRes.value
+      regionMap.value = Object.fromEntries(regionRes.value.map((r) => [r.region_id, r]))
+    }
+  } catch (e) {
+    console.warn('[SystemUser] 辅助下拉数据加载失败（不影响用户列表展示）', e)
+  }
+  // 角色名 / 区域名统一从数据字典读取（/dict/map 对所有已登录角色开放），
+  // 独立于上面的下拉接口；两个字典互不影响，任一失败只让对应列回退。
+  try {
+    const [roleDictRes, regionDictRes] = await Promise.allSettled([
+      dictMap('role'), dictMap('region'),
+    ])
+    if (roleDictRes.status === 'fulfilled') roleDictMap.value = roleDictRes.value
+    else console.warn('[SystemUser] 角色字典加载失败，角色名回退', roleDictRes.reason)
+    if (regionDictRes.status === 'fulfilled') regionDictMap.value = regionDictRes.value
+    else console.warn('[SystemUser] 区域字典加载失败，区域名回退', regionDictRes.reason)
   } finally {
     loading.value = false
   }
@@ -344,6 +432,8 @@ td.op, th.op { white-space: nowrap; text-align: right; }
 .role-chk { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
 .role-chk input { width: auto; }
 .role-chk code { font-size: 11px; color: var(--muted); }
+.role-chk.locked { opacity: .6; cursor: not-allowed; }
+.lock-tip { font-size: 11px; color: var(--muted); }
 .hint { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
 .reset-result { background: #e8f7ee; border: 1px solid #bfe8cf; color: #1f7a45; border-radius: var(--r-sm); padding: 10px 12px; font-size: 13px; }
 .reset-result code { font-weight: 700; }

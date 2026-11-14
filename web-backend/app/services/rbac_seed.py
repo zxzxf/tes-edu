@@ -50,6 +50,7 @@ MENUS = [
     ("m_sys_user_edit", "m_sys_user", "编辑用户", "BUTTON", "", "", "", 2, "system:user:edit"),
     ("m_sys_user_del", "m_sys_user", "删除用户", "BUTTON", "", "", "", 3, "system:user:delete"),
     ("m_sys_user_resetpwd", "m_sys_user", "重置密码", "BUTTON", "", "", "", 4, "system:user:resetpwd"),
+    ("m_sys_dict", "m_sys", "数据字典", "MENU", "/system/dict", "Dict", "dict", 8, None),
 
     ("m_ops", None, "区域运营", "DIR", "/ops", "Layout", "ops", 2, None),
     ("m_ops_tenant", "m_ops", "学校管理", "MENU", "/ops/tenant", "Tenant", "school", 1, None),
@@ -99,13 +100,17 @@ ROLE_MENU_MAP = {
     ] + ["m_ops_exam_gen", "m_sys_feature", "m_sys_feature_manage", "m_sys_byom", "m_sys_byom_manage",
          "m_ops_tenant_add", "m_ops_tenant_edit", "m_ops_tenant_del"],  # 区域管理员：区域运营 + 功能开关 + 模型配置（不含系统设置其余）；含学校增删改按钮码
     "role_school": [
-        "m_ops", "m_ops_tenant", "m_ops_knowledge", "m_ops_analytics",
-        "m_ops_wrong", "m_ops_exam", "m_ops_exam_dispatch", "m_ops_grading", "m_ops_reports", "m_ops_compliance",
-        "m_ops_errordist", "m_ops_practice", "m_ops_questions",  # 学校：可给本校题库录题
+        "m_ops", "m_ops_tenant",
+        "m_ops_exam", "m_ops_exam_dispatch", "m_ops_grading",
+        "m_ops_practice",
         "m_ops_course",  # M5：课程采集/知识点审核
         "m_sys_feature", "m_sys_feature_manage",  # 学校：可管控本校功能显隐
         "m_sys_byom", "m_sys_byom_manage",  # 学校：可配本租户大模型（BYOM）
     ],
+    # T-AM10 收口：school 对 /knowledge、/analytics/summary、/wrong-questions、/reports/weekly、
+    # /compliance、/analytics/error-distribution、/questions 接口均无权限（require_role 仅 admin/region_admin），
+    # 保留这些菜单会让 school 点进去报「权限不足」。故从 school 授权移除，使菜单与接口鉴权一致。
+    # 注意 seed_rbac 的 role_menu upsert 只补不删，线上库需另行 DELETE 已存在的旧授权行。
     "role_teacher": [
         "m_ops", "m_ops_knowledge", "m_ops_analytics", "m_ops_wrong",
         "m_ops_exam", "m_ops_exam_dispatch", "m_ops_grading", "m_ops_reports",
@@ -219,6 +224,66 @@ def build_seed_user_roles() -> List[dict]:
     ]
 
 
+def build_seed_dict() -> List[dict]:
+    """数据字典种子（T-DICT，树形：分类为根节点，条目为子节点）。
+
+    角色分类(dict_role)下的条目 dict_code == sys_user_role.role_id，
+    区域分类(dict_region)下的条目 dict_code == sys_region.region_id，
+    使 GET /dict/map?type= 返回的 {编码: 名称} 可直接用于用户列表翻译；
+    school 等无权读 /role、/region 的角色也能靠字典显示中文名。
+    区域条目直接由 REGIONS 生成，与 sys_region 共用单一数据源。
+    幂等：seed_rbac 按 dict_id 去重补插，不删既存行。
+    """
+    # 新增/改名区域时只改 REGIONS 即可，避免字典与 sys_region 两处手工维护产生漂移。
+    region_rows = [
+        {"dict_id": "dict_region", "parent_id": None, "dict_type": "region",
+         "dict_name": "区域", "dict_code": "region", "dict_value": "region",
+         "sort": 4, "status": 1, "remark": "七大区字典；dict_code 对齐 sys_region.region_id"},
+    ] + [
+        {"dict_id": f"rgn_{code}", "parent_id": "dict_region", "dict_type": "region",
+         "dict_name": name, "dict_code": f"rgn_{code}", "dict_value": code,
+         "sort": i, "status": 1, "remark": name}
+        for i, (code, name) in enumerate(REGIONS, 1)
+    ]
+
+    return [
+        # —— 角色分类 ——
+        {"dict_id": "dict_role", "parent_id": None, "dict_type": "role",
+         "dict_name": "角色", "dict_code": "role", "dict_value": "role", "sort": 1, "status": 1, "remark": "后台角色字典"},
+        {"dict_id": "role_admin", "parent_id": "dict_role", "dict_type": "role",
+         "dict_name": "超级管理员", "dict_code": "role_admin", "dict_value": "admin", "sort": 1, "status": 1, "remark": "超级管理员"},
+        {"dict_id": "role_region_admin", "parent_id": "dict_role", "dict_type": "role",
+         "dict_name": "区域管理员", "dict_code": "role_region_admin", "dict_value": "region_admin", "sort": 2, "status": 1, "remark": "区域管理员"},
+        {"dict_id": "role_school", "parent_id": "dict_role", "dict_type": "role",
+         "dict_name": "学校", "dict_code": "role_school", "dict_value": "school", "sort": 3, "status": 1, "remark": "学校管理员"},
+        {"dict_id": "role_teacher", "parent_id": "dict_role", "dict_type": "role",
+         "dict_name": "教师", "dict_code": "role_teacher", "dict_value": "teacher", "sort": 4, "status": 1, "remark": "教师"},
+        {"dict_id": "role_parent", "parent_id": "dict_role", "dict_type": "role",
+         "dict_name": "家长", "dict_code": "role_parent", "dict_value": "parent", "sort": 5, "status": 1, "remark": "家长"},
+        {"dict_id": "role_student", "parent_id": "dict_role", "dict_type": "role",
+         "dict_name": "学生", "dict_code": "role_student", "dict_value": "student", "sort": 6, "status": 1, "remark": "学生"},
+
+        # —— 区域分类（由 REGIONS 生成）——
+        *region_rows,
+
+        # —— 用户状态分类 ——
+        {"dict_id": "dict_user_status", "parent_id": None, "dict_type": "user_status",
+         "dict_name": "用户状态", "dict_code": "user_status", "dict_value": "user_status", "sort": 2, "status": 1, "remark": "后台用户启停状态"},
+        {"dict_id": "ustatus_1", "parent_id": "dict_user_status", "dict_type": "user_status",
+         "dict_name": "启用", "dict_code": "1", "dict_value": "1", "sort": 1, "status": 1, "remark": "启用"},
+        {"dict_id": "ustatus_0", "parent_id": "dict_user_status", "dict_type": "user_status",
+         "dict_name": "禁用", "dict_code": "0", "dict_value": "0", "sort": 2, "status": 1, "remark": "禁用"},
+
+        # —— 通用状态分类 ——
+        {"dict_id": "dict_common_status", "parent_id": None, "dict_type": "common_status",
+         "dict_name": "通用状态", "dict_code": "common_status", "dict_value": "common_status", "sort": 3, "status": 1, "remark": "通用启停状态"},
+        {"dict_id": "cstatus_1", "parent_id": "dict_common_status", "dict_type": "common_status",
+         "dict_name": "启用", "dict_code": "1", "dict_value": "1", "sort": 1, "status": 1, "remark": "启用"},
+        {"dict_id": "cstatus_0", "parent_id": "dict_common_status", "dict_type": "common_status",
+         "dict_name": "停用", "dict_code": "0", "dict_value": "0", "sort": 2, "status": 1, "remark": "停用"},
+    ]
+
+
 async def init_rbac(engine) -> None:
     """幂等建表。"""
     from app.models import rbac_models  # noqa: F401 注册表
@@ -233,10 +298,10 @@ async def seed_rbac(db, password_hash: str, bcrypt=None) -> dict:
     from sqlalchemy import select, text
 
     from app.models.rbac_models import (
-        SysMenu, SysRegion, SysRole, SysRoleMenu, SysUser, SysUserRole,
+        SysMenu, SysRegion, SysRole, SysRoleMenu, SysUser, SysUserRole, SysDict,
     )
 
-    stats = {"regions": 0, "roles": 0, "menus": 0, "role_menus": 0, "users": 0, "user_roles": 0}
+    stats = {"regions": 0, "roles": 0, "menus": 0, "role_menus": 0, "users": 0, "user_roles": 0, "dict": 0}
 
     # 区域
     existing = (await db.execute(select(SysRegion.region_id))).scalars().all()
@@ -274,6 +339,13 @@ async def seed_rbac(db, password_hash: str, bcrypt=None) -> dict:
     for rm in new_rm:
         db.add(SysRoleMenu(**rm))
     stats["role_menus"] = len(new_rm)
+
+    # 数据字典（T-DICT，树形；按 dict_id upsert，不删既有行）
+    existing_dict = set((await db.execute(select(SysDict.dict_id))).scalars().all())
+    new_dict = [d for d in build_seed_dict() if d["dict_id"] not in existing_dict]
+    for d in new_dict:
+        db.add(SysDict(**d))
+    stats["dict"] = len(new_dict)
 
     # 用户（五角色演示账号；按 username 逐条 upsert，线上旧库补插不漏）
     all_seed_users = [
