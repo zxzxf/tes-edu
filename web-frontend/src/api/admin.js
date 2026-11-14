@@ -165,6 +165,10 @@ export function listCrawlJobs() {
 export function createCrawlJob(data) {
   return client.post('/course/jobs', data)
 }
+// M3-8 编辑采集任务（PUT /course/jobs/:id）
+export function updateCrawlJob(jobId, data) {
+  return client.put(`/course/jobs/${jobId}`, data)
+}
 // M3-8 任务启停：只有 active 会被后台调度循环取到
 export function setCrawlJobStatus(jobId, status) {
   return client.post(`/course/jobs/${jobId}/status`, null, { params: { status } })

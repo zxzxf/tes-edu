@@ -358,6 +358,79 @@ async def create_job(
     return row
 
 
+_MISSING = object()
+
+
+async def update_job(
+    db: AsyncSession,
+    tenant_id: str,
+    job_id: int,
+    *,
+    name: Any = _MISSING,
+    source_id: Any = _MISSING,
+    path: Any = _MISSING,
+    schedule: Any = _MISSING,
+    budget_limit: Any = _MISSING,
+    job_kind: Any = _MISSING,
+    query: Any = _MISSING,
+) -> Optional[CrawlJob]:
+    """M3-8：编辑采集任务。
+
+    用 ``_MISSING`` 哨兵区分「未传」与「传了 null」：只有真正传来的字段才改写，
+    例如 ``source_id=None`` 表示解除课程源绑定，而非保持原值。
+    """
+    row = (
+        await db.execute(
+            select(CrawlJob).where(
+                CrawlJob.id == job_id, CrawlJob.tenant_id == tenant_id
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+
+    jk = job_kind if job_kind is not _MISSING else row.job_kind
+    if jk not in ("harvest", "discovery"):
+        raise ValueError("job_kind 只能是 harvest/discovery")
+    if jk == "discovery":
+        # 发现任务不绑定源、默认 P2
+        path = (row.path or "P2") if path is _MISSING else (path or "P2")
+    else:
+        if path is not _MISSING and path not in (PATH_P1, PATH_P2):
+            raise ValueError("path 只能是 P1/P2")
+
+    sched = schedule if schedule is not _MISSING else row.schedule
+    if sched and parse_cron(sched) is None:
+        raise ValueError("schedule 不是合法的 5 段 cron")
+
+    if budget_limit is not _MISSING:
+        if int(budget_limit) < int(row.spent or 0):
+            raise ValueError(f"预算上限不能低于已花费 {row.spent}")
+
+    # 应用变更
+    if name is not _MISSING and name is not None:
+        row.name = name
+    if source_id is not _MISSING:
+        row.source_id = source_id
+    if path is not _MISSING:
+        row.path = path
+    if schedule is not _MISSING:
+        row.schedule = schedule or None
+    if budget_limit is not _MISSING:
+        row.budget_limit = max(1, int(budget_limit))
+    if job_kind is not _MISSING:
+        row.job_kind = job_kind
+    if query is not _MISSING:
+        row.query = query
+
+    # 若处于 active 且已配 cron，重算下次运行时间，避免「每次 tick 都到期」
+    if row.status == "active" and row.schedule:
+        row.next_run_at = next_run_at(row.schedule)
+
+    await db.flush()
+    return row
+
+
 async def _resolve_items_from_source(
     db: AsyncSession, job: CrawlJob
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:

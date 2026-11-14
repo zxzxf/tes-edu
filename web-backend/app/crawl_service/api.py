@@ -197,6 +197,21 @@ class JobCreate(BaseModel):
     query: Optional[str] = None
 
 
+class JobUpdate(BaseModel):
+    """采集任务编辑：所有字段均可选，未传字段保持不变。
+
+    用 ``exclude_unset`` 区分「客户端未传」与「显式传 null」——例如把
+    ``source_id`` 置为 ``null`` 即解除课程源绑定，而非「不改」。
+    """
+    name: Optional[str] = None
+    source_id: Optional[int] = None
+    path: Optional[str] = None
+    schedule: Optional[str] = None
+    budget_limit: Optional[int] = Field(default=None, ge=1)
+    job_kind: Optional[str] = None
+    query: Optional[str] = None
+
+
 class JobOut(BaseModel):
     id: int
     name: str
@@ -265,6 +280,32 @@ async def create_job(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await db.commit()
+    await db.refresh(row)
+    return _job_out(row)
+
+
+@router.put("/jobs/{job_id}", response_model=JobOut)
+async def update_job(
+    job_id: int,
+    body: JobUpdate,
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
+    db: AsyncSession = Depends(get_db),
+):
+    """M3-8：编辑采集任务。
+
+    仅将客户端实际传来的字段（``exclude_unset``）应用为变更，未传字段保持不变；
+    把 ``source_id`` 传 ``null`` 即解除课程源绑定。校验口径与 ``create_job`` 一致
+    （job_kind∈{harvest,discovery}、harvest 的 path∈{P1,P2}、cron 合法），并额外
+    拦截「预算上限低于已花费」——否则下次运行会被调度器立刻置为 stopped。
+    """
+    changes = body.model_dump(exclude_unset=True)
+    try:
+        row = await crawl_svc.update_job(db, _tenant(user), job_id, **changes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if row is None:
+        raise HTTPException(status_code=404, detail="job not found")
     await db.commit()
     await db.refresh(row)
     return _job_out(row)

@@ -34,10 +34,20 @@
         <button class="tes-btn-primary" :disabled="busy" @click="add">新建</button>
       </div>
       <table v-if="rows.length" class="tes-table">
-        <thead><tr><th>任务</th><th>课程源</th><th>路径</th><th>状态</th><th>预算</th><th>最近产出卷</th><th>操作</th></tr></thead>
+        <thead>
+          <tr>
+            <th>任务</th><th>类型</th><th>课程源</th><th>路径</th><th>状态</th>
+            <th>预算</th><th>检索约束</th><th>最近产出卷</th><th>操作</th>
+          </tr>
+        </thead>
         <tbody>
           <tr v-for="j in rows" :key="j.id">
             <td>{{ j.name }}</td>
+            <td>
+              <span class="tes-pill" :class="j.job_kind === 'discovery' ? 'info' : 'plain'">
+                {{ j.job_kind === 'discovery' ? '自主发现' : '常规采集' }}
+              </span>
+            </td>
             <td>{{ sourceName(j.source_id) }}</td>
             <td>{{ j.path }}</td>
             <td>
@@ -46,8 +56,10 @@
               </span>
             </td>
             <td>{{ j.spent }} / {{ j.budget_limit }}</td>
+            <td class="cw-query">{{ j.query || '—' }}</td>
             <td>{{ j.last_paper_id ? '#' + j.last_paper_id : '—' }}</td>
-            <td>
+            <td class="cw-ops">
+              <button class="ghost" :disabled="busy" @click="openEdit(j)">编辑</button>
               <button class="ghost" :disabled="busy" @click="toggle(j)">{{ j.status === 'active' ? '暂停定时' : '启用定时' }}</button>
               <button class="ghost" :disabled="busy" @click="run(j)">执行一次</button>
               <button class="ghost" :disabled="busy" @click="retry(j)">重试</button>
@@ -58,6 +70,49 @@
       </table>
       <p v-else class="tes-empty">还没有采集任务。</p>
     </section>
+
+    <!-- 编辑弹窗 -->
+    <div v-if="editOpen" class="cw-mask" @click.self="editOpen = false">
+      <div class="cw-modal tes-card">
+        <div class="cw-head"><b>编辑采集任务 #{{ editingId }}</b><span class="cw-grow"></span>
+          <button class="ghost" :disabled="busy" @click="editOpen = false">取消</button>
+        </div>
+        <div class="cw-row cw-col">
+          <label><span>任务名</span><input v-model.trim="editForm.name" /></label>
+          <label>
+            <span>课程源</span>
+            <select v-model.number="editForm.source_id">
+              <option :value="null">不绑定</option>
+              <option v-for="s in sources" :key="s.id" :value="s.id">{{ s.name }}</option>
+            </select>
+          </label>
+          <label>
+            <span>入库路径</span>
+            <select v-model="editForm.path" :disabled="editForm.job_kind === 'discovery'">
+              <option value="P1">P1 整卷入库</option>
+              <option value="P2">P2 拆题入库</option>
+            </select>
+          </label>
+          <label><span>cron（可空）</span><input v-model.trim="editForm.schedule" placeholder="0 3 * * *" /></label>
+          <label><span>预算上限</span>
+            <input v-model.number="editForm.budget_limit" type="number" min="1" />
+            <small v-if="editForm.budget_limit != null && editForm.budget_limit < editSpent" class="warn-text">
+              不能低于已花费 {{ editSpent }}
+            </small>
+          </label>
+          <label v-if="editForm.job_kind === 'discovery'">
+            <span>检索约束</span>
+            <textarea v-model.trim="editForm.query" rows="2" placeholder="学科/年级/教材版本等自然语言检索约束" />
+          </label>
+        </div>
+        <div class="cw-modal-foot">
+          <button class="ghost" :disabled="busy" @click="editOpen = false">取消</button>
+          <button class="tes-btn-primary" :disabled="busy || (editForm.budget_limit != null && editForm.budget_limit < editSpent)" @click="saveEdit">
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
 
     <div class="cw-links">
       <router-link class="cw-link" to="/course-intake/runs">查看运行日志 →</router-link>
@@ -71,13 +126,21 @@ import { onMounted, reactive, ref } from 'vue'
 import { useCrawlRequest } from '../../composables/useCrawlRequest'
 import {
   createCrawlJob, deleteCrawlJob, listCourseSources, listCrawlJobs, retryCrawlJob,
-  runCrawlJob, setCrawlJobStatus,
+  runCrawlJob, setCrawlJobStatus, updateCrawlJob,
 } from '../../api/admin'
 
 const { busy, error, msg, guard } = useCrawlRequest()
 const rows = ref([])
 const sources = ref([])
 const form = reactive({ name: '', source_id: null, path: 'P2', schedule: '', budget_limit: 100 })
+
+// 编辑弹窗状态
+const editOpen = ref(false)
+const editingId = ref(null)
+const editSpent = ref(0)
+const editForm = reactive({
+  name: '', source_id: null, path: 'P2', schedule: '', budget_limit: 100, query: '',
+})
 
 function sourceName(id) {
   return sources.value.find((s) => s.id === id)?.name || '—'
@@ -95,6 +158,35 @@ async function add() {
     form.name = ''
     rows.value = await listCrawlJobs()
     msg.value = '采集任务已创建（cron 非法会被后端拒绝）'
+  })
+}
+function openEdit(j) {
+  editingId.value = j.id
+  editSpent.value = j.spent || 0
+  Object.assign(editForm, {
+    name: j.name,
+    source_id: j.source_id,
+    path: j.path,
+    schedule: j.schedule || '',
+    budget_limit: j.budget_limit,
+    query: j.query || '',
+  })
+  editOpen.value = true
+}
+async function saveEdit() {
+  await guard(async () => {
+    const payload = {
+      name: editForm.name,
+      source_id: editForm.source_id,
+      path: editForm.path,
+      schedule: (editForm.schedule || '').trim() || null,
+      budget_limit: editForm.budget_limit,
+    }
+    if (editForm.job_kind === 'discovery') payload.query = editForm.query
+    await updateCrawlJob(editingId.value, payload)
+    editOpen.value = false
+    rows.value = await listCrawlJobs()
+    msg.value = `采集任务 #${editingId.value} 已更新`
   })
 }
 async function toggle(j) {
@@ -139,3 +231,20 @@ async function remove(j) {
 }
 onMounted(loadAll)
 </script>
+
+<style scoped>
+.cw-query { max-width: 220px; color: #6b7280; font-size: 12px; word-break: break-all; }
+.cw-ops { white-space: nowrap; }
+.cw-ops .ghost { margin-right: 4px; }
+.warn-text { color: #dc2626; display: block; }
+.cw-mask {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, .45);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+}
+.cw-modal { width: 520px; max-width: 92vw; background: #fff; }
+.cw-modal .cw-col { flex-direction: column; align-items: stretch; }
+.cw-modal .cw-col label { width: 100%; }
+.cw-modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+:deep(.tes-pill.info) { background: #e0f2fe; color: #0369a1; }
+:deep(.tes-pill.plain) { background: #f1f5f9; color: #475569; }
+</style>
