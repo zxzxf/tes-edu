@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.rbac import Role
-from app.core.security import require_role
+from app.core.security import read_tenant_id, require_role
 from app.models.ops import CrawlJob, CrawlRun, CourseSource, KpNode
 from app.crawl_service import scheduler as crawl_svc
 from app.crawl_service import intake as crawl_intake
@@ -25,7 +25,13 @@ router = APIRouter(prefix="/course", tags=["course"])
 
 
 def _tenant(user: dict) -> str:
+    """写侧租户：新建/审核/启停/删除/回退一律严格按本租户隔离。"""
     return user.get("tenant_id") or "school_pilot_01"
+
+
+def _read_tenant(user: dict) -> Optional[str]:
+    """读侧租户：平台级角色返回 None（跨租户只读），其余按本租户。"""
+    return read_tenant_id(user)
 
 
 # ------------------------------------------------------------------ 课程源
@@ -65,7 +71,7 @@ async def list_sources(
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = await crawl_svc.list_sources(db, _tenant(user), review_status=review_status)
+    rows = await crawl_svc.list_sources(db, _read_tenant(user), review_status=review_status)
     return [_source_out(r) for r in rows]
 
 
@@ -204,12 +210,13 @@ async def list_jobs(
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = (
-        await db.execute(
-            select(CrawlJob).where(CrawlJob.tenant_id == _tenant(user))
-            .order_by(CrawlJob.id.desc())
-        )
-    ).scalars().all()
+    # 平台级角色跨租户只读：tenant 占位 platform 在库里没有任何采集任务，
+    # 照常过滤会让超管的采集任务页永远空白。
+    tenant_id = _read_tenant(user)
+    stmt = select(CrawlJob)
+    if tenant_id is not None:
+        stmt = stmt.where(CrawlJob.tenant_id == tenant_id)
+    rows = (await db.execute(stmt.order_by(CrawlJob.id.desc()))).scalars().all()
     return [_job_out(r) for r in rows]
 
 
@@ -349,7 +356,7 @@ async def crawl_metrics(
     db: AsyncSession = Depends(get_db),
 ):
     """M5-6：成功率 / 去重率 / 最近运行日志（含 M4-4 产出的卷 id）。"""
-    return await crawl_svc.run_metrics(db, _tenant(user))
+    return await crawl_svc.run_metrics(db, _read_tenant(user))
 
 
 # ------------------------------------------------------------------ 解析 pipeline（M5-2）
@@ -409,7 +416,10 @@ async def list_kp_nodes(
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(KpNode).where(KpNode.tenant_id == _tenant(user))
+    tenant_id = _read_tenant(user)
+    stmt = select(KpNode)
+    if tenant_id is not None:
+        stmt = stmt.where(KpNode.tenant_id == tenant_id)
     if status:
         stmt = stmt.where(KpNode.status == status)
     rows = (await db.execute(stmt.order_by(KpNode.code))).scalars().all()

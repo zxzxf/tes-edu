@@ -69,10 +69,13 @@ class Settings(BaseSettings):
     discovery_crawl_depth: int = 1
     # 单次 discovery 递归探索的总页面预算（防失控 / 控出网成本与耗时）。
     discovery_crawl_max_pages: int = 40
-    # headless 渲染（抓 JS 站点正文）：默认关；开启需运行时具备渲染后端。
+    # headless 渲染（抓 JS 站点正文）：默认关，保持本地/单测行为不变；
+    # 137 生产由 deploy/publish_backend.sh 的 docker run 注入 true（见下方注释）。
     discovery_headless_enabled: bool = False
     # 可选：外部 headless 渲染服务端点（POST {"url":...} -> {"html":...} 或纯文本 HTML）。
     # 推荐用于生产：把 chromium 隔离在独立容器，避免拖垮 137 的 2G web-backend。
+    # 留空但开启 headless 时，discovery._make_renderer 会默认使用同网络的
+    # http://headless-render:8000/render（edu-headless-render 容器）。
     discovery_render_url: str = ""
     discovery_headless_timeout: float = 20.0
 

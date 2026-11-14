@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.rbac import Role
-from app.core.security import require_role
+from app.core.security import read_tenant_id, require_role
 from app.models.course_kb import (
     QuestionCreate,
     QuestionCreateResult,
@@ -21,13 +21,15 @@ router = APIRouter(prefix="/questions", tags=["questions"])
 _ENTRY_ROLES = (Role.ADMIN, Role.TEACHER, Role.REGION_ADMIN)
 
 
-def _tenant_of(user: dict) -> str:
-    """读取侧租户口径：与 exam / student_profile 保持一致。
+def _tenant_of(user: dict) -> Optional[str]:
+    """题库读侧租户口径（本模块只有 list/search 两个读接口用它）。
 
-    网关漏注入 ``X-Tenant-Id`` 时按试点校兜底；**不可**退化成不过滤，
-    否则一次配置遗漏就会把别校题库整表暴露出去。
+    平台级角色（admin/region_admin）在 JWT 里带的是 ``platform`` 占位租户，
+    业务表中不存在该租户的题目，照常过滤会让超管的题目目录永远为空；
+    故平台级返回 None → service 层不加过滤（跨租户只读）。写侧（录题/审核）
+    走 question_entry / exam，仍按各自租户严格隔离。
     """
-    return user.get("tenant_id") or "school_pilot_01"
+    return read_tenant_id(user)
 
 
 @router.post("", response_model=QuestionCreateResult, summary="教师录单题（M0-1）")

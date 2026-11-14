@@ -213,9 +213,12 @@ def compliance_reject(uri: str) -> Optional[str]:
 
 # ------------------------------------------------------------------ DB 薄层
 async def list_sources(
-    db: AsyncSession, tenant_id: str, review_status: Optional[str] = None
+    db: AsyncSession, tenant_id: Optional[str], review_status: Optional[str] = None
 ) -> List[CourseSource]:
-    stmt = select(CourseSource).where(CourseSource.tenant_id == tenant_id)
+    """课程源列表；``tenant_id=None`` 表示平台级角色跨租户只读（不过滤）。"""
+    stmt = select(CourseSource)
+    if tenant_id is not None:
+        stmt = stmt.where(CourseSource.tenant_id == tenant_id)
     if review_status:
         stmt = stmt.where(CourseSource.review_status == review_status)
     return list((await db.execute(stmt.order_by(CourseSource.id.desc()))).scalars().all())
@@ -568,14 +571,17 @@ async def scheduler_loop(
         await asyncio.sleep(max(10, int(interval_seconds)))
 
 
-async def run_metrics(db: AsyncSession, tenant_id: str) -> Dict[str, Any]:
-    """M5-6：成功率 / 去重率 / 失败原因分布 + 最近日志（可重试）。"""
+async def run_metrics(db: AsyncSession, tenant_id: Optional[str]) -> Dict[str, Any]:
+    """M5-6：成功率 / 去重率 / 失败原因分布 + 最近日志（可重试）。
+
+    ``tenant_id=None`` 表示平台级角色跨租户只读，统计全部租户的最近 200 条运行。
+    """
+    stmt = select(CrawlRun)
+    if tenant_id is not None:
+        stmt = stmt.where(CrawlRun.tenant_id == tenant_id)
     runs = (
         await db.execute(
-            select(CrawlRun)
-            .where(CrawlRun.tenant_id == tenant_id)
-            .order_by(CrawlRun.started_at.desc())
-            .limit(200)
+            stmt.order_by(CrawlRun.started_at.desc()).limit(200)
         )
     ).scalars().all()
     total = len(runs)

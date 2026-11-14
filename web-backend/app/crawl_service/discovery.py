@@ -50,6 +50,10 @@ DEFAULT_SEED_DOMAINS = (
     "www.zxxk.com",     # 学科网
     "gaokao.com",       # 高考网
 )
+#: 同网络内的 headless 渲染服务（deploy/137-gateway-stack.yml 的 edu-headless-render）。
+#: 未显式配 DISCOVERY_RENDER_URL 时用它；不可达时 run_discovery 回退静态抓取，
+#: 不会因为渲染服务抖动就把整轮发现判成 0 候选。
+DEFAULT_RENDER_SERVICE = "http://headless-render:8000/render"
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")
 _SCRIPT_RE = re.compile(
@@ -259,24 +263,16 @@ class _RenderPlaywright:
 
 
 def _make_renderer():
-    """按配置构建 headless 渲染器（可 ``await(url) -> html``）；不可用返回 ``None``。
+    """按配置构建 headless 渲染器（可 ``await(url) -> html``）。
 
-    优先级：外部渲染服务 ``discovery_render_url`` > 本地 Playwright（可选依赖）。
-    两者皆不可用时返回 ``None``，``run_discovery`` 退化为静态 fetch（向后兼容）。
+    优先级：显式 ``discovery_render_url`` > 同网络内的 ``headless-render`` 服务。
+    未配置时不再依赖运行时装 playwright（线上镜像里没有 chromium）——137 上已部署
+    ``edu-headless-render``，直接用它的网络别名即可。服务不可达/返回空 HTML 时，
+    ``run_discovery`` 会回退静态抓取，不会把整轮发现判成 0 候选。
     """
-    svc = getattr(settings, "discovery_render_url", "") or ""
-    if svc:
-        to = float(getattr(settings, "discovery_headless_timeout", 20.0) or 20.0)
-        return lambda url: _render_via_service(url, svc, to)
-    try:
-        __import__("playwright")
-    except Exception:  # noqa: BLE001 未安装则退化为静态抓取
-        log.warning(
-            "discovery_headless_enabled=true 但运行时未安装 playwright；"
-            "退化为静态抓取"
-        )
-        return None
-    return _RenderPlaywright()
+    to = float(getattr(settings, "discovery_headless_timeout", 20.0) or 20.0)
+    svc = getattr(settings, "discovery_render_url", "") or DEFAULT_RENDER_SERVICE
+    return lambda url: _render_via_service(url, svc, to)
 
 
 async def run_discovery(
@@ -319,7 +315,7 @@ async def run_discovery(
     depth = max(0, int(getattr(settings, "discovery_crawl_depth", 1) or 1))
     max_pages = max(1, int(getattr(settings, "discovery_crawl_max_pages", 40) or 40))
 
-    discovered = created = rejected = 0
+    discovered = created = rejected = skipped = 0
     created_urls: List[str] = []
     visited: set = set()
     from collections import deque
@@ -338,7 +334,17 @@ async def run_discovery(
             continue
         try:
             if renderer is not None:
-                html = await renderer(url)
+                # 渲染服务不可达 / 超时 / 返回空正文时回退静态抓取：否则只要
+                # chromium 抖一下，整轮发现就会把本可静态拿到的页面全判为拒绝。
+                try:
+                    html = await renderer(url)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning(
+                        "discovery render failed %s, fallback to static: %s", url, exc
+                    )
+                    html = None
+                if not html:
+                    html = await fetch_fn(url, timeout=20)
             else:
                 html = await fetch_fn(url, timeout=20)
         except Exception as exc:  # noqa: BLE001 单页失败不影响整体
@@ -347,9 +353,24 @@ async def run_discovery(
             continue
         cat, conf = classify_content(html, query)
         if conf >= 0.4 and cat in ("question", "textbook"):
-            await _create_pending_source(db, job, url, cat)
-            created_urls.append(url)
-            created += 1
+            # 幂等：每晚定时跑都会重新看到同一个门户页，若不去重就会不断
+            # 堆积同名待审源 + 草稿采集任务（2026-11-14 线上复现）。
+            # 同租户同 URL 已有源（待审/已通过）就跳过；被驳回的源会被物理删除，
+            # 因此后续仍可重新发现。
+            exists = (
+                await db.execute(
+                    select(CourseSource).where(
+                        CourseSource.tenant_id == job.tenant_id,
+                        CourseSource.uri == url,
+                    )
+                )
+            ).scalar_one_or_none()
+            if exists is not None:
+                skipped += 1
+            else:
+                await _create_pending_source(db, job, url, cat)
+                created_urls.append(url)
+                created += 1
             discovered += 1
         # 站内链接探索（BFS 纵深）：当前层未达最大深度才继续向下一层扩
         if depth > 0 and level < depth:
@@ -363,11 +384,12 @@ async def run_discovery(
         run.inserted = created
         run.error = (
             f"自主发现：候选通过闸门 {discovered} / 新建待审源 {created} "
-            f"/ 拒绝 {rejected}（depth={depth}, pages={pages}）"
+            f"/ 已存在跳过 {skipped} / 拒绝 {rejected}（depth={depth}, pages={pages}）"
         )
     return {
         "candidates": discovered,
         "created_sources": created,
+        "skipped_existing": skipped,
         "rejected": rejected,
         "urls": created_urls,
     }

@@ -66,7 +66,7 @@ from app.core.grading_metrics import (
     SOURCE_UNKNOWN as M_SOURCE_UNKNOWN,
 )
 from app.core.rbac import Role
-from app.core.security import require_role
+from app.core.security import read_tenant_id, require_role
 from app.models.course_kb import CourseQuestion
 from app.models.ops import (
     ExamAssignment,
@@ -132,7 +132,12 @@ async def list_review_questions(
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(CourseQuestion).where(CourseQuestion.tenant_id == _tenant_of(user))
+    # 题目审核列表：平台级角色跨租户只读（tenant 占位 platform 在库里没有题），
+    # 其余角色仍严格按本租户过滤。审核写接口在下方，仍用 _tenant_of 严格隔离。
+    tenant_id = read_tenant_id(user)
+    stmt = select(CourseQuestion)
+    if tenant_id is not None:
+        stmt = stmt.where(CourseQuestion.tenant_id == tenant_id)
     if status:
         stmt = stmt.where(CourseQuestion.status == status)
     rows = (await db.execute(stmt.order_by(CourseQuestion.id.desc()).limit(max(1, min(limit, 200))))).scalars().all()

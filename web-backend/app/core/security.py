@@ -48,3 +48,39 @@ def require_role(*roles: Role):
         return user
 
     return _dep
+
+
+# ---------------------------------------------------------------- 租户口径
+#: 平台级用户（admin / region_admin）在 sys_user 里 tenant_id 为空，签发 JWT 时
+#: 用 "platform" 占位（见 auth.py T-AM7）。这个占位值在业务表里不存在任何数据行，
+#: 若读侧照常按它过滤，超管打开题目目录/采集任务页就会看到一片空白。
+PLATFORM_TENANT = "platform"
+PLATFORM_ROLES = frozenset({Role.ADMIN.value, Role.REGION_ADMIN.value})
+#: 网关漏注入 X-Tenant-Id 时的兜底租户，与 questions / exam / course 保持一致。
+FALLBACK_TENANT = "school_pilot_01"
+
+
+def is_platform_user(user: dict) -> bool:
+    """是否平台级角色（超管/区域管理员）或持有平台占位租户。"""
+    return (
+        user.get("role") in PLATFORM_ROLES
+        or (user.get("tenant_id") or "") == PLATFORM_TENANT
+    )
+
+
+def read_tenant_id(user: dict) -> Optional[str]:
+    """读侧租户过滤值：平台级返回 ``None`` 表示跨租户只读；其余返回本租户。
+
+    重要：调用方拿到 None 时必须**不加 where 条件**，不能写成
+    ``column == None``（SQLAlchemy 会编译成 IS NULL，反而一条都查不到）。
+    网关漏注入租户头时仍按试点校兜底——只有显式识别出的平台级角色才放开，
+    一次配置遗漏不会把别校数据整表暴露出去。
+    """
+    if is_platform_user(user):
+        return None
+    return user.get("tenant_id") or FALLBACK_TENANT
+
+
+def write_tenant_id(user: dict) -> str:
+    """写侧租户：保持严格隔离，平台级占位也只作用于自身，绝不跨租户写入。"""
+    return user.get("tenant_id") or FALLBACK_TENANT
