@@ -33,7 +33,12 @@
         <label><span>预算上限</span><input v-model.number="form.budget_limit" type="number" min="1" /></label>
         <button class="tes-btn-primary" :disabled="busy" @click="add">新建</button>
       </div>
-      <table v-if="rows.length" class="tes-table">
+      <div class="cw-table-wrap" v-if="rows.length">
+      <table class="tes-table">
+        <colgroup>
+          <col class="c-task" /><col class="c-kind" /><col class="c-src" /><col class="c-path" />
+          <col class="c-status" /><col class="c-budget" /><col class="c-query" /><col class="c-paper" /><col class="c-ops" />
+        </colgroup>
         <thead>
           <tr>
             <th>任务</th><th>类型</th><th>课程源</th><th>路径</th><th>状态</th>
@@ -56,7 +61,7 @@
               </span>
             </td>
             <td>{{ j.spent }} / {{ j.budget_limit }}</td>
-            <td class="cw-query">{{ j.query || '—' }}</td>
+            <td class="cw-query" :title="j.query">{{ j.query || '—' }}</td>
             <td>{{ j.last_paper_id ? '#' + j.last_paper_id : '—' }}</td>
             <td class="cw-ops">
               <button class="ghost" :disabled="busy" @click="openEdit(j)">编辑</button>
@@ -68,6 +73,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
       <p v-else class="tes-empty">还没有采集任务。</p>
     </section>
 
@@ -206,9 +212,11 @@ async function run(j) {
     if (out.last_run_status === 'failed' || out.last_run_status === 'stopped') {
       throw new Error(out.last_run_error || '采集任务未完成')
     }
-    msg.value = out.last_paper_id
-      ? `已执行：本次产出卷 #${out.last_paper_id}（草稿）`
-      : '已执行（P2 只入题库，未成卷）'
+    msg.value = out.job_kind === 'discovery'
+      ? '已触发自主发现采集，请稍后在「运行日志」查看结果'
+      : (out.last_paper_id
+        ? `已执行：本次产出卷 #${out.last_paper_id}（草稿）`
+        : '已触发执行，请稍后刷新查看结果')
   })
 }
 async function retry(j) {
@@ -233,9 +241,21 @@ onMounted(loadAll)
 </script>
 
 <style scoped>
-.cw-query { max-width: 220px; color: #6b7280; font-size: 12px; word-break: break-all; }
-.cw-ops { white-space: nowrap; }
-.cw-ops .ghost { margin-right: 4px; }
+.cw-table-wrap { overflow-x: auto; margin-top: 4px; }
+:deep(.tes-table) { table-layout: fixed; }
+:deep(.tes-table thead th) { white-space: nowrap; }
+:deep(.tes-table col.c-task) { width: 16%; }
+:deep(.tes-table col.c-kind) { width: 84px; }
+:deep(.tes-table col.c-src) { width: 13%; }
+:deep(.tes-table col.c-path) { width: 60px; }
+:deep(.tes-table col.c-status) { width: 84px; }
+:deep(.tes-table col.c-budget) { width: 68px; }
+:deep(.tes-table col.c-query) { width: 200px; }
+:deep(.tes-table col.c-paper) { width: 92px; }
+:deep(.tes-table col.c-ops) { width: 300px; }
+.cw-query { width: 200px; max-width: 200px; color: #6b7280; font-size: 12px; overflow-wrap: anywhere; word-break: normal; }
+.cw-ops { white-space: normal; }
+.cw-ops .ghost { margin: 2px 4px 2px 0; }
 .warn-text { color: #dc2626; display: block; }
 .cw-mask {
   position: fixed; inset: 0; background: rgba(15, 23, 42, .45);

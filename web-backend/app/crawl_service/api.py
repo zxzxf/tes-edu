@@ -5,14 +5,15 @@
 """
 from __future__ import annotations
 
+import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import SessionLocal, get_db
 from app.core.rbac import Role
 from app.core.security import read_tenant_id, require_role
 from app.models.ops import CrawlJob, CrawlRun, CourseSource, KpNode
@@ -330,13 +331,20 @@ async def set_job_status(
     return _job_out(row)
 
 
-@router.post("/jobs/{job_id}/run", response_model=JobOut)
+@router.post("/jobs/{job_id}/run", response_model=JobOut, status_code=202)
 async def run_job(
     job_id: int,
+    background_tasks: BackgroundTasks,
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    """手动执行一次（M3-8 验收用：配一个每分钟 job 也能立刻看到结果）。"""
+    """手动执行一次（M3-8 验收用）。
+
+    采集任务——尤其 M5-7 自主发现任务——会真实外抓，耗时远超网关上游超时，
+    同步执行会被网关掐断、返回 503 并连带触发 web_backend 熔断（连续 5 次失败
+    10s 内全部 503）。改为：立即 202 返回当前任务态，重活在后台异步跑；前端
+    通过「运行日志 / 最近运行 / 刷新」观察最终结果，不再有超时 503。
+    """
     job = (
         await db.execute(
             select(CrawlJob).where(
@@ -346,10 +354,35 @@ async def run_job(
     ).scalar_one_or_none()
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
-    run = await crawl_svc.run_job(db, job, origin="manual")
     await db.commit()
     await db.refresh(job)
-    return _job_out(job, run)
+    # 后台独立会话执行，避免占用本次请求连接导致网关超时/熔断
+    background_tasks.add_task(_run_job_async, job_id, _tenant(user))
+    return _job_out(job, None)
+
+
+async def _run_job_async(job_id: int, tenant_id: str) -> None:
+    """后台执行采集任务：自带会话，与 HTTP 请求解耦。"""
+    log = logging.getLogger(__name__)
+    async with SessionLocal() as session:
+        job = (
+            await session.execute(
+                select(CrawlJob).where(
+                    CrawlJob.id == job_id, CrawlJob.tenant_id == tenant_id
+                )
+            )
+        ).scalar_one_or_none()
+        if job is None:
+            return
+        try:
+            await crawl_svc.run_job(session, job, origin="manual")
+            await session.commit()
+        except Exception as exc:  # noqa: BLE001 后台失败必须留痕，不能静默
+            log.warning("async run_job failed job=%s: %s", job_id, exc)
+            try:
+                await session.rollback()
+            except Exception:
+                pass
 
 
 @router.delete("/jobs/{job_id}", status_code=204)
@@ -377,14 +410,14 @@ async def delete_job(
     await db.commit()
 
 
-@router.post("/jobs/{job_id}/retry", response_model=JobOut)
+@router.post("/jobs/{job_id}/retry", response_model=JobOut, status_code=202)
 async def retry_job(
     job_id: int,
+    background_tasks: BackgroundTasks,
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    run = await crawl_svc.retry_run(db, _tenant(user), job_id)
-    await db.commit()
+    """手动重试一次：与 run 同理，重跑会真实外抓，改为异步避免网关超时 503。"""
     job = (
         await db.execute(
             select(CrawlJob).where(
@@ -394,7 +427,25 @@ async def retry_job(
     ).scalar_one_or_none()
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
-    return _job_out(job, run)
+    await db.commit()
+    await db.refresh(job)
+    background_tasks.add_task(_run_retry_async, job_id, _tenant(user))
+    return _job_out(job, None)
+
+
+async def _run_retry_async(job_id: int, tenant_id: str) -> None:
+    """后台重试采集任务：自带会话，与 HTTP 请求解耦。"""
+    log = logging.getLogger(__name__)
+    async with SessionLocal() as session:
+        try:
+            await crawl_svc.retry_run(session, tenant_id, job_id)
+            await session.commit()
+        except Exception as exc:  # noqa: BLE001 后台失败必须留痕，不能静默
+            log.warning("async retry_run failed job=%s: %s", job_id, exc)
+            try:
+                await session.rollback()
+            except Exception:
+                pass
 
 
 @router.post("/runs/{run_id}/rollback")
