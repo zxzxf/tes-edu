@@ -78,6 +78,21 @@ def test_seed_role_menus_region_admin_no_system_settings():
     assert "m_ops_tenant" in ra_menus
 
 
+def test_seed_role_menus_region_admin_no_grading():
+    """教师批改对 region_admin 是死链：grading.py 的 TeacherDep 只放行
+    teacher/admin/school，菜单可见却必 403。按产品决策撤菜单，别撤回。
+    """
+    pairs = {(r["role_id"], r["menu_id"]) for r in rbac_seed.build_seed_role_menus()}
+    assert ("role_region_admin", "m_ops_grading") not in pairs
+    # 批改按钮码也不该漏给它，否则权限集合里又会凭空冒出 grading:* 权限
+    for mid in ("m_ops_grading_submit", "m_ops_grading_review"):
+        assert ("role_region_admin", mid) not in pairs
+    # 其余教学角色照旧可见；家长本来就不可见
+    for rid in ("role_admin", "role_school", "role_teacher"):
+        assert (rid, "m_ops_grading") in pairs
+    assert ("role_parent", "m_ops_grading") not in pairs
+
+
 def test_build_permission_set_filters_none():
     rows = [
         {"permission_code": "system:menu:add"},

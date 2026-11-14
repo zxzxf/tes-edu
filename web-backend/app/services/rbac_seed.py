@@ -89,14 +89,21 @@ MENUS = [
 #   exam:generate    组卷生成（与 exam.py require_perm 对齐：admin/teacher/region_admin）
 #   grading:submit   提交批改（与 grading.py require_perm 对齐：admin/teacher）
 #   grading:review   评分批改（与 grading.py PUT 对齐：admin/teacher）
-# school/region_admin 对批改、school 对组卷均无按钮——页面可见但动作隐藏，
-# 由后端 require_perm 兜底拦截，前端 v-has-permission 只做体验层。
+# school 对批改、school 对组卷均无按钮码；region_admin 连「教师批改」菜单都不授
+# （见下方 ROLE_MENU_MAP 注释）。注意这两个按钮码只保护旧模块5接口，工单的
+# 判定/改判/解冻走 TeacherDep 角色白名单，批改页也没有 v-has-permission，
+# 别把按钮授权当成已经生效的拦截。
 ROLE_MENU_MAP = {
     "role_admin": [m[0] for m in MENUS],  # 全菜单 + 全按钮
     "role_region_admin": [
         m[0] for m in MENUS
         if m[3] in ("DIR", "MENU")
         and not (m[0] == "m_sys" or (m[1] == "m_sys"))
+        # 「教师批改」撤菜单（2026-11-14）：grading.py 的 TeacherDep 只放行
+        # teacher/admin/school，region_admin 菜单可见却一点就 403（线上实测）。
+        # 产品决策是撤菜单而非放宽接口，避免给它看得见用不了的死链。
+        # 线上旧库的 sys_role_menu 行需另行 DELETE —— seed 的授权只补不删。
+        and m[0] != "m_ops_grading"
     ] + ["m_ops_exam_gen", "m_sys_feature", "m_sys_feature_manage", "m_sys_byom", "m_sys_byom_manage",
          "m_ops_tenant_add", "m_ops_tenant_edit", "m_ops_tenant_del"],  # 区域管理员：区域运营 + 功能开关 + 模型配置（不含系统设置其余）；含学校增删改按钮码
     "role_school": [
