@@ -170,15 +170,37 @@ class Submission(Base):
 
 
 class ComplianceItem(Base):
-    """合规审核项。"""
+    """合规审核项。
+
+    2026-11-14（迁移 0022）：由「只有手工 POST 能写的空壳」改成接真实生产者的队列——
+    录题 / 采集入库 / 网关敏感词拦截都会落 pending 行。新增列的含义：
+
+    * ``tenant_id``：写侧只取登录态，读侧按租户过滤（平台级角色跨租户只读）。
+      这列是隔离红线，缺了它任何租户都能看到别校的待审内容。
+    * ``ref_type``/``ref_id``：指向触发入队的对象（course_kb.id / 网关无对象）。
+    * ``dedup_key``：幂等键，同一道题或同一天同一路径同一敏感词只入队一次。
+    * ``source``：question / crawl / gateway / manual，前端据此标来源。
+    * ``reviewed_by``/``reviewed_at``：审核留痕，谁在什么时候通过的结论。
+    """
 
     __tablename__ = "compliance_items"
 
     id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(64), index=True)
     type = Column(String(32), nullable=False)
     content = Column(Text, nullable=False)
     status = Column(String(16), nullable=False, default="pending", index=True)
+    ref_type = Column(String(24))
+    ref_id = Column(Integer)
+    dedup_key = Column(String(160))
+    source = Column(String(24))
+    reviewed_by = Column(String(64))
+    reviewed_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "dedup_key", name="uq_compliance_dedup"),
+    )
 
 
 class StudentEvent(Base):

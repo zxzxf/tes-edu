@@ -3,6 +3,7 @@
 S5 追加：错题本 enrich —— 按 (content_hash, wrong_step_no) 取步骤的 correction，
 并取知识点卡的 understanding/memory，让错题本从"记一道错题"升级为"知道错在第几步、怎么改"。
 """
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import select, tuple_
@@ -160,12 +161,26 @@ async def review_submission(
 
 # ---------------- 合规审核 ----------------
 async def list_compliance(
-    db: AsyncSession, status: Optional[str] = None, limit: int = 100
+    db: AsyncSession,
+    status: Optional[str] = None,
+    tenant_id: Optional[str] = None,
+    limit: int = 100,
 ) -> List[ComplianceItem]:
+    """待审列表。
+
+    ``tenant_id=None`` 表示平台级角色跨租户只读，**必须是不加 where**，
+    绝不能写成 ``column == None``（会编译成 IS NULL，一条都查不到）。
+    """
     stmt = select(ComplianceItem)
+    if tenant_id is not None:
+        stmt = stmt.where(ComplianceItem.tenant_id == tenant_id)
     if status:
         stmt = stmt.where(ComplianceItem.status == status)
-    res = await db.execute(stmt.limit(limit))
+    stmt = stmt.order_by(
+        ComplianceItem.created_at.desc().nullslast(),
+        ComplianceItem.id.desc(),
+    ).limit(limit)
+    res = await db.execute(stmt)
     return list(res.scalars().all())
 
 
@@ -182,9 +197,12 @@ async def get_compliance(db: AsyncSession, item_id: int) -> Optional[ComplianceI
 
 
 async def review_compliance(
-    db: AsyncSession, obj: ComplianceItem, status: str
+    db: AsyncSession, obj: ComplianceItem, status: str, actor_id: Optional[str] = None
 ) -> ComplianceItem:
+    """审核结论 + 留痕。谁、何时判的必须落库，否则结论不可追溯。"""
     obj.status = status
+    obj.reviewed_by = actor_id
+    obj.reviewed_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(obj)
     return obj

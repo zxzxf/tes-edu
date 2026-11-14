@@ -2,6 +2,7 @@
 
 P0/P2 阶段先定义契约，真实持久化在接入 PostgreSQL 后补齐。
 """
+from datetime import datetime
 from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -520,12 +521,37 @@ class WeeklyReport(BaseModel):
 
 # ---------- 模块9：合规审核 ----------
 class ComplianceItem(BaseModel):
+    """合规审核项出参。
+
+    2026-11-14（0022）补齐新列。**响应模型漏声明字段会被 pydantic 静默丢弃**，
+    前端要展示「来源 / 引用 / 审核人」就必须在这里逐字段列全。
+    """
     id: Optional[int] = None
+    tenant_id: Optional[str] = None
     type: str                     # 内容类型，如 题目/解析/图谱
     content: str
-    status: str = "pending"       # pending / reviewed / rejected
+    status: str = "pending"       # pending / approved / rejected
+    ref_type: Optional[str] = None
+    ref_id: Optional[int] = None
+    dedup_key: Optional[str] = None
+    source: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class ComplianceEventIn(BaseModel):
+    """网关内容安全命中事件（内网直调，不经过公网 JWT 校验）。
+
+    只带元数据，**绝不落原始请求体**（可能含未成年人 PII）。
+    """
+    tenant_id: Optional[str] = None
+    user_id: Optional[str] = None
+    path: str = ""
+    method: str = "POST"
+    keyword: str = ""
 
 
 # ---------- 模块5b：判分指标看板（M2-7） ----------

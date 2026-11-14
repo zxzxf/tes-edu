@@ -115,8 +115,11 @@ ROLE_MENU_MAP = {
         "m_sys_byom", "m_sys_byom_manage",  # 学校：可配本租户大模型（BYOM）
     ],
     # T-AM10 收口：school 对 /knowledge、/analytics/summary、/wrong-questions、/reports/weekly、
-    # /compliance、/analytics/error-distribution、/questions 接口均无权限（require_role 仅 admin/region_admin），
-    # 保留这些菜单会让 school 点进去报「权限不足」。故从 school 授权移除，使菜单与接口鉴权一致。
+    # /compliance、/analytics/error-distribution、/questions 接口均无权限。
+    # 2026-11-14 校准（A 方案）：error-distribution 与 compliance 都放行
+    # admin/teacher/region_admin —— region_admin 菜单可见却曾 403 的死链已修；
+    # 二者仍不含 school。保留这些菜单会让 school 点进去报「权限不足」，
+    # 故从 school 授权移除，使菜单与接口鉴权一致。
     # 注意 seed_rbac 的 role_menu upsert 只补不删，线上库需另行 DELETE 已存在的旧授权行。
     "role_teacher": [
         "m_ops", "m_ops_knowledge", "m_ops_analytics", "m_ops_wrong",

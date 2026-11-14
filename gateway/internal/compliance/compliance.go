@@ -13,10 +13,13 @@ package compliance
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"gateway/internal/audit"
 	"gateway/internal/metrics"
@@ -44,6 +47,11 @@ type Options struct {
 	// MaxScanBytes 单请求体扫描上限（默认 256KB；超出不扫描直接放行，
 	// 由后端深审——网关不做大体重放）。
 	MaxScanBytes int64
+	// QueueURL 合规事件入队端点（web-backend /api/admin/compliance/events）。
+	// 命中敏感词时异步 POST 一条元数据事件，让 B 端合规审核队列能看到真实拦截。
+	// 为空或 QueueEnabled=false 时完全不发请求，行为与改造前一致。
+	QueueURL     string
+	QueueEnabled bool
 }
 
 // Wrap 构造合规中间件。
@@ -102,6 +110,18 @@ func Wrap(next http.Handler, opt Options) http.Handler {
 				metrics.Inc(metrics.KeyContentReject)
 				logger.Printf("[compliance] content_reject keyword=%q path=%s method=%s uid=%s",
 					audit.MaskPII(kw), r.URL.Path, r.Method, r.Header.Get("X-User-Id"))
+				// 入队：fire-and-forget，绝不阻塞或改变 403 响应。
+				// 只带元数据（路径/命中词/身份），原始请求体可能含未成年人 PII，不落库。
+				if opt.QueueEnabled && opt.QueueURL != "" {
+					ev := rejectEvent{
+						TenantID: r.Header.Get("X-Tenant-Id"),
+						UserID:   r.Header.Get("X-User-Id"),
+						Path:     r.URL.Path,
+						Method:   r.Method,
+						Keyword:  kw,
+					}
+					go reportReject(opt.QueueURL, ev, logger)
+				}
 				http.Error(w, `{"error":"content rejected"}`, http.StatusForbidden)
 				return
 			}
@@ -168,4 +188,46 @@ func scanKeywords(body string, keywords []string) string {
 func isSensitiveOp(r *http.Request) bool {
 	const prefix = "/api/admin/"
 	return len(r.URL.Path) >= len(prefix) && r.URL.Path[:len(prefix)] == prefix && r.Method != http.MethodGet
+}
+
+// rejectEvent 是内容安全拦截的审计元数据。
+// 注意只放路径与命中词，**不放请求体**：题干/作答可能含未成年人 PII。
+type rejectEvent struct {
+	TenantID string `json:"tenant_id"`
+	UserID   string `json:"user_id"`
+	Path     string `json:"path"`
+	Method   string `json:"method"`
+	Keyword  string `json:"keyword"`
+}
+
+var queueClient = &http.Client{Timeout: 2 * time.Second}
+
+// reportReject 把拦截事件异步送进 B 端合规审核队列。
+//
+// 设计为 fire-and-forget：入队失败只记日志，拦截动作本身（403）不受影响，
+// 也不会因为 web-backend 不可用而拖慢网关响应。超时 2s，连接复用由 queueClient 负责。
+// 身份头显式声明为网关自身：网关就是 X-User-* 的唯一注入方，外部请求经网关时
+// 这些头会被无条件覆盖，无法借这条内部链路伪造身份。
+func reportReject(endpoint string, ev rejectEvent, logger *log.Logger) {
+	body, err := json.Marshal(ev)
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-Id", "gateway")
+	req.Header.Set("X-User-Role", "region_admin")
+	req.Header.Set("X-Tenant-Id", ev.TenantID)
+	resp, err := queueClient.Do(req)
+	if err != nil {
+		logger.Printf("[compliance] queue_event failed path=%s err=%v", ev.Path, err)
+		return
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
 }

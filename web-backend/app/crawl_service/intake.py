@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exam_types import QTYPE_CHOICE, QTYPE_SUBJECTIVE, to_qtype
 from app.models.course_kb import CourseQuestion
 from app.models.ops import CrawlJob, ExamPaper, ExamPaperQuestion, ExamPaperIntake
+from app.services import compliance_queue
 
 log = logging.getLogger(__name__)
 
@@ -142,6 +143,15 @@ async def intake(
         normalized.append(row)
 
     created, duplicated = await _insert_unique(db, normalized)
+
+    # 合规入队（0022）：采集进来的 draft 题同样要进审核队列，
+    # 不能因为「不是教师手录」就绕开合规初审。事务由调用方统一提交。
+    for obj in created:
+        try:
+            async with db.begin_nested():
+                await compliance_queue.enqueue_question(db, obj, source="crawl")
+        except Exception as e:  # noqa: BLE001 队列不阻塞采集入库
+            log.warning("合规入队失败（采集题已入库）question_id=%s: %s", obj.id, e)
 
     paper: Optional[ExamPaper] = None
     if path == PATH_P1 and created:

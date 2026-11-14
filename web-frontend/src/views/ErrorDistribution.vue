@@ -15,6 +15,8 @@
       <button class="ghost" :disabled="!data" @click="exportCsv">导出 CSV</button>
     </div>
 
+    <p v-if="error" class="err">{{ error }}</p>
+
     <div v-if="data">
       <div class="tes-grid cols-4 cards">
         <div class="tes-stat"><div class="num">{{ data.total }}</div><div class="lbl">错因记录</div></div>
@@ -26,8 +28,11 @@
       <div class="tes-card panel">
         <p class="scope">
           范围：{{ data.scope.period_days }} 天（{{ data.scope.from.slice(0, 10) }} ~ {{ data.scope.to.slice(0, 10) }}）
+          <span v-if="data.scope.tenant_id">· 租户 {{ data.scope.tenant_id }}</span>
+          <span v-else>· 全部租户</span>
           <span v-if="data.scope.subject">· 学科 {{ data.scope.subject }}</span>
         </p>
+        <p v-if="data.scope.hint" class="hintbox">{{ data.scope.hint }}</p>
 
         <div v-if="data.rows.length" class="tes-table-card">
           <table class="tes-table">
@@ -61,7 +66,7 @@
         </p>
       </div>
     </div>
-    <p v-else class="tes-empty">填好条件点「查询」。班级范围默认取当前租户全部学生。</p>
+    <p v-else-if="!error" class="tes-empty">填好条件点「查询」。班级范围默认取当前租户全部学生。</p>
   </div>
 </template>
 
@@ -71,29 +76,52 @@ import { getErrorDistribution, downloadErrorDistributionCsv } from '../api/admin
 
 const groupBy = ref('error_type')
 const subject = ref('')
-const periodDays = ref(30)
+const periodDays = ref(90)
 const studentIds = ref('')
 const data = ref(null)
+const error = ref('')
 
 function pct(v) {
   return typeof v === 'number' ? (v * 100).toFixed(1) + '%' : '—'
 }
 
-async function load() {
+function queryParams() {
   const params = {
     group_by: groupBy.value,
-    period_days: periodDays.value || 30
+    period_days: periodDays.value || 90
   }
   if (subject.value) params.subject = subject.value
   if (studentIds.value) params.student_ids = studentIds.value
-  data.value = await getErrorDistribution(params)
+  return params
+}
+
+function messageOf(err) {
+  const code = err?.response?.status
+  const detail = err?.response?.data?.detail
+  if (code === 403) return '权限不足（403）：当前角色无权访问班级错因分布'
+  if (code === 401) return '登录已失效，请重新登录'
+  return `${code ? `（${code}）` : ''}${detail || err?.message || '未知错误'}`
+}
+
+async function load() {
+  error.value = ''
+  try {
+    data.value = await getErrorDistribution(queryParams())
+  } catch (err) {
+    // 关键修复：403/500 曾因未捕获变成 unhandled rejection，组件保持空态，
+    // 页面只显示「填好条件点查询」——权限错误被伪装成没数据。
+    data.value = null
+    error.value = `加载失败：${messageOf(err)}`
+  }
 }
 
 async function exportCsv() {
-  const params = { group_by: groupBy.value, period_days: periodDays.value || 30 }
-  if (subject.value) params.subject = subject.value
-  if (studentIds.value) params.student_ids = studentIds.value
-  await downloadErrorDistributionCsv(params, `错因分布_按${groupBy.value}.csv`)
+  error.value = ''
+  try {
+    await downloadErrorDistributionCsv(queryParams(), `错因分布_按${groupBy.value}.csv`)
+  } catch (err) {
+    error.value = `导出失败：${messageOf(err)}`
+  }
 }
 </script>
 
@@ -103,6 +131,8 @@ async function exportCsv() {
 .num.warn { color: var(--warning); }
 .panel { margin-top: 16px; }
 .scope { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+.hintbox { font-size: 12px; color: #9a6700; background: #fff8e6; border: 1px solid #ffe4a3; padding: 8px 12px; border-radius: 10px; margin: 0 0 12px; }
+.err { color: #c0392b; background: #fff1f0; border: 1px solid #ffd6d3; padding: 10px 12px; border-radius: 10px; font-size: 13px; }
 .num-col { width: 70px; text-align: right; }
 .bar-col { width: 220px; }
 .val { font-size: 12px; color: var(--ink-2); margin-left: 8px; }

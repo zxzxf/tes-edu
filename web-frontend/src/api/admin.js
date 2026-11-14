@@ -256,7 +256,15 @@ export function getWeeklyReport(studentId, week, periodDays = 7) {
   return client.get('/reports/weekly', { params: { student_id: studentId, week, period_days: periodDays } })
 }
 
-// 模块9 合规审核
+// 模块9 合规审核（0022：待审项由录题/采集入库/网关拦截自动落库）
+// status: pending | approved | rejected；不传 = 全部
 export function listCompliance(status) {
   return client.get('/compliance', { params: status ? { status } : {} })
+}
+// 审核结论只接受 approved / rejected；后端按租户校验并留痕
+export function reviewCompliance(itemId, status) {
+  return client.put(`/compliance/${itemId}/review`, null, { params: { status } })
+}
+export function createCompliance(data) {
+  return client.post('/compliance', data)
 }

@@ -130,8 +130,8 @@ func buildHandler(cfg *config.Config, ctx context.Context) (mux *http.ServeMux, 
 				Timeout:   3 * time.Second, // TCP 建连超时
 				KeepAlive: 30 * time.Second,
 			}).DialContext,
-			MaxIdleConns:          100,             // 全局最大空闲连接
-			MaxIdleConnsPerHost:   20,              // 每个上游最大空闲连接
+			MaxIdleConns:          100,              // 全局最大空闲连接
+			MaxIdleConnsPerHost:   20,               // 每个上游最大空闲连接
 			IdleConnTimeout:       90 * time.Second, // 空闲连接回收
 			TLSHandshakeTimeout:   5 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
@@ -155,54 +155,60 @@ func buildHandler(cfg *config.Config, ctx context.Context) (mux *http.ServeMux, 
 		// LLM endpoint 白名单（P5 合同硬要求：白名单外 /v1 端点一律 403）。
 		// 位于鉴权之后：拒绝日志能带上 uid；位于转发之前：白名单外请求不打上游。
 		// 未带 X-LLM-Endpoint 头的请求默认放行（非 LLM 流量不受影响）。
-	if cfg.LLMAllowlist.Enabled {
-		// 启动即校验 yaml seed：写错 fail fast（热更数据在 configsync 内单独校验并降级）
-		seedEntries, err := allowlist.ParseEndpoints(cfg.LLMAllowlist.Endpoints)
-		if err != nil {
-			log.Fatalf("llm_allowlist endpoints: %v", err)
+		if cfg.LLMAllowlist.Enabled {
+			// 启动即校验 yaml seed：写错 fail fast（热更数据在 configsync 内单独校验并降级）
+			seedEntries, err := allowlist.ParseEndpoints(cfg.LLMAllowlist.Endpoints)
+			if err != nil {
+				log.Fatalf("llm_allowlist endpoints: %v", err)
+			}
+			alOpt := allowlist.Options{
+				Enabled:       true,
+				Header:        cfg.LLMAllowlist.Header,
+				RequireHeader: cfg.LLMAllowlist.RequireHeader,
+			}
+			if csManager != nil {
+				alOpt.EntriesFn = csManager.AllowlistEntries // 动态：Redis + 热更
+			} else {
+				alOpt.Entries = seedEntries // 静态：未启用动态配置
+			}
+			handler = allowlist.Wrap(handler, alOpt)
+			if csManager != nil {
+				log.Printf("llm allowlist enabled: dynamic(redis, source=%s), header=%s require_header=%v",
+					csManager.AllowlistSource(), cfg.LLMAllowlist.Header, cfg.LLMAllowlist.RequireHeader)
+			} else {
+				log.Printf("llm allowlist enabled: %d endpoint(s), header=%s require_header=%v",
+					len(seedEntries), cfg.LLMAllowlist.Header, cfg.LLMAllowlist.RequireHeader)
+			}
 		}
-		alOpt := allowlist.Options{
-			Enabled:       true,
-			Header:        cfg.LLMAllowlist.Header,
-			RequireHeader: cfg.LLMAllowlist.RequireHeader,
-		}
-		if csManager != nil {
-			alOpt.EntriesFn = csManager.AllowlistEntries // 动态：Redis + 热更
-		} else {
-			alOpt.Entries = seedEntries // 静态：未启用动态配置
-		}
-		handler = allowlist.Wrap(handler, alOpt)
-		if csManager != nil {
-			log.Printf("llm allowlist enabled: dynamic(redis, source=%s), header=%s require_header=%v",
-				csManager.AllowlistSource(), cfg.LLMAllowlist.Header, cfg.LLMAllowlist.RequireHeader)
-		} else {
-			log.Printf("llm allowlist enabled: %d endpoint(s), header=%s require_header=%v",
-				len(seedEntries), cfg.LLMAllowlist.Header, cfg.LLMAllowlist.RequireHeader)
-		}
-	}
 
 		// 合规（输入校验 + 内容安全 + 敏感操作审计），位于鉴权之后、转发之前。
 		// 内容安全：JSON/文本请求体敏感词扫描，命中即 403（未成年人保护）；
 		// multipart（拍照上传）只做 15MB 大小闸门，文本深审由后端负责。
-	compOpt := compliance.Options{
-		ContentSafetyEnabled: cfg.ContentSafety.Enabled,
-		MaxScanBytes:         cfg.ContentSafety.MaxScanBytes,
-	}
-	if csManager != nil {
-		compOpt.KeywordsFn = csManager.Keywords // 动态：Redis + 热更
-	} else {
-		compOpt.Keywords = cfg.ContentSafety.Keywords // 静态：未启用动态配置
-	}
-	handler = compliance.Wrap(handler, compOpt)
-	if cfg.ContentSafety.Enabled {
-		if csManager != nil {
-			log.Printf("content safety enabled: dynamic(redis, source=%s), max_scan=%dB",
-				csManager.KeywordsSource(), cfg.ContentSafety.MaxScanBytes)
-		} else {
-			log.Printf("content safety enabled: %d keyword(s), max_scan=%dB",
-				len(cfg.ContentSafety.Keywords), cfg.ContentSafety.MaxScanBytes)
+		compOpt := compliance.Options{
+			ContentSafetyEnabled: cfg.ContentSafety.Enabled,
+			MaxScanBytes:         cfg.ContentSafety.MaxScanBytes,
+			// 敏感词命中要落到 B 端合规审核队列，审核员才看得到「为什么拦、拦了谁」。
+			// 端点由 upstreams.web_backend 推导，不新增配置项；上游没配则保持旧行为。
+			QueueEnabled: cfg.ContentSafety.Enabled,
 		}
-	}
+		if base, ok := cfg.UpstreamURL("web_backend"); ok && base != "" {
+			compOpt.QueueURL = strings.TrimRight(base, "/") + "/api/admin/compliance/events"
+		}
+		if csManager != nil {
+			compOpt.KeywordsFn = csManager.Keywords // 动态：Redis + 热更
+		} else {
+			compOpt.Keywords = cfg.ContentSafety.Keywords // 静态：未启用动态配置
+		}
+		handler = compliance.Wrap(handler, compOpt)
+		if cfg.ContentSafety.Enabled {
+			if csManager != nil {
+				log.Printf("content safety enabled: dynamic(redis, source=%s), max_scan=%dB",
+					csManager.KeywordsSource(), cfg.ContentSafety.MaxScanBytes)
+			} else {
+				log.Printf("content safety enabled: %d keyword(s), max_scan=%dB",
+					len(cfg.ContentSafety.Keywords), cfg.ContentSafety.MaxScanBytes)
+			}
+		}
 
 		// 限流（按身份/租户/IP），位于鉴权之后，可识别调用者做精准限速
 		handler = ratelimit.Wrap(handler, ratelimit.Options{

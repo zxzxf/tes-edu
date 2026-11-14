@@ -1,11 +1,13 @@
 package compliance
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func wrapTarget() http.Handler {
@@ -305,5 +307,75 @@ func TestContentSafety_DisabledByDefault(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("关闭内容安全应放行，实际 %d", w.Code)
+	}
+}
+
+// TestContentSafety_EnqueuesRejectEvent：命中敏感词除了 403，还要把元数据
+// 异步送进 B 端合规审核队列（线上「合规审核列表没数据」的生产者之一）。
+func TestContentSafety_EnqueuesRejectEvent(t *testing.T) {
+	got := make(chan rejectEvent, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var ev rejectEvent
+		_ = json.NewDecoder(r.Body).Decode(&ev)
+		got <- ev
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	h := wrapSafety(t, Options{
+		ContentSafetyEnabled: true,
+		Keywords:             []string{"赌博"},
+		QueueEnabled:         true,
+		QueueURL:             srv.URL,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/app/solve",
+		strings.NewReader(`{"q":"介绍赌博的危害"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-Id", "demo")
+	req.Header.Set("X-User-Id", "u_test")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("命中敏感词应 403（入队不能改变拦截结果），实际 %d", w.Code)
+	}
+	select {
+	case ev := <-got:
+		if ev.Keyword != "赌博" || ev.TenantID != "demo" || ev.Path != "/api/app/solve" {
+			t.Fatalf("入队事件内容不对：%+v", ev)
+		}
+		// 红线：请求体原文（可能含 PII）不得出现在事件里
+		if strings.Contains(ev.Keyword+ev.Path+ev.TenantID+ev.UserID, "介绍赌博的危害") {
+			t.Fatal("入队事件泄漏了原始请求体")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("命中后应异步上报合规事件")
+	}
+}
+
+// TestContentSafety_QueueDisabledNoRequest：未开启入队时行为与改造前完全一致。
+func TestContentSafety_QueueDisabledNoRequest(t *testing.T) {
+	called := make(chan struct{}, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called <- struct{}{}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	h := wrapSafety(t, Options{
+		ContentSafetyEnabled: true,
+		Keywords:             []string{"赌博"},
+		QueueURL:             srv.URL, // 只给地址、不开开关
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/app/solve",
+		strings.NewReader(`{"q":"赌博"}`))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	select {
+	case <-called:
+		t.Fatal("QueueEnabled=false 时不应发出任何入队请求")
+	case <-time.After(150 * time.Millisecond):
 	}
 }

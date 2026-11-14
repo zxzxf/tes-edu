@@ -32,7 +32,7 @@ from app.models.course_kb import (
     CourseQuestion,
     QuestionCreate,
 )
-from app.services import embed as embed_svc
+from app.services import compliance_queue, embed as embed_svc
 from app.services.parser import normalize_question
 
 log = logging.getLogger(__name__)
@@ -197,6 +197,16 @@ async def create_questions(
                 "duplicated": False,
             }
         )
+
+    # 合规入队（0022）：新录的 draft 题必须同时出现在合规审核队列里。
+    # 题目与待审项同事务；入队单独套 SAVEPOINT，万一合规表没迁移/被锁，
+    # 只回滚这一条待审项，题目照常入库（与向量双写降级同一口径）。
+    for obj in created_rows:
+        try:
+            async with db.begin_nested():
+                await compliance_queue.enqueue_question(db, obj, source="question")
+        except Exception as e:  # noqa: BLE001 队列不阻塞录题主流程
+            log.warning("合规入队失败（题目已入库）question_id=%s: %s", obj.id, e)
 
     await db.commit()
 
