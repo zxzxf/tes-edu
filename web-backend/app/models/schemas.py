@@ -17,15 +17,23 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     role: str
+    # T-AM10（多角色切换）：该用户全部角色码，供前端渲染角色切换器。
+    roles: List[str] = []
     # T-WB1（2026-10-28）：App 端错题/背诵同步要用真实流水号作 student_id。
     # 兼容旧客户端设为可选——缺字段时 App 回落到占位学号，不会因解析失败崩。
     user_id: str | None = None
     tenant_id: str | None = None
 
 
+class RoleSwitchRequest(BaseModel):
+    """切换当前激活角色（T-AM10）：仅限该用户已被授予的角色。"""
+    role: str
+
+
 class UserInfo(BaseModel):
     user_id: str
     role: str
+    roles: List[str] = []
 
 
 # ---------- 模块1：教研内容管理 ----------

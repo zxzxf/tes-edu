@@ -23,7 +23,22 @@
       </nav>
 
       <div class="top-right">
-        <span class="role-chip">{{ roleText }}</span>
+        <div class="role-switch">
+          <button class="role-chip" type="button" @click="toggleRoleMenu" :title="切换角色">
+            {{ roleText }} <span class="caret">▾</span>
+          </button>
+          <div v-if="roleMenuOpen" class="role-menu">
+            <button
+              v-for="r in (user?.roles || [])"
+              :key="r"
+              type="button"
+              class="role-item"
+              :class="{ on: r === user?.role }"
+              @click="chooseRole(r)"
+            >{{ roleLabel(r) }}</button>
+          </div>
+          <div v-if="roleMenuOpen" class="role-backdrop" @click="roleMenuOpen = false"></div>
+        </div>
         <span class="user-chip">
           <span class="avatar">{{ (user?.username || 'U').slice(0, 1).toUpperCase() }}</span>
           {{ user?.username }}
@@ -139,6 +154,27 @@ const roleText = computed(() => {
   }
   return map[user?.role] || user?.role || ''
 })
+
+// T-AM10 多角色切换：点击角色徽标展开下拉，列出该账号全部角色，选择后切换激活角色。
+const roleMenuOpen = ref(false)
+const ROLE_LABELS = {
+  admin: '管理员', region_admin: '区域管理员', school: '学校',
+  teacher: '教师', parent: '家长',
+}
+function roleLabel(code) {
+  return ROLE_LABELS[code] || code
+}
+function toggleRoleMenu() {
+  roleMenuOpen.value = !roleMenuOpen.value
+}
+async function chooseRole(code) {
+  roleMenuOpen.value = false
+  if (!code || code === user?.role) return
+  await auth.switchRole(code)
+  // 切换后当前路由可能已不在新角色授权内（如从学校切到区域管理员时正在用户管理页），
+  // 不可达则回概览，避免停在 403 页面。
+  if (!auth.hasRouteAccess(route.path)) router.push('/dashboard')
+}
 
 const navGroups = computed(() => toNavGroups(auth.menuTree))
 // 无采集菜单授权的账号不显示三个采集域，避免「看得见、点了被守卫弹回」
@@ -329,6 +365,25 @@ function onLogout() {
   padding: 4px 12px; border-radius: 999px;
   background: #eef9f3; color: var(--success);
 }
+/* T-AM10 角色切换下拉 */
+.role-switch { position: relative; }
+.role-chip { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; border: 0; }
+.role-chip .caret { font-size: 9px; opacity: .7; }
+.role-backdrop { position: fixed; inset: 0; z-index: 40; }
+.role-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 50;
+  min-width: 140px; padding: 6px;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(36, 27, 58, .18);
+}
+.role-item {
+  display: flex; align-items: center; width: 100%;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-2);
+  background: transparent; border: 0; text-align: left;
+  padding: 8px 10px; border-radius: 8px; cursor: pointer;
+}
+.role-item:hover { background: var(--bg-2); color: var(--ink); }
+.role-item.on { color: var(--brand-2); background: var(--brand-grad-soft); }
 .user-chip { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13px; white-space: nowrap; }
 .avatar {
   width: 28px; height: 28px; border-radius: 50%;

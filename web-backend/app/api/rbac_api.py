@@ -376,26 +376,30 @@ async def my_menus(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
-    """按当前用户授权返回可见菜单（含按钮节点）。admin 全量。"""
+    """按当前用户授权返回可见菜单（含按钮节点）。admin 全量。
+
+    T-AM10（多角色切换）：非 admin 用户按「当前激活角色」(user['role']，即 JWT
+    role claim / 网关注入的 X-User-Role) 过滤菜单，而非把所有角色的菜单做 UNION。
+    这样切换激活角色后，菜单随角色变化（如区域管理员看不到用户管理，学校管理员可见）。
+    """
     from app.core import permission as perm_mod
 
     if user["role"] == Role.ADMIN.value:
         rows = (await db.execute(select(m.SysMenu).order_by(m.SysMenu.sort))).scalars().all()
         return [MenuOut.model_validate(r) for r in rows]
 
-    # 经角色聚合可见菜单
+    # 仅取「当前激活角色」对应的菜单（角色码 → role_id）
     from sqlalchemy import text
 
     result = await db.execute(
         text(
             """
-            SELECT DISTINCT m.menu_id FROM sys_user_role ur
-            JOIN sys_role_menu rm ON rm.role_id = ur.role_id
+            SELECT DISTINCT m.menu_id FROM sys_role_menu rm
             JOIN sys_menu m ON m.menu_id = rm.menu_id
-            WHERE ur.user_id = :uid
+            WHERE rm.role_id = (SELECT role_id FROM sys_role WHERE role_code = :rc)
             """
         ),
-        {"uid": user["user_id"]},
+        {"rc": user["role"]},
     )
     ids = [r[0] for r in result.all()]
     if not ids:
@@ -568,10 +572,11 @@ async def list_users(
     keyword: Optional[str] = None,
     status: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_role(Role.ADMIN)),
+    user: dict = Depends(require_role(Role.ADMIN, Role.SCHOOL)),
 ):
-    """用户列表（仅 admin；支持用户名模糊查询 + 状态过滤）。
+    """用户列表（admin / 学校管理员；支持用户名模糊查询 + 状态过滤）。
 
+    T-AM10：学校管理员可管理本校用户，区域管理员不可见（菜单与接口均不含用户管理）。
     返回不含 password_hash；附带每个用户的 role_ids 便于前端回显。
     """
     stmt = select(m.SysUser)

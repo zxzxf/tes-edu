@@ -6,10 +6,19 @@
 - C 端 student 账号由网关管登录，此处仅 B 端后台用户；student@tes.edu 占位保留。
 """
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.jwt_utils import create_token
 from app.core.security import get_current_user
-from app.models.schemas import LoginRequest, TokenResponse, UserInfo
+from app.core.db import get_db
+from app.models import rbac_models as m
+from app.models.schemas import (
+    LoginRequest,
+    RoleSwitchRequest,
+    TokenResponse,
+    UserInfo,
+)
 
 router = APIRouter(tags=["auth"])
 
@@ -27,30 +36,30 @@ _FAKE_USERS = {
 
 
 async def _lookup_user(username: str) -> dict | None:
-    """从 sys_user 查后台用户；DB 不可用返回 None（调用方回退占位库）。"""
+    """从 sys_user 查后台用户；DB 不可用返回 None（调用方回退占位库）。
+
+    T-AM10（多角色切换）：返回该用户全部 role_code（roles），激活角色取第一个；
+    切换逻辑见 POST /role/switch。
+    """
     try:
-        from sqlalchemy import select
-
-        from app.core.db import get_db
-        from app.models import rbac_models as m
-
         async for db in get_db():
             row = (await db.execute(
                 select(m.SysUser).where(m.SysUser.username == username)
             )).scalar_one_or_none()
             if not row:
                 return None
-            # 聚合角色（取第一个有效角色；多角色场景后续扩展）
-            role_row = (await db.execute(
+            # 聚合该用户全部角色（多角色场景）
+            role_rows = (await db.execute(
                 select(m.SysRole.role_code)
                 .join(m.SysUserRole, m.SysUserRole.role_id == m.SysRole.role_id)
                 .where(m.SysUserRole.user_id == row.user_id)
-                .limit(1)
-            )).scalar_one_or_none()
+            )).scalars().all()
+            roles = list(role_rows) or [None]
             return {
                 "user_id": row.user_id,
                 "password_hash": row.password_hash,
-                "role": role_row,
+                "role": roles[0],
+                "roles": roles,
                 "tenant_id": row.tenant_id,
                 "region_id": row.region_id,
                 "is_db": True,
@@ -70,11 +79,17 @@ async def login(req: LoginRequest):
         u = _FAKE_USERS.get(username)
         if not u or u["password"] != req.password:
             raise HTTPException(status_code=401, detail="invalid credentials")
-        token = create_token(user_id=username, role=u["role"], tenant_id=u.get("tenant_id"))
+        token = create_token(
+            user_id=username,
+            role=u["role"],
+            tenant_id=u.get("tenant_id"),
+            roles=[u["role"]],
+        )
         return TokenResponse(
             access_token=token,
             token_type="bearer",
             role=u["role"],
+            roles=[u["role"]],
             user_id=username,
             tenant_id=u.get("tenant_id"),
         )
@@ -91,15 +106,19 @@ async def login(req: LoginRequest):
     # "platform" 与 sys_user_role.tenant_id 的平台占位一致，永不匹配真实租户，
     # 数据作用域由 scope.resolve_scope 按角色解析（admin 全量 / region_admin 辖区），
     # 不会因该占位串产生越权。
+    roles = db_user.get("roles") or [db_user.get("role")]
+    active_role = roles[0] if roles else (db_user.get("role") or "guest")
     token = create_token(
         user_id=db_user["user_id"],
-        role=db_user["role"],
+        role=active_role,
         tenant_id=db_user.get("tenant_id") or "platform",
+        roles=roles,
     )
     return TokenResponse(
         access_token=token,
         token_type="bearer",
-        role=db_user["role"],
+        role=active_role,
+        roles=roles,
         user_id=db_user["user_id"],
         tenant_id=db_user.get("tenant_id") or "platform",
     )
@@ -108,3 +127,45 @@ async def login(req: LoginRequest):
 @router.get("/me", response_model=UserInfo)
 def me(user: dict = Depends(get_current_user)):
     return UserInfo(user_id=user["user_id"], role=user["role"])
+
+
+@router.post("/role/switch", response_model=TokenResponse)
+async def switch_role(
+    req: RoleSwitchRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """T-AM10 多角色切换：把激活角色改为该用户已授予的某一角色并重新签发 JWT。
+
+    - 目标角色必须在该用户 sys_user_role 授权内，否则 403；
+    - 新 JWT 的 role=激活角色（网关据此注入 X-User-Role），roles=全部角色；
+    - 租户/区域沿用该用户本身（角色切换不改变所属租户）。
+    前端拿到新 token 后更新本地凭证并重新拉取 /menu/my，菜单与权限即按新角色生效。
+    """
+    row = (await db.execute(
+        select(m.SysUser).where(m.SysUser.user_id == user["user_id"])
+    )).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=401, detail="invalid user")
+    granted = (await db.execute(
+        select(m.SysRole.role_code)
+        .join(m.SysUserRole, m.SysUserRole.role_id == m.SysRole.role_id)
+        .where(m.SysUserRole.user_id == row.user_id)
+    )).scalars().all()
+    allowed = list(granted)
+    if req.role not in allowed:
+        raise HTTPException(status_code=403, detail="role not granted to user")
+    token = create_token(
+        user_id=row.user_id,
+        role=req.role,
+        tenant_id=row.tenant_id or "platform",
+        roles=allowed,
+    )
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        role=req.role,
+        roles=allowed,
+        user_id=row.user_id,
+        tenant_id=row.tenant_id or "platform",
+    )

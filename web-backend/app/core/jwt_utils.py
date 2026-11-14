@@ -15,7 +15,12 @@ JWT_ALGORITHM = "RS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
 
 
-def create_token(user_id: str, role: str, tenant_id: str | None = None) -> str:
+def create_token(
+    user_id: str,
+    role: str,
+    tenant_id: str | None = None,
+    roles: list[str] | None = None,
+) -> str:
     if not JWT_PRIVATE_KEY:
         raise RuntimeError(
             "JWT_PRIVATE_KEY 未配置：RS256 签发需要私钥（PEM），请通过环境变量注入"
@@ -32,4 +37,8 @@ def create_token(user_id: str, role: str, tenant_id: str | None = None) -> str:
     # 故 B 端用户签发时带上租户（C 端 student 路由 jwt_c 不要求，不传即可）。
     if tenant_id:
         payload["tenant_id"] = tenant_id
+    # T-AM10（多角色切换）：roles 携带该用户全部角色码，供前端渲染切换器；
+    # 网关仍按单一 role claim 注入 X-User-Role，故"激活角色"即 role 字段。
+    if roles:
+        payload["roles"] = list(roles)
     return jwt.encode(payload, JWT_PRIVATE_KEY, algorithm=JWT_ALGORITHM)

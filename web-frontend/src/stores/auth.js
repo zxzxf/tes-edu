@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { login as apiLogin } from '../api/admin'
 import { getMyMenus } from '../api/menu'
+import client from '../api/client'
 import { buildMenuTree, collectPerms, matchPerm, routePathOf } from '../utils/menu'
 
 // T-AM7：auth store 从「token+user」扩展为「token+user+授权菜单+按钮权限码」。
@@ -35,10 +36,30 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(username, password) {
     const res = await apiLogin(username, password)
     token.value = res.access_token
-    user.value = { username, role: res.role }
+    user.value = { username, role: res.role, roles: res.roles || [] }
     localStorage.setItem('token', token.value)
     localStorage.setItem('user', JSON.stringify(user.value))
     // 登录后立即拉授权：菜单/权限码就绪后再进工作台
+    await loadMenus()
+    return res
+  }
+
+  /**
+   * T-AM10 多角色切换：调用后端 POST /role/switch 重新签发 JWT（激活角色=目标角色），
+   * 更新本地 token / user，并重拉 /menu/my 使菜单与按钮权限按新角色生效。
+   * 调用前需确保目标角色在 auth.user.roles 内（UI 切换器已约束）。
+   */
+  async function switchRole(roleCode) {
+    // 切换接口挂在 /api/admin 下（网关 rbac 模式），复用带鉴权的 client 实例。
+    const res = await client.post('/role/switch', { role: roleCode }).then((r) => r.data)
+    token.value = res.access_token
+    user.value = {
+      username: user.value?.username,
+      role: res.role,
+      roles: res.roles || user.value?.roles || [],
+    }
+    localStorage.setItem('token', token.value)
+    localStorage.setItem('user', JSON.stringify(user.value))
     await loadMenus()
     return res
   }
@@ -94,6 +115,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     token, user, menus, perms, menuTree, menusLoaded, isAdmin, allowedRoutes,
-    login, loadMenus, hasPerm, hasRouteAccess, logout,
+    login, loadMenus, hasPerm, hasRouteAccess, switchRole, logout,
   }
 })
