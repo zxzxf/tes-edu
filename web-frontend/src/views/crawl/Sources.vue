@@ -52,7 +52,12 @@
         <span>标记为自动发现源（待审核）——创建后进入 M5-7 审核流程，列表显示「自动发现」徽标</span>
       </label>
 
-      <table v-if="filteredRows.length" class="tes-table">
+      <div class="cw-table-wrap" v-if="filteredRows.length">
+      <table class="tes-table">
+        <colgroup>
+          <col class="c-name" /><col class="c-type" /><col class="c-uri" />
+          <col class="c-status" /><col class="c-review" /><col class="c-time" /><col class="c-ops" />
+        </colgroup>
         <thead>
           <tr>
             <th>名称</th><th>类型</th><th>地址</th><th>状态</th>
@@ -62,11 +67,11 @@
         <tbody>
           <tr v-for="s in filteredRows" :key="s.id">
             <td>
-              {{ s.name }}
+              <span class="cw-clip name" :title="s.name">{{ s.name }}</span>
               <span v-if="s.auto_discovered" class="tes-pill info" title="由定时自主发现任务创建">自动发现</span>
             </td>
             <td>{{ s.source_type }}</td>
-            <td class="cw-mono">{{ s.uri }}</td>
+            <td class="cw-mono"><span class="cw-clip uri" :title="s.uri">{{ s.uri }}</span></td>
             <td><span class="tes-pill" :class="s.status === 'active' ? 'success' : 'warn'">{{ s.status === 'active' ? '已启用' : '已暂停' }}</span></td>
             <td>
               <span v-if="s.review_status === 'pending_review'" class="tes-pill warn">待审</span>
@@ -88,6 +93,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
       <p v-else class="tes-empty">还没有课程源。</p>
     </section>
 
@@ -214,5 +220,22 @@ onMounted(load)
   color: #41526b;
 }
 .cw-check input { width: 16px; height: 16px; }
-.cw-ops { display: flex; gap: 6px; flex-wrap: wrap; }
+.cw-table-wrap { overflow-x: auto; margin-top: 4px; -webkit-overflow-scrolling: touch; }
+/* 自动布局 + 单列最小宽度 + 单元格单行(nowrap)，内容超宽时整体横向滚动，保证数据完整不截断 */
+:deep(.tes-table) { table-layout: auto; min-width: 1140px; }
+:deep(.tes-table thead th) { white-space: nowrap; vertical-align: middle; padding: 10px 8px; }
+:deep(.tes-table tbody td) { white-space: nowrap; vertical-align: middle; line-height: 1.6; padding: 10px 8px; }
+:deep(.tes-table col.c-name) { width: 200px; }
+:deep(.tes-table col.c-type) { width: 110px; }
+:deep(.tes-table col.c-uri) { width: 300px; }
+:deep(.tes-table col.c-status) { width: 90px; }
+:deep(.tes-table col.c-review) { width: 90px; }
+:deep(.tes-table col.c-time) { width: 150px; }
+:deep(.tes-table col.c-ops) { width: 200px; }
+/* 长文本统一：单行省略号 + 悬停(title)显示全名 */
+.cw-clip { display: inline-block; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-clip.name { max-width: 200px; }
+.cw-clip.uri { max-width: 300px; }
+.cw-ops { white-space: nowrap; }
+.cw-ops .ghost, .cw-ops .tes-btn-primary { margin: 2px 4px 2px 0; }
 </style>
