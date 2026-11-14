@@ -40,6 +40,8 @@ class SourceCreate(BaseModel):
     source_type: str = "file"          # file/url/bank_pack
     uri: str
     parser: str = "auto"
+    #: M5-7：勾选后直接建为「自动发现」待审源（auto_discovered=True + review_status=pending_review）
+    auto_discovered: bool = False
 
 
 class SourceOut(BaseModel):
@@ -50,6 +52,7 @@ class SourceOut(BaseModel):
     parser: str
     status: str
     ingested_at: Optional[str] = None
+    created_at: Optional[str] = None
     #: M5-7 自主发现标记与审核状态
     auto_discovered: bool = False
     review_status: Optional[str] = None
@@ -60,6 +63,7 @@ def _source_out(r: CourseSource) -> SourceOut:
         id=r.id, name=r.name, source_type=r.source_type, uri=r.uri,
         parser=r.parser, status=r.status,
         ingested_at=r.ingested_at.isoformat() if r.ingested_at else None,
+        created_at=r.created_at.isoformat() if r.created_at else None,
         auto_discovered=bool(r.auto_discovered),
         review_status=r.review_status,
     )
@@ -81,7 +85,11 @@ async def create_source(
     user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
-    """新建课程源。命中合规黑名单直接 400（M5-5 前置阻断）。"""
+    """新建课程源。命中合规黑名单直接 400（M5-5 前置阻断）。
+
+    ``auto_discovered=True`` 时直接建为「自动发现」待审源：``review_status=pending_review``
+    且 ``status=paused``（M5-7），列表会显示「自动发现」徽标 + 通过/驳回 审核入口。
+    """
     try:
         row = await crawl_svc.create_source(
             db,
@@ -91,6 +99,7 @@ async def create_source(
             uri=body.uri,
             parser=body.parser,
             created_by=user.get("user_id"),
+            auto_discovered=body.auto_discovered,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -144,7 +153,7 @@ async def review_source(
 @router.delete("/sources/{source_id}", status_code=204)
 async def delete_source(
     source_id: int,
-    user=Depends(require_role(Role.ADMIN, Role.SCHOOL)),
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
     row = (
@@ -156,6 +165,21 @@ async def delete_source(
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="source not found")
+    # 级联清理：该源关联的采集任务与其运行日志，避免孤儿记录
+    jobs = (
+        await db.execute(
+            select(CrawlJob).where(
+                CrawlJob.tenant_id == _tenant(user), CrawlJob.source_id == source_id
+            )
+        )
+    ).scalars().all()
+    for job in jobs:
+        await db.execute(
+            delete(CrawlRun).where(
+                CrawlRun.job_id == job.id, CrawlRun.tenant_id == _tenant(user)
+            )
+        )
+        await db.delete(job)
     await db.delete(row)
     await db.commit()
 
@@ -290,7 +314,7 @@ async def run_job(
 @router.delete("/jobs/{job_id}", status_code=204)
 async def delete_job(
     job_id: int,
-    user=Depends(require_role(Role.ADMIN, Role.SCHOOL)),
+    user=Depends(require_role(Role.TEACHER, Role.ADMIN, Role.SCHOOL)),
     db: AsyncSession = Depends(get_db),
 ):
     """M3-8：删除采集任务（连同其运行日志，避免孤儿 run 记录）。"""

@@ -233,12 +233,15 @@ async def create_source(
     uri: str,
     parser: str = "auto",
     created_by: Optional[str] = None,
+    auto_discovered: bool = False,
 ) -> CourseSource:
     reason = compliance_reject(uri)
     if reason:
         raise ValueError(reason)
     if source_type.lower() == "video":
         crawl_fetch.validate_video_transcript_uri(uri)
+    # M5-7：自动发现源默认 pending_review + paused（待审核通过后启用）
+    review_status = "pending_review" if auto_discovered else None
     row = CourseSource(
         tenant_id=tenant_id,
         name=name,
@@ -247,6 +250,8 @@ async def create_source(
         parser=parser,
         status="paused",
         created_by=created_by,
+        auto_discovered=bool(auto_discovered),
+        review_status=review_status,
     )
     db.add(row)
     await db.flush()

@@ -175,6 +175,10 @@ export function runCrawlJob(jobId) {
 export function retryCrawlJob(jobId) {
   return client.post(`/course/jobs/${jobId}/retry`)
 }
+// M3-8 删除采集任务（级联删除其运行日志）
+export function deleteCrawlJob(jobId) {
+  return client.delete(`/course/jobs/${jobId}`)
+}
 // M4-4 一键回退本次采集（只撤 draft/auto_crawl）
 export function rollbackCrawlRun(runId) {
   return client.post(`/course/runs/${runId}/rollback`)

@@ -51,6 +51,7 @@
               <button class="ghost" :disabled="busy" @click="toggle(j)">{{ j.status === 'active' ? '暂停定时' : '启用定时' }}</button>
               <button class="ghost" :disabled="busy" @click="run(j)">执行一次</button>
               <button class="ghost" :disabled="busy" @click="retry(j)">重试</button>
+              <button class="ghost cw-ghost-danger" :disabled="busy" @click="remove(j)">删除</button>
             </td>
           </tr>
         </tbody>
@@ -69,7 +70,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useCrawlRequest } from '../../composables/useCrawlRequest'
 import {
-  createCrawlJob, listCourseSources, listCrawlJobs, retryCrawlJob,
+  createCrawlJob, deleteCrawlJob, listCourseSources, listCrawlJobs, retryCrawlJob,
   runCrawlJob, setCrawlJobStatus,
 } from '../../api/admin'
 
@@ -126,6 +127,14 @@ async function retry(j) {
       throw new Error(out.last_run_error || '采集任务重试未完成')
     }
     msg.value = '已重试'
+  })
+}
+async function remove(j) {
+  if (!window.confirm(`确认删除采集任务「${j.name}」？该任务及其运行日志将被移除。`)) return
+  await guard(async () => {
+    await deleteCrawlJob(j.id)
+    rows.value = await listCrawlJobs()
+    msg.value = '采集任务已删除'
   })
 }
 onMounted(loadAll)
