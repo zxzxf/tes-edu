@@ -16,7 +16,7 @@
 | ④·绑定隔离 | 家长↔学生绑定 + 租户隔离 | #25 | ⬜ 待办（上线前必做） |
 | ④·语音 | ASR / TTS 语音交互 | #26 | ⬜ 待办 |
 | ④·志愿 | 新高考志愿填报（河南 3+1+2） | #27 | ⬜ 待办 |
-| ④·数字人 | 数字人讲题短视频 | #28 | ⬜ 待办 |
+| ④·数字人 | 数字人讲题短视频 | #28 | 🟢 已开启并端到端验证 |
 | ⑤ | P5 商业化 | #22 | ⬜ 待办 |
 
 ## 排序理由
@@ -104,7 +104,7 @@
 
 - 河南 2025 首考新高考（3+1+2 首年），2026 为第二年，过渡期规则变化大、本地刚需。规则引擎产品，可独立成线。
 
-### ④·数字人讲题短视频（🟡 管线骨架已落地，#28）
+### ④·数字人讲题短视频（🟢 已开启并端到端验证，#28）
 
 - **端到端管线骨架已完成（2026-11-15）**：`explanation_videos` 表 + 状态机
   （pending→processing→done|failed）+ 生成 API（教师/后台触发、学生端按租户查询）
@@ -113,9 +113,16 @@
 - **重型合成仍依赖基建**：当前 `LiteVideoGenerator` 用 ffmpeg 字幕幻灯片 + 可选百炼
   CosyVoice 配音（无 GPU）；真·数字人肖像口播（SadTalker/Wav2Lip + GPU 服务器）与
   MinIO 对象存储为后续。合成实现藏在 `VideoGenerator` 接口后，换实现不影响管线。
-- **总开关 `digital_human_enabled=false`**（默认关，生成接口 403 禁用）；装好 ffmpeg
-  + 中文字体 + 可选 TTS 密钥后置 true 即生效，无需改代码。`Dockerfile` 已加
-  `ffmpeg` + `fonts-wqy-zenhei`。
+- **总开关已置 `true`（2026-11-15 开启并验证）**：`config.py` 默认 `digital_human_enabled=True`
+  （env `DIGITAL_HUMAN_ENABLED=false` 可关）。`Dockerfile` 已加 `ffmpeg` + `fonts-wqy-zenhei`。
+  实测：137 容器内置 ffmpeg+文泉驿字体，`LiteVideoGenerator` 真实合成出
+  **1280×720 h264 / 12s / 46KB** mp4；学生端 `by-question` 返回 `done`、带 token 经网关取到
+  `video/mp4`（200, 46682B）。
+- **部署踩坑（已修）**：137 直连 `deb.debian.org` 极慢导致 `apt-get update` 挂死、镜像构建卡住；
+  `Dockerfile` 已把 apt 源切到 `mirrors.tencent.com`（腾讯云内网最快，`python:3.11-slim` trixie
+  用 DEB222 源，sed 双兼容）。重建镜像 773MB，容器已换新版运行。
+- **已知小项**：`LiteVideoGenerator` 未回填 `duration_sec`（字段可空，不影响播放）；
+  真·数字人（SadTalker/Wav2Lip+GPU）、MinIO、Kafka 异步 worker 仍待做。
 - 依赖 P3 讲解文案成熟（已具备）+ 数字人管线基建，靠后。
 
 ## ⑤ P5 商业化（⬜ 待办）
