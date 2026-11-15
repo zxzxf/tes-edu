@@ -101,7 +101,7 @@
           </template>
           <button class="ghost sm" :disabled="checking" @click="refreshChecks(true)">{{ checking ? '校验中…' : '重新校验' }}</button>
           <button
-            v-if="!paper.published && checkSummary && !checkSummary.ok"
+            v-if="checkSummary && !checkSummary.ok"
             class="ghost sm"
             :disabled="busy"
             @click="confirmChecks([])"
@@ -129,8 +129,8 @@
                 <template v-if="c.confirmed_comment">：{{ c.confirmed_comment }}</template>
               </p>
             </div>
-            <div v-if="!paper.published && !acPassing(c)" class="ac-act">
-              <input v-model="fixValues[c.seq]" :placeholder="'修正答案（当前 ' + (c.answer || '—') + '）'" />
+            <div v-if="!acPassing(c)" class="ac-act">
+              <input v-if="!paper.published" v-model="fixValues[c.seq]" :placeholder="'修正答案（当前 ' + (c.answer || '—') + '）'" />
               <button class="tes-btn-primary sm" :disabled="busy" @click="confirmChecks([c.seq])">
                 确认
               </button>
@@ -301,7 +301,7 @@ async function refreshChecks(refresh = false) {
         msg.value = '已重新校验：答案校验全部通过，可以发布'
       } else {
         const tail = paper.value.published
-          ? '（本卷已发布、答案已冻结，确认入口已锁定；需改答案请「复制为新卷」后再确认发布）'
+          ? '（已发布卷可直接确认，但不能改答案；要改答案请「复制为新卷」）'
           : ''
         msg.value = `已重新校验：通过 ${s.passed}/${s.total}，待确认 ${s.unverified}${tail}`
       }
