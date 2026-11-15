@@ -68,7 +68,12 @@
               <td>{{ fmtTime(r.created_at) }}</td>
               <td class="cw-ops">
                 <button class="ghost" :disabled="busy" @click="rerun(r)">重跑</button>
-                <a v-if="r.status === 'done' && r.video_url" class="ghost" :href="r.video_url" target="_blank" rel="noopener">预览</a>
+                <button
+                  v-if="r.status === 'done' && r.video_url"
+                  class="ghost"
+                  :disabled="previewLoading && previewRow && previewRow.id === r.id"
+                  @click="playPreview(r)"
+                >播放</button>
               </td>
             </tr>
           </tbody>
@@ -76,6 +81,31 @@
       </div>
       <p v-else class="tes-empty">暂无生成任务。</p>
     </section>
+
+    <!-- 播放预览弹窗 -->
+    <div v-if="previewRow" class="pv-mask" @click.self="closePreview">
+      <div class="pv-box">
+        <div class="pv-head">
+          <b>播放预览</b>
+          <span class="cw-grow"></span>
+          <button class="ghost" @click="closePreview">关闭</button>
+        </div>
+        <p v-if="previewLoading" class="pv-loading">视频加载中…</p>
+        <p v-else-if="previewErr" class="err">{{ previewErr }}</p>
+        <video
+          v-else-if="previewUrl"
+          class="pv-video"
+          :src="previewUrl"
+          controls
+          autoplay
+          playsinline
+        ></video>
+        <div v-if="previewRow" class="pv-meta">
+          <span class="cw-clip q" :title="previewRow.question_text">{{ previewRow.question_text || '—' }}</span>
+          <span v-if="previewRow.duration_sec != null" class="pv-dur">时长 {{ previewRow.duration_sec.toFixed(1) }}s</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -83,6 +113,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import {
   generateExplanationVideo, listExplanationVideos, regenExplanationVideo,
+  streamExplanationVideo,
 } from '../api/admin'
 
 const busy = ref(false)
@@ -91,6 +122,39 @@ const msg = ref('')
 const rows = ref([])
 const total = ref(0)
 const statusFilter = ref('')
+
+// 播放预览：inline <video> 弹窗
+const previewRow = ref(null)
+const previewUrl = ref('')
+const previewLoading = ref(false)
+const previewErr = ref('')
+
+async function playPreview(r) {
+  if (!r || r.status !== 'done' || !r.video_url) return
+  previewRow.value = r
+  previewUrl.value = ''
+  previewErr.value = ''
+  previewLoading.value = true
+  try {
+    // 走 admin 令牌取 blob（规避 <video src> 直链缺 Authorization 头被网关拦），
+    // 再转 objectURL 内联播放。
+    const blob = await streamExplanationVideo(r.id)
+    previewUrl.value = URL.createObjectURL(blob)
+  } catch (e) {
+    previewErr.value = (e && e.message) || '视频加载失败'
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+function closePreview() {
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+    previewUrl.value = ''
+  }
+  previewRow.value = null
+  previewErr.value = ''
+}
 
 const form = reactive({ question: '', knowledge_point: '', script: '' })
 
@@ -179,7 +243,7 @@ onMounted(loadAll)
 :deep(.tes-table col.c-dur) { width: 80px; }
 :deep(.tes-table col.c-err) { width: 280px; }
 :deep(.tes-table col.c-time) { width: 160px; }
-:deep(.tes-table col.c-ops) { width: 140px; }
+:deep(.tes-table col.c-ops) { width: 150px; }
 .cw-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cw-clip.q { max-width: 360px; }
 .cw-clip.err { max-width: 280px; color: #dc2626; }
@@ -189,4 +253,32 @@ onMounted(loadAll)
 :deep(.tes-pill.success) { background: #dcfce7; color: #15803d; }
 :deep(.tes-pill.info) { background: #e0f2fe; color: #0369a1; }
 :deep(.tes-pill.plain) { background: #f1f5f9; color: #475569; }
+
+/* 播放预览弹窗 */
+.pv-mask {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.pv-box {
+  background: #fff; border-radius: 12px; width: min(760px, 94vw);
+  max-height: 92vh; overflow: auto; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.pv-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-bottom: 1px solid #eef2f7;
+}
+.pv-head b { font-size: 15px; }
+.pv-loading { padding: 40px 16px; text-align: center; color: #6b7280; }
+.pv-video {
+  display: block; width: 100%; max-height: 60vh; background: #000;
+  border-radius: 0;
+}
+.pv-meta {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; border-top: 1px solid #eef2f7; font-size: 13px; color: #475569;
+}
+.pv-meta .q { max-width: 560px; }
+.pv-dur { color: #0369a1; white-space: nowrap; }
 </style>

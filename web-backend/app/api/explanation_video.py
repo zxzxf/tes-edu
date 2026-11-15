@@ -105,6 +105,38 @@ class GenerateIn(BaseModel):
     voice_id: Optional[str] = "default"
 
 
+# ④·教师端「播放预览」：后台用老师自己的 admin+租户令牌取流（与 list 同源鉴权），
+# 避免 <video src> 直链到 /api/student/ 时被网关因缺 Authorization 头拦截（401）。
+# 流式返回 mp4，前端用 axios blob 拿到 objectURL 后内联播放。
+@admin_router.get("/explanation-video/{video_id}/stream")
+async def stream_video_admin(
+    video_id: str,
+    user: dict = Depends(require_role(Role.ADMIN, Role.REGION_ADMIN, Role.TEACHER)),
+    db=Depends(get_db),
+):
+    is_admin = user.get("role") == Role.ADMIN.value
+    # 行级租户隔离：teacher/region_admin 只能看自己业务租户的视频，admin 看全量
+    row = (
+        await db.execute(select(ExplanationVideo).where(ExplanationVideo.id == video_id))
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="video not found")
+    if not is_admin and row.tenant_id != business_tenant_id(user):
+        raise HTTPException(status_code=403, detail="无权访问该视频")
+
+    object_name = f"explanation_videos/{video_id}.mp4"
+    data, ctype = await object_storage.fetch_video(object_name)
+    if data is None:  # 回退本地静态文件（兼容未部署 MinIO / 历史本地产物）
+        local = os.path.join(settings.explanation_video_dir, f"{video_id}.mp4")
+        if os.path.exists(local):
+            with open(local, "rb") as f:
+                data = f.read()
+            ctype = "video/mp4"
+    if data is None:
+        raise HTTPException(status_code=404, detail="video not found")
+    return Response(content=data, media_type=ctype or "video/mp4")
+
+
 @admin_router.get("/explanation-video/config")
 async def config(user: dict = Depends(require_role(Role.ADMIN, Role.REGION_ADMIN, Role.TEACHER))):
     from app.core.config import settings

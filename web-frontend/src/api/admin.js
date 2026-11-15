@@ -299,3 +299,8 @@ export function regenExplanationVideo(body) {
 export function getExplanationConfig() {
   return client.get('/explanation-video/config')
 }
+// 教师端「播放预览」：走 admin 令牌取流（blob），供前端内联 <video> 播放，
+// 避免 <video src> 直链 /api/student/ 因缺 Authorization 头被网关拦截。
+export function streamExplanationVideo(id) {
+  return client.get(`/explanation-video/${id}/stream`, { responseType: 'blob' })
+}
