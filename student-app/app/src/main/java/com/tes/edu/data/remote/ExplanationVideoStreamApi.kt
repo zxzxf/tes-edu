@@ -66,18 +66,20 @@ suspend fun listExplanationVideos(limit: Int = 50): List<ExplanationVideoItem> =
     LoginManager.withAuth { ApiClient.videoStream.list(limit) }.getOrThrow().items
 
 /**
- * 错题本点「视频讲解」的完整链路：ensure 排队 → 轮询 by-question 到 done → 返回可播 id。
+ * 错题本点「视频讲解」的完整链路：ensure 排队 → 短轮询 by-question → 返回可播 id。
  *
- * IVH 出片是分钟级，不能让按钮卡死不反馈；[onProgress] 把等待进度回吐给卡片。
- * 只认 ensure 返回的那个任务 id：`by-question` 有近似题干兜底匹配，绝不能把
- * 别道题的视频当成这道题的讲解播出去。
+ * IVH 真数字人出片是分钟级（SaaS 侧渲染），**不能把按钮卡死几分钟**：短轮询
+ * 只覆盖「很快出片」的情况，等不到就返回 null，由卡片保留「生成中，稍后再点」
+ * 的状态。只认 ensure 返回的那个任务 id：`by-question` 有近似题干兜底匹配，
+ * 绝不能把别道题的视频当成这道题的讲解播出去。
  */
 suspend fun ensurePlayableVideoId(
     question: String,
     script: String,
     knowledgePoint: String? = null,
+    maxWaitMs: Long = 60_000L,
     onProgress: (String) -> Unit = {}
-): String {
+): String? {
     var resp = LoginManager.withAuth {
         ApiClient.videoStream.ensure(
             EnsureExplanationVideoReq(question, script, knowledgePoint)
@@ -86,11 +88,10 @@ suspend fun ensurePlayableVideoId(
     val taskId = resp.id ?: error("视频任务缺少 id")
     var waited = 0L
     val step = 5_000L
-    val limit = 180_000L
     while (resp.status != "done") {
         if (resp.status == "failed") error("视频生成失败：${resp.error ?: "请稍后再试"}")
         if (resp.status == "none") error("讲解视频任务丢失，请重试")
-        if (waited >= limit) error("视频还在生成中，请稍后再点一次这道题")
+        if (waited >= maxWaitMs) return null  // 仍在 SaaS 渲染，交给卡片状态
         onProgress("这道题的讲解视频生成中…（已等待 ${waited / 1000}s）")
         delay(step)
         waited += step

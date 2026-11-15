@@ -15,8 +15,10 @@
 from __future__ import annotations
 
 import difflib
+import logging
 import os
 import unicodedata
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Response
@@ -33,6 +35,12 @@ from app.services.video_generator import content_hash, run_generation
 
 student_router = APIRouter(tags=["explanation-video"])
 admin_router = APIRouter(tags=["explanation-video-admin"])
+
+logger = logging.getLogger("explanation_video")
+
+# IVH 最长轮询 30 分钟，超过这个时长的 pending/processing 只可能是「容器重启把
+# BackgroundTasks 弄丢了」的僵尸行，允许重新排队（不会与仍在渲染的任务打架）。
+_STALE_TASK_MINUTES = 35
 
 
 class GenerateIn(BaseModel):
@@ -61,6 +69,19 @@ def _require_enabled() -> None:
         raise HTTPException(status_code=403, detail="数字人管线未启用（digital_human_enabled=false）")
 
 
+def _is_stale_task(row: ExplanationVideo) -> bool:
+    """判断 pending/processing 是否已经没人收尾（容器重启丢掉后台任务）。
+
+    SQLite 单测里读出来的是 naive datetime，PG 是 aware，统一补 UTC 再比。
+    """
+    ts = row.updated_at
+    if ts is None:
+        return True
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - ts).total_seconds() > _STALE_TASK_MINUTES * 60
+
+
 async def _ensure_video_row(
     db,
     tid: str,
@@ -86,6 +107,15 @@ async def _ensure_video_row(
     ).scalar_one_or_none()
 
     if row is not None and row.status in ("pending", "processing", "done"):
+        if row.status != "done" and _is_stale_task(row):
+            logger.warning(
+                "video row %s 卡在 %s 超过 %s 分钟，重新排队",
+                row.id, row.status, _STALE_TASK_MINUTES,
+            )
+            row.status = "pending"
+            row.error = None
+            await db.commit()
+            background.add_task(run_generation, row.id)
         return row  # 幂等复用：不重复起后台任务
 
     if row is None:
@@ -278,7 +308,7 @@ async def ensure_video(
             knowledge_point=body.knowledge_point,
         ),
         background,
-        max_inflight=3,
+        max_inflight=5,
     )
     return _row_out(row)
 

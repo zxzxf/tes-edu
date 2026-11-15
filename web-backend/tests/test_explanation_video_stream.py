@@ -345,11 +345,38 @@ def test_ensure_失败任务_复位重跑(harness):
 
 def test_ensure_在途任务满_429(harness):
     """学生端点一次就起一个 IVH 任务，必须挡住误触/连点刷爆配额。"""
-    db = _FakeDB(results=[_Result(None), _Result(total=3)])
+    db = _FakeDB(results=[_Result(None), _Result(total=5)])
     client, _ = harness(db=db)
     r = client.post(ENSURE, json={"question": Q}, headers=_headers())
     assert r.status_code == 429, r.text
     assert db.added == []
+    assert db.gen_calls == []
+
+
+def test_ensure_僵尸processing任务_重新排队(harness):
+    """容器重启会丢 BackgroundTasks，卡死的 processing 行不能永远查不到视频。"""
+    from datetime import datetime, timedelta, timezone
+
+    row = _row(status="processing")
+    row.updated_at = datetime.now(timezone.utc) - timedelta(minutes=40)
+    db = _FakeDB(row)
+    client, _ = harness(db=db)
+    r = client.post(ENSURE, json={"question": "已知函数求极值"}, headers=_headers())
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "pending"
+    assert db.gen_calls == [VID]
+
+
+def test_ensure_正常processing_不重复排队(harness):
+    from datetime import datetime, timezone
+
+    row = _row(status="processing")
+    row.updated_at = datetime.now(timezone.utc)
+    db = _FakeDB(row)
+    client, _ = harness(db=db)
+    r = client.post(ENSURE, json={"question": "已知函数求极值"}, headers=_headers())
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "processing"
     assert db.gen_calls == []
 
 

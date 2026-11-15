@@ -1701,6 +1701,7 @@ private fun WrongSection(
     val videoScope = rememberCoroutineScope()
     var videoBusyId by remember { mutableStateOf<Long?>(null) }
     var videoHint by remember { mutableStateOf<String?>(null) }
+    var videoPendingIds by remember { mutableStateOf(setOf<Long>()) }
     var playerPath by remember { mutableStateOf<String?>(null) }
 
     fun playWrongVideo(q: WrongQuestion) {
@@ -1718,8 +1719,17 @@ private fun WrongSection(
                     script = wrongVideoScript(q),
                     knowledgePoint = q.knowledgePoint.takeIf { it.isNotBlank() }
                 ) { hint -> videoHint = hint }
-                val file = downloadExplanationVideo(ctx, id)
-                playerPath = file.absolutePath
+                if (id == null) {
+                    // SaaS 仍在渲染：不弹错误、不卡按钮，卡片保留「生成中」状态
+                    videoPendingIds = videoPendingIds + q.id
+                    Toast.makeText(
+                        ctx, "讲解视频已开始生成，几分钟后再点这里就能看", Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    videoPendingIds = videoPendingIds - q.id
+                    val file = downloadExplanationVideo(ctx, id)
+                    playerPath = file.absolutePath
+                }
             } catch (e: Exception) {
                 Toast.makeText(
                     ctx, "视频讲解失败：${e.message ?: "请稍后重试"}", Toast.LENGTH_SHORT
@@ -1883,6 +1893,7 @@ private fun WrongSection(
                 },
                 onVideo = { playWrongVideo(q) },
                 videoBusy = videoBusyId == q.id,
+                videoPending = q.id in videoPendingIds,
                 videoHint = if (videoBusyId == q.id) videoHint else null
             )
         }
@@ -2017,25 +2028,18 @@ private fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * 把一条错题拼成数字人的讲稿：题干 + 参考答案 + 学生当时答错的内容 + 考点。
+ * 把一条错题拼成数字人的讲稿：题干摘录 + 参考答案 + 学生当时答错的内容。
  *
- * 不能只把题干念一遍（那就不是「讲解」）；IVH InputSsml 上限 300 字，
- * 这里主动截到 280，服务端 `html.escape` 后再截也不会把实体切坏。
+ * 讲稿越长，IVH 的 TTS 音频越长、SaaS 渲染越慢（实测近百字要七八分钟以上），
+ * 所以这里刻意压到 60 字以内做「一句话点拨」，完整的分步解析仍走「看解析」。
  */
 private fun wrongVideoScript(q: WrongQuestion): String {
-    val sb = StringBuilder("我们来看这道题：")
-    sb.append(q.question.take(160)).append("。")
     val answer = q.correction?.takeIf { it.isNotBlank() } ?: q.correctAnswer
-    if (answer.isNotBlank()) {
-        sb.append("正确答案是").append(answer.take(120)).append("。")
-    }
-    if (q.myAnswer.isNotBlank()) {
-        sb.append("你当时答的是").append(q.myAnswer.take(60)).append("，注意这里容易出错。")
-    }
-    if (q.knowledgePoint.isNotBlank()) {
-        sb.append("这道题主要考察").append(q.knowledgePoint.take(40)).append("。")
-    }
-    return sb.toString().take(280)
+    val sb = StringBuilder("这道题：")
+    sb.append(q.question.take(28)).append("。")
+    if (answer.isNotBlank()) sb.append("答案").append(answer.take(18)).append("。")
+    if (q.myAnswer.isNotBlank()) sb.append("你答的是").append(q.myAnswer.take(10)).append("，注意。")
+    return sb.toString().take(60)
 }
 
 /**
@@ -2054,6 +2058,7 @@ private fun WrongCard(
     onExplain: () -> Unit,
     onVideo: () -> Unit,
     videoBusy: Boolean = false,
+    videoPending: Boolean = false,
     videoHint: String? = null
 ) {
     SoftCard {
@@ -2167,16 +2172,22 @@ private fun WrongCard(
         }
 
         Spacer(Modifier.height(14.dp))
-        // 这道题专属的数字人讲解视频：首次点击会按题干自助生成，之后直接复用成片
+        // 这道题专属的数字人讲解视频：首次点击排队生成，出片后点这里直接播放
         SoftOutlinedButton(
-            text = if (videoBusy) "视频讲解准备中…" else "视频讲解",
+            text = when {
+                videoBusy -> "视频讲解准备中…"
+                videoPending -> "讲解视频生成中 · 点这里查看"
+                else -> "视频讲解"
+            },
             icon = Icons.Rounded.PlayArrow,
             enabled = !videoBusy
         ) { onVideo() }
-        if (videoHint != null) {
+        val hint = videoHint
+            ?: if (videoPending && !videoBusy) "数字人出片约需几分钟，稍后再点即可观看" else null
+        if (hint != null) {
             Spacer(Modifier.height(6.dp))
             Text(
-                videoHint,
+                hint,
                 style = MaterialTheme.typography.labelSmall,
                 color = TesEduColors.Brand
             )
