@@ -348,20 +348,12 @@ async def seed_rbac(db, password_hash: str, bcrypt=None) -> dict:
 
     # 菜单（T-AM7 起按 menu_id 逐条 upsert：线上库已有旧种子时也能补插新节点，
     # 如 m_ops_errordist / m_ops_practice；已存在的行不改动，保持运维手工调整）
+    # 用 ORM db.add 以便套用模型默认值（visible=True/status=1），避免裸 INSERT
+    # 漏列导致 visible=NULL、/menu/my 校验 bool 失败（2026-11-15 回归修复）。
     existing = set((await db.execute(select(SysMenu.menu_id))).scalars().all())
     new_menus = [m for m in build_seed_menus() if m["menu_id"] not in existing]
-    # 真幂等：ON CONFLICT DO NOTHING，种子列表/库里偶发重复对也不会让整事务回滚。
-    if new_menus:
-        await db.execute(
-            text(
-                "INSERT INTO sys_menu (menu_id, parent_id, menu_name, menu_type, "
-                "path, component, icon, sort, permission_code) "
-                "VALUES (:menu_id, :parent_id, :menu_name, :menu_type, "
-                ":path, :component, :icon, :sort, :permission_code) "
-                "ON CONFLICT (menu_id) DO NOTHING"
-            ),
-            new_menus,
-        )
+    for m in new_menus:
+        db.add(SysMenu(**m))
     stats["menus"] = len(new_menus)
 
     # 角色-菜单授权（同样 upsert：补插缺失的 (role_id, menu_id) 对，
