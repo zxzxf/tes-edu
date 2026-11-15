@@ -117,7 +117,9 @@ import com.tes.edu.data.remote.ApiClient
 import com.tes.edu.data.remote.downloadExplanationVideo
 import com.tes.edu.data.remote.ExplanationVideoItem
 import com.tes.edu.data.remote.listExplanationVideos
-import com.tes.edu.data.remote.ensurePlayableVideoId
+import com.tes.edu.data.remote.lookupWrongVideo
+import com.tes.edu.data.remote.queueWrongVideo
+import com.tes.edu.data.remote.videoQKey
 import com.tes.edu.viewmodel.WrongFilter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -1695,14 +1697,27 @@ private fun WrongSection(
     val syncing by vm.syncing.collectAsState()
     val error by vm.error.collectAsState()
 
-    // 每道错题一条专属讲解视频：按钮在卡片内，讲稿按「题干+参考答案+我的作答」现拼，
-    // ensure 幂等排队 → 轮询出片 → 下载到 cacheDir → 本地全屏播放。
+    // 每道错题一条专属讲解视频：先查已有成片 → 没有才排队一次 → 立即把按钮还给用户。
+    // IVH 出片是分钟级，绝不能在 App 里轮询等待（真机会一直「准备中…」直到超时）。
     val ctx = LocalContext.current
     val videoScope = rememberCoroutineScope()
     var videoBusyId by remember { mutableStateOf<Long?>(null) }
     var videoHint by remember { mutableStateOf<String?>(null) }
     var videoPendingIds by remember { mutableStateOf(setOf<Long>()) }
     var playerPath by remember { mutableStateOf<String?>(null) }
+
+    // 进页面拉一次已出片目录，卡片直接显示「播放视频讲解」，不用点一下才知道有没有。
+    var readyVideoKeys by remember { mutableStateOf(setOf<String>()) }
+    LaunchedEffect(Unit) {
+        try {
+            readyVideoKeys = listExplanationVideos()
+                .map { videoQKey(it.questionText.orEmpty()) }
+                .filter { it.isNotBlank() }
+                .toSet()
+        } catch (_: Exception) {
+            // 离线时静默降级：点击仍会走 by-question 权威查询
+        }
+    }
 
     fun playWrongVideo(q: WrongQuestion) {
         if (videoBusyId != null) return
@@ -1712,27 +1727,37 @@ private fun WrongSection(
         }
         videoScope.launch {
             videoBusyId = q.id
-            videoHint = "正在为这道题准备讲解视频…"
+            videoHint = "正在查找这道题的讲解视频…"
             try {
-                val id = ensurePlayableVideoId(
-                    question = q.question,
-                    script = wrongVideoScript(q),
-                    knowledgePoint = q.knowledgePoint.takeIf { it.isNotBlank() }
-                ) { hint -> videoHint = hint }
-                if (id == null) {
-                    // SaaS 仍在渲染：不弹错误、不卡按钮，卡片保留「生成中」状态
+                // ① 已有成片就直接用，绝不再次触发生成（服务端也做归一化幂等兜底）
+                var resp = lookupWrongVideo(q.question)
+                if (resp.status != "done" && resp.status !in setOf("pending", "processing")) {
+                    // ② 确实没有 / 上次失败，才排队一次；随即返回，不轮询、不卡按钮
+                    resp = queueWrongVideo(
+                        question = q.question,
+                        script = wrongVideoScript(q),
+                        knowledgePoint = q.knowledgePoint.takeIf { it.isNotBlank() }
+                    )
+                }
+                val vid = resp.id
+                if (resp.status == "done" && !vid.isNullOrBlank()) {
+                    videoPendingIds = videoPendingIds - q.id
+                    readyVideoKeys = readyVideoKeys + videoQKey(q.question)
+                    videoHint = "正在打开讲解视频…"
+                    val file = downloadExplanationVideo(ctx, vid, resp.updatedAt)
+                    playerPath = file.absolutePath
+                } else {
                     videoPendingIds = videoPendingIds + q.id
                     Toast.makeText(
-                        ctx, "讲解视频已开始生成，几分钟后再点这里就能看", Toast.LENGTH_SHORT
+                        ctx,
+                        if (resp.status == "failed") "上次生成失败，已重新排队，请稍后再点"
+                        else "这道题的讲解视频正在生成，几分钟后再点这里即可观看",
+                        Toast.LENGTH_SHORT
                     ).show()
-                } else {
-                    videoPendingIds = videoPendingIds - q.id
-                    val file = downloadExplanationVideo(ctx, id)
-                    playerPath = file.absolutePath
                 }
             } catch (e: Exception) {
                 Toast.makeText(
-                    ctx, "视频讲解失败：${e.message ?: "请稍后重试"}", Toast.LENGTH_SHORT
+                    ctx, "视频讲解暂不可用：${e.message ?: "请稍后重试"}", Toast.LENGTH_SHORT
                 ).show()
             } finally {
                 videoBusyId = null
@@ -1894,6 +1919,7 @@ private fun WrongSection(
                 onVideo = { playWrongVideo(q) },
                 videoBusy = videoBusyId == q.id,
                 videoPending = q.id in videoPendingIds,
+                videoReady = videoQKey(q.question) in readyVideoKeys,
                 videoHint = if (videoBusyId == q.id) videoHint else null
             )
         }
@@ -2059,6 +2085,7 @@ private fun WrongCard(
     onVideo: () -> Unit,
     videoBusy: Boolean = false,
     videoPending: Boolean = false,
+    videoReady: Boolean = false,
     videoHint: String? = null
 ) {
     SoftCard {
@@ -2172,12 +2199,13 @@ private fun WrongCard(
         }
 
         Spacer(Modifier.height(14.dp))
-        // 这道题专属的数字人讲解视频：首次点击排队生成，出片后点这里直接播放
+        // 这道题专属的数字人讲解视频：已出片直接播，未出片才排队且立即返回
         SoftOutlinedButton(
             text = when {
-                videoBusy -> "视频讲解准备中…"
+                videoBusy -> "视频讲解加载中…"
                 videoPending -> "讲解视频生成中 · 点这里查看"
-                else -> "视频讲解"
+                videoReady -> "播放视频讲解"
+                else -> "生成视频讲解"
             },
             icon = Icons.Rounded.PlayArrow,
             enabled = !videoBusy

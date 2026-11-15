@@ -2,7 +2,6 @@ package com.tes.edu.data.remote
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import com.google.gson.annotations.SerializedName
 import okhttp3.ResponseBody
@@ -66,43 +65,48 @@ suspend fun listExplanationVideos(limit: Int = 50): List<ExplanationVideoItem> =
     LoginManager.withAuth { ApiClient.videoStream.list(limit) }.getOrThrow().items
 
 /**
- * 错题本点「视频讲解」的完整链路：ensure 排队 → 短轮询 by-question → 返回可播 id。
+ * 查这道题有没有已出片视频：一次轻量 GET，立刻返回。
  *
- * IVH 真数字人出片是分钟级（SaaS 侧渲染），**不能把按钮卡死几分钟**：短轮询
- * 只覆盖「很快出片」的情况，等不到就返回 null，由卡片保留「生成中，稍后再点」
- * 的状态。只认 ensure 返回的那个任务 id：`by-question` 有近似题干兜底匹配，
- * 绝不能把别道题的视频当成这道题的讲解播出去。
+ * 真机实测 IVH 出片要 1–9 分钟，早期版本在这里做 60 秒的循环轮询，
+ * 按钮一直「准备中…」、移动网络一抖动就抛 readTimeout，看起来就是「生成超时」。
+ * 现在改成**一次查询 + 立即反馈**：done 直接播，processing 只显示状态，
+ * 需要生成时另调一次 ensure 排队后马上把按钮还给用户。
  */
-suspend fun ensurePlayableVideoId(
+suspend fun lookupWrongVideo(question: String): ExplanationVideoResp =
+    LoginManager.withAuth { ApiClient.instance.explanationVideo(question) }.getOrThrow()
+
+/**
+ * 只在确认「这题确实没有视频」时才调用。服务端按 (租户, 题干) 幂等：
+ * 已有成片会直接返回 done，不会重复起 IVH 任务；这里也**不做任何轮询等待**。
+ */
+suspend fun queueWrongVideo(
     question: String,
     script: String,
-    knowledgePoint: String? = null,
-    maxWaitMs: Long = 60_000L,
-    onProgress: (String) -> Unit = {}
-): String? {
-    var resp = LoginManager.withAuth {
+    knowledgePoint: String? = null
+): ExplanationVideoResp =
+    LoginManager.withAuth {
         ApiClient.videoStream.ensure(
             EnsureExplanationVideoReq(question, script, knowledgePoint)
         )
     }.getOrThrow()
-    val taskId = resp.id ?: error("视频任务缺少 id")
-    var waited = 0L
-    val step = 5_000L
-    while (resp.status != "done") {
-        if (resp.status == "failed") error("视频生成失败：${resp.error ?: "请稍后再试"}")
-        if (resp.status == "none") error("讲解视频任务丢失，请重试")
-        if (waited >= maxWaitMs) return null  // 仍在 SaaS 渲染，交给卡片状态
-        onProgress("这道题的讲解视频生成中…（已等待 ${waited / 1000}s）")
-        delay(step)
-        waited += step
-        resp = LoginManager.withAuth {
-            ApiClient.instance.explanationVideo(question)
-        }.getOrThrow()
-        if (resp.status == "done" && resp.id != taskId) {
-            error("讲解视频任务状态不一致，请重试")
+
+/**
+ * 题干归一化键，与后端 `_qkey` 对齐（NFKC → 小写 → 去空白/标点）。
+ * 只用于错题卡片把已出片视频标成「可播放」，真正取流仍由服务端按题干权威判定。
+ */
+fun videoQKey(text: String): String {
+    val normalized = java.text.Normalizer
+        .normalize(text, java.text.Normalizer.Form.NFKC)
+        .lowercase()
+    return buildString {
+        for (ch in normalized) {
+            if (ch.isWhitespace()) continue
+            val type = Character.getType(ch)
+            // Unicode 标点 P*：Pd/Ps/Pe/Pc/Po (20..24) + Pi/Pf (29/30)
+            if (type in 20..24 || type == 29 || type == 30) continue
+            append(ch)
         }
     }
-    return taskId
 }
 
 private val UNSAFE_FILENAME = Regex("[^A-Za-z0-9_-]")
@@ -119,16 +123,24 @@ private val UNSAFE_FILENAME = Regex("[^A-Za-z0-9_-]")
  * 走 Retrofit（带 Bearer）取流 → 落地到 cacheDir → `setVideoPath(绝对路径)`，
  * 一次性解决 host、鉴权、租户复校（服务端按 id 校验）三件事。
  */
-suspend fun downloadExplanationVideo(context: Context, videoId: String): File {
+suspend fun downloadExplanationVideo(
+    context: Context,
+    videoId: String,
+    version: String? = null
+): File {
+    val safeId = videoId.replace(UNSAFE_FILENAME, "_")
+    // 文件名带上服务端 updated_at：同一条成片重复点击直接读本地缓存，
+    // 教师端 regen 后版本变化会重新下载，不会拿旧片顶掉新片。
+    val ver = (version ?: "v1").replace(UNSAFE_FILENAME, "_").take(40)
+    val dir = File(context.applicationContext.cacheDir, "explanation_videos")
+        .apply { mkdirs() }
+    val target = File(dir, "$safeId-$ver.mp4")
+    if (target.exists() && target.length() > 0L) return target
+
     val body: ResponseBody = LoginManager.withAuth {
         ApiClient.videoStream.stream(videoId)
     }.getOrThrow()
-
-    val safeId = videoId.replace(UNSAFE_FILENAME, "_")
-    val dir = File(context.applicationContext.cacheDir, "explanation_videos")
-        .apply { mkdirs() }
-    val target = File(dir, "$safeId.mp4")
-    val part = File(dir, "$safeId.mp4.part")
+    val part = File(dir, "$safeId-$ver.mp4.part")
 
     return withContext(Dispatchers.IO) {
         try {
@@ -141,7 +153,6 @@ suspend fun downloadExplanationVideo(context: Context, videoId: String): File {
                 part.delete()
                 error("视频流为空")
             }
-            // 每次重新下载：教师端 regen 后 id 不变但内容会变，不能用旧缓存顶掉新片。
             if (target.exists()) target.delete()
             if (part.renameTo(target)) target else part
         } catch (e: Exception) {

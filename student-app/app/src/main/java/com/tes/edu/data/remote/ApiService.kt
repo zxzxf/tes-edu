@@ -156,7 +156,11 @@ data class ExplanationVideoResp(
     @SerializedName("video_url") val videoUrl: String? = null,
     @SerializedName("duration_sec") val durationSec: Double? = null,
     val error: String? = null,
-    @SerializedName("content_hash") val contentHash: String? = null
+    @SerializedName("content_hash") val contentHash: String? = null,
+    /** exact / normalized / fuzzy / none：写侧排队只认前两种，避免误播别题视频。 */
+    val match: String? = null,
+    /** 成片版本；作为本地缓存文件名的一部分，教师端 regen 后会自动重新下载。 */
+    @SerializedName("updated_at") val updatedAt: String? = null
 )
 
 interface ApiService {

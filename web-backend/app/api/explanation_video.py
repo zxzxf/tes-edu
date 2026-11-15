@@ -95,16 +95,13 @@ async def _ensure_video_row(
     ``max_inflight`` 只给学生端用，限制同租户在途任务数，防止误触刷爆 IVH 配额。
     """
     h = content_hash(body.question)
-    row = (
-        await db.execute(
-            select(ExplanationVideo)
-            .where(
-                ExplanationVideo.tenant_id == tid,
-                ExplanationVideo.content_hash == h,
-            )
-            .order_by(ExplanationVideo.created_at.desc())
+    # 读写共用同一套匹配口径：App 用 by-question 判定「这题有视频」，写侧就必须
+    # 复用同一条，否则 App 明明能播、ensure 却又排一条新任务，白等几分钟还烧配额。
+    row, match = await _find_video_row(db, tid, body.question, allow_fuzzy=True)
+    if row is not None and match != "exact":
+        logger.info(
+            "video row %s 以 %s 命中同题成片，直接复用不重复生成", row.id, match
         )
-    ).scalar_one_or_none()
 
     if row is not None and row.status in ("pending", "processing", "done"):
         if row.status != "done" and _is_stale_task(row):
@@ -169,6 +166,68 @@ def _qkey(text: str) -> str:
     )
 
 
+async def _find_video_row(db, tid: str, question: str, *, allow_fuzzy: bool = True):
+    """按题干定位本租户的视频任务，返回 ``(row, match)``。
+
+    ``match`` ∈ exact / normalized / fuzzy / none：
+
+    - ``exact``：``content_hash`` 逐字命中（任意状态，含 failed，便于复位重跑）；
+    - ``normalized``：题干只差空白/全角标点/大小写，在**已出片**视频里命中；
+    - ``fuzzy``：相似度 ≥0.90，同题的细微改写；门槛收紧且只在已出片视频里比较。
+
+    这是「同一道题已经有视频就不要再生成一次」的唯一口径：``by-question``（学生查）
+    与 ``_ensure_video_row``（学生/教师写）共用，避免两处匹配规则漂移导致重复出片。
+    ``allow_fuzzy=False`` 保留给将来需要「只认逐字同题」的写场景。
+    """
+    h = content_hash(question)
+    row = (
+        await db.execute(
+            select(ExplanationVideo)
+            .where(
+                ExplanationVideo.tenant_id == tid,
+                ExplanationVideo.content_hash == h,
+            )
+            .order_by(ExplanationVideo.created_at.desc())
+        )
+    ).scalar_one_or_none()
+    if row is not None:
+        return row, "exact"
+    return await _fallback_video_row(db, tid, question, allow_fuzzy=allow_fuzzy)
+
+
+async def _fallback_video_row(db, tid: str, question: str, *, allow_fuzzy: bool):
+    """精确 hash 未命中时，在本租户已出片视频里找「同一题的另一种排版」。"""
+    candidates = (
+        await db.execute(
+            select(ExplanationVideo)
+            .where(
+                ExplanationVideo.tenant_id == tid,
+                ExplanationVideo.status == "done",
+                ExplanationVideo.video_url.isnot(None),
+            )
+            .order_by(ExplanationVideo.created_at.desc())
+            .limit(200)
+        )
+    ).scalars().all()
+    key = _qkey(question)
+    best, best_ratio = None, 0.0
+    for cand in candidates:
+        cand_key = _qkey(cand.question_text or "")
+        if cand_key and cand_key == key:
+            best, best_ratio = cand, 1.0
+            break
+        ratio = difflib.SequenceMatcher(None, key, cand_key).ratio()
+        if ratio > best_ratio:
+            best, best_ratio = cand, ratio
+    if best is None or len(key) < 6:
+        return None, "none"
+    if best_ratio == 1.0:
+        return best, "normalized"
+    if allow_fuzzy and best_ratio >= 0.90:
+        return best, "fuzzy"
+    return None, "none"
+
+
 def _row_out(row: ExplanationVideo) -> dict:
     return {
         "id": row.id,
@@ -194,49 +253,11 @@ async def by_question(
     db=Depends(get_db),
 ):
     tid = business_tenant_id(user)
-    h = content_hash(question)
-    row = (
-        await db.execute(
-            select(ExplanationVideo)
-            .where(
-                ExplanationVideo.tenant_id == tid,
-                ExplanationVideo.content_hash == h,
-            )
-            .order_by(ExplanationVideo.created_at.desc())
-        )
-    ).scalar_one_or_none()
+    # 与写侧 ensure 共用同一套匹配口径：精确 hash → 归一化相同 → 只读才放宽到 fuzzy
+    row, match = await _find_video_row(db, tid, question, allow_fuzzy=True)
     if row is not None:
         out = _row_out(row)
-        out["match"] = "exact"
-        return out
-
-    # 精确 hash 未命中：在本租户已出片的视频里兜底找「同一题的另一种排版」。
-    # 只在本租户内比较、只认 done、相似度门槛收紧，避免把别的题的视频推给学生。
-    candidates = (
-        await db.execute(
-            select(ExplanationVideo)
-            .where(
-                ExplanationVideo.tenant_id == tid,
-                ExplanationVideo.status == "done",
-                ExplanationVideo.video_url.isnot(None),
-            )
-            .order_by(ExplanationVideo.created_at.desc())
-            .limit(200)
-        )
-    ).scalars().all()
-    key = _qkey(question)
-    best, best_ratio = None, 0.0
-    for cand in candidates:
-        cand_key = _qkey(cand.question_text or "")
-        if cand_key and cand_key == key:
-            best, best_ratio = cand, 1.0
-            break
-        ratio = difflib.SequenceMatcher(None, key, cand_key).ratio()
-        if ratio > best_ratio:
-            best, best_ratio = cand, ratio
-    if best is not None and len(key) >= 6 and best_ratio >= 0.90:
-        out = _row_out(best)
-        out["match"] = "normalized" if best_ratio == 1.0 else "fuzzy"
+        out["match"] = match
         return out
 
     return {
@@ -245,7 +266,7 @@ async def by_question(
         "video_url": None,
         "duration_sec": None,
         "error": None,
-        "content_hash": h,
+        "content_hash": content_hash(question),
         "match": "none",
     }
 

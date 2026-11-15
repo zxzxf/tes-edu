@@ -331,6 +331,60 @@ def test_ensure_已有成片_直接复用不重复生成(harness):
     assert db.gen_calls == []
 
 
+def test_ensure_题干只差标点空格_复用成片不重复生成(harness):
+    """真机复现：同一道题生成过一次，题干多个逗号/句号时绝不能再排一条 IVH 任务。"""
+    db = _FakeDB(results=[
+        _Result(None),                                  # 逐字 hash 未命中
+        _Result(rows=[_cand("已知函数求极值。")]),        # 归一化后完全相同
+    ])
+    client, _ = harness(db=db)
+    r = client.post(ENSURE, json={"question": "已知函数，求极值"}, headers=_headers())
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "done"
+    assert r.json()["id"] == VID
+    assert db.added == []          # 没有新建任务
+    assert db.gen_calls == []      # 没有再跑一次 IVH（省钱、省几分钟等待）
+    assert db.commits == 0         # 纯只读复用，连写库都不该有
+
+
+def test_ensure_同题微调_fuzzy命中也复用(harness):
+    """App 用 by-question 判定「有视频」，写侧必须复用同一条，否则白等几分钟还烧配额。"""
+    db = _FakeDB(results=[
+        _Result(None),
+        _Result(rows=[_cand("求函数f(x)=x²的导数并说明每一步依据")]),
+    ])
+    client, _ = harness(db=db)
+    r = client.post(
+        ENSURE,
+        json={"question": "求函数f(x)=x²的导数并说明每步依据"},
+        headers=_headers(),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "done"
+    assert r.json()["id"] == VID
+    assert db.added == []
+    assert db.gen_calls == []
+
+
+def test_ensure_只是相似题_不误复用照样生成(harness):
+    """相似度不达 0.90 的别的题，不能张冠李戴，要正常生成专属视频。"""
+    db = _FakeDB(results=[
+        _Result(None),
+        _Result(rows=[_cand("【IVH联通验证190356】1+1等于几？")]),
+        _Result(total=0),
+    ])
+    client, _ = harness(db=db)
+    r = client.post(
+        ENSURE,
+        json={"question": "求函数 f(x)=x² 的导数并说明依据"},
+        headers=_headers(),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "pending"
+    assert len(db.added) == 1
+    assert db.gen_calls == ["new-video-id"]
+
+
 def test_ensure_失败任务_复位重跑(harness):
     row = _row(status="failed")
     row.error = "IVH 超时"
@@ -345,7 +399,11 @@ def test_ensure_失败任务_复位重跑(harness):
 
 def test_ensure_在途任务满_429(harness):
     """学生端点一次就起一个 IVH 任务，必须挡住误触/连点刷爆配额。"""
-    db = _FakeDB(results=[_Result(None), _Result(total=5)])
+    db = _FakeDB(results=[
+        _Result(None),            # 精确 hash 未命中
+        _Result(rows=[]),         # 归一化/相似兜底也没有
+        _Result(total=5),         # 在途任务数
+    ])
     client, _ = harness(db=db)
     r = client.post(ENSURE, json={"question": Q}, headers=_headers())
     assert r.status_code == 429, r.text
