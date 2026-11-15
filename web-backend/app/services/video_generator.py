@@ -57,6 +57,14 @@ def _which(bin_name: str) -> bool:
     return shutil.which(bin_name) is not None
 
 
+def _ffprobe_bin() -> Optional[str]:
+    """ffprobe 通常与 ffmpeg 同目录；优先用替换得到的路径，否则回退 PATH 查找。"""
+    cand = settings.ffmpeg_bin.replace("ffmpeg", "ffprobe")
+    if _which(cand):
+        return cand
+    return shutil.which("ffprobe")
+
+
 class VideoGenerator:
     """数字人讲题视频生成器（可替换实现）。
 
@@ -92,7 +100,9 @@ class LiteVideoGenerator(VideoGenerator):
         ok, err = await self._render(script, out_path, audio_path, font)
         if not ok:
             return False, None, err
-        return True, None, None
+        # 3) 用 ffprobe 取真实时长回填 duration_sec（取不到也不报错，字段可空）
+        duration = await self._probe_duration(out_path)
+        return True, duration, None
 
     async def _tts(self, script: str, out_path: str) -> Optional[str]:
         """百炼 CosyVoice TTS：best-effort，失败则降级为无声视频。"""
@@ -166,6 +176,28 @@ class LiteVideoGenerator(VideoGenerator):
             except OSError:
                 pass
 
+    async def _probe_duration(self, out_path: str) -> Optional[float]:
+        """用 ffprobe 取真实视频时长（秒），取不到返回 None，不影响生成结果。"""
+        fb = _ffprobe_bin()
+        if not fb or not os.path.exists(out_path):
+            return None
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                fb, "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                out_path,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            )
+            sout, _ = await proc.communicate()
+            if proc.returncode != 0:
+                return None
+            val = sout.decode(errors="ignore").strip()
+            return float(val) if val else None
+        except Exception:  # noqa: BLE001
+            logger.exception("ffprobe 取时长失败")
+            return None
+
 
 def get_generator() -> VideoGenerator:
     if settings.digital_human_enabled:
@@ -195,7 +227,15 @@ async def run_generation(row_id: str) -> None:
             ok, duration, err = False, None, f"生成异常：{e}"
 
         if ok and os.path.exists(out_path):
-            # 静态路由挂载在 /api/student/explanation-videos，文件名即 <id>.mp4
+            # ③·对象存储：best-effort 上传 MinIO；失败不影响本地兜底（流式路由会回退本地）。
+            object_name = f"explanation_videos/{row.id}.mp4"
+            try:
+                from app.services import object_storage
+
+                await object_storage.upload_video(out_path, object_name)
+            except Exception:  # noqa: BLE001
+                logger.exception("MinIO 上传失败（保留本地兜底）")
+            # video_url 保持相对路径：由 serve 路由统一从 MinIO / 本地取流。
             row.status = "done"
             row.video_url = f"/api/student/explanation-videos/{row.id}.mp4"
             row.duration_sec = duration

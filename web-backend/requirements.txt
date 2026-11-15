@@ -20,3 +20,5 @@ aiokafka==0.11.0
 # 学生端试卷/结果缓存（redis.asyncio）。未配置 REDIS_URL 时全部降级为直查 DB，
 # 因此本地单测不需要起 Redis。
 redis==5.0.4
+# ③·对象存储 MinIO 客户端（讲解视频 mp4 上传/读取；未部署 MinIO 时本依赖不被调用）。
+minio==7.2.7

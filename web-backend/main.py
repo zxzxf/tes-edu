@@ -7,6 +7,7 @@
 """
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
@@ -237,18 +238,9 @@ app.include_router(student_learning.router)
 # ④·数字人讲题短视频（#28）：学生查视频（/api/student）+ 教师/后台触发生成（/api/admin）
 app.include_router(explanation_video_api.student_router, prefix="/api/student")
 app.include_router(explanation_video_api.admin_router, prefix="/api/admin")
-# 合成产物静态服务（过渡方案：本地目录；MinIO 接入后改为对象存储签名 URL）
-import os as _os  # noqa: E402
-
-from fastapi.staticfiles import StaticFiles  # noqa: E402
-
-_ev_dir = settings.explanation_video_dir
-_os.makedirs(_ev_dir, exist_ok=True)
-app.mount(
-    "/api/student/explanation-videos",
-    StaticFiles(directory=_ev_dir),
-    name="explanation_videos",
-)
+# ③·合成产物对外提供：由 student_router 的 serve_video 路由内部从 MinIO（或本地回退）
+# 取流代理，外部 URL / 网关 / 学生端均不变（见 app/api/explanation_video.py）。
+os.makedirs(settings.explanation_video_dir, exist_ok=True)
 
 
 if __name__ == "__main__":

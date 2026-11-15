@@ -79,6 +79,9 @@ MENUS = [
     ("m_ops_practice", "m_ops", "在线练习", "MENU", "/ops/practice", "Practice", "target", 10, None),
     # M5-1 课程采集与知识点：课程源/采集任务/解析/知识点审核
     ("m_ops_course", "m_ops", "课程采集与知识点", "MENU", "/ops/course-intake", "CourseIntake", "book", 11, None),
+    # ④·数字人讲题视频（#28）：教师端「讲解视频生成任务管理」后台
+    ("m_ops_explv", "m_ops", "讲解视频任务", "MENU", "/ops/explanation-videos", "ExplanationVideos", "video", 15, None),
+    ("m_ops_explv_regen", "m_ops_explv", "重跑生成", "BUTTON", "", "", "", 1, "explanation:regen"),
 ]
 
 # 角色 × 菜单授权（菜单节点 + 其下按钮一并授权）：仅 admin 见系统设置全部。
@@ -108,8 +111,9 @@ ROLE_MENU_MAP = {
         # 产品决策是撤菜单而非放宽接口，避免给它看得见用不了的死链。
         # 线上旧库的 sys_role_menu 行需另行 DELETE —— seed 的授权只补不删。
         and m[0] != "m_ops_grading"
-    ] + ["m_ops_exam_gen", "m_sys_user", "m_sys_feature", "m_sys_feature_manage", "m_sys_byom", "m_sys_byom_manage",
-         "m_ops_tenant_add", "m_ops_tenant_edit", "m_ops_tenant_del"],  # 区域管理员：区域运营 + 功能开关 + 模型配置 + 用户管理（仅菜单，只读看区域下用户；写接口仍受 UserWriteRoleDep 兜底）；含学校增删改按钮码
+    ]          + ["m_ops_exam_gen", "m_sys_user", "m_sys_feature", "m_sys_feature_manage", "m_sys_byom", "m_sys_byom_manage",
+         "m_ops_tenant_add", "m_ops_tenant_edit", "m_ops_tenant_del",  # 区域管理员：区域运营 + 功能开关 + 模型配置 + 用户管理（仅菜单，只读看区域下用户；写接口仍受 UserWriteRoleDep 兜底）；含学校增删改按钮码
+         "m_ops_explv", "m_ops_explv_regen"],  # 区域管理员：讲解视频任务管理（#28）
     "role_school": [
         "m_ops", "m_ops_tenant",
         "m_ops_exam", "m_ops_exam_dispatch", "m_ops_grading",
@@ -134,6 +138,7 @@ ROLE_MENU_MAP = {
         "m_ops_exam_gen", "m_ops_grading_submit", "m_ops_grading_review",
         "m_sys_user",  # 教师：用户管理（只读，列表仅本租户用户；写接口仍受 UserWriteRoleDep 兜底）
         "m_sys_feature", "m_sys_feature_manage",  # 教师：可管控本班功能显隐
+        "m_ops_explv", "m_ops_explv_regen",  # 教师：讲解视频任务管理（#28）
     ],
     "role_parent": ["m_ops", "m_ops_reports"],
 }

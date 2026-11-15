@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     # 需部署镜像内含 ffmpeg + 中文字体（Dockerfile 已 apt 安装）；
     # 关闭请设环境变量 DIGITAL_HUMAN_ENABLED=false；缺 ffmpeg/字体时生成优雅降级为 failed。
     digital_human_enabled: bool = True
-    # 合成产物本地目录（MinIO 未接入前的过渡；web-backend 以静态文件对外提供）。
+    # 合成产物目录：MinIO 接入前为「本地静态回退目录」，接入后仅作兜底（见 app/services/object_storage.py）。
     explanation_video_dir: str = "data/explanation_videos"
     # ffmpeg 二进制（容器内需安装；Dockerfile 已加 apt 安装 ffmpeg）。
     ffmpeg_bin: str = "ffmpeg"
@@ -102,6 +102,16 @@ class Settings(BaseSettings):
     dashscope_tts_model: str = "cosyvoice-v1"
     # 可选：异步生成 Kafka 主题；未配置 kafka 时走 BackgroundTasks 同步降级。
     kafka_topic_explanation_video: str = "explanation_video_gen"
+
+    # ---- ③·对象存储（MinIO，替代本地静态目录）----
+    # minio_endpoint 留空 = 走本地静态回退（兼容未部署 MinIO 的环境）；
+    # 配齐后 run_generation 把 mp4 上传 MinIO，并由 web-backend 内部流式代理对外提供
+    # （外部 URL / 网关 / 学生端均不变，MinIO 仅内网可达）。
+    minio_endpoint: str = ""            # 例：http://minio:9000
+    minio_access_key: str = ""
+    minio_secret_key: str = ""
+    minio_bucket: str = "tes-edu-explanation"
+    minio_use_ssl: bool = False
 
     @property
     def kafka_enabled(self) -> bool:

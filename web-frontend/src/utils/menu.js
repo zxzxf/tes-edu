@@ -17,6 +17,7 @@ export const ICON_MAP = {
   school: '🏫', book: '📚', chart: '📈', search: '🔍', wrong: '📕', exam: '📝',
   grade: '✅', report: '💌', shield: '🛡️', target: '🎯', user: '👤', send: '📤',
   dict: '📖',
+  video: '🎬',
 }
 
 /**
@@ -48,6 +49,7 @@ export const MENU_ROUTE_MAP = {
   '/system/model-config': '/system/model-config', // 模型配置(BYOM) 页（W6 T-M3 前端）
   '/system/user': '/system/user', // 用户管理页（T-AM9 前端）
   '/system/dict': '/system/dict', // 数据字典页（T-DICT 前端）
+  '/ops/explanation-videos': '/explanation-videos', // 讲解视频任务管理页（#28）
 }
 
 /** 菜单 → 可导航的前端路由；非 MENU 类型 / 未映射 / 显式 null 均返回 null */

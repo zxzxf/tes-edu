@@ -10,16 +10,19 @@
 """
 from __future__ import annotations
 
+import os
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.db import get_db
 from app.core.rbac import Role
+from app.core.config import settings
 from app.core.security import business_tenant_id, get_current_user, require_role
 from app.models.explanation_video import ExplanationVideo
+from app.services import object_storage
 from app.services.video_generator import content_hash, run_generation
 
 student_router = APIRouter(tags=["explanation-video"])
@@ -29,11 +32,18 @@ admin_router = APIRouter(tags=["explanation-video-admin"])
 def _row_out(row: ExplanationVideo) -> dict:
     return {
         "id": row.id,
+        "tenant_id": row.tenant_id,
         "status": row.status,
         "video_url": row.video_url,
         "duration_sec": row.duration_sec,
         "error": row.error,
         "content_hash": row.content_hash,
+        "question_text": row.question_text,
+        "knowledge_point": row.knowledge_point,
+        "avatar_id": row.avatar_id,
+        "voice_id": row.voice_id,
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
     }
 
 
@@ -66,6 +76,24 @@ async def by_question(
     return _row_out(row)
 
 
+# ③·对象存储接入：用内部流式代理替代本地 StaticFiles 挂载。
+# 外部 URL（/api/student/explanation-videos/{id}.mp4）与网关不变；
+# MinIO 接入时从此取流，否则回退本地目录。
+@student_router.get("/explanation-videos/{video_id}.mp4")
+async def serve_video(video_id: str):
+    object_name = f"explanation_videos/{video_id}.mp4"
+    data, ctype = await object_storage.fetch_video(object_name)
+    if data is None:  # 回退本地静态文件（兼容未部署 MinIO / 历史本地产物）
+        local = os.path.join(settings.explanation_video_dir, f"{video_id}.mp4")
+        if os.path.exists(local):
+            with open(local, "rb") as f:
+                data = f.read()
+            ctype = "video/mp4"
+    if data is None:
+        raise HTTPException(status_code=404, detail="video not found")
+    return Response(content=data, media_type=ctype or "video/mp4")
+
+
 # ------------------------- 教师 / 后台端 -------------------------
 
 class GenerateIn(BaseModel):
@@ -87,6 +115,47 @@ async def config(user: dict = Depends(require_role(Role.ADMIN, Role.REGION_ADMIN
         "voices": [{"id": "default", "name": "默认音色（占位）"}],
         "note": "真·数字人形象 / 音色需在 GPU 服务器部署 CosyVoice + SadTalker/Wav2Lip 后接入",
     }
+
+
+@admin_router.get("/explanation-video/list")
+async def list_videos(
+    status: Optional[str] = Query(None, description="pending/processing/done/failed 过滤"),
+    tenant_id: Optional[str] = Query(None, description="仅 ADMIN 可指定跨租户查询"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    user: dict = Depends(require_role(Role.ADMIN, Role.REGION_ADMIN, Role.TEACHER)),
+    db=Depends(get_db),
+):
+    """讲解视频生成任务列表（教师端任务管理后台用）。
+
+    - ADMIN：不传 tenant_id 看全量，传了按租户过滤；
+    - TEACHER / REGION_ADMIN：强制只看自己业务租户（与平台数据权限矩阵一致）。
+    """
+    is_admin = user.get("role") == Role.ADMIN.value
+    q = select(ExplanationVideo)
+    if is_admin:
+        # ADMIN：显式传 tenant_id 才过滤，否则看全量（不被自身平台租户限死）
+        if tenant_id:
+            q = q.where(ExplanationVideo.tenant_id == tenant_id)
+    else:
+        # TEACHER / REGION_ADMIN：强制只看自己业务租户
+        q = q.where(ExplanationVideo.tenant_id == business_tenant_id(user))
+    if status:
+        q = q.where(ExplanationVideo.status == status)
+
+    total = (
+        await db.execute(
+            select(func.count()).select_from(q.subquery())
+        )
+    ).scalar_one()
+    rows = (
+        await db.execute(
+            q.order_by(ExplanationVideo.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).scalars().all()
+    return {"total": total, "items": [_row_out(r) for r in rows]}
 
 
 def _require_enabled() -> None:

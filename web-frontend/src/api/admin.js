@@ -281,3 +281,21 @@ export function reviewCompliance(itemId, status) {
 export function createCompliance(data) {
   return client.post('/compliance', data)
 }
+
+// ④·数字人讲题视频（#28）：讲解视频生成任务管理
+// 列表（分页 + 状态 / 租户过滤），教师端任务管理后台用
+export function listExplanationVideos(params = {}) {
+  return client.get('/explanation-video/list', { params })
+}
+// 触发 / 复用生成（幂等）；返回任务行
+export function generateExplanationVideo(body) {
+  return client.post('/explanation-video/generate', body)
+}
+// 强制重新生成（done / failed 也重跑）；返回任务行
+export function regenExplanationVideo(body) {
+  return client.post('/explanation-video/regen', body)
+}
+// 总开关 + 可用形象 / 音色
+export function getExplanationConfig() {
+  return client.get('/explanation-video/config')
+}
