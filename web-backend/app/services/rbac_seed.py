@@ -170,9 +170,17 @@ def build_seed_menus() -> List[dict]:
 
 
 def build_seed_role_menus() -> List[dict]:
+    # 按 (role_id, menu_id) 去重：ROLE_MENU_MAP 中同一对可能因「MENUS 推导式 +
+    # 显式追加」重复出现（如 role_region_admin 的 m_ops_explv），去重避免种子
+    # 插入时撞唯一约束、整事务回滚（2026-11-15 修）。
+    seen = set()
     rows = []
     for role_id, menu_ids in ROLE_MENU_MAP.items():
         for mid in menu_ids:
+            key = (role_id, mid)
+            if key in seen:
+                continue
+            seen.add(key)
             rows.append({"role_id": role_id, "menu_id": mid})
     return rows
 
@@ -342,8 +350,18 @@ async def seed_rbac(db, password_hash: str, bcrypt=None) -> dict:
     # 如 m_ops_errordist / m_ops_practice；已存在的行不改动，保持运维手工调整）
     existing = set((await db.execute(select(SysMenu.menu_id))).scalars().all())
     new_menus = [m for m in build_seed_menus() if m["menu_id"] not in existing]
-    for m in new_menus:
-        db.add(SysMenu(**m))
+    # 真幂等：ON CONFLICT DO NOTHING，种子列表/库里偶发重复对也不会让整事务回滚。
+    if new_menus:
+        await db.execute(
+            text(
+                "INSERT INTO sys_menu (menu_id, parent_id, menu_name, menu_type, "
+                "path, component, icon, sort, permission_code) "
+                "VALUES (:menu_id, :parent_id, :menu_name, :menu_type, "
+                ":path, :component, :icon, :sort, :permission_code) "
+                "ON CONFLICT (menu_id) DO NOTHING"
+            ),
+            new_menus,
+        )
     stats["menus"] = len(new_menus)
 
     # 角色-菜单授权（同样 upsert：补插缺失的 (role_id, menu_id) 对，
@@ -357,8 +375,17 @@ async def seed_rbac(db, password_hash: str, bcrypt=None) -> dict:
         rm for rm in build_seed_role_menus()
         if (rm["role_id"], rm["menu_id"]) not in existing_rm
     ]
-    for rm in new_rm:
-        db.add(SysRoleMenu(**rm))
+    # 真幂等：ON CONFLICT DO NOTHING（2026-11-15 修：避免重复对触发唯一约束使
+    # 含菜单节点在内的整事务回滚）。
+    if new_rm:
+        await db.execute(
+            text(
+                "INSERT INTO sys_role_menu (role_id, menu_id) "
+                "VALUES (:role_id, :menu_id) "
+                "ON CONFLICT (role_id, menu_id) DO NOTHING"
+            ),
+            new_rm,
+        )
     stats["role_menus"] = len(new_rm)
 
     # 数据字典（T-DICT，树形；按 dict_id upsert，不删既有行）
