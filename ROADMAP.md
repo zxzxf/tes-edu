@@ -111,8 +111,8 @@
   + 生成 worker（BackgroundTasks 同步降级，预留 Kafka 异步主题）+ App 全屏播放器
   （VideoView）+ 讲解页「看视频讲解」入口与降级（无视频时引导用「听讲解」）。
 - **重型合成仍依赖基建**：当前 `LiteVideoGenerator` 用 ffmpeg 字幕幻灯片 + 可选百炼
-  CosyVoice 配音（无 GPU）；真·数字人肖像口播（SadTalker/Wav2Lip + GPU 服务器）与
-  MinIO 对象存储为后续。合成实现藏在 `VideoGenerator` 接口后，换实现不影响管线。
+  CosyVoice 配音（无 GPU）；真·数字人肖像口播（SadTalker/Wav2Lip + GPU 服务器）为后续。
+  合成实现藏在 `VideoGenerator` 接口后，换实现不影响管线。
 - **总开关已置 `true`（2026-11-15 开启并验证）**：`config.py` 默认 `digital_human_enabled=True`
   （env `DIGITAL_HUMAN_ENABLED=false` 可关）。`Dockerfile` 已加 `ffmpeg` + `fonts-wqy-zenhei`。
   实测：137 容器内置 ffmpeg+文泉驿字体，`LiteVideoGenerator` 真实合成出
@@ -121,8 +121,14 @@
 - **部署踩坑（已修）**：137 直连 `deb.debian.org` 极慢导致 `apt-get update` 挂死、镜像构建卡住；
   `Dockerfile` 已把 apt 源切到 `mirrors.tencent.com`（腾讯云内网最快，`python:3.11-slim` trixie
   用 DEB222 源，sed 双兼容）。重建镜像 773MB，容器已换新版运行。
-- **已知小项**：`LiteVideoGenerator` 未回填 `duration_sec`（字段可空，不影响播放）；
-  真·数字人（SadTalker/Wav2Lip+GPU）、MinIO、Kafka 异步 worker 仍待做。
+- **已补齐（2026-11-15 深夜）**：
+  - **① `duration_sec` 回填**：`LiteVideoGenerator` 用 ffprobe 取真实时长回填（不再为 NULL）。
+  - **② 教师端任务管理后台**：`admin GET /explanation-video/list`（分页+状态/租户筛选）+ 前端
+    `ExplanationVideos.vue`（新建/列表/状态徽标/失败原因/重跑），菜单节点 `m_ops_explv` 已授权
+    admin/region_admin/teacher，teacher 侧栏可见、页面经网关可达。
+  - **③ MinIO 对象存储**：`object_storage.py` 接 MinIO（`tes-edu-explanation` 桶），`run_generation`
+    上传、后端 `serve_video` 路由内部流式代理（外部 URL/网关/学生端不变）；未配 MinIO 自动降级本地。
+- **仍待做**：真·数字人肖像口播（SadTalker/Wav2Lip+GPU）、Kafka 异步生成 worker。
 - 依赖 P3 讲解文案成熟（已具备）+ 数字人管线基建，靠后。
 
 ## ⑤ P5 商业化（⬜ 待办）
