@@ -88,8 +88,10 @@ class Settings(BaseSettings):
     permission_cache_ttl: int = 60
 
     # ---- ④·数字人讲题短视频（#28）管线 ----
-    # 总开关：false 时生成接口 403 禁用、不产生任何任务（保持现状，零影响）。
-    digital_human_enabled: bool = False
+    # 总开关：true 时启用 LiteVideoGenerator（ffmpeg 字幕幻灯片，无 GPU 也可合成）。
+    # 需部署镜像内含 ffmpeg + 中文字体（Dockerfile 已 apt 安装）；
+    # 关闭请设环境变量 DIGITAL_HUMAN_ENABLED=false；缺 ffmpeg/字体时生成优雅降级为 failed。
+    digital_human_enabled: bool = True
     # 合成产物本地目录（MinIO 未接入前的过渡；web-backend 以静态文件对外提供）。
     explanation_video_dir: str = "data/explanation_videos"
     # ffmpeg 二进制（容器内需安装；Dockerfile 已加 apt 安装 ffmpeg）。
