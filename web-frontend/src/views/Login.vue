@@ -46,7 +46,6 @@
 
         <p v-if="expired" class="error">登录已过期（有效期 24 小时），请重新登录</p>
         <p v-if="error" class="error">⚠️ {{ error }}</p>
-        <p class="hint">演示账号：admin@tes.edu / demo1234</p>
       </div>
     </main>
   </div>
