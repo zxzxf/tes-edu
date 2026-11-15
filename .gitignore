@@ -64,3 +64,7 @@ web-frontend/.tmp/
 
 # ---- AI 工具配置噪音（Claude Code 等生成的提交流程说明，非项目资产）----
 CLAUDE.md
+
+# 临时校验脚本 / 构建产物（保持未跟踪）
+deploy/_chk42.py
+student-app-debug.apk
