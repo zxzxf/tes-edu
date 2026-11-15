@@ -17,13 +17,23 @@ import kotlinx.coroutines.flow.asStateFlow
  * 全部走 StateFlow 且**消费后即清空**（consume* 系列），避免"跳转一次、之后每次
  * 回到该页都被旧值顶掉"的经典坑。
  */
+/**
+ * 待练题干的载体：除题干文本外，可选地携带题型与「选项 JSON」，
+ * 以便选择题从错题本「练习」进入输入页时仍能展示 A/B/C/D（只读）。
+ */
+data class PendingQuestion(
+    val text: String,
+    val optionsJson: String? = null,
+    val questionType: String? = null
+)
+
 object AppBridge {
 
     private val _lastQuestion = MutableStateFlow("")
     val lastQuestion: StateFlow<String> = _lastQuestion.asStateFlow()
 
-    private val _pendingQuestion = MutableStateFlow<String?>(null)
-    val pendingQuestion: StateFlow<String?> = _pendingQuestion.asStateFlow()
+    private val _pendingQuestion = MutableStateFlow<PendingQuestion?>(null)
+    val pendingQuestion: StateFlow<PendingQuestion?> = _pendingQuestion.asStateFlow()
 
     private val _pendingFocusKp = MutableStateFlow<String?>(null)
     val pendingFocusKp: StateFlow<String?> = _pendingFocusKp.asStateFlow()
@@ -43,14 +53,18 @@ object AppBridge {
         if (q.isNotBlank()) _lastQuestion.value = q
     }
 
-    /** 别页请求"去输入页练这道题"。 */
-    fun postQuestion(question: String) {
+    /** 别页请求"去输入页练这道题"；选择题可附带选项 JSON 与题型，展示选项用。 */
+    fun postQuestion(
+        question: String,
+        optionsJson: String? = null,
+        questionType: String? = null
+    ) {
         val q = question.trim()
-        if (q.isNotBlank()) _pendingQuestion.value = q
+        if (q.isNotBlank()) _pendingQuestion.value = PendingQuestion(q, optionsJson, questionType)
     }
 
     /** 输入页取出待练题干；取出即清空（只消费一次）。 */
-    fun consumeQuestion(): String? {
+    fun consumeQuestion(): PendingQuestion? {
         val v = _pendingQuestion.value
         _pendingQuestion.value = null
         return v

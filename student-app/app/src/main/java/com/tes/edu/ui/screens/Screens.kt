@@ -152,14 +152,17 @@ fun InputScreen(
     var reply by remember { mutableStateOf("") }
     // T-C3：直接看解析的一次轻确认弹层（常驻按钮点击后弹出，确认才直达 L4）
     var showDirectConfirm by remember { mutableStateOf(false) }
+    // 来自错题本「练习」的选择题选项（只读展示，JSON 串）；非选择题为空。
+    var practiceOptionsJson by remember { mutableStateOf<String?>(null) }
 
     // T-S4：触类页「再练这道」/ 图谱「练这个知识点」投递过来的题干——
     // 进来即预填并清掉上一题的作答与结果，避免"新题旧答"混着提交。
     val pendingQuestion by AppBridge.pendingQuestion.collectAsState()
     LaunchedEffect(pendingQuestion) {
-        val q = pendingQuestion
-        if (!q.isNullOrBlank()) {
-            question = q
+        val p = pendingQuestion
+        if (p != null && p.text.isNotBlank()) {
+            question = p.text
+            practiceOptionsJson = p.optionsJson
             process = ""
             reply = ""
             vm.reset()
@@ -195,6 +198,27 @@ fun InputScreen(
         )
 
         Spacer(Modifier.height(16.dp))
+
+        // 选择题（来自错题本「练习」）把 A/B/C/D 列出，便于对照作答；只读展示。
+        val practiceOpts = remember(practiceOptionsJson) { parseWrongOptions(practiceOptionsJson) }
+        if (practiceOpts.isNotEmpty()) {
+            Column(Modifier.fillMaxWidth()) {
+                Text(
+                    "选项",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TesEduColors.TextSecondary
+                )
+                Spacer(Modifier.height(8.dp))
+                Column(
+                    Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    practiceOpts.forEach { opt -> WrongOptionRow(opt.label, opt.content) }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
 
         SoftFieldCard(
             label = "我的作答",
@@ -1363,7 +1387,8 @@ private fun WrongSection(
                 q = q,
                 mastery = stats?.mastery?.firstOrNull { it.kp == q.knowledgePoint },
                 onPractice = {
-                    AppBridge.postQuestion(q.question)
+                    // 选择题把选项一并带过去，输入页可展示 A/B/C/D（只读）。
+                    AppBridge.postQuestion(q.question, q.options, q.questionType)
                     onNavigate(Screen.Input.route)
                 },
                 onMakeCard = { onMakeCard(q) },
