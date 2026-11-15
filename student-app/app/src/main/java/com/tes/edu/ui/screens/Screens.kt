@@ -1,6 +1,9 @@
 package com.tes.edu.ui.screens
 
 import android.widget.Toast
+import android.widget.VideoView
+import android.widget.MediaController
+import android.net.Uri
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -46,6 +49,8 @@ import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.TipsAndUpdates
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,11 +65,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.DisposableEffect
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -103,6 +113,8 @@ import com.tes.edu.viewmodel.SimilarViewModel
 import com.tes.edu.viewmodel.SolveUiState
 import com.tes.edu.viewmodel.SolveViewModel
 import com.tes.edu.viewmodel.WrongBookViewModel
+import com.tes.edu.data.remote.LoginManager
+import com.tes.edu.data.remote.ApiClient
 import com.tes.edu.viewmodel.WrongFilter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -899,6 +911,10 @@ fun ExplainScreen(
     }
     DisposableEffect(Unit) { onDispose { tts.shutdown() } }
 
+    // 「看视频讲解」：查后端数字人视频并全屏播放
+    var playerUrl by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
     // 错题本/他处投来的题目：消费后即拉讲解，并预填输入框
     LaunchedEffect(pendingQuestion) {
         val p = pendingQuestion
@@ -976,6 +992,35 @@ fun ExplainScreen(
                 style = MaterialTheme.typography.labelSmall,
                 color = TesEduColors.TextMuted
             )
+        }
+
+        // 「看视频讲解」：查后端是否已生成数字人讲题视频，有则播放，无则提示用听讲解
+        SoftOutlinedButton(
+            text = "看视频讲解",
+            icon = Icons.Rounded.PlayArrow,
+            enabled = hasExplain
+        ) {
+            scope.launch {
+                LoginManager.withAuth { ApiClient.instance.explanationVideo(question) }
+                    .onSuccess { resp ->
+                        if (resp.status == "done" && !resp.videoUrl.isNullOrBlank()) {
+                            playerUrl = resp.videoUrl
+                        } else {
+                            Toast.makeText(
+                                ttsContext,
+                                "暂未生成视频讲解，可用下方「听讲解」",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                    .onFailure {
+                        Toast.makeText(
+                            ttsContext,
+                            "查询视频讲解失败：${it.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+            }
         }
 
         if (ui.loading) {
@@ -1059,6 +1104,48 @@ fun ExplainScreen(
         }
 
         Spacer(Modifier.height(28.dp))
+    }
+
+    // 数字人视频全屏播放器（VideoView 为框架控件，免新增 gradle 依赖）
+    val videoUrl = playerUrl
+    if (videoUrl != null) {
+        Dialog(
+            onDismissRequest = { playerUrl = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        VideoView(ctx).apply {
+                            setVideoURI(Uri.parse(videoUrl))
+                            val mc = MediaController(ctx)
+                            mc.setAnchorView(this)
+                            setMediaController(mc)
+                            setOnPreparedListener { start() }
+                            setOnCompletionListener { playerUrl = null }
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp)
+                        .clickable { playerUrl = null }
+                ) {
+                    Icon(
+                        Icons.Rounded.Close,
+                        contentDescription = "关闭",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        }
     }
 }
 

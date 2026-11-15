@@ -87,6 +87,20 @@ class Settings(BaseSettings):
     exam_result_cache_ttl: int = 300
     permission_cache_ttl: int = 60
 
+    # ---- ④·数字人讲题短视频（#28）管线 ----
+    # 总开关：false 时生成接口 403 禁用、不产生任何任务（保持现状，零影响）。
+    digital_human_enabled: bool = False
+    # 合成产物本地目录（MinIO 未接入前的过渡；web-backend 以静态文件对外提供）。
+    explanation_video_dir: str = "data/explanation_videos"
+    # ffmpeg 二进制（容器内需安装；Dockerfile 已加 apt 安装 ffmpeg）。
+    ffmpeg_bin: str = "ffmpeg"
+    # 阿里云百炼 CosyVoice TTS（配音；留空则只出无声字幕视频）。
+    dashscope_tts_api_key: str = ""
+    dashscope_tts_base_url: str = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation"
+    dashscope_tts_model: str = "cosyvoice-v1"
+    # 可选：异步生成 Kafka 主题；未配置 kafka 时走 BackgroundTasks 同步降级。
+    kafka_topic_explanation_video: str = "explanation_video_gen"
+
     @property
     def kafka_enabled(self) -> bool:
         """是否启用异步管道；未配置时降级为同步直写。"""

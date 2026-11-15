@@ -3,7 +3,10 @@ WORKDIR /app
 COPY requirements.txt .
 # 阿里云 PyPI 镜像：137 直连 pypi.org 仅 ~25kB/s，全量依赖要 30min+；
 # 与 gateway Dockerfile 的 alpine 镜像源切换同 convention。
-RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg fonts-wqy-zenhei \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
     && pip config set global.trusted-host mirrors.aliyun.com \
     && pip install --no-cache-dir -r requirements.txt
 COPY . .

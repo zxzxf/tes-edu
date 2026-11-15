@@ -147,6 +147,16 @@ data class SolveResponse(
     @SerializedName("assignment_seq") val assignmentSeq: Int? = null
 )
 
+/** ④·数字人讲题视频查询响应（web-backend GET /api/student/explanation-video/by-question）。 */
+data class ExplanationVideoResp(
+    /** none | pending | processing | done | failed */
+    val status: String = "none",
+    @SerializedName("video_url") val videoUrl: String? = null,
+    @SerializedName("duration_sec") val durationSec: Double? = null,
+    val error: String? = null,
+    @SerializedName("content_hash") val contentHash: String? = null
+)
+
 interface ApiService {
     @POST("/api/app/solve")
     suspend fun solve(@Body req: SolveRequest): SolveResponse
@@ -182,6 +192,12 @@ interface ApiService {
         @Query("kp") kp: String,
         @Query("n") n: Int = 1
     ): VariantsResponse
+
+    /** ④·数字人讲题视频：查当前租户该题是否已有可看视频。 */
+    @GET("/api/student/explanation-video/by-question")
+    suspend fun explanationVideo(
+        @Query("question") question: String
+    ): ExplanationVideoResp
 }
 
 /**

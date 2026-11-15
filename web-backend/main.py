@@ -36,6 +36,7 @@ from app.api import (
     vendor_api,
     byom as byom_api,
     wrong_questions,
+    explanation_video as explanation_video_api,
 )
 from app.core.config import settings
 from app.core.db import get_db
@@ -232,6 +233,22 @@ app.include_router(learning.router)
 # 学生端学习资产（错题本云同步 + 背诵卡间隔复习）：同样根挂载，
 # student_learning.router 自带 prefix="/learning"，与 learning.router 并列不冲突。
 app.include_router(student_learning.router)
+
+# ④·数字人讲题短视频（#28）：学生查视频（/api/student）+ 教师/后台触发生成（/api/admin）
+app.include_router(explanation_video_api.student_router, prefix="/api/student")
+app.include_router(explanation_video_api.admin_router, prefix="/api/admin")
+# 合成产物静态服务（过渡方案：本地目录；MinIO 接入后改为对象存储签名 URL）
+import os as _os  # noqa: E402
+
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+
+_ev_dir = settings.explanation_video_dir
+_os.makedirs(_ev_dir, exist_ok=True)
+app.mount(
+    "/api/student/explanation-videos",
+    StaticFiles(directory=_ev_dir),
+    name="explanation_videos",
+)
 
 
 if __name__ == "__main__":

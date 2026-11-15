@@ -5,3 +5,4 @@ from app.models import student_features  # noqa: F401
 from app.models import ops  # noqa: F401
 from app.models import byom  # noqa: F401  (W6 BYOM: 租户级模型配置)
 from app.models import byom_preset  # noqa: F401  (W6 BYOM T-M3: 预设供应商清单)
+from app.models import explanation_video  # noqa: F401  (④·数字人讲题短视频 #28)

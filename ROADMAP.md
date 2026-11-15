@@ -104,10 +104,19 @@
 
 - 河南 2025 首考新高考（3+1+2 首年），2026 为第二年，过渡期规则变化大、本地刚需。规则引擎产品，可独立成线。
 
-### ④·数字人讲题短视频（⬜ 待办，#28）
+### ④·数字人讲题短视频（🟡 管线骨架已落地，#28）
 
-- 讲解文案 → TTS（本地）→ 数字人驱动 → ffmpeg 合成 → MinIO + Kafka 异步生成。
-- 依赖 P3 讲解文案成熟 + 数字人管线，靠后。
+- **端到端管线骨架已完成（2026-11-15）**：`explanation_videos` 表 + 状态机
+  （pending→processing→done|failed）+ 生成 API（教师/后台触发、学生端按租户查询）
+  + 生成 worker（BackgroundTasks 同步降级，预留 Kafka 异步主题）+ App 全屏播放器
+  （VideoView）+ 讲解页「看视频讲解」入口与降级（无视频时引导用「听讲解」）。
+- **重型合成仍依赖基建**：当前 `LiteVideoGenerator` 用 ffmpeg 字幕幻灯片 + 可选百炼
+  CosyVoice 配音（无 GPU）；真·数字人肖像口播（SadTalker/Wav2Lip + GPU 服务器）与
+  MinIO 对象存储为后续。合成实现藏在 `VideoGenerator` 接口后，换实现不影响管线。
+- **总开关 `digital_human_enabled=false`**（默认关，生成接口 403 禁用）；装好 ffmpeg
+  + 中文字体 + 可选 TTS 密钥后置 true 即生效，无需改代码。`Dockerfile` 已加
+  `ffmpeg` + `fonts-wqy-zenhei`。
+- 依赖 P3 讲解文案成熟（已具备）+ 数字人管线基建，靠后。
 
 ## ⑤ P5 商业化（⬜ 待办）
 
