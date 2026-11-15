@@ -67,6 +67,9 @@ class _FakeDB:
         self.results = results
         self.calls = 0
         self.stmts = []
+        self.added = []
+        self.commits = 0
+        self.gen_calls = []
 
     async def execute(self, stmt):
         self.calls += 1
@@ -75,6 +78,17 @@ class _FakeDB:
             return self.results[min(self.calls - 1, len(self.results) - 1)]
         return _Result(self.row, self.rows, self.total)
 
+    # ensure / generate 会写库；这里只记录，不碰真实 SessionLocal
+    def add(self, obj):
+        obj.id = obj.id or "new-video-id"
+        self.added.append(obj)
+
+    async def commit(self):
+        self.commits += 1
+
+    async def refresh(self, obj):
+        return None
+
 
 @pytest.fixture
 def harness(monkeypatch, tmp_path):
@@ -82,8 +96,18 @@ def harness(monkeypatch, tmp_path):
 
     def build(row=None, minio_bytes=MP4, local_bytes=None, db=None):
         monkeypatch.setattr(
-            ev, "settings", SimpleNamespace(explanation_video_dir=str(tmp_path))
+            ev, "settings", SimpleNamespace(
+                explanation_video_dir=str(tmp_path),
+                digital_human_enabled=True,
+            )
         )
+
+        # BackgroundTasks 在 TestClient 里会真的执行：替换成记录调用，避免跑 IVH
+        async def _noop_gen(row_id):
+            if db is not None:
+                db.gen_calls.append(row_id)
+
+        monkeypatch.setattr(ev, "run_generation", _noop_gen)
 
         async def _fetch(object_name):
             return minio_bytes, "video/mp4"
@@ -265,3 +289,80 @@ def test_student_list_空列表_返回空items(harness):
     r = client.get("/api/student/explanation-video/list", headers=_headers())
     assert r.status_code == 200, r.text
     assert r.json() == {"total": 0, "items": []}
+
+
+# ---------------- 错题本「视频讲解」：按题自助生成 ----------------
+
+ENSURE = "/api/student/explanation-video/ensure"
+Q = "已知 sinA=3/5，A 为锐角，求 cos2A"
+
+
+def test_ensure_新建专属视频_按题落库并排后台生成(harness):
+    db = _FakeDB()
+    client, _ = harness(db=db)
+    r = client.post(
+        ENSURE,
+        json={"question": Q, "script": "我们来看这道题，正确答案是…", "knowledge_point": "三角恒等变换"},
+        headers=_headers(),
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["id"] == "new-video-id"
+    assert body["status"] == "pending"
+    row = db.added[0]
+    assert row.question_text == Q
+    assert row.script == "我们来看这道题，正确答案是…"
+    assert row.knowledge_point == "三角恒等变换"
+    assert row.tenant_id == PILOT
+    assert db.gen_calls == ["new-video-id"]
+    # 查询必须按租户 + 题干 hash 过滤，不能命中别校同题视频
+    sql = str(db.stmts[0].compile(compile_kwargs={"literal_binds": True}))
+    assert "school_pilot_01" in sql
+
+
+def test_ensure_已有成片_直接复用不重复生成(harness):
+    db = _FakeDB(_row())
+    client, _ = harness(db=db)
+    r = client.post(ENSURE, json={"question": "已知函数求极值"}, headers=_headers())
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "done"
+    assert r.json()["id"] == VID
+    assert db.added == []
+    assert db.gen_calls == []
+
+
+def test_ensure_失败任务_复位重跑(harness):
+    row = _row(status="failed")
+    row.error = "IVH 超时"
+    db = _FakeDB(row)
+    client, _ = harness(db=db)
+    r = client.post(ENSURE, json={"question": "已知函数求极值"}, headers=_headers())
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "pending"
+    assert row.error is None
+    assert db.gen_calls == [VID]
+
+
+def test_ensure_在途任务满_429(harness):
+    """学生端点一次就起一个 IVH 任务，必须挡住误触/连点刷爆配额。"""
+    db = _FakeDB(results=[_Result(None), _Result(total=3)])
+    client, _ = harness(db=db)
+    r = client.post(ENSURE, json={"question": Q}, headers=_headers())
+    assert r.status_code == 429, r.text
+    assert db.added == []
+    assert db.gen_calls == []
+
+
+def test_ensure_超长讲稿_422(harness):
+    client, _ = harness(db=_FakeDB())
+    r = client.post(
+        ENSURE,
+        json={"question": Q, "script": "讲" * 301},
+        headers=_headers(),
+    )
+    assert r.status_code == 422
+
+
+def test_ensure_缺身份头_401(harness):
+    client, _ = harness(db=_FakeDB())
+    assert client.post(ENSURE, json={"question": Q}).status_code == 401

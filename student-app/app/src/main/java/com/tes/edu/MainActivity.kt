@@ -122,9 +122,12 @@ fun AppRoot() {
     }
 
     val navController: NavHostController = rememberNavController()
+    // #28：讲解不再占一个底部菜单入口 —— 视频讲解跟着每道错题走（错题本卡片内），
+    // 文字解析也由错题卡「看解析」直接跳进去。Screen.Explain 保留为详情页路由，
+    // 只是不再出现在底部导航，避免学生为了找视频多切一次页。
     val items = listOf(
         Screen.Exam,
-        Screen.Input, Screen.Camera, Screen.Explain,
+        Screen.Input, Screen.Camera,
         Screen.Similar, Screen.Graph, Screen.Review
     )
     // 底部导航必须知道「当前在哪一页」，否则所有 item 都画成未选中（旧实现即此 bug）

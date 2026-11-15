@@ -3,6 +3,7 @@
 学生端（网关 /api/student/ 透传学生身份）：
 - GET  /explanation-video/by-question?question=...   查当前租户该题是否有可看视频
 - GET  /explanation-video/list                      本租户已出片视频列表（发现入口）
+- POST /explanation-video/ensure                    按错题题干自助生成 / 复用专属讲解视频
 - GET  /explanation-video/{id}/stream               带鉴权取流（App 下载到本地再播）
 - GET  /explanation-videos/{id}.mp4                 兼容历史直链（同样复校租户）
 
@@ -32,6 +33,96 @@ from app.services.video_generator import content_hash, run_generation
 
 student_router = APIRouter(tags=["explanation-video"])
 admin_router = APIRouter(tags=["explanation-video-admin"])
+
+
+class GenerateIn(BaseModel):
+    question: str = Field(..., min_length=1)
+    knowledge_point: Optional[str] = None
+    # 讲题台词稿；不传则退化为题目文本本身
+    script: Optional[str] = None
+    avatar_id: Optional[str] = "default"
+    voice_id: Optional[str] = "default"
+
+
+class EnsureIn(BaseModel):
+    """学生端按错题自助生成：讲稿由 App 用「题干 + 参考答案 + 我的作答」拼好。
+
+    讲稿上限与 IVH InputSsml 的 300 字对齐，避免超长台词被截成半句；题干本身
+    不设上限（解答题题干可能很长），它只作为 content_hash 的匹配键。
+    """
+
+    question: str = Field(..., min_length=1)
+    script: Optional[str] = Field(None, max_length=300)
+    knowledge_point: Optional[str] = Field(None, max_length=100)
+
+
+def _require_enabled() -> None:
+    if not settings.digital_human_enabled:
+        raise HTTPException(status_code=403, detail="数字人管线未启用（digital_human_enabled=false）")
+
+
+async def _ensure_video_row(
+    db,
+    tid: str,
+    body: GenerateIn,
+    background: BackgroundTasks,
+    max_inflight: Optional[int] = None,
+) -> ExplanationVideo:
+    """按 (tenant, content_hash(question)) 幂等建/复用生成任务。
+
+    教师端 ``generate`` 与学生端 ``ensure`` 共用，避免两处口径漂移；
+    ``max_inflight`` 只给学生端用，限制同租户在途任务数，防止误触刷爆 IVH 配额。
+    """
+    h = content_hash(body.question)
+    row = (
+        await db.execute(
+            select(ExplanationVideo)
+            .where(
+                ExplanationVideo.tenant_id == tid,
+                ExplanationVideo.content_hash == h,
+            )
+            .order_by(ExplanationVideo.created_at.desc())
+        )
+    ).scalar_one_or_none()
+
+    if row is not None and row.status in ("pending", "processing", "done"):
+        return row  # 幂等复用：不重复起后台任务
+
+    if row is None:
+        if max_inflight is not None:
+            inflight = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(ExplanationVideo)
+                    .where(
+                        ExplanationVideo.tenant_id == tid,
+                        ExplanationVideo.status.in_(("pending", "processing")),
+                    )
+                )
+            ).scalar_one()
+            if inflight >= max_inflight:
+                raise HTTPException(
+                    status_code=429, detail="讲解视频生成队列繁忙，请稍后再试"
+                )
+        row = ExplanationVideo(
+            tenant_id=tid,
+            content_hash=h,
+            question_text=body.question,
+            knowledge_point=body.knowledge_point,
+            script=body.script or body.question,
+            avatar_id=body.avatar_id,
+            voice_id=body.voice_id,
+            status="pending",
+        )
+        db.add(row)
+    else:  # failed → 复位重试
+        row.status = "pending"
+        row.error = None
+        row.script = body.script or row.script or body.question
+    await db.commit()
+    await db.refresh(row)
+    background.add_task(run_generation, row.id)
+    return row
 
 
 def _qkey(text: str) -> str:
@@ -162,6 +253,36 @@ async def list_student_videos(
     return {"total": total, "items": [{k: getattr(r, k) for k in keys} for r in rows]}
 
 
+@student_router.post("/explanation-video/ensure")
+async def ensure_video(
+    body: EnsureIn,
+    background: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """错题本「视频讲解」：按这道题的题干自助生成 / 复用一条专属视频。
+
+    教师端批量生成的视频题干与学生错题永远对不上，学生端点开就是「暂无视频」。
+    这里把生成能力下沉到学生侧（仍是同一套 ``run_generation`` / IVH 管线），
+    按 ``business_tenant_id`` + ``content_hash(question)`` 幂等：
+    已有 done 直接返回 App 去取流，pending/processing 让 App 轮询，failed 复位重跑。
+    """
+    _require_enabled()
+    tid = business_tenant_id(user)
+    row = await _ensure_video_row(
+        db,
+        tid,
+        GenerateIn(
+            question=body.question,
+            script=body.script,
+            knowledge_point=body.knowledge_point,
+        ),
+        background,
+        max_inflight=3,
+    )
+    return _row_out(row)
+
+
 async def _load_video_bytes(video_id: str) -> tuple[Optional[bytes], Optional[str]]:
     """取视频字节：MinIO 优先，未部署 MinIO / 历史本地产物回退本地目录。
 
@@ -235,15 +356,6 @@ async def serve_video(
 
 
 # ------------------------- 教师 / 后台端 -------------------------
-
-class GenerateIn(BaseModel):
-    question: str = Field(..., min_length=1)
-    knowledge_point: Optional[str] = None
-    # 讲题台词稿；不传则退化为题目文本本身
-    script: Optional[str] = None
-    avatar_id: Optional[str] = "default"
-    voice_id: Optional[str] = "default"
-
 
 # ④·教师端「播放预览」：后台用老师自己的 admin+租户令牌取流（与 list 同源鉴权），
 # 避免 <video src> 直链到 /api/student/ 时被网关因缺 Authorization 头拦截（401）。
@@ -334,13 +446,6 @@ async def list_videos(
     return {"total": total, "items": [_row_out(r) for r in rows]}
 
 
-def _require_enabled() -> None:
-    from app.core.config import settings
-
-    if not settings.digital_human_enabled:
-        raise HTTPException(status_code=403, detail="数字人管线未启用（digital_human_enabled=false）")
-
-
 @admin_router.post("/explanation-video/generate")
 async def generate(
     body: GenerateIn,
@@ -348,43 +453,10 @@ async def generate(
     user: dict = Depends(require_role(Role.ADMIN, Role.REGION_ADMIN, Role.TEACHER)),
     db=Depends(get_db),
 ):
+    """教师端触发 / 复用生成任务；与学生端 ensure 共用 ``_ensure_video_row``。"""
     _require_enabled()
     tid = business_tenant_id(user)
-    h = content_hash(body.question)
-    row = (
-        await db.execute(
-            select(ExplanationVideo)
-            .where(
-                ExplanationVideo.tenant_id == tid,
-                ExplanationVideo.content_hash == h,
-            )
-            .order_by(ExplanationVideo.created_at.desc())
-        )
-    ).scalar_one_or_none()
-
-    if row is not None and row.status in ("pending", "processing", "done"):
-        return _row_out(row)  # 幂等复用
-    if row is None:
-        row = ExplanationVideo(
-            tenant_id=tid,
-            content_hash=h,
-            question_text=body.question,
-            knowledge_point=body.knowledge_point,
-            script=body.script or body.question,
-            avatar_id=body.avatar_id,
-            voice_id=body.voice_id,
-            status="pending",
-        )
-        db.add(row)
-        await db.commit()
-        await db.refresh(row)
-    else:  # failed → 复位重试
-        row.status = "pending"
-        row.error = None
-        row.script = body.script or row.script or body.question
-        await db.commit()
-
-    background.add_task(run_generation, row.id)
+    row = await _ensure_video_row(db, tid, body, background)
     return _row_out(row)
 
 

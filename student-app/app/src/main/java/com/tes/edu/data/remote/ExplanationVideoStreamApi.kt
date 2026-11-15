@@ -2,10 +2,13 @@ package com.tes.edu.data.remote
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import com.google.gson.annotations.SerializedName
 import okhttp3.ResponseBody
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Streaming
@@ -23,6 +26,13 @@ data class ExplanationVideoItem(
 data class ExplanationVideoListResp(
     val total: Int = 0,
     val items: List<ExplanationVideoItem> = emptyList()
+)
+
+/** 错题本按题自助生成：讲稿用「题干 + 参考答案 + 我的作答」拼好，服务端只做幂等排队。 */
+data class EnsureExplanationVideoReq(
+    val question: String,
+    val script: String? = null,
+    @SerializedName("knowledge_point") val knowledgePoint: String? = null
 )
 
 /**
@@ -45,11 +55,54 @@ interface ExplanationVideoStreamApi {
      */
     @GET("/api/student/explanation-video/list")
     suspend fun list(@Query("limit") limit: Int): ExplanationVideoListResp
+
+    /** 按这道题的题干幂等触发 / 复用一条专属讲解视频。 */
+    @POST("/api/student/explanation-video/ensure")
+    suspend fun ensure(@Body req: EnsureExplanationVideoReq): ExplanationVideoResp
 }
 
 /** 拉取可播视频目录；同样走 [LoginManager.withAuth] 保证 Bearer / 过期自动重登。 */
 suspend fun listExplanationVideos(limit: Int = 50): List<ExplanationVideoItem> =
     LoginManager.withAuth { ApiClient.videoStream.list(limit) }.getOrThrow().items
+
+/**
+ * 错题本点「视频讲解」的完整链路：ensure 排队 → 轮询 by-question 到 done → 返回可播 id。
+ *
+ * IVH 出片是分钟级，不能让按钮卡死不反馈；[onProgress] 把等待进度回吐给卡片。
+ * 只认 ensure 返回的那个任务 id：`by-question` 有近似题干兜底匹配，绝不能把
+ * 别道题的视频当成这道题的讲解播出去。
+ */
+suspend fun ensurePlayableVideoId(
+    question: String,
+    script: String,
+    knowledgePoint: String? = null,
+    onProgress: (String) -> Unit = {}
+): String {
+    var resp = LoginManager.withAuth {
+        ApiClient.videoStream.ensure(
+            EnsureExplanationVideoReq(question, script, knowledgePoint)
+        )
+    }.getOrThrow()
+    val taskId = resp.id ?: error("视频任务缺少 id")
+    var waited = 0L
+    val step = 5_000L
+    val limit = 180_000L
+    while (resp.status != "done") {
+        if (resp.status == "failed") error("视频生成失败：${resp.error ?: "请稍后再试"}")
+        if (resp.status == "none") error("讲解视频任务丢失，请重试")
+        if (waited >= limit) error("视频还在生成中，请稍后再点一次这道题")
+        onProgress("这道题的讲解视频生成中…（已等待 ${waited / 1000}s）")
+        delay(step)
+        waited += step
+        resp = LoginManager.withAuth {
+            ApiClient.instance.explanationVideo(question)
+        }.getOrThrow()
+        if (resp.status == "done" && resp.id != taskId) {
+            error("讲解视频任务状态不一致，请重试")
+        }
+    }
+    return taskId
+}
 
 private val UNSAFE_FILENAME = Regex("[^A-Za-z0-9_-]")
 

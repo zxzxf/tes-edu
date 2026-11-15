@@ -117,6 +117,7 @@ import com.tes.edu.data.remote.ApiClient
 import com.tes.edu.data.remote.downloadExplanationVideo
 import com.tes.edu.data.remote.ExplanationVideoItem
 import com.tes.edu.data.remote.listExplanationVideos
+import com.tes.edu.data.remote.ensurePlayableVideoId
 import com.tes.edu.viewmodel.WrongFilter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -885,6 +886,57 @@ private fun HintPanel(
 // CameraScreen：T-P2~P5 已落地，见 CameraScreen.kt（系统相机 Intent + 压缩上传 + 可编辑识别结果）
 
 /**
+ * 数字人视频全屏播放器：讲解页与错题本共用。
+ *
+ * 播的是已经下载到 `cacheDir` 的本地文件（绝对路径），不依赖任何网络鉴权头；
+ * VideoView 是框架控件，免新增 gradle 依赖。播完 / 出错 / 点关闭都收回弹窗。
+ */
+@Composable
+private fun VideoPlayerDialog(path: String, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    VideoView(ctx).apply {
+                        setVideoPath(path)
+                        val mc = MediaController(ctx)
+                        mc.setAnchorView(this)
+                        setMediaController(mc)
+                        setOnPreparedListener { start() }
+                        setOnCompletionListener { onDismiss() }
+                        setOnErrorListener { _, _, _ ->
+                            onDismiss()
+                            true
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .clickable { onDismiss() }
+            ) {
+                Icon(
+                    Icons.Rounded.Close,
+                    contentDescription = "关闭",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
  * 讲解页（#28 数字人讲题短视频的短期落地）：
  * 在后端视频管线（TTS + 数字人驱动 + ffmpeg）就绪前，先把已成熟的「讲解文案」
  * （SolveViewModel 的 answer / steps / knowledgePoints）做成图文讲解页，
@@ -1155,51 +1207,9 @@ fun ExplainScreen(
         Spacer(Modifier.height(28.dp))
     }
 
-    // 数字人视频全屏播放器（VideoView 为框架控件，免新增 gradle 依赖）。
-    // 播放的是下载到 cacheDir 的本地文件，不依赖任何网络鉴权头。
-    val videoPath = playerPath
-    if (videoPath != null) {
-        Dialog(
-            onDismissRequest = { playerPath = null },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black)
-            ) {
-                AndroidView(
-                    factory = { ctx ->
-                        VideoView(ctx).apply {
-                            setVideoPath(videoPath)
-                            val mc = MediaController(ctx)
-                            mc.setAnchorView(this)
-                            setMediaController(mc)
-                            setOnPreparedListener { start() }
-                            setOnCompletionListener { playerPath = null }
-                            setOnErrorListener { _, _, _ ->
-                                playerPath = null
-                                true
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-                Box(
-                    Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(16.dp)
-                        .clickable { playerPath = null }
-                ) {
-                    Icon(
-                        Icons.Rounded.Close,
-                        contentDescription = "关闭",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-        }
+    // 数字人视频全屏播放器：讲解页与错题本共用同一个 composable（本地文件播放）。
+    playerPath?.let { path ->
+        VideoPlayerDialog(path = path, onDismiss = { playerPath = null })
     }
 
     // 视频目录：题干逐字没匹配上时，让学生能从「已出片视频」里直接选一条播放，
@@ -1685,6 +1695,42 @@ private fun WrongSection(
     val syncing by vm.syncing.collectAsState()
     val error by vm.error.collectAsState()
 
+    // 每道错题一条专属讲解视频：按钮在卡片内，讲稿按「题干+参考答案+我的作答」现拼，
+    // ensure 幂等排队 → 轮询出片 → 下载到 cacheDir → 本地全屏播放。
+    val ctx = LocalContext.current
+    val videoScope = rememberCoroutineScope()
+    var videoBusyId by remember { mutableStateOf<Long?>(null) }
+    var videoHint by remember { mutableStateOf<String?>(null) }
+    var playerPath by remember { mutableStateOf<String?>(null) }
+
+    fun playWrongVideo(q: WrongQuestion) {
+        if (videoBusyId != null) return
+        if (q.question.isBlank()) {
+            Toast.makeText(ctx, "这道题没有题干，没法生成讲解视频", Toast.LENGTH_SHORT).show()
+            return
+        }
+        videoScope.launch {
+            videoBusyId = q.id
+            videoHint = "正在为这道题准备讲解视频…"
+            try {
+                val id = ensurePlayableVideoId(
+                    question = q.question,
+                    script = wrongVideoScript(q),
+                    knowledgePoint = q.knowledgePoint.takeIf { it.isNotBlank() }
+                ) { hint -> videoHint = hint }
+                val file = downloadExplanationVideo(ctx, id)
+                playerPath = file.absolutePath
+            } catch (e: Exception) {
+                Toast.makeText(
+                    ctx, "视频讲解失败：${e.message ?: "请稍后重试"}", Toast.LENGTH_SHORT
+                ).show()
+            } finally {
+                videoBusyId = null
+                videoHint = null
+            }
+        }
+    }
+
     // 知识点编码->中文名：联网同步后会由 WrongBookViewModel 灌入；离线时为空，回退到编码。
     val kpNames by KpNameCache.names.collectAsState()
 
@@ -1834,9 +1880,16 @@ private fun WrongSection(
                     // 把题干（选择题含选项 JSON + 题型）投到讲解页，再跳转过去
                     AppBridge.postQuestion(q.question, q.options, q.questionType)
                     onNavigate(Screen.Explain.route)
-                }
+                },
+                onVideo = { playWrongVideo(q) },
+                videoBusy = videoBusyId == q.id,
+                videoHint = if (videoBusyId == q.id) videoHint else null
             )
         }
+    }
+
+    playerPath?.let { path ->
+        VideoPlayerDialog(path = path, onDismiss = { playerPath = null })
     }
 }
 
@@ -1963,7 +2016,32 @@ private fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** 单条错题：错因 + 题干 + 我的作答 + 纠正，三个出口（重练 / 做成背诵卡 / 移出）。 */
+/**
+ * 把一条错题拼成数字人的讲稿：题干 + 参考答案 + 学生当时答错的内容 + 考点。
+ *
+ * 不能只把题干念一遍（那就不是「讲解」）；IVH InputSsml 上限 300 字，
+ * 这里主动截到 280，服务端 `html.escape` 后再截也不会把实体切坏。
+ */
+private fun wrongVideoScript(q: WrongQuestion): String {
+    val sb = StringBuilder("我们来看这道题：")
+    sb.append(q.question.take(160)).append("。")
+    val answer = q.correction?.takeIf { it.isNotBlank() } ?: q.correctAnswer
+    if (answer.isNotBlank()) {
+        sb.append("正确答案是").append(answer.take(120)).append("。")
+    }
+    if (q.myAnswer.isNotBlank()) {
+        sb.append("你当时答的是").append(q.myAnswer.take(60)).append("，注意这里容易出错。")
+    }
+    if (q.knowledgePoint.isNotBlank()) {
+        sb.append("这道题主要考察").append(q.knowledgePoint.take(40)).append("。")
+    }
+    return sb.toString().take(280)
+}
+
+/**
+ * 单条错题：错因 + 题干 + 我的作答 + 纠正，以及重练 / 背诵卡 / 移出等出口。
+ * [onVideo] 是这道题专属的数字人讲解视频（不是全局视频列表）。
+ */
 @Composable
 private fun WrongCard(
     q: WrongQuestion,
@@ -1973,7 +2051,10 @@ private fun WrongCard(
     onMakeCard: () -> Unit,
     onRemove: () -> Unit,
     onRedo: () -> Unit,
-    onExplain: () -> Unit
+    onExplain: () -> Unit,
+    onVideo: () -> Unit,
+    videoBusy: Boolean = false,
+    videoHint: String? = null
 ) {
     SoftCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2086,6 +2167,21 @@ private fun WrongCard(
         }
 
         Spacer(Modifier.height(14.dp))
+        // 这道题专属的数字人讲解视频：首次点击会按题干自助生成，之后直接复用成片
+        SoftOutlinedButton(
+            text = if (videoBusy) "视频讲解准备中…" else "视频讲解",
+            icon = Icons.Rounded.PlayArrow,
+            enabled = !videoBusy
+        ) { onVideo() }
+        if (videoHint != null) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                videoHint,
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.Brand
+            )
+        }
+        Spacer(Modifier.height(10.dp))
         // 看解析：进入讲解页查看分步讲解与公式推导（#28 短期落地）
         SoftOutlinedButton(
             text = "看解析",
