@@ -2,8 +2,9 @@
   <div class="cw-page">
     <h2 class="cw-title">讲解视频生成任务</h2>
     <p class="cw-hint">
-      数字人讲题短视频（#28）生成任务管理。触发后由 LiteVideoGenerator（ffmpeg 字幕幻灯片）异步合成，
-      状态流转 <code>pending → processing → done / failed</code>。<code>failed</code> 可点「重跑」强制重新生成。
+      数字人讲题短视频（#28）生成任务管理。状态流转
+      <code>pending → processing → done / failed</code>；<code>done</code> 可直接在本页播放器里看片，
+      <code>failed</code> 可点「重跑」强制重新生成。{{ configNote }}
     </p>
     <p v-if="error" class="err">{{ error }}</p>
     <p v-if="msg" class="msg">{{ msg }}</p>
@@ -25,6 +26,41 @@
         </label>
         <button class="tes-btn-primary" :disabled="busy || !form.question" @click="create">触发生成</button>
       </div>
+    </section>
+
+    <!-- 成片预览：进页面就能看到视频，不必先猜题干、也不必逐行点「播放」 -->
+    <section class="tes-card" v-if="inlineRows.length">
+      <div class="cw-head">
+        <b>成片预览</b><span class="cw-grow"></span>
+        <label class="cw-filter">选择成片
+          <select v-model="selectedInlineId" @change="onInlineChange">
+            <option v-for="r in inlineRows" :key="r.id" :value="r.id">
+              {{ clip(r.question_text) }}
+            </option>
+          </select>
+        </label>
+      </div>
+      <p v-if="inlineLoading" class="pv-loading">视频加载中…</p>
+      <p v-else-if="inlineErr" class="err">{{ inlineErr }}</p>
+      <video
+        v-else-if="inlineUrl"
+        class="iv-video"
+        :src="inlineUrl"
+        controls
+        autoplay
+        muted
+        loop
+        playsinline
+      ></video>
+      <div class="pv-meta">
+        <span class="cw-clip q" :title="inlineRow?.question_text">{{ inlineRow?.question_text || '—' }}</span>
+        <span v-if="inlineRow?.duration_sec != null" class="pv-dur">
+          时长 {{ inlineRow.duration_sec.toFixed(1) }}s
+        </span>
+      </div>
+      <p class="cw-hint">
+        播放器默认静音自动循环，点音量键可开声音；列表里的「播放」可在大窗中查看。
+      </p>
     </section>
 
     <!-- 列表 + 过滤 -->
@@ -110,10 +146,10 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import {
-  generateExplanationVideo, listExplanationVideos, regenExplanationVideo,
-  streamExplanationVideo,
+  generateExplanationVideo, getExplanationConfig, listExplanationVideos,
+  regenExplanationVideo, streamExplanationVideo,
 } from '../api/admin'
 
 const busy = ref(false)
@@ -122,6 +158,44 @@ const msg = ref('')
 const rows = ref([])
 const total = ref(0)
 const statusFilter = ref('')
+const configNote = ref('')
+
+// 成片预览：进页面即加载最新一条 done 视频（blob → objectURL），
+// 之前这里只有文字表格，教师看不到任何画面，也容易误判「视频没生成」。
+const inlineRows = computed(() => rows.value.filter(r => r.status === 'done' && r.video_url))
+const selectedInlineId = ref('')
+const inlineRow = ref(null)
+const inlineUrl = ref('')
+const inlineLoading = ref(false)
+const inlineErr = ref('')
+
+function clip(text, n = 26) {
+  const s = String(text || '—')
+  return s.length > n ? `${s.slice(0, n)}…` : s
+}
+
+async function loadInline(row) {
+  if (inlineUrl.value) {
+    URL.revokeObjectURL(inlineUrl.value)
+    inlineUrl.value = ''
+  }
+  inlineRow.value = row || null
+  inlineErr.value = ''
+  if (!row) return
+  inlineLoading.value = true
+  try {
+    const blob = await streamExplanationVideo(row.id)
+    inlineUrl.value = URL.createObjectURL(blob)
+  } catch (e) {
+    inlineErr.value = (e && e.message) || '视频加载失败'
+  } finally {
+    inlineLoading.value = false
+  }
+}
+
+function onInlineChange() {
+  loadInline(inlineRows.value.find(r => r.id === selectedInlineId.value))
+}
 
 // 播放预览：inline <video> 弹窗
 const previewRow = ref(null)
@@ -180,6 +254,16 @@ async function loadAll() {
     const data = await listExplanationVideos(params)
     rows.value = data.items || []
     total.value = data.total || 0
+    // 配置说明单独取，失败不影响列表（后端未升级时 config 可能不存在）
+    try {
+      const cfg = await getExplanationConfig()
+      configNote.value = cfg && cfg.note ? `当前实现：${cfg.note}` : ''
+    } catch (_) {
+      configNote.value = ''
+    }
+    const first = inlineRows.value[0] || null
+    selectedInlineId.value = first ? first.id : ''
+    await loadInline(first)
   } catch (e) {
     error.value = (e && e.message) || '加载失败'
   } finally {
@@ -225,6 +309,10 @@ async function rerun(r) {
 }
 
 onMounted(loadAll)
+onUnmounted(() => {
+  if (inlineUrl.value) URL.revokeObjectURL(inlineUrl.value)
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+})
 </script>
 
 <style scoped>
@@ -274,6 +362,10 @@ onMounted(loadAll)
 .pv-video {
   display: block; width: 100%; max-height: 60vh; background: #000;
   border-radius: 0;
+}
+.iv-video {
+  display: block; width: 100%; height: 320px; object-fit: contain;
+  background: #000; border-radius: 8px; margin-top: 6px;
 }
 .pv-meta {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;

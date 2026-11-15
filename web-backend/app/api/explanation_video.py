@@ -2,6 +2,7 @@
 
 学生端（网关 /api/student/ 透传学生身份）：
 - GET  /explanation-video/by-question?question=...   查当前租户该题是否有可看视频
+- GET  /explanation-video/list                      本租户已出片视频列表（发现入口）
 - GET  /explanation-video/{id}/stream               带鉴权取流（App 下载到本地再播）
 - GET  /explanation-videos/{id}.mp4                 兼容历史直链（同样复校租户）
 
@@ -12,7 +13,9 @@
 """
 from __future__ import annotations
 
+import difflib
 import os
+import unicodedata
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Response
@@ -29,6 +32,20 @@ from app.services.video_generator import content_hash, run_generation
 
 student_router = APIRouter(tags=["explanation-video"])
 admin_router = APIRouter(tags=["explanation-video-admin"])
+
+
+def _qkey(text: str) -> str:
+    """题干归一化键：NFKC + 去空白/标点 + 小写。
+
+    ``content_hash`` 是对原始题干逐字取的 sha256，学生在 App 里手打、从错题本带过来的
+    题干只要多一个空格或全角标点就查不到同一条视频。这里只用于「兜底查找」，
+    不参与落库，避免改动历史数据的 hash 口径。
+    """
+    s = unicodedata.normalize("NFKC", text or "").lower()
+    return "".join(
+        ch for ch in s
+        if not ch.isspace() and not unicodedata.category(ch).startswith("P")
+    )
 
 
 def _row_out(row: ExplanationVideo) -> dict:
@@ -67,16 +84,82 @@ async def by_question(
             .order_by(ExplanationVideo.created_at.desc())
         )
     ).scalar_one_or_none()
-    if row is None:
-        return {
-            "id": None,
-            "status": "none",
-            "video_url": None,
-            "duration_sec": None,
-            "error": None,
-            "content_hash": h,
-        }
-    return _row_out(row)
+    if row is not None:
+        out = _row_out(row)
+        out["match"] = "exact"
+        return out
+
+    # 精确 hash 未命中：在本租户已出片的视频里兜底找「同一题的另一种排版」。
+    # 只在本租户内比较、只认 done、相似度门槛收紧，避免把别的题的视频推给学生。
+    candidates = (
+        await db.execute(
+            select(ExplanationVideo)
+            .where(
+                ExplanationVideo.tenant_id == tid,
+                ExplanationVideo.status == "done",
+                ExplanationVideo.video_url.isnot(None),
+            )
+            .order_by(ExplanationVideo.created_at.desc())
+            .limit(200)
+        )
+    ).scalars().all()
+    key = _qkey(question)
+    best, best_ratio = None, 0.0
+    for cand in candidates:
+        cand_key = _qkey(cand.question_text or "")
+        if cand_key and cand_key == key:
+            best, best_ratio = cand, 1.0
+            break
+        ratio = difflib.SequenceMatcher(None, key, cand_key).ratio()
+        if ratio > best_ratio:
+            best, best_ratio = cand, ratio
+    if best is not None and len(key) >= 6 and best_ratio >= 0.90:
+        out = _row_out(best)
+        out["match"] = "normalized" if best_ratio == 1.0 else "fuzzy"
+        return out
+
+    return {
+        "id": None,
+        "status": "none",
+        "video_url": None,
+        "duration_sec": None,
+        "error": None,
+        "content_hash": h,
+        "match": "none",
+    }
+
+
+@student_router.get("/explanation-video/list")
+async def list_student_videos(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """学生端「已有讲解视频」列表。
+
+    之前学生只能靠 ``by-question`` 用**逐字相同**的题干碰运气，教师端批量生成的
+    视频对学生完全不可见（App 里就表现为「看视频讲解不能用」）。这里补齐发现入口：
+    只列本租户、已出片、有 URL 的任务；取流仍走 ``/{id}/stream`` 的租户复校。
+    """
+    tid = business_tenant_id(user)
+    q = select(ExplanationVideo).where(
+        ExplanationVideo.tenant_id == tid,
+        ExplanationVideo.status == "done",
+        ExplanationVideo.video_url.isnot(None),
+    )
+    total = (
+        await db.execute(select(func.count()).select_from(q.subquery()))
+    ).scalar_one()
+    rows = (
+        await db.execute(
+            q.order_by(ExplanationVideo.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).scalars().all()
+    keys = ("id", "question_text", "knowledge_point", "duration_sec", "created_at")
+    return {"total": total, "items": [{k: getattr(r, k) for k in keys} for r in rows]}
 
 
 async def _load_video_bytes(video_id: str) -> tuple[Optional[bytes], Optional[str]]:

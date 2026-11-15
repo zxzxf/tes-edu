@@ -3,11 +3,27 @@ package com.tes.edu.data.remote
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.google.gson.annotations.SerializedName
 import okhttp3.ResponseBody
 import retrofit2.http.GET
 import retrofit2.http.Path
+import retrofit2.http.Query
 import retrofit2.http.Streaming
 import java.io.File
+
+/** 学生端「已有讲解视频」列表项（不返回 video_url，取流一律按 id 走 stream）。 */
+data class ExplanationVideoItem(
+    val id: String = "",
+    @SerializedName("question_text") val questionText: String? = null,
+    @SerializedName("knowledge_point") val knowledgePoint: String? = null,
+    @SerializedName("duration_sec") val durationSec: Double? = null,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
+data class ExplanationVideoListResp(
+    val total: Int = 0,
+    val items: List<ExplanationVideoItem> = emptyList()
+)
 
 /**
  * #28 学生端「看视频讲解」取流接口。
@@ -22,7 +38,18 @@ interface ExplanationVideoStreamApi {
     @Streaming
     @GET("/api/student/explanation-video/{video_id}/stream")
     suspend fun stream(@Path("video_id") videoId: String): ResponseBody
+
+    /**
+     * 本租户已出片视频列表。之前只有 by-question 逐字匹配，教师端生成的视频
+     * 学生完全看不到，App 里就表现为「看视频讲解不能用」。
+     */
+    @GET("/api/student/explanation-video/list")
+    suspend fun list(@Query("limit") limit: Int): ExplanationVideoListResp
 }
+
+/** 拉取可播视频目录；同样走 [LoginManager.withAuth] 保证 Bearer / 过期自动重登。 */
+suspend fun listExplanationVideos(limit: Int = 50): List<ExplanationVideoItem> =
+    LoginManager.withAuth { ApiClient.videoStream.list(limit) }.getOrThrow().items
 
 private val UNSAFE_FILENAME = Regex("[^A-Za-z0-9_-]")
 

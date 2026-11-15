@@ -42,30 +42,45 @@ def _row(status: str = "done", tenant: str = PILOT) -> ExplanationVideo:
 
 
 class _Result:
-    def __init__(self, row):
+    def __init__(self, row=None, rows=None, total=0):
         self.row = row
+        self.rows = rows or []
+        self.total = total
 
     def scalar_one_or_none(self):
         return self.row
 
+    def scalar_one(self):
+        return self.total
+
+    def scalars(self):
+        return SimpleNamespace(all=lambda: self.rows)
+
 
 class _FakeDB:
-    """只实现本模块用到的 execute；row 由用例注入。"""
+    """只实现本模块用到的 execute；row / rows / 顺序结果由用例注入。"""
 
-    def __init__(self, row=None):
+    def __init__(self, row=None, rows=None, total=0, results=None):
         self.row = row
+        self.rows = rows or []
+        self.total = total
+        self.results = results
         self.calls = 0
+        self.stmts = []
 
     async def execute(self, stmt):
         self.calls += 1
-        return _Result(self.row)
+        self.stmts.append(stmt)
+        if self.results is not None:
+            return self.results[min(self.calls - 1, len(self.results) - 1)]
+        return _Result(self.row, self.rows, self.total)
 
 
 @pytest.fixture
 def harness(monkeypatch, tmp_path):
     """搭一个只挂 explanation_video 两个 router 的最小 app，隔离 DB / MinIO / 本地目录。"""
 
-    def build(row=None, minio_bytes=MP4, local_bytes=None):
+    def build(row=None, minio_bytes=MP4, local_bytes=None, db=None):
         monkeypatch.setattr(
             ev, "settings", SimpleNamespace(explanation_video_dir=str(tmp_path))
         )
@@ -77,7 +92,7 @@ def harness(monkeypatch, tmp_path):
         if local_bytes is not None:
             (tmp_path / f"{VID}.mp4").write_bytes(local_bytes)
 
-        db = _FakeDB(row)
+        db = db or _FakeDB(row)
         app = FastAPI()
         app.include_router(ev.student_router, prefix="/api/student")
         app.include_router(ev.admin_router, prefix="/api/admin")
@@ -178,3 +193,75 @@ def test_admin_stream_超管可跨租户取流(harness):
     r = client.get(ADMIN_STREAM, headers=_headers(role="admin", tenant="platform"))
     assert r.status_code == 200, r.text
     assert r.content == MP4
+
+
+# ---------------- 学生端「发现视频」：列表 + 题干兜底匹配 ----------------
+
+def _cand(text: str, tenant: str = PILOT) -> ExplanationVideo:
+    r = _row(tenant=tenant)
+    r.question_text = text
+    return r
+
+
+def test_by_question_排版不同_归一化兜底命中(harness):
+    """同一题多一个空格/全角标点，逐字 hash 不命中也要能找到视频。"""
+    db = _FakeDB(results=[
+        _Result(None),
+        _Result(rows=[_cand("已知函数求极值。")]),
+    ])
+    client, _ = harness(db=db)
+    r = client.get(
+        "/api/student/explanation-video/by-question",
+        params={"question": "已知函数，求极值"},
+        headers=_headers(),
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["id"] == VID
+    assert body["match"] in ("normalized", "fuzzy")
+
+
+def test_by_question_相似度太低_不误配别的题(harness):
+    db = _FakeDB(results=[
+        _Result(None),
+        _Result(rows=[_cand("【IVH联通验证190356】1+1等于几？")]),
+    ])
+    client, _ = harness(db=db)
+    r = client.get(
+        "/api/student/explanation-video/by-question",
+        params={"question": "求函数 f(x)=x² 的导数并说明依据"},
+        headers=_headers(),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["id"] is None
+    assert r.json()["match"] == "none"
+
+
+def test_student_list_返回本租户已出片视频(harness):
+    db = _FakeDB(rows=[_cand("1+1等于几？"), _cand("求导数")], total=2)
+    client, _ = harness(db=db)
+    r = client.get("/api/student/explanation-video/list", headers=_headers())
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["total"] == 2
+    assert len(body["items"]) == 2
+    assert set(body["items"][0]) == {
+        "id", "question_text", "knowledge_point", "duration_sec", "created_at"
+    }
+    # 查询必须带租户 + done + 有 URL，不能把别校/未出片任务漏给学生
+    sql = str(db.stmts[1].compile(compile_kwargs={"literal_binds": True}))
+    assert "school_pilot_01" in sql
+    assert "done" in sql
+    assert "video_url" in sql
+
+
+def test_student_list_缺身份头_401(harness):
+    client, _ = harness(db=_FakeDB(rows=[], total=0))
+    assert client.get("/api/student/explanation-video/list").status_code == 401
+
+
+def test_student_list_空列表_返回空items(harness):
+    client, _ = harness(db=_FakeDB(rows=[], total=0))
+    r = client.get("/api/student/explanation-video/list", headers=_headers())
+    assert r.status_code == 200, r.text
+    assert r.json() == {"total": 0, "items": []}

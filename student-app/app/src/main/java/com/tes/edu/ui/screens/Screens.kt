@@ -115,6 +115,8 @@ import com.tes.edu.viewmodel.WrongBookViewModel
 import com.tes.edu.data.remote.LoginManager
 import com.tes.edu.data.remote.ApiClient
 import com.tes.edu.data.remote.downloadExplanationVideo
+import com.tes.edu.data.remote.ExplanationVideoItem
+import com.tes.edu.data.remote.listExplanationVideos
 import com.tes.edu.viewmodel.WrongFilter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -915,7 +917,32 @@ fun ExplainScreen(
     // 不能用 video_url 直链（相对路径 + VideoView 发不出 Authorization 头）。
     var playerPath by remember { mutableStateOf<String?>(null) }
     var videoLoading by remember { mutableStateOf(false) }
+    // 视频目录：by-question 是逐字精确匹配，教师端批量生成的视频学生本来完全
+    // 看不到。未命中（或题干为空）时列出本租户已出片视频，点任意一条即可播放。
+    var videoCatalog by remember { mutableStateOf<List<ExplanationVideoItem>>(emptyList()) }
+    var showVideoCatalog by remember { mutableStateOf(false) }
+    var catalogHint by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+
+    suspend fun openVideoCatalog(hint: String) {
+        videoLoading = true
+        try {
+            val items = listExplanationVideos()
+            if (items.isEmpty()) {
+                Toast.makeText(ttsContext, "暂无已生成的讲解视频", Toast.LENGTH_SHORT).show()
+            } else {
+                videoCatalog = items
+                catalogHint = hint
+                showVideoCatalog = true
+            }
+        } catch (e: Exception) {
+            Toast.makeText(
+                ttsContext, "加载视频列表失败：${e.message ?: "请稍后重试"}", Toast.LENGTH_SHORT
+            ).show()
+        } finally {
+            videoLoading = false
+        }
+    }
 
     // 错题本/他处投来的题目：消费后即拉讲解，并预填输入框
     LaunchedEffect(pendingQuestion) {
@@ -996,29 +1023,32 @@ fun ExplainScreen(
             )
         }
 
-        // 「看视频讲解」：查任务 → 按 id 带鉴权取流下载到本地 → 本地绝对路径播放
+        // 「看视频讲解」：查任务 → 按 id 带鉴权取流下载到本地 → 本地绝对路径播放。
+        // 不再要求先「获取讲解」：看视频与文字解析互不依赖，之前按钮在空结果时
+        // 一直是灰的，学生直接点会以为功能不能用。
         SoftOutlinedButton(
             text = if (videoLoading) "视频加载中…" else "看视频讲解",
             icon = Icons.Rounded.PlayArrow,
-            enabled = hasExplain && !videoLoading
+            enabled = !videoLoading
         ) {
             scope.launch {
+                if (question.isBlank()) {
+                    openVideoCatalog("已有讲解视频，点任意一条即可播放")
+                    return@launch
+                }
                 videoLoading = true
                 try {
                     val resp = LoginManager.withAuth {
                         ApiClient.instance.explanationVideo(question)
                     }.getOrThrow()
-                    if (resp.status != "done" || resp.videoUrl.isNullOrBlank() ||
-                        resp.id.isNullOrBlank()
+                    if (resp.status == "done" && !resp.videoUrl.isNullOrBlank() &&
+                        !resp.id.isNullOrBlank()
                     ) {
-                        Toast.makeText(
-                            ttsContext,
-                            "暂未生成视频讲解，可用下方「听讲解」",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
                         val file = downloadExplanationVideo(ttsContext, resp.id!!)
                         playerPath = file.absolutePath
+                    } else {
+                        // 逐字没匹配上不直接判「没有视频」，把目录拿出来让学生选
+                        openVideoCatalog("本题暂无对应视频，以下是已有的讲解视频")
                     }
                 } catch (e: Exception) {
                     Toast.makeText(
@@ -1031,6 +1061,16 @@ fun ExplainScreen(
                 }
             }
         }
+        Text(
+            text = "查看全部讲解视频",
+            style = MaterialTheme.typography.labelMedium,
+            color = TesEduColors.Brand,
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .clickable(enabled = !videoLoading) {
+                    scope.launch { openVideoCatalog("已有讲解视频，点任意一条即可播放") }
+                }
+        )
 
         if (ui.loading) {
             Spacer(Modifier.height(16.dp))
@@ -1158,6 +1198,82 @@ fun ExplainScreen(
                         modifier = Modifier.size(28.dp)
                     )
                 }
+            }
+        }
+    }
+
+    // 视频目录：题干逐字没匹配上时，让学生能从「已出片视频」里直接选一条播放，
+    // 而不是弹一句「暂未生成」就结束（教师端明明已经生成过视频）。
+    if (showVideoCatalog) {
+        Dialog(onDismissRequest = { showVideoCatalog = false }) {
+            SoftCard {
+                Text(
+                    "讲解视频",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    catalogHint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TesEduColors.TextSecondary
+                )
+                Spacer(Modifier.height(12.dp))
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    videoCatalog.forEach { item ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(TesEduColors.FieldBg)
+                                .clickable(enabled = !videoLoading) {
+                                    scope.launch {
+                                        showVideoCatalog = false
+                                        videoLoading = true
+                                        try {
+                                            playerPath = downloadExplanationVideo(
+                                                ttsContext, item.id
+                                            ).absolutePath
+                                        } catch (e: Exception) {
+                                            Toast.makeText(
+                                                ttsContext,
+                                                "加载视频失败：${e.message ?: "请稍后重试"}",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        } finally {
+                                            videoLoading = false
+                                        }
+                                    }
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Rounded.PlayArrow,
+                                contentDescription = null,
+                                tint = TesEduColors.Brand
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    item.questionText ?: "讲解视频",
+                                    maxLines = 2,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                val dur = item.durationSec
+                                if (dur != null) {
+                                    Text(
+                                        "时长 %.1fs".format(dur),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TesEduColors.TextMuted
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+                TextButton(onClick = { showVideoCatalog = false }) { Text("关闭") }
             }
         }
     }
