@@ -44,6 +44,8 @@ import androidx.compose.material.icons.rounded.Quiz
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.TipsAndUpdates
+import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,6 +60,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +85,8 @@ import com.tes.edu.data.sync.splitRedoBlanks
 import com.tes.edu.state.AppBridge
 import com.tes.edu.state.KpNameCache
 import com.tes.edu.util.MathText
+import com.tes.edu.util.TtsController
+import com.tes.edu.util.toSpeechText
 import com.tes.edu.ui.components.GradientButton
 import com.tes.edu.ui.components.InfoPill
 import com.tes.edu.ui.components.LabelValueRow
@@ -883,6 +888,17 @@ fun ExplainScreen(
     val pendingQuestion by AppBridge.pendingQuestion.collectAsState()
     var question by remember { mutableStateOf("") }
 
+    // 「听讲解」语音试听：设备内置离线 TTS，离开页面时释放，避免引擎泄漏
+    val ttsContext = LocalContext.current
+    val ttsReady = remember { mutableStateOf(false) }
+    val ttsSpeaking = remember { mutableStateOf(false) }
+    val tts = remember {
+        TtsController(ttsContext).also { c ->
+            c.onState = { r, s -> ttsReady.value = r; ttsSpeaking.value = s }
+        }
+    }
+    DisposableEffect(Unit) { onDispose { tts.shutdown() } }
+
     // 错题本/他处投来的题目：消费后即拉讲解，并预填输入框
     LaunchedEffect(pendingQuestion) {
         val p = pendingQuestion
@@ -926,6 +942,40 @@ fun ExplainScreen(
             // 记录来源题干：触类页据此自动生成变式题
             AppBridge.setLastQuestion(question)
             vm.solve(question)
+        }
+
+        // 「听讲解」：把参考答案 + 分步 + 考点拼成可读文本朗读（设备离线 TTS）
+        Spacer(Modifier.height(12.dp))
+        val hasExplain = ui.answer.isNotBlank() || ui.visibleSteps.isNotEmpty() ||
+            ui.knowledgePoints.isNotEmpty()
+        SoftOutlinedButton(
+            text = if (ttsSpeaking.value) "停止朗读" else "听讲解",
+            icon = if (ttsSpeaking.value) Icons.Rounded.Stop else Icons.Rounded.VolumeUp,
+            enabled = ttsReady.value && hasExplain
+        ) {
+            if (ttsSpeaking.value) {
+                tts.stop()
+            } else {
+                val sb = StringBuilder()
+                if (ui.answer.isNotBlank()) {
+                    sb.append("参考答案：").append(toSpeechText(ui.answer)).append("。")
+                }
+                ui.visibleSteps.forEachIndexed { i, s ->
+                    sb.append("第${i + 1}步：").append(toSpeechText(s)).append("。")
+                }
+                if (ui.knowledgePoints.isNotEmpty()) {
+                    sb.append("涉及考点：").append(ui.knowledgePoints.joinToString("、")).append("。")
+                }
+                tts.speak(sb.toString())
+            }
+        }
+        if (!ttsReady.value && hasExplain) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "设备未安装中文语音包，暂不支持朗读",
+                style = MaterialTheme.typography.labelSmall,
+                color = TesEduColors.TextMuted
+            )
         }
 
         if (ui.loading) {

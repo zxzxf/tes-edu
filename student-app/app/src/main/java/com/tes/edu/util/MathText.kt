@@ -345,3 +345,46 @@ fun MathPreview(text: String, modifier: Modifier = Modifier) {
         )
     }
 }
+
+/**
+ * 把含 LaTeX 的讲解文本转成「可朗读」中文，供 TTS 语音试听使用。
+ *
+ * 思路：先 [preprocessMath] 把 `\pi`→π、`\frac{1}{2}`→1/2、`\sqrt{2}`→√2 等
+ * 宏 / 符号 / 分数 / 根号转成可读字符；再 [buildSpeechText] 把上标 `^` 转成
+ * 「…的 N 次方 / 平方 / 立方」、下标 `_` 转成「…下标 N」。最终压平多余空白。
+ *
+ * 这样 TTS 念出来的不再是 "e^x"、"\frac" 这类源码噪声。
+ */
+fun toSpeechText(src: String): String {
+    if (src.isBlank()) return ""
+    // 去掉 markdown 装饰（后端步骤偶尔带 ** / * / ` / #）
+    val stripped = src.replace(Regex("[*_`#]"), "")
+    val pre = preprocessMath(stripped)
+    val spoken = if (hasMath(pre)) buildSpeechText(pre) else pre
+    return spoken.replace(Regex("\\s+"), " ").trim()
+}
+
+/** 递归把「正文 / 上标 / 下标」片段拼成朗读文本（见 [toSpeechText]）。 */
+private fun buildSpeechText(s: String): String {
+    val sb = StringBuilder()
+    for (seg in parseMathSegments(s)) {
+        when (seg.script) {
+            MathScript.NORMAL -> sb.append(seg.text)
+            MathScript.SUP -> {
+                val inner = buildSpeechText(seg.text).trim()
+                sb.append(
+                    when (inner) {
+                        "2" -> "平方"
+                        "3" -> "立方"
+                        else -> if (inner.isEmpty()) "" else "的${inner}次方"
+                    }
+                )
+            }
+            MathScript.SUB -> {
+                val inner = buildSpeechText(seg.text).trim()
+                if (inner.isNotEmpty()) sb.append("下标${inner}")
+            }
+        }
+    }
+    return sb.toString()
+}
