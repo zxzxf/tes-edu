@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.tes.edu.data.local.AppDatabase
 import com.tes.edu.data.local.entities.WrongQuestion
 import com.tes.edu.data.remote.ApiClient
+import com.tes.edu.data.remote.ApiService
 import com.tes.edu.data.remote.LearningApi
 import com.tes.edu.data.remote.LoginManager
 import com.tes.edu.data.remote.StudentSession
@@ -14,6 +15,7 @@ import com.tes.edu.data.remote.WrongRedoResult
 import com.tes.edu.data.remote.WrongStats
 import com.tes.edu.data.remote.WrongSyncRequest
 import com.tes.edu.data.sync.WrongSyncMerger
+import com.tes.edu.state.KpNameCache
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,11 +24,18 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import retrofit2.HttpException
 import java.util.UUID
 
 /** 断网时的轻提示——同步失败不弹错、不打断复习，只说一句"联网后会自动来"。 */
 const val OFFLINE_HINT = "离线中，联网后自动同步"
+
+/**
+ * 知识点名称拉取短超时：图谱全量接口本应 2s 内返回，但真机走跨境隧道时偶发读取挂起。
+ * 这里 30s 内无响应即放弃（名称只是锦上添花，绝不因此拖垮错题本同步）。
+ */
+private const val KP_NAME_TIMEOUT_MS = 30_000L
 
 /** 错题筛选条件：kp=知识点，errorType=错因，paperId=来源卷，questionType=题型；都为 null 表示不筛选。 */
 data class WrongFilter(
@@ -60,7 +69,9 @@ data class WrongFilter(
 // 工厂找不到构造函数，进页面就崩。
 class WrongBookViewModel @JvmOverloads constructor(
     app: Application,
-    private val api: LearningApi = ApiClient.learning
+    private val api: LearningApi = ApiClient.learning,
+    /** 仅用于拉取知识点编码->名称映射（与图谱页共用同一接口）。 */
+    private val graphApi: ApiService = ApiClient.instance
 ) : AndroidViewModel(app) {
 
     private val dao = AppDatabase.get(app).wrongQuestionDao()
@@ -261,6 +272,17 @@ class WrongBookViewModel @JvmOverloads constructor(
                 )
                 apply(WrongSyncMerger.merge(dao.allOnce(), res.items))
                 StudentSession.markWrongSync(res.serverTime)
+
+                // 顺手把知识点编码->中文名灌入缓存：错题本据此把 MA-B2-C3-S5-K01
+                // 这类 DAG 编码显示成可读名称。缓存已有就跳过，避免每次同步都多打一次
+                // 图谱接口；离线 / 拉不到时保持编码（优雅降级，不报错）。
+                if (KpNameCache.names.value.isEmpty()) {
+                    runCatching {
+                        withTimeoutOrNull(KP_NAME_TIMEOUT_MS) {
+                            graphApi.knowledgeGraph(sid)
+                        }?.let { KpNameCache.put(it.nodes) }
+                    }
+                }
 
                 // —— push ——
                 // 老数据（v3 前）没有 clientId：先补齐再上行，否则服务端每次都当新记录

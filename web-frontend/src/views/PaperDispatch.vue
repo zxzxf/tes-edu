@@ -99,7 +99,7 @@
               待确认 {{ checkSummary.unverified }}
             </span>
           </template>
-          <button class="ghost sm" :disabled="busy" @click="refreshChecks(true)">重新校验</button>
+          <button class="ghost sm" :disabled="checking" @click="refreshChecks(true)">{{ checking ? '校验中…' : '重新校验' }}</button>
           <button
             v-if="!paper.published && checkSummary && !checkSummary.ok"
             class="ghost sm"
@@ -229,6 +229,7 @@ const checks = ref([])
 const checkSummary = ref(null)
 const fixValues = ref({})
 const busy = ref(false)
+const checking = ref(false)
 const msg = ref('')
 const error = ref('')
 const assign = ref({ target_type: 'grade', target_grade: '高三', target_student: '', due_at: '' })
@@ -285,13 +286,30 @@ function applyChecks(data) {
 
 async function refreshChecks(refresh = false) {
   if (!paper.value) return
+  checking.value = true
+  error.value = ''
   try {
     const data = refresh
       ? await runAnswerChecks(paper.value.id)
       : await getAnswerChecks(paper.value.id)
     applyChecks(data)
+    // 重新校验会重算校验结论，但「无第二来源」的题永远仍是待确认——
+    // 结论本身可能和上一次完全相同，必须给一句明确的完成反馈，否则点完像没反应。
+    if (refresh && data.summary) {
+      const s = data.summary
+      if (s.ok) {
+        msg.value = '已重新校验：答案校验全部通过，可以发布'
+      } else {
+        const tail = paper.value.published
+          ? '（本卷已发布、答案已冻结，确认入口已锁定；需改答案请「复制为新卷」后再确认发布）'
+          : ''
+        msg.value = `已重新校验：通过 ${s.passed}/${s.total}，待确认 ${s.unverified}${tail}`
+      }
+    }
   } catch (e) {
     error.value = errText(e)
+  } finally {
+    checking.value = false
   }
 }
 

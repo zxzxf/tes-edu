@@ -9,6 +9,7 @@ import com.tes.edu.data.remote.GraphEdge
 import com.tes.edu.data.remote.GraphNode
 import com.tes.edu.data.remote.GraphResponse
 import com.tes.edu.data.remote.StudentSession
+import com.tes.edu.state.KpNameCache
 import com.tes.edu.ui.graph.GraphLayout
 import com.tes.edu.ui.graph.GraphLayoutCalc
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -91,6 +92,8 @@ class GraphViewModel(
                 runCatching {
                     val res = dto.toGraphResponse()
                     val layout = GraphLayoutCalc.layout(res.nodes, res.edges)
+                    // 顺手把编码->名称灌入缓存，错题本等页面可复用（不依赖图谱页被打开）
+                    KpNameCache.put(res.nodes)
                     _ui.update {
                         it.copy(
                             loading = false,
@@ -136,6 +139,8 @@ class GraphViewModel(
             }.onSuccess { (sid, res) ->
                 runCatching {
                     val layout = GraphLayoutCalc.layout(res.nodes, res.edges)
+                    // 顺手把编码->名称灌入缓存，错题本等页面可复用（不依赖图谱页被打开）
+                    KpNameCache.put(res.nodes)
                     _ui.update {
                         it.copy(
                             loading = false,

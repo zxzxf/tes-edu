@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -79,6 +80,7 @@ import com.tes.edu.data.remote.WrongStats
 import com.tes.edu.data.sync.redoFeedback
 import com.tes.edu.data.sync.splitRedoBlanks
 import com.tes.edu.state.AppBridge
+import com.tes.edu.state.KpNameCache
 import com.tes.edu.util.MathText
 import com.tes.edu.ui.components.GradientButton
 import com.tes.edu.ui.components.InfoPill
@@ -154,6 +156,8 @@ fun InputScreen(
     var showDirectConfirm by remember { mutableStateOf(false) }
     // 来自错题本「练习」的选择题选项（只读展示，JSON 串）；非选择题为空。
     var practiceOptionsJson by remember { mutableStateOf<String?>(null) }
+    // 选择题在练习页直接点选答案（"A"/"B"...），替代「我的作答」文本输入。
+    var selectedOption by remember { mutableStateOf<String?>(null) }
 
     // T-S4：触类页「再练这道」/ 图谱「练这个知识点」投递过来的题干——
     // 进来即预填并清掉上一题的作答与结果，避免"新题旧答"混着提交。
@@ -163,6 +167,7 @@ fun InputScreen(
         if (p != null && p.text.isNotBlank()) {
             question = p.text
             practiceOptionsJson = p.optionsJson
+            selectedOption = null
             process = ""
             reply = ""
             vm.reset()
@@ -199,12 +204,14 @@ fun InputScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        // 选择题（来自错题本「练习」）把 A/B/C/D 列出，便于对照作答；只读展示。
+        // 选择题（来自错题本「练习」）把 A/B/C/D 列出：可直接点选答案，
+        // 代替「我的作答」文本输入；填空/解答题无选项数据，自动不显示。
         val practiceOpts = remember(practiceOptionsJson) { parseWrongOptions(practiceOptionsJson) }
-        if (practiceOpts.isNotEmpty()) {
+        val isChoice = practiceOpts.isNotEmpty()
+        if (isChoice) {
             Column(Modifier.fillMaxWidth()) {
                 Text(
-                    "选项",
+                    "请选择答案",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = TesEduColors.TextSecondary
@@ -214,54 +221,72 @@ fun InputScreen(
                     Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    practiceOpts.forEach { opt -> WrongOptionRow(opt.label, opt.content) }
+                    practiceOpts.forEach { opt ->
+                        WrongOptionRow(
+                            label = opt.label,
+                            content = opt.content,
+                            selected = selectedOption == opt.label,
+                            onClick = { selectedOption = opt.label }
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(16.dp))
         }
 
-        SoftFieldCard(
-            label = "我的作答",
-            hint = "解答题请写出过程",
-            value = process,
-            onValueChange = { process = it },
-            placeholder = "例如：由 A+B+C=π 且 A+B=3C，得 4C=π，所以 C=π/4…",
-            minLines = 5,
-            leadingIcon = Icons.Rounded.EditNote,
-            accent = TesEduColors.Mint,
-            mathPreview = true
-        )
+        // 非选择题才需要手写作答（填空/解答/自由输入）；选择题走点选。
+        if (!isChoice) {
+            SoftFieldCard(
+                label = "我的作答",
+                hint = "解答题请写出过程",
+                value = process,
+                onValueChange = { process = it },
+                placeholder = "例如：由 A+B+C=π 且 A+B=3C，得 4C=π，所以 C=π/4…",
+                minLines = 5,
+                leadingIcon = Icons.Rounded.EditNote,
+                accent = TesEduColors.Mint,
+                mathPreview = true
+            )
 
-        Spacer(Modifier.height(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Rounded.Lightbulb,
-                contentDescription = null,
-                tint = TesEduColors.Amber,
-                modifier = Modifier.size(14.dp)
-            )
-            Spacer(Modifier.width(5.dp))
-            Text(
-                "只写答案也可以，我会告诉你卡在哪一步",
-                style = MaterialTheme.typography.labelSmall,
-                color = TesEduColors.TextMuted
-            )
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Rounded.Lightbulb,
+                    contentDescription = null,
+                    tint = TesEduColors.Amber,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    "只写答案也可以，我会告诉你卡在哪一步",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TesEduColors.TextMuted
+                )
+            }
         }
 
         Spacer(Modifier.height(18.dp))
 
+        // 选择题：选中的选项即答案，提交即判分；非选择题：照旧文本作答。
+        val answerForSolve = if (isChoice) selectedOption else process
         GradientButton(
-            text = if (process.isBlank()) "只求讲解" else "提交作答并判分",
+            text = if (isChoice) {
+                if (selectedOption != null) "提交判分" else "请选择答案"
+            } else {
+                if (process.isBlank()) "只求讲解" else "提交作答并判分"
+            },
             icon = Icons.Rounded.AutoAwesome,
-            enabled = question.isNotBlank() && !ui.loading
+            enabled = if (isChoice) selectedOption != null && !ui.loading
+            else question.isNotBlank() && !ui.loading
         ) {
             // 记录来源题干：触类页据此自动生成变式题
             AppBridge.setLastQuestion(question)
-            vm.solve(question, process)
+            vm.solve(question, answerForSolve)
         }
 
-        // T-C2：进入 Hint 阶梯对话（首轮 L0 点考点；阶梯只存在于引导档）
-        if (!ui.hintActive) {
+        // T-C2：进入 Hint 阶梯对话（首轮 L0 点考点；阶梯只存在于引导档）。
+        // 选择题靠点选作答，引导流程不适用，故仅非选择题展示。
+        if (!ui.hintActive && !isChoice) {
             Spacer(Modifier.height(10.dp))
             SoftOutlinedButton(
                 text = "开始引导（一步一步来）",
@@ -331,7 +356,7 @@ fun InputScreen(
             JudgementCard(
                 j = j,
                 question = question,
-                myAnswer = process,
+                myAnswer = answerForSolve ?: process,
                 correctAnswer = ui.answer,
                 knowledgePoint = ui.knowledgePoints.firstOrNull() ?: "",
                 questionType = ui.questionType,
@@ -1253,6 +1278,9 @@ private fun WrongSection(
     val syncing by vm.syncing.collectAsState()
     val error by vm.error.collectAsState()
 
+    // 知识点编码->中文名：联网同步后会由 WrongBookViewModel 灌入；离线时为空，回退到编码。
+    val kpNames by KpNameCache.names.collectAsState()
+
     // 断网只是轻提示：本地数据照常可读，不打断复习
     error?.let { msg ->
         SoftNotice(
@@ -1294,7 +1322,7 @@ private fun WrongSection(
         return
     }
 
-    WrongStatsCard(total = all.size, items = all, stats = stats)
+    WrongStatsCard(total = all.size, items = all, stats = stats, kpNames = kpNames)
 
     Spacer(Modifier.height(14.dp))
     SoftCard {
@@ -1338,7 +1366,7 @@ private fun WrongSection(
                 title = "知识点",
                 options = kpOptions,
                 selected = filter.kp,
-                labelOf = { it },
+                labelOf = { kpNames[it] ?: it },
                 onSelect = { vm.setFilter(filter.copy(kp = it)) }
             )
         }
@@ -1386,6 +1414,7 @@ private fun WrongSection(
             WrongCard(
                 q = q,
                 mastery = stats?.mastery?.firstOrNull { it.kp == q.knowledgePoint },
+                kpName = kpNames[q.knowledgePoint] ?: q.knowledgePoint,
                 onPractice = {
                     // 选择题把选项一并带过去，输入页可展示 A/B/C/D（只读）。
                     AppBridge.postQuestion(q.question, q.options, q.questionType)
@@ -1401,7 +1430,12 @@ private fun WrongSection(
 
 /** 统计条：总数 + 错因 Top 3 + 掌握度（后两者拿不到就隐藏对应部分）。 */
 @Composable
-private fun WrongStatsCard(total: Int, items: List<WrongQuestion>, stats: WrongStats?) {
+private fun WrongStatsCard(
+    total: Int,
+    items: List<WrongQuestion>,
+    stats: WrongStats?,
+    kpNames: Map<String, String> = emptyMap()
+) {
     // 服务端给了分布就用服务端的，没给就按本地算（离线也能看出自己错在哪）
     val byType = stats?.byErrorType?.takeIf { it.isNotEmpty() }
         ?: items.mapNotNull { it.errorType }.groupingBy { it }.eachCount()
@@ -1438,7 +1472,7 @@ private fun WrongStatsCard(total: Int, items: List<WrongQuestion>, stats: WrongS
                 mastery.take(3).forEach { m ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            m.kp,
+                            kpNames[m.kp] ?: m.kp,
                             style = MaterialTheme.typography.labelSmall,
                             color = TesEduColors.TextMuted,
                             modifier = Modifier.weight(1f)
@@ -1522,6 +1556,7 @@ private fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit) {
 private fun WrongCard(
     q: WrongQuestion,
     mastery: MasteryPoint?,
+    kpName: String = q.knowledgePoint,
     onPractice: () -> Unit,
     onMakeCard: () -> Unit,
     onRemove: () -> Unit,
@@ -1550,9 +1585,9 @@ private fun WrongCard(
                     style = MaterialTheme.typography.titleSmall,
                     color = TesEduColors.TextPrimary
                 )
-                if (!q.knowledgePoint.isNullOrBlank()) {
+                if (kpName.isNotBlank()) {
                     Text(
-                        q.knowledgePoint,
+                        kpName,
                         style = MaterialTheme.typography.labelSmall,
                         color = TesEduColors.TextMuted
                     )
@@ -1672,16 +1707,36 @@ private fun parseWrongOptions(json: String?): List<ExamOption> {
     }.getOrDefault(emptyList())
 }
 
-/** 错题本选项行（只读，无对错高亮，仅把 A/B/C/D 与选项内容列出）。 */
+/**
+ * 错题本选项行。
+ * - 默认只读（RedoDialog / 解题页展示用），无对错高亮。
+ * - 传入 [onClick] 即变为可点选：选中态 [selected] 高亮描边，右侧显示勾选。
+ */
 @Composable
-private fun WrongOptionRow(label: String, content: String) {
+private fun WrongOptionRow(
+    label: String,
+    content: String,
+    selected: Boolean = false,
+    onClick: (() -> Unit)? = null
+) {
     val shape = RoundedCornerShape(14.dp)
     Row(
         Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(TesEduColors.Surface)
-            .border(1.dp, TesEduColors.Divider, shape)
+            .then(
+                if (onClick != null) Modifier.clickable(
+                    enabled = true,
+                    role = Role.RadioButton,
+                    onClick = onClick
+                ) else Modifier
+            )
+            .background(if (selected) TesEduColors.BrandSoft else TesEduColors.Surface)
+            .border(
+                1.dp,
+                if (selected) TesEduColors.Brand else TesEduColors.Divider,
+                shape
+            )
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1689,14 +1744,14 @@ private fun WrongOptionRow(label: String, content: String) {
             Modifier
                 .size(26.dp)
                 .clip(RoundedCornerShape(9.dp))
-                .background(TesEduColors.FieldBg),
+                .background(if (selected) TesEduColors.Brand else TesEduColors.FieldBg),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 label,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
-                color = TesEduColors.TextSecondary
+                color = if (selected) TesEduColors.Surface else TesEduColors.TextSecondary
             )
         }
         Spacer(Modifier.width(10.dp))
@@ -1708,6 +1763,15 @@ private fun WrongOptionRow(label: String, content: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = TesEduColors.TextPrimary
         )
+        if (selected) {
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                Icons.Rounded.CheckCircle,
+                contentDescription = null,
+                tint = TesEduColors.Brand,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 
