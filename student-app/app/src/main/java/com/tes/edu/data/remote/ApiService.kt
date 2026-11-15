@@ -149,6 +149,8 @@ data class SolveResponse(
 
 /** ④·数字人讲题视频查询响应（web-backend GET /api/student/explanation-video/by-question）。 */
 data class ExplanationVideoResp(
+    /** 任务 id；取流要按它调 /api/student/explanation-video/{id}/stream。none 时为 null。 */
+    val id: String? = null,
     /** none | pending | processing | done | failed */
     val status: String = "none",
     @SerializedName("video_url") val videoUrl: String? = null,
@@ -241,6 +243,9 @@ object ApiClient {
     private var cachedExam: ExamApi? = null
 
     @Volatile
+    private var cachedVideoStream: ExplanationVideoStreamApi? = null
+
+    @Volatile
     private var cachedRetrofit: Retrofit? = null
 
     /** 登录后调用一次，让后续请求带上新 token（进程内重建 Retrofit 实例）。 */
@@ -249,6 +254,7 @@ object ApiClient {
             cached = null
             cachedLearning = null
             cachedExam = null
+            cachedVideoStream = null
             cachedRetrofit = null
         }
     }
@@ -267,7 +273,13 @@ object ApiClient {
         cachedExam ?: retrofit().create(ExamApi::class.java).also { cachedExam = it }
     }
 
-    /** Retrofit 只建一次：两个接口共用同一个 OkHttp 连接池。 */
+    /** #28 数字人讲解视频取流，共用 Retrofit（AuthInterceptor 带 Bearer）。 */
+    val videoStream: ExplanationVideoStreamApi get() = cachedVideoStream ?: synchronized(this) {
+        cachedVideoStream ?: retrofit().create(ExplanationVideoStreamApi::class.java)
+            .also { cachedVideoStream = it }
+    }
+
+    /** Retrofit 只建一次：所有接口共用同一个 OkHttp 连接池。 */
     private fun retrofit(): Retrofit = cachedRetrofit ?: synchronized(this) {
         cachedRetrofit ?: build().also { cachedRetrofit = it }
     }

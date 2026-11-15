@@ -1,6 +1,7 @@
 package com.tes.edu.viewmodel
 
 import com.tes.edu.data.remote.ApiService
+import com.tes.edu.data.remote.ExplanationVideoResp
 import com.tes.edu.data.remote.GraphNode
 import com.tes.edu.data.remote.GraphResponse
 import com.tes.edu.data.remote.LoginRequest
@@ -58,6 +59,8 @@ class GraphViewModelTest {
         override suspend fun solveImage(file: MultipartBody.Part): SolveResponse = error("unused")
         override suspend fun login(req: LoginRequest): TokenResponse = error("unused")
         override suspend fun similar(req: SimilarRequest): SolveResponse = error("unused")
+        override suspend fun explanationVideo(question: String): ExplanationVideoResp =
+            ExplanationVideoResp()
     }
 
     @Before

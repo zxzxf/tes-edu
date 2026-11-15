@@ -3,7 +3,6 @@ package com.tes.edu.ui.screens
 import android.widget.Toast
 import android.widget.VideoView
 import android.widget.MediaController
-import android.net.Uri
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -115,6 +114,7 @@ import com.tes.edu.viewmodel.SolveViewModel
 import com.tes.edu.viewmodel.WrongBookViewModel
 import com.tes.edu.data.remote.LoginManager
 import com.tes.edu.data.remote.ApiClient
+import com.tes.edu.data.remote.downloadExplanationVideo
 import com.tes.edu.viewmodel.WrongFilter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -911,8 +911,10 @@ fun ExplainScreen(
     }
     DisposableEffect(Unit) { onDispose { tts.shutdown() } }
 
-    // 「看视频讲解」：查后端数字人视频并全屏播放
-    var playerUrl by remember { mutableStateOf<String?>(null) }
+    // 「看视频讲解」：带 Bearer 下载到私有缓存后，用本地绝对路径全屏播放。
+    // 不能用 video_url 直链（相对路径 + VideoView 发不出 Authorization 头）。
+    var playerPath by remember { mutableStateOf<String?>(null) }
+    var videoLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // 错题本/他处投来的题目：消费后即拉讲解，并预填输入框
@@ -994,32 +996,39 @@ fun ExplainScreen(
             )
         }
 
-        // 「看视频讲解」：查后端是否已生成数字人讲题视频，有则播放，无则提示用听讲解
+        // 「看视频讲解」：查任务 → 按 id 带鉴权取流下载到本地 → 本地绝对路径播放
         SoftOutlinedButton(
-            text = "看视频讲解",
+            text = if (videoLoading) "视频加载中…" else "看视频讲解",
             icon = Icons.Rounded.PlayArrow,
-            enabled = hasExplain
+            enabled = hasExplain && !videoLoading
         ) {
             scope.launch {
-                LoginManager.withAuth { ApiClient.instance.explanationVideo(question) }
-                    .onSuccess { resp ->
-                        if (resp.status == "done" && !resp.videoUrl.isNullOrBlank()) {
-                            playerUrl = resp.videoUrl
-                        } else {
-                            Toast.makeText(
-                                ttsContext,
-                                "暂未生成视频讲解，可用下方「听讲解」",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                    .onFailure {
+                videoLoading = true
+                try {
+                    val resp = LoginManager.withAuth {
+                        ApiClient.instance.explanationVideo(question)
+                    }.getOrThrow()
+                    if (resp.status != "done" || resp.videoUrl.isNullOrBlank() ||
+                        resp.id.isNullOrBlank()
+                    ) {
                         Toast.makeText(
                             ttsContext,
-                            "查询视频讲解失败：${it.message}",
+                            "暂未生成视频讲解，可用下方「听讲解」",
                             Toast.LENGTH_SHORT
                         ).show()
+                    } else {
+                        val file = downloadExplanationVideo(ttsContext, resp.id!!)
+                        playerPath = file.absolutePath
                     }
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        ttsContext,
+                        "加载视频讲解失败：${e.message ?: "请稍后重试"}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } finally {
+                    videoLoading = false
+                }
             }
         }
 
@@ -1106,11 +1115,12 @@ fun ExplainScreen(
         Spacer(Modifier.height(28.dp))
     }
 
-    // 数字人视频全屏播放器（VideoView 为框架控件，免新增 gradle 依赖）
-    val videoUrl = playerUrl
-    if (videoUrl != null) {
+    // 数字人视频全屏播放器（VideoView 为框架控件，免新增 gradle 依赖）。
+    // 播放的是下载到 cacheDir 的本地文件，不依赖任何网络鉴权头。
+    val videoPath = playerPath
+    if (videoPath != null) {
         Dialog(
-            onDismissRequest = { playerUrl = null },
+            onDismissRequest = { playerPath = null },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             Box(
@@ -1121,12 +1131,16 @@ fun ExplainScreen(
                 AndroidView(
                     factory = { ctx ->
                         VideoView(ctx).apply {
-                            setVideoURI(Uri.parse(videoUrl))
+                            setVideoPath(videoPath)
                             val mc = MediaController(ctx)
                             mc.setAnchorView(this)
                             setMediaController(mc)
                             setOnPreparedListener { start() }
-                            setOnCompletionListener { playerUrl = null }
+                            setOnCompletionListener { playerPath = null }
+                            setOnErrorListener { _, _, _ ->
+                                playerPath = null
+                                true
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxSize()
@@ -1135,7 +1149,7 @@ fun ExplainScreen(
                     Modifier
                         .align(Alignment.TopEnd)
                         .padding(16.dp)
-                        .clickable { playerUrl = null }
+                        .clickable { playerPath = null }
                 ) {
                     Icon(
                         Icons.Rounded.Close,

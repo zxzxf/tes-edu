@@ -1,6 +1,7 @@
 package com.tes.edu.viewmodel
 
 import com.tes.edu.data.remote.ApiService
+import com.tes.edu.data.remote.ExplanationVideoResp
 import com.tes.edu.data.remote.GraphResponse
 import com.tes.edu.data.remote.LoginRequest
 import com.tes.edu.data.remote.SimilarRequest
@@ -51,6 +52,8 @@ class SolveViewModelTest {
         override suspend fun similar(req: SimilarRequest): SolveResponse = next
 
         override suspend fun variants(kp: String, n: Int): VariantsResponse = error("unused")
+        override suspend fun explanationVideo(question: String): ExplanationVideoResp =
+            ExplanationVideoResp()
     }
 
     private lateinit var api: FakeApi

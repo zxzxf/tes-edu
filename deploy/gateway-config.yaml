@@ -46,6 +46,15 @@ routes:
     mode: jwt_c
     rate: 30
     burst: 60
+  # 学生端能力（作业卷 / 数字人讲解视频取流 / 功能开关）：C 端用户态，
+  # jwt_c 验签后透传身份头；租户隔离由 web-backend 按 X-Tenant-Id 执行。
+  # 2026-11-15：此前只在 137 线上手工加过，仓库漏了该路由——重新发布网关会把
+  # /api/student/ 打回 agent_backend 的匿名 catch-all，学生端全线 404。
+  - match: "/api/student/"
+    upstream: web_backend
+    mode: jwt_c
+    rate: 30
+    burst: 60
   # 占位登录（web-backend POST /login 换 JWT）：本身不鉴权
   - match: "/login"
     upstream: web_backend
@@ -55,7 +64,9 @@ routes:
   - match: "/api/admin/"
     upstream: web_backend
     mode: rbac
-    roles: ["admin", "teacher", "researcher", "operator"]
+    # 与 web-backend 五角色枚举 / 线上实际配置对齐（旧值含已废弃的
+    # researcher、后端不存在的 operator，且缺 region_admin/school/parent）。
+    roles: ["admin", "region_admin", "school", "teacher", "parent"]
     # 多租户强制隔离：B 端路由要求 JWT 带非空 tenant_id，无租户令牌一律 403，
     # 防止跨空间访问（C 端路由按用户态设计，不强制租户）
     require_tenant: true

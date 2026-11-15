@@ -2,6 +2,8 @@
 
 学生端（网关 /api/student/ 透传学生身份）：
 - GET  /explanation-video/by-question?question=...   查当前租户该题是否有可看视频
+- GET  /explanation-video/{id}/stream               带鉴权取流（App 下载到本地再播）
+- GET  /explanation-videos/{id}.mp4                 兼容历史直链（同样复校租户）
 
 教师 / 后台（网关 /api/admin/，需角色）：
 - POST /explanation-video/generate   触发 / 复用生成任务（幂等）
@@ -67,6 +69,7 @@ async def by_question(
     ).scalar_one_or_none()
     if row is None:
         return {
+            "id": None,
             "status": "none",
             "video_url": None,
             "duration_sec": None,
@@ -76,22 +79,76 @@ async def by_question(
     return _row_out(row)
 
 
-# ③·对象存储接入：用内部流式代理替代本地 StaticFiles 挂载。
-# 外部 URL（/api/student/explanation-videos/{id}.mp4）与网关不变；
-# MinIO 接入时从此取流，否则回退本地目录。
-@student_router.get("/explanation-videos/{video_id}.mp4")
-async def serve_video(video_id: str):
+async def _load_video_bytes(video_id: str) -> tuple[Optional[bytes], Optional[str]]:
+    """取视频字节：MinIO 优先，未部署 MinIO / 历史本地产物回退本地目录。
+
+    ③·对象存储接入后外部 URL 与网关均不变，取流统一走这里，避免三处实现漂移。
+    """
     object_name = f"explanation_videos/{video_id}.mp4"
     data, ctype = await object_storage.fetch_video(object_name)
-    if data is None:  # 回退本地静态文件（兼容未部署 MinIO / 历史本地产物）
+    if data is None:
         local = os.path.join(settings.explanation_video_dir, f"{video_id}.mp4")
         if os.path.exists(local):
             with open(local, "rb") as f:
                 data = f.read()
             ctype = "video/mp4"
+    return data, ctype
+
+
+async def _student_video_or_404(db, video_id: str, user: dict) -> ExplanationVideo:
+    """学生取流前的行级复校：必须存在、必须是本租户、必须已出片。
+
+    历史 ``serve_video`` 只靠网关 ``jwt_c`` 挡一下，登录后手工拼任意 id 就能跨租户
+    取流。这里按 ``by_question`` 同一口径（``business_tenant_id``）复校；
+    越权与不存在统一返 404，避免把别校视频的存在性泄露出去。
+    """
+    row = (
+        await db.execute(select(ExplanationVideo).where(ExplanationVideo.id == video_id))
+    ).scalar_one_or_none()
+    if (
+        row is None
+        or row.tenant_id != business_tenant_id(user)
+        or row.status != "done"
+    ):
+        raise HTTPException(status_code=404, detail="video not found")
+    return row
+
+
+def _video_response(data: Optional[bytes], ctype: Optional[str]) -> Response:
     if data is None:
         raise HTTPException(status_code=404, detail="video not found")
-    return Response(content=data, media_type=ctype or "video/mp4")
+    return Response(
+        content=data,
+        media_type=ctype or "video/mp4",
+        headers={"Cache-Control": "private, no-store"},
+    )
+
+
+# ④·学生端 App「看视频讲解」：VideoView / MediaPlayer 无法给网络请求附加
+# Authorization 头，直链必被网关 401；且 video_url 是相对路径，VideoView 也解析不了。
+# 因此 App 用 Retrofit（AuthInterceptor 带 Bearer）把流下载到私有缓存再用本地路径播放。
+@student_router.get("/explanation-video/{video_id}/stream")
+async def stream_video_student(
+    video_id: str,
+    user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _student_video_or_404(db, video_id, user)
+    data, ctype = await _load_video_bytes(video_id)
+    return _video_response(data, ctype)
+
+
+# 兼容历史直链（/api/student/explanation-videos/{id}.mp4）：同样复校租户，
+# 不再是无鉴权的裸取流。
+@student_router.get("/explanation-videos/{video_id}.mp4")
+async def serve_video(
+    video_id: str,
+    user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await _student_video_or_404(db, video_id, user)
+    data, ctype = await _load_video_bytes(video_id)
+    return _video_response(data, ctype)
 
 
 # ------------------------- 教师 / 后台端 -------------------------
@@ -124,17 +181,8 @@ async def stream_video_admin(
     if not is_admin and row.tenant_id != business_tenant_id(user):
         raise HTTPException(status_code=403, detail="无权访问该视频")
 
-    object_name = f"explanation_videos/{video_id}.mp4"
-    data, ctype = await object_storage.fetch_video(object_name)
-    if data is None:  # 回退本地静态文件（兼容未部署 MinIO / 历史本地产物）
-        local = os.path.join(settings.explanation_video_dir, f"{video_id}.mp4")
-        if os.path.exists(local):
-            with open(local, "rb") as f:
-                data = f.read()
-            ctype = "video/mp4"
-    if data is None:
-        raise HTTPException(status_code=404, detail="video not found")
-    return Response(content=data, media_type=ctype or "video/mp4")
+    data, ctype = await _load_video_bytes(video_id)
+    return _video_response(data, ctype)
 
 
 @admin_router.get("/explanation-video/config")

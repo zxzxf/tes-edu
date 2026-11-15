@@ -129,7 +129,7 @@
     admin/region_admin/teacher，teacher 侧栏可见、页面经网关可达。
   - **③ MinIO 对象存储**：`object_storage.py` 接 MinIO（`tes-edu-explanation` 桶），`run_generation`
     上传、后端 `serve_video` 路由内部流式代理（外部 URL/网关/学生端不变）；未配 MinIO 自动降级本地。
-- **⑤ 真数字人接入（2026-11-15 已落代码，待 137 填 env 启用）**：
+- **⑤ 真数字人接入（2026-11-15 已上线、真出片验证）**：
   - `app/services/ivh_client.py`：aPaaS **动态签名**（appkey+timestamp 字典序 →
     HmacSHA256(accesstoken) → base64 → urlencode）、`phototovideonotrain` 提交、
     `getprogress` 轮询、成品下载归档（**只保留 7 天**）。
@@ -139,11 +139,31 @@
   - `DigitalHumanGenerator`：Text 驱动（平台内置 TTS）/ OriginalVoice 驱动（复用百炼 `_tts`
     + 音频公网 PUT）两种，成功后 ffmpeg 统一转 H.264/yuv420p + ffprobe 回填时长；
     **未配置 / 鉴权失败 / 超时 / 出片失败一律自动回退 Lite**，业务绝不中断。
-  - 约束：形象照 `RefPhotoUrl` 必须公网可访问（137 的 MinIO 仅内网，需 COS 公有读/预签名）；
+  - 约束：形象照 `RefPhotoUrl` 必须公网可访问。**实际走零成本方案**：照片放前端
+    `public/avatar/teacher_v2.png`，`edu-lb` 的 `/admin/` 直反代前端且不经网关鉴权，
+    故 `https://sd12sd.icu/admin/avatar/teacher_v2.png` 即匿名直链，无需 COS。
+    换形象照必须换文件名（Cloudflare `max-age=14400` 会缓存旧图）。
     `InputSsml` 上限 300 字不能换行；720P 每秒视频约需 20 秒渲染，故异步轮询上限 30 分钟。
-  - 新增 19 个单测（mock 网络，不消耗额度），全量回归 761 passed。
+  - 线上实测两条短片均 `pending→processing→done`，日志确认走 `phototovideonotrain`
+    提交→轮询→下载，**全程无回退 Lite**；抽帧为真人口播（免费包右上角有「体验版」水印）。
+  - 新增 20 个单测（mock 网络，不消耗额度）。
+- **⑥ 学生 App 播放链路修复（2026-11-15 已落代码）**：原先 `VideoView.setVideoURI(video_url)`
+  有两层死因——`video_url` 是相对路径无 scheme/host；且 VideoView 发不出 Authorization 头，
+  网关 `/api/student/` 是 `jwt_c` 必 401。
+  - 后端新增 `GET /api/student/explanation-video/{id}/stream`（带 Bearer 取流），
+    `by_question` 回吐 `id`；取流前按 `business_tenant_id` + `status=done` **行级复校**，
+    历史直链 `/explanation-videos/{id}.mp4` 也补上同样校验（原先登录后拼 id 可跨租户取流）。
+  - App 新增独立 `ExplanationVideoStreamApi`（不改 `ApiService`，避免 fake 连锁），
+    `downloadExplanationVideo()` 用 AuthInterceptor 下载到 `cacheDir` 再 `setVideoPath()` 本地播。
+  - 顺带修掉既有 App 单测编译断裂（4 个 FakeApi 漏 `explanationVideo`）与
+    `AppBridgeTest` 过时断言（`pendingQuestion` 已升级为数据类）。
+  - 新增 12 个后端取流单测；后端全量 774 passed / 1 failed（既有
+    `test_course_kp_api` RBAC 用例不一致）；App `testDebugUnitTest` 全绿。
+  - `deploy/gateway-config.yaml` 补齐线上早已存在、仓库却漏掉的 `/api/student/` jwt_c 路由
+    与五角色白名单（否则重发网关会让学生端全线落到匿名 catch-all）。
 - **仍待做**：Kafka 异步生成 worker（当前 30 分钟轮询跑在 BackgroundTasks 里，
-  生产应迁到独立 worker 避免占用请求进程）；AI 生成内容标识合规后处理。
+  生产应迁到独立 worker 避免占用请求进程）；AI 生成内容标识合规后处理；
+  学生端 `by_question` 仍按题干 `content_hash` 精确匹配，教师生成时题干需与学生端一致。
 - 依赖 P3 讲解文案成熟（已具备）+ 数字人管线基建，靠后。
 
 ## ⑤ P5 商业化（⬜ 待办）

@@ -19,7 +19,8 @@ class AppBridgeTest {
     @Test
     fun postQuestion_thenConsume_returnsOnceAndClears() {
         AppBridge.postQuestion("求 f(x)=x^2-2x 的最小值")
-        assertEquals("求 f(x)=x^2-2x 的最小值", AppBridge.consumeQuestion())
+        // pendingQuestion 已升级为 PendingQuestion 数据类（带选择题选项/题型）
+        assertEquals("求 f(x)=x^2-2x 的最小值", AppBridge.consumeQuestion()?.text)
         assertNull("消费后必须清空", AppBridge.consumeQuestion())
     }
 
@@ -28,7 +29,20 @@ class AppBridgeTest {
         AppBridge.postQuestion("   ")
         assertNull("空白题干不投递", AppBridge.consumeQuestion())
         AppBridge.postQuestion("  题目 A  ")
-        assertEquals("题目 A", AppBridge.consumeQuestion())
+        assertEquals("题目 A", AppBridge.consumeQuestion()?.text)
+    }
+
+    @Test
+    fun postQuestion_keepsOptionsAndType() {
+        AppBridge.postQuestion(
+            "下列哪个是偶数？",
+            optionsJson = "[\"1\",\"2\",\"3\"]",
+            questionType = "choice"
+        )
+        val q = AppBridge.consumeQuestion()
+        assertEquals("下列哪个是偶数？", q?.text)
+        assertEquals("[\"1\",\"2\",\"3\"]", q?.optionsJson)
+        assertEquals("choice", q?.questionType)
     }
 
     @Test
