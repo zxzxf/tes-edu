@@ -1724,6 +1724,20 @@ private fun RedoDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = TesEduColors.TextSecondary
                 )
+                // 选择题：重做时把选项一并列出，便于对照作答（只读，无对错高亮）。
+                // 填空/解答题不处理，仅保留下方答案输入框。
+                if (q.questionType == "choice") {
+                    val redoOpts = remember(q.options) { parseWrongOptions(q.options) }
+                    if (redoOpts.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Column(
+                            Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            redoOpts.forEach { opt -> WrongOptionRow(opt.label, opt.content) }
+                        }
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
                 if (!done) {
                     SoftFieldCard(
