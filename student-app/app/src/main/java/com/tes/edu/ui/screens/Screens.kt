@@ -865,12 +865,152 @@ private fun HintPanel(
 
 // CameraScreen：T-P2~P5 已落地，见 CameraScreen.kt（系统相机 Intent + 压缩上传 + 可编辑识别结果）
 
+/**
+ * 讲解页（#28 数字人讲题短视频的短期落地）：
+ * 在后端视频管线（TTS + 数字人驱动 + ffmpeg）就绪前，先把已成熟的「讲解文案」
+ * （SolveViewModel 的 answer / steps / knowledgePoints）做成图文讲解页，
+ * 公式走 MathText 渲染，避免「讲解」tab 一直是空壳。
+ *
+ * 题目来源两条路：
+ * ① 错题本点「看解析」→ AppBridge.postQuestion 投题 → 这里 LaunchedEffect 消费并拉讲解；
+ * ② 学生在本页直接粘贴题干 →「获取讲解」按钮调用 solve（不带作答，纯讲解）。
+ */
 @Composable
-fun ExplainScreen() = EmptyState(
-    icon = Icons.Rounded.MenuBook,
-    title = "讲解展示",
-    subtitle = "分步解析与公式推导将在这里呈现"
-)
+fun ExplainScreen(
+    vm: SolveViewModel = viewModel()
+) {
+    val ui by vm.ui.collectAsState()
+    val pendingQuestion by AppBridge.pendingQuestion.collectAsState()
+    var question by remember { mutableStateOf("") }
+
+    // 错题本/他处投来的题目：消费后即拉讲解，并预填输入框
+    LaunchedEffect(pendingQuestion) {
+        val p = pendingQuestion
+        if (p != null && p.text.isNotBlank()) {
+            question = p.text
+            AppBridge.consumeQuestion()
+            vm.solve(p.text)
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp)
+    ) {
+        Spacer(Modifier.height(14.dp))
+        TesHero(
+            title = "讲解",
+            subtitle = "分步解析与公式推导，帮你把题真正想通",
+            badge = "AI 解析"
+        )
+        Spacer(Modifier.height(18.dp))
+
+        SoftFieldCard(
+            label = "题目",
+            hint = "把题目放进来，点「获取讲解」看分步解析",
+            value = question,
+            onValueChange = { question = it },
+            placeholder = "例如：已知 sinA=3/5，A 为锐角，求 cos2A…",
+            minLines = 3,
+            leadingIcon = Icons.Rounded.Quiz,
+            mathPreview = true
+        )
+        Spacer(Modifier.height(12.dp))
+        GradientButton(
+            text = if (ui.loading) "生成讲解中…" else "获取讲解",
+            icon = Icons.Rounded.AutoAwesome,
+            enabled = question.isNotBlank() && !ui.loading
+        ) {
+            // 记录来源题干：触类页据此自动生成变式题
+            AppBridge.setLastQuestion(question)
+            vm.solve(question)
+        }
+
+        if (ui.loading) {
+            Spacer(Modifier.height(16.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = TesEduColors.Brand
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "正在生成讲解…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TesEduColors.TextSecondary
+                )
+            }
+        }
+
+        ui.error?.let { err ->
+            Spacer(Modifier.height(16.dp))
+            SoftNotice(
+                text = err,
+                icon = Icons.Rounded.ErrorOutline,
+                color = TesEduColors.Danger,
+                bg = TesEduColors.DangerSoft
+            )
+        }
+
+        if (ui.answer.isNotBlank()) {
+            Spacer(Modifier.height(16.dp))
+            AnswerCard(ui.answer)
+        }
+
+        if (ui.visibleSteps.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            StepsCard(ui.visibleSteps)
+        }
+
+        if (ui.knowledgePoints.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            SoftCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(26.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(TesEduColors.BrandSoft),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Rounded.MenuBook,
+                            contentDescription = null,
+                            tint = TesEduColors.Brand,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "涉及考点",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = TesEduColors.TextPrimary
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    ui.knowledgePoints.forEach { kp ->
+                        InfoPill(kp, TesEduColors.TextSecondary, TesEduColors.FieldBg)
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
+    }
+}
 
 /**
  * 触类旁通（T-S3/T-S4）：一题做完 -> 3 道同型/变式题 -> 点「再练这道」回输入页。
@@ -1422,7 +1562,12 @@ private fun WrongSection(
                 },
                 onMakeCard = { onMakeCard(q) },
                 onRemove = { onRemove(q) },
-                onRedo = { onRedo(q) }
+                onRedo = { onRedo(q) },
+                onExplain = {
+                    // 把题干（选择题含选项 JSON + 题型）投到讲解页，再跳转过去
+                    AppBridge.postQuestion(q.question, q.options, q.questionType)
+                    onNavigate(Screen.Explain.route)
+                }
             )
         }
     }
@@ -1560,7 +1705,8 @@ private fun WrongCard(
     onPractice: () -> Unit,
     onMakeCard: () -> Unit,
     onRemove: () -> Unit,
-    onRedo: () -> Unit
+    onRedo: () -> Unit,
+    onExplain: () -> Unit
 ) {
     SoftCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1673,6 +1819,12 @@ private fun WrongCard(
         }
 
         Spacer(Modifier.height(14.dp))
+        // 看解析：进入讲解页查看分步讲解与公式推导（#28 短期落地）
+        SoftOutlinedButton(
+            text = "看解析",
+            icon = Icons.Rounded.MenuBook
+        ) { onExplain() }
+        Spacer(Modifier.height(10.dp))
         SoftOutlinedButton(
             text = "重做并判分",
             icon = Icons.Rounded.CheckCircle
