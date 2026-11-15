@@ -110,9 +110,10 @@
   （pending→processing→done|failed）+ 生成 API（教师/后台触发、学生端按租户查询）
   + 生成 worker（BackgroundTasks 同步降级，预留 Kafka 异步主题）+ App 全屏播放器
   （VideoView）+ 讲解页「看视频讲解」入口与降级（无视频时引导用「听讲解」）。
-- **重型合成仍依赖基建**：当前 `LiteVideoGenerator` 用 ffmpeg 字幕幻灯片 + 可选百炼
-  CosyVoice 配音（无 GPU）；真·数字人肖像口播（SadTalker/Wav2Lip + GPU 服务器）为后续。
-  合成实现藏在 `VideoGenerator` 接口后，换实现不影响管线。
+- **生成器可替换，两条实现都零 GPU**：`VideoGenerator` 接口后藏两个实现，换实现不动管线。
+  - `LiteVideoGenerator`（默认）：ffmpeg 字幕幻灯片 + 可选百炼 CosyVoice 配音，纯 CPU。
+  - `DigitalHumanGenerator`（`DIGITAL_HUMAN_IMPL=ivh`）：腾讯云智能数智人 IVH 播报视频制作
+    **SaaS 出卡**，137 只做编排/落库/MinIO/取流，**无需自购或租用 GPU**；口播驱动那步由腾讯侧 GPU 完成。
 - **总开关已置 `true`（2026-11-15 开启并验证）**：`config.py` 默认 `digital_human_enabled=True`
   （env `DIGITAL_HUMAN_ENABLED=false` 可关）。`Dockerfile` 已加 `ffmpeg` + `fonts-wqy-zenhei`。
   实测：137 容器内置 ffmpeg+文泉驿字体，`LiteVideoGenerator` 真实合成出
@@ -128,7 +129,21 @@
     admin/region_admin/teacher，teacher 侧栏可见、页面经网关可达。
   - **③ MinIO 对象存储**：`object_storage.py` 接 MinIO（`tes-edu-explanation` 桶），`run_generation`
     上传、后端 `serve_video` 路由内部流式代理（外部 URL/网关/学生端不变）；未配 MinIO 自动降级本地。
-- **仍待做**：真·数字人肖像口播（SadTalker/Wav2Lip+GPU）、Kafka 异步生成 worker。
+- **⑤ 真数字人接入（2026-11-15 已落代码，待 137 填 env 启用）**：
+  - `app/services/ivh_client.py`：aPaaS **动态签名**（appkey+timestamp 字典序 →
+    HmacSHA256(accesstoken) → base64 → urlencode）、`phototovideonotrain` 提交、
+    `getprogress` 轮询、成品下载归档（**只保留 7 天**）。
+    ⚠️ 平台「调用信息」页给的静态 `sign` 不能用（会过期）；`virtualmanProjectId` 属于
+    **交互数智人**（建长流），播报视频制作不需要。实测 v5/v4 两套 appkey 均通过 aPaaS 鉴权
+    （`getprogress` 返回业务码 `110006 记录不存在` 而非鉴权失败）。
+  - `DigitalHumanGenerator`：Text 驱动（平台内置 TTS）/ OriginalVoice 驱动（复用百炼 `_tts`
+    + 音频公网 PUT）两种，成功后 ffmpeg 统一转 H.264/yuv420p + ffprobe 回填时长；
+    **未配置 / 鉴权失败 / 超时 / 出片失败一律自动回退 Lite**，业务绝不中断。
+  - 约束：形象照 `RefPhotoUrl` 必须公网可访问（137 的 MinIO 仅内网，需 COS 公有读/预签名）；
+    `InputSsml` 上限 300 字不能换行；720P 每秒视频约需 20 秒渲染，故异步轮询上限 30 分钟。
+  - 新增 19 个单测（mock 网络，不消耗额度），全量回归 761 passed。
+- **仍待做**：Kafka 异步生成 worker（当前 30 分钟轮询跑在 BackgroundTasks 里，
+  生产应迁到独立 worker 避免占用请求进程）；AI 生成内容标识合规后处理。
 - 依赖 P3 讲解文案成熟（已具备）+ 数字人管线基建，靠后。
 
 ## ⑤ P5 商业化（⬜ 待办）

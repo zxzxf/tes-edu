@@ -113,6 +113,41 @@ class Settings(BaseSettings):
     minio_bucket: str = "tes-edu-explanation"
     minio_use_ssl: bool = False
 
+    # ---- ⑤·真数字人（腾讯云智能数智人 IVH 播报视频制作，SaaS 出卡、137 零 GPU）----
+    # 实现选择：lite=ffmpeg 字幕卡片（默认、零依赖）；ivh=SaaS 数智人肖像口播。
+    # IVH 未配置 / 提交失败 / 超时 / 出片失败时**自动回退 Lite**，业务不中断。
+    # 注意：这不是「交互数智人」，不需要 virtualmanProjectId，也不建长连接。
+    digital_human_impl: str = "lite"            # lite | ivh
+    # aPaaS 凭证：只走环境变量（web-backend.env），**绝不进 git / 镜像 / 日志**。
+    # 签名由 ivh_client 每次用 accesstoken 对 appkey+timestamp 动态计算，
+    # 平台给的静态 sign 字段不能用（会过期），请勿配置。
+    ivh_base_url: str = "https://gw.tvs.qq.com"
+    ivh_appkey: str = ""
+    ivh_accesstoken: str = ""
+    # 照片免训练接口：一张形象照 + 文本/音频 -> 肖像口播视频。RefPhotoUrl 必须公网可访问。
+    # 说明：137 的 MinIO 仅内网可达，不能当 RefPhotoUrl 用，需 COS 公有读或预签名 URL。
+    ivh_ref_photo_url: str = ""
+    # 驱动方式：Text=平台内置 TTS（只传文本，最省事）；
+    # OriginalVoice=复用本地 _tts 产出的音频（需公网可访问音频 URL）。
+    ivh_driver_type: str = "Text"              # Text | OriginalVoice
+    # OriginalVoice 模式下：把 _tts 产物上传到公网后返回 URL 的回调前缀；
+    # 留空则 OriginalVoice 不可用并自动改走 Text（不中断）。
+    ivh_audio_public_base: str = ""
+    # Text 驱动时的音色 / 语速（SpeechParam 必填项）。
+    ivh_timbre_key: str = "female_1"
+    ivh_speed: float = 1.0
+    ivh_volume: int = 0
+    # 出片约束：照片免训练接口 InputSsml 上限 300 字、不能换行；
+    # 720P 每秒视频约需 20 秒渲染，故必须异步轮询，不能用短超时同步等。
+    ivh_max_ssml_chars: int = 280               # 留 20 字余量给转义
+    ivh_request_timeout: float = 30.0
+    ivh_poll_interval: float = 10.0
+    ivh_poll_timeout: float = 1800.0            # 30 分钟上限
+    ivh_download_timeout: float = 120.0
+    # 成品视频只保留 7 天：出片后立即下载归档到 MinIO / 本地，绝不把 MediaUrl 直接落库。
+    # 是否用 ffmpeg 把成品统一转码为 H.264/yuv420p mp4（学生端 VideoView 兼容性）。
+    ivh_normalize_video: bool = True
+
     @property
     def kafka_enabled(self) -> bool:
         """是否启用异步管道；未配置时降级为同步直写。"""

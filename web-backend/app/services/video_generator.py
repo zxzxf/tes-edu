@@ -6,10 +6,12 @@
 - ``LiteVideoGenerator``：无 GPU 的轻量实现——ffmpeg lavfi 渲染字幕幻灯片 +
   可选阿里云百炼 CosyVoice 配音；缺 ffmpeg / 中文字体 / TTS 密钥时**优雅降级**
   并写明原因（状态置 failed，不崩溃）。
-- （未来）``DigitalHumanGenerator``：接 GPU 服务器上的 CosyVoice + SadTalker /
-  Wav2Lip 肖像口播；接口不变，只在配置里换实现即可。
+- ``DigitalHumanGenerator``：腾讯云智能数智人 IVH 播报视频制作（SaaS 出卡），
+  **137 零 GPU**：肖像照 + 讲解文本 -> 口播视频。未配置 / 提交失败 / 超时 /
+  出片失败时**自动回退 LiteVideoGenerator**，业务绝不中断。
 
-视频落 ``settings.explanation_video_dir``，由 main.py 的静态路由对外提供。
+视频落 ``settings.explanation_video_dir``，再由 ``run_generation`` 上传 MinIO
+（未配置时保留本地兜底），由 stream 路由统一对外提供。
 """
 from __future__ import annotations
 
@@ -199,10 +201,129 @@ class LiteVideoGenerator(VideoGenerator):
             return None
 
 
+class DigitalHumanGenerator(VideoGenerator):
+    """真数字人：腾讯云 IVH 播报视频制作（SaaS 出卡，137 全程零 GPU）。
+
+    流程：提交照片免训练任务 -> 轮询 getprogress -> 下载 MediaUrl 归档 ->
+    可选 ffmpeg 统一转码 -> ffprobe 回填 duration_sec。
+
+    **降级红线**：任何 IVH 侧失败（未配置、鉴权失败、超时、出片失败、下载失败）
+    都记录告警后回退 ``LiteVideoGenerator`` 出字幕卡片，绝不把任务打成 failed、
+    也绝不把异常抛穿 ``run_generation``。
+    """
+
+    async def generate(self, script: str, out_path: str) -> Tuple[bool, Optional[float], Optional[str]]:
+        from app.services import ivh_client
+
+        # 配置不全 = 直接降级，不浪费一次请求（也不消耗时长包）。
+        if not (settings.ivh_appkey and settings.ivh_accesstoken and settings.ivh_ref_photo_url):
+            logger.warning("IVH 未配置齐全（appkey/accesstoken/ref_photo_url），回退 Lite")
+            return await self._fallback(script, out_path)
+
+        try:
+            audio_url = await self._publish_audio(script, out_path)
+            driver = settings.ivh_driver_type
+            if driver == "OriginalVoice" and not audio_url:
+                logger.warning("OriginalVoice 缺少音频公网通道，本次自动改走 Text 驱动")
+                driver = "Text"
+            task_id = await ivh_client.submit_photo_video(
+                script,
+                ref_photo_url=settings.ivh_ref_photo_url,
+                driver_type=driver,
+                audio_url=audio_url,
+            )
+            media_url, _subtitles, _duration_ms = await ivh_client.wait_for_media(task_id)
+            await ivh_client.download_video(media_url, out_path)
+            if settings.ivh_normalize_video:
+                await self._normalize(out_path)
+            duration = await LiteVideoGenerator()._probe_duration(out_path)
+            return True, duration, None
+        except Exception as e:  # noqa: BLE001
+            # IVHError / 网络 / ffmpeg / 磁盘异常一律降级，业务不中断
+            logger.warning("IVH 生成失败，回退 Lite：%s: %s", type(e).__name__, e)
+            return await self._fallback(script, out_path)
+
+    async def _fallback(self, script: str, out_path: str) -> Tuple[bool, Optional[float], Optional[str]]:
+        try:
+            return await LiteVideoGenerator().generate(script, out_path)
+        except Exception as e:  # noqa: BLE001
+            return False, None, f"IVH 与 Lite 均失败：{e}"
+
+    async def _publish_audio(self, script: str, out_path: str) -> Optional[str]:
+        """OriginalVoice 模式：复用 Lite 的百炼 _tts 生成音频，再发布到公网可访问 URL。
+
+        ``ivh_audio_public_base`` 需是一个**接受 PUT 且可读**的 HTTP(S) 端点
+        （COS 预签名 PUT / 自建中继均可）；支持 ``{name}`` 占位符。
+        任何环节失败返回 None，由调用方自动改走 Text 驱动（平台内置 TTS）。
+        """
+        base = settings.ivh_audio_public_base
+        if settings.ivh_driver_type != "OriginalVoice" or not base:
+            return None
+        audio_path = await LiteVideoGenerator()._tts(script, out_path)
+        if not audio_path or not os.path.exists(audio_path):
+            return None
+        name = os.path.basename(audio_path)
+        url = base.replace("{name}", name) if "{name}" in base else base.rstrip("/") + "/" + name
+        try:
+            import httpx
+
+            with open(audio_path, "rb") as f:
+                content = f.read()
+            async with httpx.AsyncClient(timeout=settings.ivh_request_timeout) as client:
+                resp = await client.put(url, content=content, headers={"Content-Type": "audio/mpeg"})
+            if resp.status_code not in (200, 201, 204):
+                logger.warning("音频公网发布失败 HTTP %s", resp.status_code)
+                return None
+            return url
+        except Exception as e:  # noqa: BLE001
+            logger.warning("音频公网发布异常：%s", e)
+            return None
+        finally:
+            try:
+                os.remove(audio_path)
+            except OSError:
+                pass
+
+    async def _normalize(self, out_path: str) -> None:
+        """把 IVH 成品统一转 H.264/yuv420p + faststart，保证学生端 VideoView 可播。
+
+        转码失败**不视为生成失败**：IVH 输出本身已是 mp4，保留原文件即可。
+        """
+        ffmpeg = settings.ffmpeg_bin
+        if not _which(ffmpeg):
+            return
+        tmp = out_path + ".norm.mp4"
+        cmd = [
+            ffmpeg, "-y", "-i", out_path,
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-movflags", "+faststart", tmp,
+        ]
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode == 0 and os.path.exists(tmp) and os.path.getsize(tmp) > 0:
+                os.replace(tmp, out_path)
+            else:
+                logger.warning("IVH 成品转码跳过（保留原片）：%s", stderr.decode(errors="ignore")[:200])
+        except Exception as e:  # noqa: BLE001
+            logger.warning("IVH 成品转码异常（保留原片）：%s", e)
+        finally:
+            try:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+            except OSError:
+                pass
+
+
 def get_generator() -> VideoGenerator:
-    if settings.digital_human_enabled:
-        return LiteVideoGenerator()
-    return NoopGenerator()
+    if not settings.digital_human_enabled:
+        return NoopGenerator()
+    # 默认 lite（零依赖）；显式设 DIGITAL_HUMAN_IMPL=ivh 才走 SaaS 真数字人。
+    if settings.digital_human_impl.strip().lower() in ("ivh", "digital_human", "saas"):
+        return DigitalHumanGenerator()
+    return LiteVideoGenerator()
 
 
 async def run_generation(row_id: str) -> None:

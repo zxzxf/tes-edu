@@ -141,11 +141,24 @@ async def stream_video_admin(
 async def config(user: dict = Depends(require_role(Role.ADMIN, Role.REGION_ADMIN, Role.TEACHER))):
     from app.core.config import settings
 
+    impl = settings.digital_human_impl.strip().lower()
+    is_ivh = impl in ("ivh", "digital_human", "saas")
+    ivh_ready = bool(
+        settings.ivh_appkey and settings.ivh_accesstoken and settings.ivh_ref_photo_url
+    )
     return {
         "enabled": settings.digital_human_enabled,
-        "avatars": [{"id": "default", "name": "默认讲师（占位）"}],
-        "voices": [{"id": "default", "name": "默认音色（占位）"}],
-        "note": "真·数字人形象 / 音色需在 GPU 服务器部署 CosyVoice + SadTalker/Wav2Lip 后接入",
+        "impl": "ivh" if is_ivh else "lite",
+        "true_digital_human": is_ivh and ivh_ready,
+        "avatars": [{"id": "default", "name": "默认讲师（照片免训练形象）"}],
+        "voices": [{"id": settings.ivh_timbre_key, "name": "平台内置音色"}],
+        "note": (
+            "真数字人走腾讯云 IVH SaaS 播报视频制作（137 零 GPU）；"
+            "未配置或出片失败时自动回退 ffmpeg 字幕卡片，业务不中断"
+            if is_ivh and ivh_ready
+            else "当前为 Lite 字幕卡片（零 GPU）；配置 IVH_APPKEY / IVH_ACCESSTOKEN / "
+                 "IVH_REF_PHOTO_URL 并设 DIGITAL_HUMAN_IMPL=ivh 后启用真数字人"
+        ),
     }
 
 
