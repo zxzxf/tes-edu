@@ -146,6 +146,33 @@ class DrillCard(Base):
     deleted_at = Column(DateTime(timezone=True))
 
 
+class CourseKbAnnotationSuggestion(Base):
+    """T-CAP1 LLM 预标建议（待校队列）。
+
+    红线：LLM 建议不直接写 course_kb（含已发布题），一律先落本表 pending，
+    人工 approve 后才由 apply 服务写回。唯一键 (content_hash, field_name) 保证续跑幂等。
+    表由迁移 0024 建在 106 生产库；本 ORM 供脚本/接口读写，create_all 只建缺失表。
+    """
+
+    __tablename__ = "course_kb_annotation_suggestions"
+
+    id = Column(Integer, primary_key=True)
+    content_hash = Column(String(64), nullable=False, index=True)
+    field_name = Column(String(24), nullable=False)       # difficulty / year / paper_type
+    suggested_value = Column(Text, nullable=False)
+    reason = Column(Text)
+    source_model = Column(String(64))
+    prompt_version = Column(Integer, nullable=False, default=1)
+    status = Column(String(16), nullable=False, default="pending", index=True)
+    reviewed_by = Column(String(64))
+    reviewed_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("content_hash", "field_name", name="uq_kb_anno_hash_field"),
+    )
+
+
 class DrillReview(Base):
     """复习流水：每次评分落一条，rated_at 用客户端复习时间（离线补传也要准）。"""
 
