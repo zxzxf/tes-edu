@@ -99,18 +99,21 @@ async def _build_index(
     只取三列，避免把整行 JSON/向量拉回内存。
     """
     stmt = select(
-        CourseQuestion.id, CourseQuestion.content_hash, CourseQuestion.stem,
+        CourseQuestion.id, CourseQuestion.content_hash,
+        CourseQuestion.text_fp, CourseQuestion.stem,
     )
     if scope_tenant_id:
         stmt = stmt.where(CourseQuestion.tenant_id == scope_tenant_id)
     hash_index: Dict[str, Set[int]] = {}
     fp_index: Dict[str, Set[int]] = {}
-    for qid, ch, stem in (await db.execute(stmt)).all():
+    for qid, ch, fp, stem in (await db.execute(stmt)).all():
         if ch:
             hash_index.setdefault(str(ch), set()).add(qid)
-        fp = text_fingerprint(stem)
+        # 迁移 0027 前入库的存量行 text_fp 可能为 NULL，现算兜底；
+        # 回填脚本跑完后所有新行都走持久化的等值索引。
+        fp = fp or text_fingerprint(stem)
         if fp:
-            fp_index.setdefault(fp, set()).add(qid)
+            fp_index.setdefault(str(fp), set()).add(qid)
     return hash_index, fp_index
 
 

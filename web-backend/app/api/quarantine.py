@@ -14,7 +14,11 @@
 - ``POST /{id}/resolve``  三种处置：
     * ``release``  确认不是脏题 → ``draft``（回到常规审核流程）；
     * ``publish``  确认干净且答案合规 → 直接 ``published``（答案不合规 409）；
-    * ``archive``  确认重复/脏题 → 保留数据但移出队列（不做硬删除，删数据不可逆）。
+    * ``archive``  确认重复/脏题 → 保留数据但移出队列（不做硬删除，删数据不可逆）；
+- ``POST /batch-resolve``  一次处置多条，部分成功逐条回报，不让一条失败拖垮整批；
+- ``GET /duplicate-groups`` / ``POST /duplicate-groups/{key}/resolve``
+  存量 published 真题重复的**人工逐组裁决**：接口只摆出候选组，留哪条由人点选，
+  ``keep_one`` 只归档组内其余项、保留项继续留在卷池，``keep_all`` 一条题都不动。
 
 **为什么不提供硬删除**：异常队列里的「重复」是靠文本指纹判的，指纹相同不等于
 教研口径上该删哪一条（可能两条都不完整、需要合并）。批量删数据不可逆，留给
@@ -26,7 +30,7 @@
 本区域）。
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -41,7 +45,7 @@ from app.core.intake_guard import (
 )
 from app.core.rbac import Role
 from app.core.security import require_role
-from app.models.course_kb import CourseQuestion
+from app.models.course_kb import CourseQuestion, DupGroupDecision
 from app.services.scope import resolve_read_scope, where_tenant
 
 router = APIRouter(prefix="/quarantine", tags=["tcap4-quarantine"])
@@ -139,16 +143,17 @@ async def _dup_index(db: AsyncSession) -> tuple[Dict[str, List[int]], Dict[str, 
     改为持久化 ``text_fp`` 列 + 等值查询，已登记为后续优化项。
     """
     rows = (await db.execute(
-        select(CourseQuestion.id, CourseQuestion.content_hash, CourseQuestion.stem)
+        select(CourseQuestion.id, CourseQuestion.content_hash,
+               CourseQuestion.text_fp, CourseQuestion.stem)
     )).all()
     by_hash: Dict[str, List[int]] = {}
     by_fp: Dict[str, List[int]] = {}
-    for qid, ch, stem in rows:
+    for qid, ch, fp, stem in rows:
         if ch:
             by_hash.setdefault(str(ch), []).append(qid)
-        fp = text_fingerprint(stem)
+        fp = fp or text_fingerprint(stem)  # 迁移 0027 前存量行兜底
         if fp:
-            by_fp.setdefault(fp, []).append(qid)
+            by_fp.setdefault(str(fp), []).append(qid)
     return by_hash, by_fp
 
 
@@ -250,7 +255,7 @@ async def items(
             others = [i for i in by_hash.get(str(row.content_hash or ""), []) if i != row.id]
             dup_of = others[0] if others else None
         elif str(row.guard_gate or "") == "dedup_text":
-            fp = text_fingerprint(row.stem)
+            fp = row.text_fp or text_fingerprint(row.stem)
             others = [i for i in by_fp.get(fp or "", []) if i != row.id]
             dup_of = others[0] if others else None
         out.append(_item_out(row, dup_of))
@@ -261,32 +266,207 @@ class ResolveBody(BaseModel):
     action: str  # release / publish / archive
 
 
-@router.post("/{question_id}/resolve")
-async def resolve(
-    question_id: int,
-    body: ResolveBody,
+class BatchResolveBody(BaseModel):
+    ids: List[int]
+    action: str  # release / publish / archive
+
+
+# ---------------------------------------------------------------- 真题重复组裁决
+def _group_key_of(prefix: str, value: Any) -> Optional[str]:
+    """组键：fp:<text_fp> / hash:<content_hash>；与页面 URL 直接互转。"""
+    v = str(value or "").strip()
+    return f"{prefix}:{v}" if v else None
+
+
+def _match_group_key(row: CourseQuestion, group_key: str) -> bool:
+    if group_key.startswith("fp:"):
+        fp = row.text_fp or text_fingerprint(row.stem)
+        return group_key == f"fp:{fp}"
+    if group_key.startswith("hash:"):
+        return group_key == f"hash:{row.content_hash}"
+    return False
+
+
+async def _group_members(
+    db: AsyncSession, *, group_key: str, mode: str, tenant: Optional[str],
+    tenants: Optional[List[str]], statuses: Sequence[str],
+) -> List[CourseQuestion]:
+    """按组键在指定数据范围内重新取成员——绝不信任前端传来的 id 列表。"""
+    stmt = select(CourseQuestion).where(CourseQuestion.status.in_(list(statuses)))
+    if mode == "tenant":
+        stmt = stmt.where(CourseQuestion.tenant_id == tenant)
+    elif mode == "tenants":
+        stmt = stmt.where(CourseQuestion.tenant_id.in_(tenants or []))
+    rows = (await db.execute(stmt.order_by(CourseQuestion.id))).scalars().all()
+    return [r for r in rows if _match_group_key(r, group_key)]
+
+
+@router.get("/duplicate-groups")
+async def duplicate_groups(
+    status: str = Query("published", description="默认只看真题重复组（published）"),
+    q: Optional[str] = Query(None, description="题干关键词"),
+    limit: int = Query(50, ge=1, le=200),
     user=Depends(require_role(*_ROLES)),
     db: AsyncSession = Depends(get_db),
 ):
-    """处置一条异常题：放行入草稿 / 确认发布 / 归档移出队列。
+    """列出待人工裁决的重复组（按持久化 text_fp 分组，同 hash 也可识别）。
 
-    处置后清空 ``guard_gate``/``guard_reason``（避免「已处置但仍显示隔离原因」），
-    留痕改由 ``source_tag`` 的 ``:guard_released``/``:guard_archived`` 后缀 +
-    ``reviewed_by``/``reviewed_at`` 承载。
+    **不自动改任何题目**：这里只把「哪几条像同一道题」摆出来，决定留在库里的是
+    哪条由人在页面上逐组点选（``POST /duplicate-groups/{key}/resolve``）。已裁决
+    的组不再返回，但题目本身一条都不自动删、不自动清组卷池。
+    """
+    statuses = [s.strip() for s in status.split(",") if s.strip()] or ["published"]
+    scope = await resolve_read_scope(user, db)
+    stmt = select(CourseQuestion).where(
+        CourseQuestion.status.in_(statuses),
+        or_(CourseQuestion.source_tag.is_(None), ~CourseQuestion.source_tag.like(f"%{_SUFFIX_ARCHIVED}")),
+    )
+    stmt = where_tenant(stmt, CourseQuestion.tenant_id, scope)
+    if q:
+        stmt = stmt.where(CourseQuestion.stem.ilike(f"%{q.strip()}%"))
+    rows = (await db.execute(stmt.order_by(CourseQuestion.id))).scalars().all()
+
+    decided = set((await db.execute(select(DupGroupDecision.group_key))).scalars().all())
+    buckets: Dict[str, List[CourseQuestion]] = {}
+    for row in rows:
+        key = (
+            _group_key_of("fp", row.text_fp or text_fingerprint(row.stem))
+            or _group_key_of("hash", row.content_hash)
+        )
+        if key and key not in decided:
+            buckets.setdefault(key, []).append(row)
+
+    out = []
+    for key, members in buckets.items():
+        if len(members) < 2:
+            continue
+        out.append({
+            "group_key": key,
+            "size": len(members),
+            "subject": members[0].subject,
+            "year": members[0].year,
+            "stem": members[0].stem,
+            "members": [_item_out(m) for m in members],
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
+class DuplicateGroupResolveBody(BaseModel):
+    action: str            # keep_one（保留一条、其余归档）| keep_all（确认全留，不改动题目）
+    keep_id: Optional[int] = None
+
+
+@router.post("/duplicate-groups/{group_key}/resolve")
+async def resolve_duplicate_group(
+    group_key: str,
+    body: DuplicateGroupResolveBody,
+    user=Depends(require_role(*_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """人工逐组裁决：指定保留哪一条，其余**归档移出队列**（保留数据，不硬删）。
+
+    ``keep_all`` 表示教研确认这组不是重复（例如同一道题不同小问），不碰任何题目，
+    只写裁决留痕让该组从待办消失。两种动作都写 ``dup_group_decisions``，可追溯谁在
+    什么时候判的。组内成员按当前用户数据范围重新计算，前端伪造 id 会被 422 拒。
     """
     action = (body.action or "").strip()
-    if action not in ("release", "publish", "archive"):
-        raise HTTPException(status_code=422, detail="action 只支持 release / publish / archive")
+    if action not in ("keep_one", "keep_all"):
+        raise HTTPException(status_code=422, detail="action 只支持 keep_one / keep_all")
+    if not group_key.startswith(("fp:", "hash:")):
+        raise HTTPException(status_code=422, detail="group_key 格式错误（应为 fp: 或 hash: 前缀）")
+
+    exists = (await db.execute(
+        select(DupGroupDecision).where(DupGroupDecision.group_key == group_key)
+    )).scalar_one_or_none()
+    if exists is not None:
+        raise HTTPException(status_code=409, detail="该重复组已裁决")
 
     scope = await resolve_read_scope(user, db)
-    stmt = where_tenant(
-        select(CourseQuestion).where(CourseQuestion.id == question_id),
-        CourseQuestion.tenant_id, scope,
+    mode = scope.get("mode")
+    members = await _group_members(
+        db, group_key=group_key, mode=mode,
+        tenant=scope.get("tenant"), tenants=scope.get("tenants"),
+        statuses=["published", "draft"],
     )
-    row = (await db.execute(stmt)).scalar_one_or_none()
-    if row is None:
-        raise HTTPException(status_code=404, detail="question not found")
+    if len(members) < 2:
+        raise HTTPException(status_code=404, detail="重复组不存在或超出当前数据范围")
+    ids = [m.id for m in members]
+    if action == "keep_one" and body.keep_id not in ids:
+        raise HTTPException(status_code=422, detail="keep_id 不在该重复组内")
 
+    if action == "keep_one":
+        now = datetime.now(timezone.utc)
+        for row in members:
+            if row.id == body.keep_id:
+                continue
+            base = _base_of(row.source_tag)
+            row.status = "quarantine"
+            row.source_tag = f"{base}:{TAG_ARCHIVED}"
+            row.guard_gate = "dup_group_archived"
+            row.guard_reason = f"人工裁决重复组：保留 #{body.keep_id}，本条归档（不删数据）"
+            row.guard_dup_of = body.keep_id
+            row.reviewed_by = user.get("user_id")
+            row.reviewed_at = now
+
+    db.add(DupGroupDecision(
+        group_key=group_key, decision=action,
+        keep_id=body.keep_id if action == "keep_one" else None,
+        member_ids=ids, reviewed_by=user.get("user_id"),
+        reviewed_at=datetime.now(timezone.utc),
+    ))
+    await db.commit()
+    return {
+        "group_key": group_key, "action": action,
+        "keep_id": body.keep_id if action == "keep_one" else None,
+        "archived_ids": [m.id for m in members if action == "keep_one" and m.id != body.keep_id],
+        "member_ids": ids, "reviewed_by": user.get("user_id"),
+    }
+
+
+@router.post("/batch-resolve")
+async def batch_resolve(
+    body: BatchResolveBody,
+    user=Depends(require_role(*_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """逐条处置一批异常题：**部分成功**也要如实回报，不因一条失败回滚整批。
+
+    ``resolve`` 的单条校验（范围/状态/答案合规）逐条复用；返回 ``ok`` 与
+    ``skipped`` 两个列表，每条 skipped 带 ``id``/``status``/``detail``，前端可
+    先批量操作再对失败项单独处理。一次最多 100 条，避免误操作放大。
+    """
+    ids = list(dict.fromkeys(body.ids or []))  # 去重且保序
+    if not ids or len(ids) > 100:
+        raise HTTPException(status_code=422, detail="ids 需为 1~100 条")
+    ok: List[dict] = []
+    skipped: List[dict] = []
+    scope = await resolve_read_scope(user, db)
+    for qid in ids:
+        stmt = where_tenant(
+            select(CourseQuestion).where(CourseQuestion.id == qid),
+            CourseQuestion.tenant_id, scope,
+        )
+        row = (await db.execute(stmt)).scalar_one_or_none()
+        if row is None:
+            skipped.append({"id": qid, "status": 404, "detail": "question not found"})
+            continue
+        try:
+            out = _resolve_one(row, body.action, user)
+            ok.append(out)
+        except HTTPException as e:
+            skipped.append({"id": qid, "status": e.status_code, "detail": str(e.detail)})
+    await db.commit()
+    return {"action": body.action, "ok": ok, "skipped": skipped,
+            "total": len(ids), "succeeded": len(ok)}
+
+
+def _resolve_one(row: CourseQuestion, action: str, user: dict) -> dict:
+    """单条处置的**纯改写**部分（不提交），单条与批量共用同一口径。"""
+    action = (action or "").strip()
+    if action not in ("release", "publish", "archive"):
+        raise HTTPException(status_code=422, detail="action 只支持 release / publish / archive")
     if not _is_pending_quarantine(row) and not _is_flagged_tag(row.source_tag):
         raise HTTPException(status_code=409, detail="该题不在异常队列（可能已处置）")
 
@@ -308,11 +488,35 @@ async def resolve(
     row.guard_dup_of = None
     row.reviewed_by = user.get("user_id")
     row.reviewed_at = datetime.now(timezone.utc)
-    await db.commit()
-
     return {
         "id": row.id, "action": action, "status": row.status,
         "source_tag": row.source_tag,
         "reviewed_by": row.reviewed_by,
         "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,
     }
+
+
+@router.post("/{question_id}/resolve")
+async def resolve(
+    question_id: int,
+    body: ResolveBody,
+    user=Depends(require_role(*_ROLES)),
+    db: AsyncSession = Depends(get_db),
+):
+    """处置一条异常题：放行入草稿 / 确认发布 / 归档移出队列。
+
+    处置后清空 ``guard_gate``/``guard_reason``（避免「已处置但仍显示隔离原因」），
+    留痕改由 ``source_tag`` 的 ``:guard_released``/``:guard_archived`` 后缀 +
+    ``reviewed_by``/``reviewed_at`` 承载。
+    """
+    scope = await resolve_read_scope(user, db)
+    stmt = where_tenant(
+        select(CourseQuestion).where(CourseQuestion.id == question_id),
+        CourseQuestion.tenant_id, scope,
+    )
+    row = (await db.execute(stmt)).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="question not found")
+    out = _resolve_one(row, body.action, user)
+    await db.commit()
+    return out

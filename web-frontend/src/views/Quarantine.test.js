@@ -6,9 +6,15 @@ vi.mock('../api/admin', () => ({
   getQuarantineStats: vi.fn(),
   listQuarantineItems: vi.fn(),
   resolveQuarantineItem: vi.fn(),
+  batchResolveQuarantineItems: vi.fn(),
+  listDuplicateGroups: vi.fn(),
+  resolveDuplicateGroup: vi.fn(),
 }))
 
-import { getQuarantineStats, listQuarantineItems, resolveQuarantineItem } from '../api/admin'
+import {
+  getQuarantineStats, listQuarantineItems, resolveQuarantineItem,
+  batchResolveQuarantineItems, listDuplicateGroups, resolveDuplicateGroup,
+} from '../api/admin'
 
 const STATS = {
   quarantine_total: 2,
@@ -42,6 +48,9 @@ beforeEach(() => {
   getQuarantineStats.mockResolvedValue(STATS)
   listQuarantineItems.mockResolvedValue(ITEMS)
   resolveQuarantineItem.mockResolvedValue({ id: 7, status: 'draft', source_tag: 'auto_crawl:guard_released' })
+  batchResolveQuarantineItems.mockResolvedValue({ total: 1, succeeded: 1, ok: [{ id: 7 }], skipped: [] })
+  listDuplicateGroups.mockResolvedValue([])
+  resolveDuplicateGroup.mockResolvedValue({ archived_ids: [], keep_id: null })
 })
 
 describe('Quarantine 异常队列页（T-CAP4）', () => {
@@ -160,5 +169,103 @@ describe('Quarantine 异常队列页（T-CAP4）', () => {
     expect(listQuarantineItems).toHaveBeenLastCalledWith({ kind: 'archived' })
     expect(btn(wrapper, '放行')).toBeUndefined()
     expect(btn(wrapper, '归档')).toBeUndefined()
+  })
+})
+
+const GROUPS = [
+  {
+    group_key: 'fp:abc123', size: 2, subject: '数学', year: 2024,
+    stem: '设集合 A={x|-2<x<4}，B={2,3,4,5}，则 A∩B=( )',
+    members: [
+      { id: 101, stem: '设集合 A={x|-2<x<4}，B={2,3,4,5}，则 A∩B=( )',
+        source_tag: 'gaokao_real', status: 'published' },
+      { id: 102, stem: '设集合A={x|-2<x<4}，B={2，3，4，5}，则A∩B=（ ）',
+        source_tag: 'gaokao_real', status: 'published' },
+    ],
+  },
+]
+
+describe('Quarantine 批量处置与真题重复组（v5.23）', () => {
+  it('勾选后可批量放行，接口拿到选中的 id 列表', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const boxes = wrapper.findAll('input[type="checkbox"]')
+    expect(boxes.length).toBe(2) // 全选框 + 行选择框
+    await boxes[1].setValue(true)
+    await btn(wrapper, '批量放行').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('确认批量放行')
+
+    await btn(wrapper, '确认批量处置').trigger('click')
+    await flushPromises()
+    expect(batchResolveQuarantineItems).toHaveBeenCalledWith([7], 'release')
+    expect(wrapper.text()).toContain('批量已放行 1/1 条')
+  })
+
+  it('部分失败如实回报，不伪装成全部成功', async () => {
+    batchResolveQuarantineItems.mockResolvedValueOnce({
+      total: 2, succeeded: 1, ok: [{ id: 7 }],
+      skipped: [{ id: 8, status: 409, detail: '该题不在异常队列（可能已处置）' }],
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.findAll('input[type="checkbox"]')[1].setValue(true)
+    await btn(wrapper, '批量归档').trigger('click')
+    await btn(wrapper, '确认批量处置').trigger('click')
+    await flushPromises()
+
+    expect(batchResolveQuarantineItems).toHaveBeenCalledWith([7], 'archive')
+    expect(wrapper.text()).toContain('批量已归档 1/2 条')
+    expect(wrapper.text()).toContain('1 条未处理')
+  })
+
+  it('切到真题重复组页：只列候选，不自动改任何题', async () => {
+    listDuplicateGroups.mockResolvedValue(GROUPS)
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await btn(wrapper, '真题重复组').trigger('click')
+    await flushPromises()
+
+    expect(listDuplicateGroups).toHaveBeenCalled()
+    expect(wrapper.text()).toContain('同指纹 2 条')
+    expect(wrapper.text()).toContain('#101')
+    expect(resolveDuplicateGroup).not.toHaveBeenCalled()
+  })
+
+  it('重复组人工指定保留项：保留 #101，其余归档需二次确认', async () => {
+    listDuplicateGroups.mockResolvedValue(GROUPS)
+    resolveDuplicateGroup.mockResolvedValue({ archived_ids: [102], keep_id: 101 })
+    const wrapper = mountPage()
+    await flushPromises()
+    await btn(wrapper, '真题重复组').trigger('click')
+    await flushPromises()
+
+    await btn(wrapper, '保留 #101').trigger('click')
+    await flushPromises()
+    expect(resolveDuplicateGroup).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('保留 #101，其余归档')
+
+    await btn(wrapper, '确认').trigger('click')
+    await flushPromises()
+    expect(resolveDuplicateGroup).toHaveBeenCalledWith('fp:abc123', 'keep_one', 101)
+    expect(wrapper.text()).toContain('归档 1 条')
+  })
+
+  it('重复组「全部保留」不改动题目，只记裁决', async () => {
+    listDuplicateGroups.mockResolvedValue(GROUPS)
+    const wrapper = mountPage()
+    await flushPromises()
+    await btn(wrapper, '真题重复组').trigger('click')
+    await flushPromises()
+
+    await btn(wrapper, '全部保留').trigger('click')
+    await btn(wrapper, '确认').trigger('click')
+    await flushPromises()
+
+    expect(resolveDuplicateGroup).toHaveBeenCalledWith('fp:abc123', 'keep_all', null)
+    expect(wrapper.text()).toContain('未改动任何题目')
   })
 })

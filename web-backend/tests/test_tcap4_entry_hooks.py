@@ -364,3 +364,39 @@ def test_semantic_failure_never_blocks_entry(monkeypatch):
         assert row.source_tag == "teacher"
 
     asyncio.run(_run(scenario))
+
+
+def test_text_fp_persisted_on_all_write_paths():
+    """text_fp 必须在四条写入路径都落库，否则第一闸索引会漏掉新题。
+
+    ORM 事件覆盖教师录题 / 采集 / LLM 组卷；pg_insert 覆盖批量导入。
+    """
+    from app.core.intake_guard import text_fingerprint
+
+    async def scenario(db):
+        teacher = (await _create(db, [_payload()]))["items"][0]
+        row = (await db.execute(
+            select(CourseQuestion).where(CourseQuestion.content_hash == teacher["content_hash"])
+        )).scalar_one()
+        assert row.text_fp == text_fingerprint(row.stem)
+
+        # 批量导入走 pg_insert（Core 语句，不过 ORM 事件）
+        import_row = {
+            "subject": "数学", "grade": "高三", "type": "填空",
+            "stem": "若 a=5，求 a+2 的值", "answer": "7",
+            "content_hash": "bulk-fp-test", "status": "draft",
+            "tenant_id": TENANT,
+        }
+        await ck.upsert_questions([import_row], db)
+        bulk = (await db.execute(
+            select(CourseQuestion).where(CourseQuestion.content_hash == "bulk-fp-test")
+        )).scalar_one()
+        assert bulk.text_fp == text_fingerprint(bulk.stem)
+        assert bulk.text_fp != row.text_fp
+
+        # 题干改了指纹要跟着变，避免「题干已改、旧指纹」的静默漏判
+        row.stem = "题干改过了"
+        await db.flush()
+        assert row.text_fp == text_fingerprint("题干改过了")
+
+    asyncio.run(_run(scenario))

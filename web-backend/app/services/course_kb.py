@@ -12,6 +12,7 @@ from sqlalchemy import or_, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.db import engine
+from app.core.intake_guard import text_fingerprint
 from app.models.course_kb import Base, CourseQuestion
 from app.models import ops as _ops  # noqa: F401  注册运营实体表，随 create_all 一并建出
 from app.services import kb_guard
@@ -34,6 +35,11 @@ async def upsert_questions(rows: List[dict], db) -> dict:
     inserted_hashes: List[str] = []
     for idx, row in enumerate(rows):
         try:
+            # pg_insert 是 Core 语句，不走 ORM 事件；这里显式补 text_fp，
+            # 否则 Excel/JSON 导入的新题在库里没有指纹、永远躲过第一闸。
+            row = dict(row)
+            if row.get("stem") and not row.get("text_fp"):
+                row["text_fp"] = text_fingerprint(row["stem"])
             stmt = pg_insert(CourseQuestion).values(**row)
             stmt = stmt.on_conflict_do_nothing(index_elements=["content_hash"])
             result = await db.execute(stmt)

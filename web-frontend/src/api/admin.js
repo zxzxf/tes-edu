@@ -333,3 +333,17 @@ export function listQuarantineItems(params = {}) {
 export function resolveQuarantineItem(itemId, action) {
   return client.post(`/quarantine/${itemId}/resolve`, { action })
 }
+// 批量处置：部分成功逐条回报（ok / skipped），一次最多 100 条
+export function batchResolveQuarantineItems(ids, action) {
+  return client.post('/quarantine/batch-resolve', { ids, action })
+}
+// 存量 published 真题重复组：只列候选，裁决由人逐组点选
+export function listDuplicateGroups(params = {}) {
+  return client.get('/quarantine/duplicate-groups', { params })
+}
+// action = keep_one（需带 keepId，其余归档但保留数据）| keep_all（全留，不改动题目）
+export function resolveDuplicateGroup(groupKey, action, keepId = null) {
+  return client.post(`/quarantine/duplicate-groups/${encodeURIComponent(groupKey)}/resolve`, {
+    action, keep_id: keepId,
+  })
+}

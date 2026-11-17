@@ -17,6 +17,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    event,
     func,
 )
 from sqlalchemy.orm import declarative_base
@@ -45,6 +46,10 @@ class CourseQuestion(Base):
     year = Column(Integer)                                          # 题目出处年份
     knowledge_points = Column(JSON)                                 # 知识点标签 list[str]
     content_hash = Column(String(64), unique=True, index=True)       # 去重指纹
+    # 迁移 0027：题干文本指纹持久化。此前每条入库/扫描都要把全库 stem 拉回 Python
+    # 现算 sha1，题库上万后是 O(n) 全表传输；落列后按 (tenant_id, text_fp) 等值查。
+    # 由 ORM 事件自动写入，pg_insert 链路在 services/course_kb.py 显式补同值。
+    text_fp = Column(String(40), index=True)
     # 0005_tenant_source_tag 迁移补列（跨租户读取 / 隔离脏题用）；ORM 仅做映射，不重建表
     tenant_id = Column(String(64), index=True)
     source_tag = Column(String(32))
@@ -70,6 +75,39 @@ class CourseQuestion(Base):
     )
 
     __table_args__ = (UniqueConstraint("content_hash", name="uq_course_kb_hash"),)
+
+
+@event.listens_for(CourseQuestion, "before_insert")
+@event.listens_for(CourseQuestion, "before_update")
+def _sync_text_fp(mapper, connection, target):
+    """题干变了就重算文本指纹——避免「改了题干、指纹还是旧的」造成漏判/误判。
+
+    放在模型层而不是各写入口，是因为 course_kb 有四条写入路径（采集/教师录题/
+    LLM 组卷/批量导入），漏一条就会出现「新题没有指纹、永远当新题」的暗坑。
+    """
+    stem = getattr(target, "stem", None)
+    if stem:
+        from app.core.intake_guard import text_fingerprint  # 延迟导入，避免循环
+        target.text_fp = text_fingerprint(stem)
+
+
+class DupGroupDecision(Base):
+    """真题重复组的**人工裁决留痕**（T-CAP4 v5.23，迁移 0027）。
+
+    为什么单独建表而不是在题目上打标：一组重复题可能 2~3 条，裁决结果是
+    「这一组里留哪条 / 全留」。写在题目列上会让「哪条代表这组」无法表达，
+    也无法区分「还没裁决」和「裁决过全留」。留痕表按 group_key 唯一，
+    裁决后该组从待裁列表消失，但题目本身一条不自动删。
+    """
+    __tablename__ = "dup_group_decisions"
+
+    group_key = Column(String(80), primary_key=True)  # fp:<sha1> / hash:<sha256>
+    decision = Column(String(16), nullable=False)     # keep_one / keep_all
+    keep_id = Column(Integer)                          # keep_one 时保留的那条
+    member_ids = Column(JSON)                          # 裁决时的组内 id 快照
+    reviewed_by = Column(String(64))
+    reviewed_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class QuestionIn(BaseModel):

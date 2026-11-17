@@ -5,6 +5,7 @@
       入库三闸（去重 / 答案自洽 / 双源）挡下的题集中在这里，附<strong>命中哪道闸</strong>与<strong>具体原因</strong>。
       <b>放行</b> = 进入常规审核（draft）；<b>发布</b> = 确认无误直接进卷池（答案不合规会被拒）；
       <b>归档</b> = 确认重复或脏题，保留数据但移出队列（不删题，删除请走数据治理）。
+      勾选题目可批量处置；<b>真题重复组</b>页只摆出候选、不自动改动已发布题，留哪条由人工逐组点选。
     </p>
 
     <p v-if="error" class="err">{{ error }}</p>
@@ -48,23 +49,82 @@
           :disabled="busy" @click="switchKind(t.value)"
         >{{ t.label }}</button>
         <span class="cw-grow"></span>
-        <select v-model="gate" aria-label="按闸筛选" @change="load">
-          <option value="">全部闸</option>
-          <option v-for="g in gateOptions" :key="g.value" :value="g.value">{{ g.label }}</option>
-        </select>
-        <input v-model.trim="keyword" class="kw" placeholder="题干关键词" @keyup.enter="load" />
-        <button class="tes-btn-primary sm" :disabled="busy" @click="load">查询</button>
+        <template v-if="kind !== 'dupgroups'">
+          <select v-model="gate" aria-label="按闸筛选" @change="load">
+            <option value="">全部闸</option>
+            <option v-for="g in gateOptions" :key="g.value" :value="g.value">{{ g.label }}</option>
+          </select>
+          <input v-model.trim="keyword" class="kw" placeholder="题干关键词" @keyup.enter="load" />
+          <button class="tes-btn-primary sm" :disabled="busy" @click="load">查询</button>
+        </template>
       </div>
 
-      <table v-if="rows.length" class="tes-table">
+      <div v-if="kind !== 'dupgroups' && selected.length" class="batch-bar">
+        <span>已选 {{ selected.length }} 条</span>
+        <template v-if="!batchAction">
+          <button class="ghost sm" :disabled="busy" @click="askBatch('release')">批量放行</button>
+          <button class="ghost sm" :disabled="busy" @click="askBatch('publish')">批量发布</button>
+          <button class="ghost sm danger" :disabled="busy" @click="askBatch('archive')">批量归档</button>
+          <button class="ghost sm" :disabled="busy" @click="selected = []">清空选择</button>
+        </template>
+        <template v-else>
+          <span class="confirm-tip">{{ batchTip }}</span>
+          <button class="tes-btn-primary sm" :disabled="busy" @click="doBatch">确认批量处置</button>
+          <button class="ghost sm" :disabled="busy" @click="batchAction = ''">取消</button>
+        </template>
+      </div>
+
+      <table v-if="kind === 'dupgroups' && groups.length" class="tes-table">
+        <thead>
+          <tr><th>重复组</th><th>组内题目（人工指定保留项）</th><th>操作</th></tr>
+        </thead>
+        <tbody v-for="g in groups" :key="g.group_key">
+          <tr>
+            <td class="q-cell">
+              <div class="stem">{{ g.stem }}</div>
+              <div class="meta">{{ g.subject }} · {{ g.year || '年份未知' }} · 同指纹 {{ g.size }} 条</div>
+              <div class="meta dup">{{ g.group_key }}</div>
+            </td>
+            <td>
+              <div v-for="m in g.members" :key="m.id" class="member">
+                <b>#{{ m.id }}</b> {{ m.stem }}
+                <span class="meta">（{{ m.source_tag || '—' }} · {{ m.status }}）</span>
+              </div>
+            </td>
+            <td class="ops">
+              <template v-if="groupConfirm.key === g.group_key">
+                <span class="confirm-tip">
+                  {{ groupConfirm.keepId ? `保留 #${groupConfirm.keepId}，其余归档（数据保留）？` : '确认这几条都不是重复？' }}
+                </span>
+                <button class="tes-btn-primary sm" :disabled="busy" @click="doGroupResolve(g.group_key)">确认</button>
+                <button class="ghost sm" :disabled="busy" @click="cancelGroupConfirm">取消</button>
+              </template>
+              <template v-else>
+                <button
+                  v-for="m in g.members" :key="m.id"
+                  class="ghost sm" :disabled="busy"
+                  @click="askGroupConfirm(g.group_key, m.id)"
+                >保留 #{{ m.id }}</button>
+                <button class="ghost sm" :disabled="busy" @click="askGroupConfirm(g.group_key, null)">全部保留</button>
+              </template>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table v-else-if="kind !== 'dupgroups' && rows.length" class="tes-table">
         <thead>
           <tr>
+            <th v-if="kind !== 'archived'"><input type="checkbox" aria-label="全选" :checked="allSelected" @change="toggleAll" /></th>
             <th>题目</th><th>命中</th><th>原因</th><th>来源</th>
             <th v-if="kind !== 'archived'">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="r in rows" :key="r.id">
+            <td v-if="kind !== 'archived'">
+              <input type="checkbox" :aria-label="`选择题目 ${r.id}`" :checked="selected.includes(r.id)" @change="toggle(r.id)" />
+            </td>
             <td class="q-cell">
               <div class="stem" :title="r.stem">{{ r.stem }}</div>
               <div class="meta">
@@ -103,21 +163,26 @@
           </tr>
         </tbody>
       </table>
+      <p v-else-if="kind === 'dupgroups' && loaded && !error" class="tes-empty">当前没有待人工裁决的重复组。</p>
       <p v-else-if="loaded && !error" class="tes-empty">{{ emptyText }}</p>
       <p v-else-if="!error" class="tes-empty">点击「查询」查看队列。</p>
-      <p v-if="loaded && !error" class="hint">共 {{ rows.length }} 条</p>
+      <p v-if="loaded && !error" class="hint">共 {{ kind === 'dupgroups' ? groups.length : rows.length }} 条</p>
     </section>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getQuarantineStats, listQuarantineItems, resolveQuarantineItem } from '../api/admin'
+import {
+  getQuarantineStats, listQuarantineItems, resolveQuarantineItem,
+  batchResolveQuarantineItems, listDuplicateGroups, resolveDuplicateGroup,
+} from '../api/admin'
 
 const TABS = [
   { value: 'quarantine', label: '隔离待处置' },
   { value: 'flagged', label: '打标待人工' },
   { value: 'archived', label: '已归档' },
+  { value: 'dupgroups', label: '真题重复组' },
 ]
 
 const CHAIN_LABEL = { crawl: '采集', teacher: '教师录题', import: '批量导入', other: '其他' }
@@ -131,9 +196,11 @@ const GATE_FALLBACK = {
   dual_source_conflict: '双源答案冲突',
   choice_no_second_source: '选择题无第二来源',
   numeric_no_reference: '无参照答案可比对',
+  dedup_semantic: '语义近似重复（待人工裁决）',
 }
 
 const rows = ref([])
+const groups = ref([])
 const stats = ref(null)
 const kind = ref('quarantine')
 const gate = ref('')
@@ -143,6 +210,9 @@ const msg = ref('')
 const busy = ref(false)
 const loaded = ref(false)
 const confirming = ref({ id: null, action: '' })
+const selected = ref([])
+const batchAction = ref('')
+const groupConfirm = ref({ key: '', keepId: null })
 
 const quarantineTotal = computed(() => stats.value?.quarantine_total ?? 0)
 const flaggedTotal = computed(() => stats.value?.flagged_total ?? 0)
@@ -172,6 +242,16 @@ const emptyText = computed(() => {
 const confirmTip = computed(() => (
   confirming.value.action === 'publish' ? '确认发布进卷池？' : '确认归档移出队列？'
 ))
+
+const allSelected = computed(() => (
+  rows.value.length > 0 && rows.value.every((r) => selected.value.includes(r.id))
+))
+
+const batchTip = computed(() => ({
+  release: '确认批量放行（进入常规审核）？',
+  publish: '确认批量发布（答案不合规的会被跳过）？',
+  archive: '确认批量归档（保留数据、移出队列）？',
+}[batchAction.value] || ''))
 
 function chainLabel(c) { return CHAIN_LABEL[c] || c || '—' }
 function gateClass(g) {
@@ -203,6 +283,8 @@ async function load() {
   error.value = ''
   loaded.value = false
   confirming.value = { id: null, action: '' }
+  selected.value = []
+  batchAction.value = ''
   try {
     const params = { kind: kind.value }
     if (gate.value) params.gate = gate.value
@@ -218,11 +300,94 @@ async function load() {
   }
 }
 
+async function loadGroups() {
+  busy.value = true
+  error.value = ''
+  loaded.value = false
+  groups.value = []
+  try {
+    groups.value = await listDuplicateGroups()
+  } catch (err) {
+    error.value = `重复组加载失败：${messageOf(err)}`
+  } finally {
+    loaded.value = true
+    busy.value = false
+  }
+}
+
 function switchKind(value) {
   if (kind.value === value) return
   kind.value = value
   gate.value = ''
-  load()
+  selected.value = []
+  batchAction.value = ''
+  groupConfirm.value = { key: '', keepId: null }
+  if (value === 'dupgroups') loadGroups()
+  else load()
+}
+
+function toggle(id) {
+  selected.value = selected.value.includes(id)
+    ? selected.value.filter((x) => x !== id)
+    : [...selected.value, id]
+}
+
+function toggleAll() {
+  selected.value = allSelected.value ? [] : rows.value.map((r) => r.id)
+}
+
+function askBatch(action) {
+  batchAction.value = action
+}
+
+async function doBatch() {
+  const action = batchAction.value
+  busy.value = true
+  error.value = ''
+  msg.value = ''
+  try {
+    const res = await batchResolveQuarantineItems(selected.value, action)
+    const tail = {
+      release: '已放行', publish: '已发布', archive: '已归档',
+    }[action]
+    const skipped = res?.skipped || []
+    msg.value = `批量${tail} ${res?.succeeded ?? 0}/${res?.total ?? 0} 条` +
+      (skipped.length ? `；${skipped.length} 条未处理（${skipped[0]?.detail || '状态已变化'}）` : '')
+    selected.value = []
+    batchAction.value = ''
+    await Promise.all([load(), loadStats()])
+  } catch (err) {
+    error.value = `批量处置失败：${messageOf(err)}`
+  } finally {
+    busy.value = false
+  }
+}
+
+function askGroupConfirm(key, keepId) {
+  groupConfirm.value = { key, keepId }
+}
+
+function cancelGroupConfirm() {
+  groupConfirm.value = { key: '', keepId: null }
+}
+
+async function doGroupResolve(groupKey) {
+  const { keepId } = groupConfirm.value
+  busy.value = true
+  error.value = ''
+  msg.value = ''
+  try {
+    const res = await resolveDuplicateGroup(groupKey, keepId ? 'keep_one' : 'keep_all', keepId)
+    msg.value = keepId
+      ? `已保留 #${keepId}，归档 ${(res?.archived_ids || []).length} 条（数据均已保留）`
+      : '已确认该组全部保留，未改动任何题目'
+    groupConfirm.value = { key: '', keepId: null }
+    await loadGroups()
+  } catch (err) {
+    error.value = `重复组裁决失败：${messageOf(err)}`
+  } finally {
+    busy.value = false
+  }
 }
 
 function askConfirm(row, action) {
@@ -278,6 +443,8 @@ onMounted(() => { load(); loadStats() })
 .meta.dup { color: #c77700; }
 .reason { max-width: 260px; font-size: 12px; color: var(--ink-2, #444); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ops { white-space: nowrap; }
+.batch-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: #f6f8fc; font-size: 12px; }
+.member { font-size: 12px; color: var(--ink-2, #444); margin-bottom: 4px; }
 .confirm-tip { font-size: 12px; color: #c77700; margin-right: 6px; }
 .hint { font-size: 12px; color: var(--muted, #888); margin-top: 8px; }
 .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }

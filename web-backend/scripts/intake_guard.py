@@ -44,7 +44,7 @@ from app.services import semantic_dedup  # noqa: E402
 async def _load_rows(
     conn, *, include_published: bool, semantic: bool = False,
 ) -> List[Dict[str, Any]]:
-    cols = "id, content_hash, stem, type, answer, options, status, source_tag"
+    cols = "id, content_hash, text_fp, stem, type, answer, options, status, source_tag"
     if semantic:
         cols += ", analysis"
     if include_published:
@@ -79,7 +79,7 @@ async def run(
         # 全库倒排索引：hash/指纹 → 占用它的题 id 集合。
         # 不能用「排除整批 draft」的做法——那会让批内重复检测不到。逐题只排除自身。
         all_rows = [dict(r) for r in await conn.fetch(
-            "SELECT id, content_hash, stem FROM course_kb"
+            "SELECT id, content_hash, text_fp, stem FROM course_kb"
         )]
         hash_index: Dict[str, Set[int]] = {}
         fp_index: Dict[str, Set[int]] = {}
@@ -87,9 +87,9 @@ async def run(
             ch = str(r.get("content_hash") or "").strip()
             if ch:
                 hash_index.setdefault(ch, set()).add(r["id"])
-            fp = text_fingerprint(r.get("stem"))
+            fp = r.get("text_fp") or text_fingerprint(r.get("stem"))
             if fp:
-                fp_index.setdefault(fp, set()).add(r["id"])
+                fp_index.setdefault(str(fp), set()).add(r["id"])
 
         stats: Dict[str, Any] = {
             "scanned": len(rows), "pass": 0, "manual_review": 0,
@@ -98,7 +98,7 @@ async def run(
         for r in rows:
             rid = r["id"]
             ch = str(r.get("content_hash") or "").strip()
-            fp = text_fingerprint(r.get("stem"))
+            fp = r.get("text_fp") or text_fingerprint(r.get("stem"))
             known_hashes = ({ch} if any(i != rid for i in hash_index.get(ch, set())) else set())
             known_fps = ({fp} if fp and any(i != rid for i in fp_index.get(fp, set())) else set())
             result = judge_item(r, known_hashes=known_hashes, known_fps=known_fps)
