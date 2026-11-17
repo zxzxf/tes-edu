@@ -297,3 +297,70 @@ def test_quarantine_persists_gate_and_reason():
         assert row.guard_reason and "H" in row.guard_reason
 
     asyncio.run(_run(scenario))
+
+
+# ---------------------------------------------------------------- 第一闸语义补盲
+def _fake_semantic_hit(monkeypatch):
+    """注入一条「改写式同题」命中，避免测试依赖真实 embedding 端点。"""
+    async def fake(db, rows, **kwargs):
+        hit = {
+            "verdict": "manual_review", "gate": "dedup_semantic",
+            "reason": "语义近似重复：与 #42 余弦 0.940", "dup_of": 42,
+        }
+        return {r.id: hit for r in rows}
+    monkeypatch.setattr(kb_guard.semantic_dedup, "collect_semantic_matches", fake)
+
+
+def test_teacher_semantic_hit_is_flagged_not_quarantined(monkeypatch):
+    """人工链路 tag_manual=False，但语义近似仍必须打标进异常队列（不隔离）。"""
+    _fake_semantic_hit(monkeypatch)
+
+    async def scenario(db):
+        res = await _create(db, [_payload()])
+        assert res["created"] == 1
+        assert res["guard"]["manual_review"] == 1
+        assert res["guard"]["quarantine"] == 0
+        assert "dedup_semantic" in res["guard"]["by_gate"]
+        row = (await db.execute(select(CourseQuestion))).scalars().one()
+        assert row.status == "draft"
+        assert row.source_tag == "teacher:guard_semantic_dup"
+        assert row.guard_gate == "dedup_semantic"
+        assert row.guard_dup_of == 42
+
+    asyncio.run(_run(scenario))
+
+
+def test_ingest_semantic_hit_is_flagged_not_quarantined(monkeypatch):
+    """批量导入与教师录题同口径：语义命中打标、不隔离、dup_of 落库。"""
+    monkeypatch.setattr(ck, "pg_insert", sqlite_insert)
+    _fake_semantic_hit(monkeypatch)
+
+    async def scenario(db):
+        rows = _ingest_rows([{
+            "subject": "数学", "grade": "高三", "type": "填空",
+            "stem": "若 a=2，求 a+1 的值", "answer": "3",
+        }])
+        report = await _upsert(db, rows)
+        assert report["guard"]["quarantine"] == 0
+        row = (await db.execute(select(CourseQuestion))).scalars().one()
+        assert row.status == "draft"
+        assert row.source_tag == "import:guard_semantic_dup"
+        assert row.guard_dup_of == 42
+
+    asyncio.run(_run(scenario))
+
+
+def test_semantic_failure_never_blocks_entry(monkeypatch):
+    """向量服务挂掉也要照常入库，其它闸口径不变。"""
+    async def broken(rows, **kwargs):
+        raise RuntimeError("embedding endpoint down")
+    monkeypatch.setattr(kb_guard.semantic_dedup, "collect_semantic_matches", broken)
+
+    async def scenario(db):
+        res = await _create(db, [_payload()])
+        assert res["created"] == 1
+        row = (await db.execute(select(CourseQuestion))).scalars().one()
+        assert row.status == "draft"
+        assert row.source_tag == "teacher"
+
+    asyncio.run(_run(scenario))

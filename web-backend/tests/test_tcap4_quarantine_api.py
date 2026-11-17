@@ -282,3 +282,36 @@ def test_stats_scoped_to_tenant():
         assert s["quarantine_total"] == 1
 
     asyncio.run(_run(scenario))
+
+
+# ---------------------------------------------------------------- 语义打标
+def test_semantic_flagged_item_visible_with_dup_of():
+    """语义命中是 draft+tag，不是 quarantine；队列 flagged 视图必须能处置它。"""
+    async def scenario(db):
+        row = _q(
+            stem="语义改写同题", status="draft",
+            source_tag="teacher:guard_semantic_dup", guard_gate="dedup_semantic",
+            guard_reason="语义近似重复：与 #42 余弦 0.940", guard_dup_of=42,
+            content_hash="sem1",
+        )
+        db.add(row)
+        await db.commit()
+
+        s = await qapi.stats(user=TEACHER, db=db)
+        assert s["flagged_total"] == 1
+        assert s["by_gate"]["dedup_semantic"] == 1
+        assert s["gate_labels"]["dedup_semantic"] == "语义近似重复（待人工裁决）"
+
+        items = await qapi.items(kind="flagged", gate="dedup_semantic", q=None,
+                                 limit=50, user=TEACHER, db=db)
+        assert len(items) == 1
+        assert items[0]["dup_of"] == 42
+        assert items[0]["status"] == "draft"
+
+        out = await qapi.resolve(row.id, qapi.ResolveBody(action="archive"),
+                                 user=TEACHER, db=db)
+        assert out["status"] == "quarantine"
+        assert out["source_tag"] == "teacher:guard_archived"
+        assert row.guard_dup_of is None
+
+    asyncio.run(_run(scenario))

@@ -8,7 +8,9 @@
 - ``GET /stats``   队列总览：隔离数 / 待人工数 / 已归档数 + 按闸、按来源链路分布；
 - ``GET /items``   队列明细：``kind=quarantine`` 隔离待处置、``kind=flagged`` 仅打标
                    待人工确认、``kind=archived`` 已归档；重复题附带 ``dup_of``
-                   指向它和哪一题重复（人工判断该清哪条的依据）；
+                   指向它和哪一题重复（人工判断该清哪条的依据）；语义近似命中
+                   （``dedup_semantic``）的 dup_of 来自迁移 0026 的落库列，
+                   hash/指纹类仍用倒排索引现算；
 - ``POST /{id}/resolve``  三种处置：
     * ``release``  确认不是脏题 → ``draft``（回到常规审核流程）；
     * ``publish``  确认干净且答案合规 → 直接 ``published``（答案不合规 409）；
@@ -34,7 +36,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # 复用审核接口的答案合规口径：否则会出现「异常队列页能发布、审核页 409 拒绝」的分裂。
 from app.api.exam import _answer_acceptable
 from app.core.db import get_db
-from app.core.intake_guard import TAG_ARCHIVED, TAG_MANUAL, TAG_RELEASED, text_fingerprint
+from app.core.intake_guard import (
+    TAG_ARCHIVED, TAG_MANUAL, TAG_RELEASED, TAG_SEMANTIC, text_fingerprint,
+)
 from app.core.rbac import Role
 from app.core.security import require_role
 from app.models.course_kb import CourseQuestion
@@ -44,8 +48,22 @@ router = APIRouter(prefix="/quarantine", tags=["tcap4-quarantine"])
 
 _ROLES = (Role.ADMIN, Role.REGION_ADMIN, Role.TEACHER)
 
-_SUFFIX_QUARANTINE = f":{TAG_MANUAL}"      # 打标待人工（manual_review）
+_SUFFIX_QUARANTINE = f":{TAG_MANUAL}"      # 通用打标待人工（manual_review）
+_SUFFIX_SEMANTIC = f":{TAG_SEMANTIC}"      # 语义近似重复，三链路一律打标待裁决
 _SUFFIX_ARCHIVED = f":{TAG_ARCHIVED}"      # 已归档，移出待办
+
+
+def _is_flagged_tag(tag: Optional[str]) -> bool:
+    """两种「仅打标、仍待人工」后缀都算队列内（语义近似不受 tag_manual 口径限制）。"""
+    value = str(tag or "")
+    return value.endswith(_SUFFIX_QUARANTINE) or value.endswith(_SUFFIX_SEMANTIC)
+
+
+def _flagged_like() -> Any:
+    return or_(
+        CourseQuestion.source_tag.like(f"%{_SUFFIX_QUARANTINE}"),
+        CourseQuestion.source_tag.like(f"%{_SUFFIX_SEMANTIC}"),
+    )
 
 #: source_tag 前缀 → 链路名（异常队列按链路分组，便于定位是哪条入库口来的脏题）
 _CHAIN_OF = {"auto_crawl": "crawl", "teacher": "teacher", "import": "import"}
@@ -55,6 +73,7 @@ _CHAIN_OF = {"auto_crawl": "crawl", "teacher": "teacher", "import": "import"}
 GATE_LABEL = {
     "dedup_exact": "内容哈希重复",
     "dedup_text": "题干指纹重复",
+    "dedup_semantic": "语义近似重复（待人工裁决）",
     "missing_answer": "答案缺失",
     "answer_out_of_range": "选项越界",
     "mechanical_mismatch": "代入不自洽",
@@ -105,7 +124,7 @@ def _item_out(row: CourseQuestion, dup_of: Optional[int] = None) -> dict:
         "guard_gate": row.guard_gate,
         "guard_gate_label": GATE_LABEL.get(row.guard_gate or "", row.guard_gate),
         "guard_reason": row.guard_reason,
-        "dup_of": dup_of,
+        "dup_of": dup_of if dup_of is not None else getattr(row, "guard_dup_of", None),
         "tenant_id": row.tenant_id,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "reviewed_by": row.reviewed_by,
@@ -147,7 +166,7 @@ async def stats(
         func.count(),
     ).where(or_(
         CourseQuestion.status == "quarantine",
-        CourseQuestion.source_tag.like(f"%{_SUFFIX_QUARANTINE}"),
+        _flagged_like(),
         CourseQuestion.source_tag.like(f"%{_SUFFIX_ARCHIVED}"),
     ))
     stmt = where_tenant(stmt, CourseQuestion.tenant_id, scope)
@@ -168,7 +187,7 @@ async def stats(
             continue
         if status == "quarantine":
             quarantine += count
-        elif tag.endswith(_SUFFIX_QUARANTINE):
+        elif _is_flagged_tag(tag):
             flagged += count
         else:
             continue  # released / 正常来源，不计入待办
@@ -206,7 +225,7 @@ async def items(
     if kind == "quarantine":
         stmt = stmt.where(CourseQuestion.status == "quarantine", _tag_missing_expr())
     elif kind == "flagged":
-        stmt = stmt.where(CourseQuestion.source_tag.like(f"%{_SUFFIX_QUARANTINE}"))
+        stmt = stmt.where(_flagged_like())
     else:
         stmt = stmt.where(CourseQuestion.source_tag.like(f"%{_SUFFIX_ARCHIVED}"))
 
@@ -268,7 +287,7 @@ async def resolve(
     if row is None:
         raise HTTPException(status_code=404, detail="question not found")
 
-    if not _is_pending_quarantine(row) and not str(row.source_tag or "").endswith(_SUFFIX_QUARANTINE):
+    if not _is_pending_quarantine(row) and not _is_flagged_tag(row.source_tag):
         raise HTTPException(status_code=409, detail="该题不在异常队列（可能已处置）")
 
     base = _base_of(row.source_tag)
@@ -286,6 +305,7 @@ async def resolve(
 
     row.guard_gate = None
     row.guard_reason = None
+    row.guard_dup_of = None
     row.reviewed_by = user.get("user_id")
     row.reviewed_at = datetime.now(timezone.utc)
     await db.commit()

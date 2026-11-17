@@ -4,6 +4,7 @@
 对**存量题**补跑闸门的 DB 主流程 + 自检 + CLI。
 
     闸1 去重      content_hash 精确 + 文本归一化指纹近似（抓 OCR/标点差异的同题异 hash）
+                  + `--semantic` 时加 embedding 语义近似（pgvector TopK + 数值/标答双过滤）
     闸2 答案自洽  复用 core/answer_verify 机械代入 + core/equiv；缺答案/选项越界=明确错误
     闸3 双源      仅当存在真正独立的第二来源才比对；无来源不误判
 
@@ -19,6 +20,7 @@
     python scripts/intake_guard.py --dry-run            # 只读统计，不写库
     python scripts/intake_guard.py --apply --limit 20   # 真跑写回 status/source_tag
     python scripts/intake_guard.py --apply --include-published  # 纳入 published（谨慎）
+    python scripts/intake_guard.py --dry-run --semantic  # 加跑语义近似（只读，需 embedding 端点）
 """
 from __future__ import annotations
 
@@ -32,14 +34,19 @@ from typing import Any, Dict, List, Set
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.intake_guard import (  # noqa: E402
-    VERDICT_PASS, VERDICT_MANUAL, VERDICT_QUARANTINE,
-    text_fingerprint, judge_item, verdict_to_db,
+    GATE_SEMANTIC, VERDICT_PASS, VERDICT_MANUAL, VERDICT_QUARANTINE,
+    text_fingerprint, judge_item, verdict_to_db, verdict_to_fields,
 )
+from app.services import semantic_dedup  # noqa: E402
 
 
 # ---------------------------------------------------------------- DB 主流程
-async def _load_rows(conn, *, include_published: bool) -> List[Dict[str, Any]]:
+async def _load_rows(
+    conn, *, include_published: bool, semantic: bool = False,
+) -> List[Dict[str, Any]]:
     cols = "id, content_hash, stem, type, answer, options, status, source_tag"
+    if semantic:
+        cols += ", analysis"
     if include_published:
         return [dict(r) for r in await conn.fetch(
             f"SELECT {cols} FROM course_kb ORDER BY id"
@@ -49,16 +56,26 @@ async def _load_rows(conn, *, include_published: bool) -> List[Dict[str, Any]]:
     )]
 
 
-async def run(*, apply: bool, include_published: bool, limit: int) -> Dict[str, Any]:
+async def run(
+    *, apply: bool, include_published: bool, limit: int, semantic: bool = False,
+) -> Dict[str, Any]:
     import asyncpg
     url = os.environ.get("DATABASE_URL", "").replace("+asyncpg", "")
     if not url:
         raise RuntimeError("DATABASE_URL 未设置")
     conn = await asyncpg.connect(url)
     try:
-        rows = await _load_rows(conn, include_published=include_published)
+        rows = await _load_rows(
+            conn, include_published=include_published, semantic=semantic,
+        )
         if limit > 0:
             rows = rows[:limit]
+        sem_map: Dict[int, Dict[str, Any]] = {}
+        if semantic:
+            vectors = await semantic_dedup.embed_rows(rows)
+            sem_map = await semantic_dedup.collect_semantic_matches_asyncpg(
+                conn, rows, vectors=vectors,
+            )
         # 全库倒排索引：hash/指纹 → 占用它的题 id 集合。
         # 不能用「排除整批 draft」的做法——那会让批内重复检测不到。逐题只排除自身。
         all_rows = [dict(r) for r in await conn.fetch(
@@ -85,6 +102,10 @@ async def run(*, apply: bool, include_published: bool, limit: int) -> Dict[str, 
             known_hashes = ({ch} if any(i != rid for i in hash_index.get(ch, set())) else set())
             known_fps = ({fp} if fp and any(i != rid for i in fp_index.get(fp, set())) else set())
             result = judge_item(r, known_hashes=known_hashes, known_fps=known_fps)
+            hit = sem_map.get(rid)
+            if hit and result["verdict"] != VERDICT_QUARANTINE:
+                # 语义命中只打标、不隔离；明确错误仍以 quarantine 优先
+                result = {**hit, "checks": result.get("checks", [])}
             v = result["verdict"]
             stats[v] += 1
             g = result["gate"]
@@ -95,12 +116,26 @@ async def run(*, apply: bool, include_published: bool, limit: int) -> Dict[str, 
                     "reason": result["reason"], "stem": str(r["stem"])[:60],
                 })
             if apply:
-                target = verdict_to_db(v, str(r.get("status") or "draft"))
-                if target["source_tag"] != "unchanged":
-                    await conn.execute(
-                        "UPDATE course_kb SET status = $1, source_tag = $2 WHERE id = $3",
-                        target["status"], target["source_tag"], rid,
+                if result["gate"] == GATE_SEMANTIC:
+                    # 语义打标要落 guard_* 三列（含 dup_of），否则异常队列指不出重复对象
+                    base = str(r.get("source_tag") or "").split(":", 1)[0] or "manual"
+                    fields = verdict_to_fields(
+                        v, base_tag=base, gate=g,
+                        reason=result["reason"], dup_of=result.get("dup_of"),
                     )
+                    await conn.execute(
+                        "UPDATE course_kb SET status=$1, source_tag=$2, guard_gate=$3, "
+                        "guard_reason=$4, guard_dup_of=$5 WHERE id=$6",
+                        fields["status"], fields["source_tag"], fields["guard_gate"],
+                        fields["guard_reason"], fields.get("guard_dup_of"), rid,
+                    )
+                else:
+                    target = verdict_to_db(v, str(r.get("status") or "draft"))
+                    if target["source_tag"] != "unchanged":
+                        await conn.execute(
+                            "UPDATE course_kb SET status = $1, source_tag = $2 WHERE id = $3",
+                            target["status"], target["source_tag"], rid,
+                        )
         return stats
     finally:
         await conn.close()
@@ -153,6 +188,7 @@ def main() -> None:
     g.add_argument("--dry-run", action="store_true", help="只读统计，不写库")
     g.add_argument("--apply", action="store_true", help="真跑写回 status/source_tag")
     ap.add_argument("--include-published", action="store_true", help="纳入 published 题（谨慎）")
+    ap.add_argument("--semantic", action="store_true", help="加跑 embedding 语义近似（第一闸补盲）")
     ap.add_argument("--limit", type=int, default=0, help="只处理前 N 题（0=全部）")
     args = ap.parse_args()
 
@@ -160,7 +196,8 @@ def main() -> None:
         self_test()
         return
     stats = asyncio.run(run(
-        apply=args.apply, include_published=args.include_published, limit=args.limit,
+        apply=args.apply, include_published=args.include_published,
+        limit=args.limit, semantic=args.semantic,
     ))
     print(json.dumps(stats, ensure_ascii=False, indent=2))
 

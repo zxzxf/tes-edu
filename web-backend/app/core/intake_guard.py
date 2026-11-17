@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from typing import Any, Dict, Optional, Set
 
 from app.core import equiv as eq
@@ -27,6 +28,15 @@ TAG_MANUAL = "guard_manual_review"
 # 两者都保留原来源前缀，故回退/来源筛选谓词继续有效。
 TAG_RELEASED = "guard_released"
 TAG_ARCHIVED = "guard_archived"
+# 语义近似专门的打标后缀：与通用 guard_manual_review 区分开——
+# 人工来源链路（教师/导入）常规 manual 不打标，但语义近似是「高度可疑的同题改写」，
+# 必须进异常队列让人裁决，故三链路一律打这个后缀，不受 tag_manual 影响。
+TAG_SEMANTIC = "guard_semantic_dup"
+GATE_SEMANTIC = "dedup_semantic"
+#: 默认余弦阈值。137 真库 211 条向量里异题最高 0.895，改写式同题实测 0.934；
+#: 再叠加「数值签名 + 标答等价」双过滤，0.90 不误伤且能抓到改写。
+DEFAULT_SEMANTIC_THRESHOLD = 0.90
+
 
 # 采集链路的后缀标签：保留 auto_crawl 前缀，兼容回退/隔离谓词
 CRAWL_TAG_BASE = "auto_crawl"
@@ -60,6 +70,79 @@ def dedup_check(
         return {"verdict": VERDICT_QUARANTINE, "gate": "dedup_text",
                 "reason": f"题干文本指纹重复（OCR/标点差异）：{fp[:12]}"}
     return None
+
+
+# ------------------------------------------------- 闸1 补充：embedding 语义近似
+_NUM_TOKEN = re.compile(r"\d+(?:\.\d+)?")
+
+
+def number_signature(stem: Any) -> tuple:
+    """题干数字签名（排序后的数字串）。
+
+    与文本指纹「数字变了就是不同题」同一红线：语义余弦对「同模板换数」的变式
+    天然很高，若只看向量会把合法变式误判重复。数字集合一致才允许语义命中。
+
+    先把上标/全角数字（²、３…）归一成 ASCII，否则同一道题的 `x^2` 与 `x²`
+    会算出不同签名——这正是题库里最常见的书写差异。
+    """
+    s = "".join(
+        str(unicodedata.digit(ch)) if ch.isdigit() else ch
+        for ch in str(stem or "")
+    )
+    return tuple(sorted(_NUM_TOKEN.findall(s)))
+
+
+def _answer_text(value: Any) -> str:
+    s = str(value or "").strip().lower()
+    return re.sub(r"\s+", "", s)
+
+
+def same_answer_for_dedup(
+    row: Dict[str, Any], other: Dict[str, Any],
+) -> bool:
+    """语义判重的标答等价：数值走 blank_judge 容差，选择题走标签集合。"""
+    a, b = _answer_text(row.get("answer")), _answer_text(other.get("answer"))
+    if not a or not b:
+        return False
+    try:
+        if av.answer_equivalent(
+            _internal_qtype(row.get("type")), a, b,
+            options=row.get("options") or other.get("options"),
+        ):
+            return True
+    except Exception:  # noqa: BLE001 判等失败按「不等价」保守处理
+        pass
+    return a == b
+
+
+def semantic_dup_check(
+    row: Dict[str, Any], *, match: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """语义近似命中 → ``manual_review``（打标待人工裁决，**不隔离**）。
+
+    ``match`` 来自 pgvector TopK：``{"similarity": float, "other": {id/stem/answer/type}}``。
+    三重条件缺一不可：余弦过阈值 + 数字签名一致 + 标答等价（见两个辅助函数）。
+    """
+    if not match:
+        return None
+    sim = float(match.get("similarity") or 0.0)
+    threshold = float(match.get("threshold") or DEFAULT_SEMANTIC_THRESHOLD)
+    if sim < threshold:
+        return None
+    other = match.get("other") or {}
+    if number_signature(row.get("stem")) != number_signature(other.get("stem")):
+        return None
+    if not same_answer_for_dedup(row, other):
+        return None
+    oid = other.get("id")
+    return {
+        "verdict": VERDICT_MANUAL,
+        "gate": GATE_SEMANTIC,
+        "reason": (
+            f"语义近似重复：与 #{oid} 余弦 {sim:.3f}（数值与标答一致，仅表述不同）"
+        ),
+        "dup_of": int(oid) if oid is not None else None,
+    }
 
 
 # ---------------------------------------------------------------- 闸2：自洽
@@ -143,27 +226,44 @@ def dual_source_check(
 def judge_item(
     row: Dict[str, Any], *, known_hashes: Set[str], known_fps: Set[str],
     secondary_answer: Optional[str] = None,
+    semantic_match: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """三闸合并裁定：quarantine > pass > manual_review。"""
+    """三闸合并裁定：quarantine > pass > manual_review。
+
+    语义近似是例外：它是「同题改写」的强信号，不能被闸2/闸3 的 pass 盖掉，
+    否则一道已经机械验证通过的题会把语义可疑记录吞掉，异常队列永远看不到。
+    故语义命中时，除 quarantine 外一律强制 manual_review（打标不隔离）。
+    """
     checks = [
         dedup_check(row, known_hashes=known_hashes, known_fps=known_fps)
         or {"gate": "dedup_ok", "reason": "无重复"},
         consistency_check(row),
         dual_source_check(row, secondary_answer=secondary_answer),
     ]
+    # 两种入参都收：运行时 collect_semantic_matches 已返回校验过的 hit
+    # （带 verdict），单测/脚本也可能直接传原始 TopK match（只有 similarity/other）。
+    semantic = semantic_match
+    if semantic and "verdict" not in semantic:
+        semantic = semantic_dup_check(row, match=semantic)
+    if semantic:
+        checks.insert(1, semantic)
     verdicts = [c.get("verdict") for c in checks if "verdict" in c]
     for target in (VERDICT_QUARANTINE, VERDICT_PASS, VERDICT_MANUAL):
         if target in verdicts:
             first = next(c for c in checks if c.get("verdict") == target)
-            return {"verdict": target, "gate": first["gate"],
-                    "reason": first["reason"], "checks": checks}
+            result = {"verdict": target, "gate": first["gate"],
+                      "reason": first["reason"], "checks": checks}
+            if semantic and target != VERDICT_QUARANTINE:
+                return {**semantic, "checks": checks}
+            return result
     raise AssertionError("unreachable: judge_item 必须有裁定")
 
 
 def verdict_to_fields(
     verdict: str, *, base_tag: str, tag_manual: bool = False,
     gate: Optional[str] = None, reason: Optional[str] = None,
-) -> Dict[str, str]:
+    dup_of: Optional[int] = None,
+) -> Dict[str, Any]:
     """裁定 → 需要写回 course_kb 的字段（空 dict = 不改）。
 
     三条入库链路统一走这里，差别只在两个参数：
@@ -181,7 +281,13 @@ def verdict_to_fields(
     却无从判断该放行还是该清。``pass`` 一律不改字段：自动验证通过就保持来源原样。
     """
     if verdict == VERDICT_QUARANTINE:
-        fields = {"status": "quarantine", "source_tag": f"{base_tag}:{TAG_QUARANTINE}"}
+        fields: Dict[str, Any] = {
+            "status": "quarantine", "source_tag": f"{base_tag}:{TAG_QUARANTINE}",
+        }
+    elif verdict == VERDICT_MANUAL and gate == GATE_SEMANTIC:
+        # 语义可疑三链路一律打标：人工来源虽常规不打 manual 标，但这条是
+        # 高置信「同题改写」，必须进异常队列由人裁决删/留。
+        fields = {"source_tag": f"{base_tag}:{TAG_SEMANTIC}"}
     elif verdict == VERDICT_MANUAL and tag_manual:
         fields = {"source_tag": f"{base_tag}:{TAG_MANUAL}"}
     else:
@@ -190,6 +296,8 @@ def verdict_to_fields(
         fields["guard_gate"] = str(gate)[:32]
     if reason:
         fields["guard_reason"] = str(reason)[:500]
+    if dup_of is not None and str(gate or "").startswith("dedup_"):
+        fields["guard_dup_of"] = int(dup_of)
     return fields
 
 

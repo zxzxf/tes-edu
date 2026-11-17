@@ -1,7 +1,12 @@
 """T-CAP4 入库三闸的运行时接线（三条入库链路共用一份实现）。
 
-纯函数（指纹/自洽/双源/合并裁定）在 ``app/core/intake_guard.py``；本模块只负责
-「查题库索引 → 逐题裁定 → 写回 status/source_tag」，不重复任何判定逻辑。
+纯函数（指纹/语义近似/自洽/双源/合并裁定）在 ``app/core/intake_guard.py``；
+语义召回在 ``app/services/semantic_dedup.py``。本模块只负责「查题库索引 →
+逐题裁定 → 写回 status/source_tag/guard_*」，不重复任何判定逻辑。
+
+第一闸的 embedding 语义补盲是**默认开但可降级**的：端点未配置 / pgvector
+查询失败都只跳过该子闸，其余闸照常；命中只打 ``<base>:guard_semantic_dup``
+（三链路统一，不受 tag_manual 口径影响），进异常队列由人裁决，绝不自动隔离。
 
 三条链路与差异化口径：
 
@@ -37,6 +42,7 @@ from app.core.intake_guard import (
     judge_item, text_fingerprint, verdict_to_fields,
 )
 from app.models.course_kb import CourseQuestion
+from app.services import semantic_dedup
 
 log = logging.getLogger(__name__)
 
@@ -117,6 +123,8 @@ async def apply_entry_guard(
     scope_tenant_id: Optional[str] = None,
     tag_manual: bool = False,
     secondary_answers: Optional[Dict[int, str]] = None,
+    semantic_matches: Optional[Dict[int, Dict[str, Any]]] = None,
+    semantic_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """对刚入库的题跑三闸并按链路口径写回。
 
@@ -136,6 +144,18 @@ async def apply_entry_guard(
 
     hash_index, fp_index = await _build_index(db, scope_tenant_id)
     ids = [obj.id for obj in rows]
+
+    # 第一闸补盲：语义近似（pgvector）。失败在 semantic_dedup 内部降级为空，
+    # 这里再兜一层，确保向量服务抖动绝不影响其余三闸和题目入库。
+    if semantic_matches is None:
+        try:
+            semantic_matches = await semantic_dedup.collect_semantic_matches(
+                db, rows, scope_tenant_id=scope_tenant_id,
+                **(semantic_kwargs or {}),
+            )
+        except Exception as e:  # noqa: BLE001
+            log.warning("[guard:%s] 语义闸跳过：%s", chain, e)
+            semantic_matches = {}
 
     for pos, obj in enumerate(rows):
         later = set(ids[pos + 1:])  # 后面的题还没裁定，不算「已知」
@@ -159,6 +179,7 @@ async def apply_entry_guard(
             },
             known_hashes=known_hashes, known_fps=known_fps,
             secondary_answer=(secondary_answers or {}).get(obj.id),
+            semantic_match=(semantic_matches or {}).get(obj.id),
         )
         v = verdict["verdict"]
         g = verdict["gate"]
@@ -168,6 +189,7 @@ async def apply_entry_guard(
         fields = verdict_to_fields(
             v, base_tag=base_tag, tag_manual=tag_manual,
             gate=g, reason=verdict.get("reason", ""),
+            dup_of=verdict.get("dup_of"),
         )
         if fields:
             for key, value in fields.items():
