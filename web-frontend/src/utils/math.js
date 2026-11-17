@@ -33,6 +33,20 @@ const GREEK = {
   lambda: 'λ', mu: 'μ', pi: 'π', rho: 'ρ', sigma: 'σ', phi: 'φ', omega: 'ω'
 }
 
+// 常见 LaTeX 命令 → 可读符号。题库里的真题题干大量带这些源码命令，
+// 原样展示会让老师看到 "($\quad$)"、"\left\{a_{n}\right\}" 这种乱码感文本。
+// 未收录的命令仍原样保留（不吞内容），但不再把定界符和排版命令抛给读者。
+const LATEX_SYMBOLS = {
+  ...GREEK,
+  in: '∈', notin: '∉', subset: '⊂', supset: '⊃',
+  subseteq: '⊆', supseteq: '⊇', cap: '∩', cup: '∪', emptyset: '∅',
+  triangle: '△', angle: '∠', perp: '⊥', parallel: '∥',
+  approx: '≈', equiv: '≡', propto: '∝', partial: '∂', nabla: '∇',
+  quad: '\u2003', qquad: '\u2003\u2003',  // 排版空格：保留间距感，不显示源码
+  to: '→', rightarrow: '→', leftrightarrow: '↔',
+  therefore: '∴', because: '∵', degree: '°'
+}
+
 export function renderMath(text) {
   if (text === null || text === undefined) return ''
   let s = escapeHtml(text)
@@ -43,10 +57,23 @@ export function renderMath(text) {
   // 2) 常见 LaTeX 命令 → Unicode / 线性写法
   s = s.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1)/($2)')
   s = s.replace(/\\sqrt\{([^{}]+)\}/g, '√($1)').replace(/\\sqrt\s*([A-Za-z0-9])/g, '√$1')
-  s = s.replace(/\\times/g, '×').replace(/\\div/g, '÷').replace(/\\cdot/g, '·')
-  s = s.replace(/\\leq?/g, '≤').replace(/\\geq?/g, '≥').replace(/\\neq/g, '≠')
-  s = s.replace(/\\infty/g, '∞').replace(/\\pm/g, '±')
-  s = s.replace(/\\([a-zA-Z]+)/g, (m, name) => GREEK[name] || m)  // 未收录的命令原样保留
+  // 命令后必须跟单词边界：否则 \le 会把 \left 吃掉变成 "≤ft"（真实真题踩过）
+  s = s.replace(/\\times\b/g, '×').replace(/\\div\b/g, '÷').replace(/\\cdot\b/g, '·')
+  s = s.replace(/\\leq?\b/g, '≤').replace(/\\geq?\b/g, '≥').replace(/\\neq\b/g, '≠')
+  s = s.replace(/\\infty\b/g, '∞').replace(/\\pm\b/g, '±')
+
+  // 2b) 结构命令：定界符/字体/箭头/数组环境都不是「题干内容」，转成可读形态。
+  //     必须先于通用 \(... 命令替换，否则 \left 等会被当成普通命令原样留下。
+  s = s.replace(/\\left/g, '').replace(/\\right/g, '')
+  s = s.replace(/\\\{/g, '{').replace(/\\\}/g, '}')
+  s = s.replace(/\\overrightarrow\{([^{}]+)\}/g,
+    (m, body) => body.replace(/\s+/g, '') + '\u20D7')
+  s = s.replace(/\\mathrm\{R\}/g, 'ℝ')
+  s = s.replace(/\\(?:mathrm|text|mathbf|mathbb)\{([^{}]+)\}/g, '$1')
+  s = s.replace(/\\begin\{[^}]+\}/g, '').replace(/\\end\{[^}]+\}/g, '')
+  s = s.replace(/\\\\/g, ' ')       // array 内的 \\ 换行
+  s = s.replace(/\\[,;!]/g, '')     // \, \; \! 排版间距
+  s = s.replace(/\\([a-zA-Z]+)/g, (m, name) => LATEX_SYMBOLS[name] || m)
 
   // 3) 上标：x^{n+1} 先处理，再处理单字符 x^2 / e^x
   s = s.replace(/\^\{([^{}]+)\}/g, '<sup>$1</sup>')

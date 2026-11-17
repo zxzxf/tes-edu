@@ -190,9 +190,9 @@
             <span class="grow"></span>
             <span class="q-ans">答案：{{ q.answer || '—' }}</span>
           </div>
-          <p class="stem">{{ q.stem }}</p>
+          <p class="stem" v-html="renderMath(q.stem)"></p>
           <ul v-if="q.options && q.options.length" class="opts">
-            <li v-for="o in q.options" :key="o.label"><b>{{ o.label }}.</b> {{ o.content }}</li>
+            <li v-for="o in q.options" :key="o.label"><b>{{ o.label }}.</b> <span v-html="renderMath(o.content)"></span></li>
           </ul>
           <p v-if="q.answer_values && q.answer_values.length" class="vals">
             可接受值：<span v-for="(v, i) in q.answer_values" :key="i" class="chip">{{ v }}</span>
@@ -206,6 +206,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { renderMath } from '../utils/math'
 import {
   assignPaper,
   confirmAnswerChecks,

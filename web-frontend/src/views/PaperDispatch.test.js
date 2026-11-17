@@ -222,3 +222,23 @@ describe('PaperDispatch.vue 发布与下发', () => {
     expect(push).toHaveBeenCalledWith('/exam')
   })
 })
+
+describe('PaperDispatch.vue 题干公式渲染（v5.26）', () => {
+  it('题干里的 LaTeX 源码渲染为可读文本，不再直接显示 $ 与 \\quad', async () => {
+    getPaper.mockResolvedValueOnce({
+      ...PAPER,
+      questions: [{
+        seq: 1, qtype: 'blank', answer: '3', options: [], answer_values: [],
+        stem: '若 $x \\in \\mathrm{R}$，轨迹是 ($\\quad$)'
+      }]
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const stem = wrapper.find('.stem').html()
+    expect(stem).not.toContain('$')
+    expect(stem).not.toContain('\\quad')
+    expect(stem).toContain('∈')
+    expect(stem).toContain('ℝ')
+  })
+})
