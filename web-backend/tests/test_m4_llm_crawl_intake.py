@@ -376,8 +376,12 @@ def test_guard_quarantines_answer_out_of_range():
     asyncio.run(scenario())
 
 
-def test_guard_quarantines_text_duplicate():
-    """题干格式差异但实质相同的采集题 → 文本指纹判重 → quarantine。"""
+def test_intake_dedups_text_variant_before_guard():
+    """题干格式差异但实质相同的采集题 → 入库前按 text_fp 挡住，不制造隔离题。
+
+    dedup_text 闸自身仍由 test_tcap4_intake_guard.py 覆盖；采集链路提前去重，
+    避免每天重复采集都积累一批「已知重复」的待裁决脏题。
+    """
     async def scenario():
         engine = _engine()
         async with engine.begin() as conn:
@@ -404,9 +408,9 @@ def test_guard_quarantines_text_duplicate():
             rows = (await db.execute(
                 select(CourseQuestion).where(CourseQuestion.content_hash == "new1")
             )).scalars().all()
-            assert len(rows) == 1
-            assert rows[0].status == "quarantine"
-            assert "dedup_text" in out["guard"]["by_gate"]
+            assert rows == []
+            assert out["inserted"] == 0 and out["duplicated"] == 1
+            assert out["paper_id"] is None
         await engine.dispose()
 
     asyncio.run(scenario())
@@ -477,6 +481,126 @@ def test_guard_disabled_keeps_legacy(monkeypatch):
             row = (await db.execute(select(CourseQuestion))).scalar_one()
             assert row.status == "draft" and row.source_tag == "auto_crawl"
             assert out["guard"]["enabled"] is False
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_p1_all_duplicated_creates_no_empty_paper():
+    """P1 重复采到同一批题：去重后 0 新题时不能再建一张空卷。
+
+    否则定时任务每天抓同一源，题库一条没涨、卷子天天多一张，
+    教研还要逐张处置这些空卷。建卷条件本身就带 ``and created``，
+    这条测试把它锁死，防止后续改动回归。
+    """
+    async def scenario():
+        engine = _engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = _job("P1")
+            db.add(job)
+            await db.commit()
+
+            first = await crawl.run_job(db, job, items=_items(2))
+            await db.commit()
+            assert first.inserted == 2 and first.paper_id is not None
+
+            second = await crawl.run_job(db, job, items=_items(2))
+            await db.commit()
+            assert second.inserted == 0
+            assert second.duplicated == 2
+            assert second.paper_id is None
+
+            papers = (await db.execute(select(ExamPaper))).scalars().all()
+            assert len(papers) == 1  # 只有第一次那张卷，没有新增空卷
+            assert len((await db.execute(select(ExamPaperQuestion))).scalars().all()) == 2
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_llm_trailing_backslash_does_not_defeat_dedup():
+    """同题两次抽取只差尾部 LaTeX 反斜杠：hash 不同也要靠 text_fp 挡住。
+
+    真实验收中第二天的 LLM 抽取在每题尾部多出 '\\\\'，content_hash 全部漂移，
+    20 道题重复入库还多建了一张卷。这条测试锁住「入库前按 text_fp 去重」。
+    """
+    async def scenario():
+        engine = _engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = _job("P1")
+            db.add(job)
+            await db.commit()
+            first = dict(subject="数学", grade="高三", type="填空",
+                         stem="已知函数 f(x)=a x^2，求 f(1)", answer="a",
+                         content_hash="hash-round1")
+            second = dict(first, stem=first["stem"] + "\\\\",
+                          content_hash="hash-round2")
+            r1 = await crawl.run_job(db, job, items=[first])
+            await db.commit()
+            assert r1.inserted == 1
+
+            r2 = await crawl.run_job(db, job, items=[second])
+            await db.commit()
+            assert r2.inserted == 0 and r2.duplicated == 1
+            assert r2.paper_id is None
+            assert len((await db.execute(select(ExamPaper))).scalars().all()) == 1
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_p1_quarantined_items_never_enter_paper():
+    """三闸隔离的题不该混进草稿卷；整批隔离时不建卷。"""
+    async def scenario():
+        engine = _engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = _job("P1")
+            db.add(job)
+            await db.commit()
+            bad = dict(subject="数学", grade="高三", type="单选", stem="答案越界题",
+                       options=["A.1", "B.2"], answer="H", content_hash="bad-answer")
+            run = await crawl.run_job(db, job, items=_items(1) + [bad])
+            await db.commit()
+            assert run.inserted == 2
+
+            rows = (await db.execute(select(ExamPaperQuestion))).scalars().all()
+            assert len(rows) == 1 and rows[0].stem == "采集题0"
+            blocked = (await db.execute(
+                select(CourseQuestion).where(CourseQuestion.content_hash == "bad-answer")
+            )).scalar_one()
+            assert blocked.status == "quarantine"
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_llm_paper_name_does_not_overflow_paper_type_column():
+    """LLM 把试卷全名塞进 paper_type 时归一到 mixed，不让整批采集事务回滚。"""
+    async def scenario():
+        engine = _engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = _job("P1")
+            db.add(job)
+            await db.commit()
+            items = _items(1)
+            items[0]["paper_type"] = "2018年数学试卷（理科）（新课标ⅰ）"
+            await crawl.run_job(db, job, items=items)
+            await db.commit()
+            paper = (await db.execute(select(ExamPaper))).scalars().one()
+            assert paper.paper_type == "mixed"
+            assert len(paper.paper_type) <= 16
         await engine.dispose()
 
     asyncio.run(scenario())

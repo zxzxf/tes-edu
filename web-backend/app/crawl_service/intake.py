@@ -24,11 +24,15 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Sequence, Set
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exam_types import QTYPE_CHOICE, QTYPE_SUBJECTIVE, to_qtype
-from app.core.intake_guard import CRAWL_TAG_BASE  # T-CAP4 三闸（纯函数在 core，写回在 kb_guard）
+from app.core.exam_types import (
+    QTYPE_CHOICE, QTYPE_SUBJECTIVE, is_known_paper_type, to_qtype,
+)
+from app.core.intake_guard import (  # T-CAP4 三闸（纯函数在 core，写回在 kb_guard）
+    CRAWL_TAG_BASE, text_fingerprint,
+)
 from app.models.course_kb import CourseQuestion
 from app.models.ops import CrawlJob, ExamPaper, ExamPaperQuestion, ExamPaperIntake
 from app.services import compliance_queue, kb_guard
@@ -56,6 +60,9 @@ def normalize_item(
     缺题干或答案时返回 None：无答案的题进不了组卷，入库只会制造脏数据。
     """
     stem = str(raw.get("stem") or "").strip()
+    # LLM 抽 LaTeX 题常在末尾残留转义反斜杠（"(\quad)\\"），且每次个数不稳定。
+    # 不剥掉会让 content_hash 每次漂移：同一道题反复入库、反复建卷。
+    stem = stem.rstrip("\\").strip()
     if not stem:
         return None
     answer = str(raw.get("answer") or "").strip()
@@ -99,17 +106,34 @@ def normalize_item(
     }
 
 
+def _paper_type_of(items: Sequence[Dict[str, Any]]) -> str:
+    """``exam_papers.paper_type`` 只有 VARCHAR(16)，且内部按三种枚举校验。
+
+    LLM 抽取常把完整试卷名塞进这个字段（如「2018年数学试卷（理科）（新课标ⅰ）」），
+    直接写库会 StringDataRightTruncation，把整批采集事务一起回滚。非枚举值一律落
+    ``mixed``：卷型是机器校验口径，试卷名要留就放 title。
+    """
+    raw = str(items[0].get("paper_type") or "").strip() if items else ""
+    return raw if is_known_paper_type(raw) else "mixed"
+
+
 async def _insert_unique(
     db: AsyncSession, rows: Sequence[Dict[str, Any]]
 ) -> tuple[List[CourseQuestion], int]:
     created: List[CourseQuestion] = []
     duplicated = 0
     for row in rows:
+        # content_hash 对标点/LaTeX 格式敏感，光靠它挡不住「同题不同写法」：
+        # 真实验收中 LLM 两次抽取同一道题只差尾部反斜杠，20 题全部重新入库并建了新卷。
+        # 叠加持久化 text_fp（T-CAP4 迁移 0027，与三闸同一指纹）做入库前去重：
+        # 这里直接跳过，比入库后再隔离更干净（不会制造一堆待裁决脏题和空卷）。
+        fp = text_fingerprint(row.get("stem"))
+        conds = [CourseQuestion.content_hash == row["content_hash"]]
+        if fp:
+            conds.append(CourseQuestion.text_fp == fp)
         exists = (
             await db.execute(
-                select(CourseQuestion.id).where(
-                    CourseQuestion.content_hash == row["content_hash"]
-                )
+                select(CourseQuestion.id).where(or_(*conds))
             )
         ).first()
         if exists:
@@ -190,16 +214,18 @@ async def intake(
             log.warning("合规入队失败（采集题已入库）question_id=%s: %s", obj.id, e)
 
     paper: Optional[ExamPaper] = None
-    if path == PATH_P1 and created:
+    # 三闸隔离的题不进卷：它们是已判定的重复/错误数据，该走异常队列由人裁决，
+    # 不能悄悄混进草稿卷。整批都被隔离时干脆不建卷，避免天天多一张脏卷。
+    paper_rows = [r for r in created if r.status != "quarantine"]
+    if path == PATH_P1 and paper_rows:
         paper = ExamPaper(
             tenant_id=job.tenant_id,
             title=paper_title or f"{job.name}（采集卷）",
-            paper_type=str(items[0].get("paper_type") or "mixed")
-            if items else "mixed",
-            grade=str(created[0].grade or "高三"),
-            subject=str(created[0].subject or "数学"),
+            paper_type=_paper_type_of(items),
+            grade=str(paper_rows[0].grade or "高三"),
+            subject=str(paper_rows[0].subject or "数学"),
             knowledge_points=sorted({
-                kp for r in created for kp in (r.knowledge_points or [])
+                kp for r in paper_rows for kp in (r.knowledge_points or [])
             }),
             version=1,
             source="auto_crawl",
@@ -207,7 +233,7 @@ async def intake(
         )
         db.add(paper)
         await db.flush()
-        for seq, r in enumerate(created, start=1):
+        for seq, r in enumerate(paper_rows, start=1):
             qtype, multi = to_qtype(r.type) or (QTYPE_CHOICE, False)
             db.add(ExamPaperQuestion(
                 paper_id=paper.id,
