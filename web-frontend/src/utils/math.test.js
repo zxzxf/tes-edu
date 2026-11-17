@@ -61,6 +61,17 @@ describe('renderMath：真题题干里的 LaTeX 源码转成可读文本', () =>
     expect(renderMath('\\bar{z}')).not.toContain('\\')
   })
 
+  it('数学函数名 \\log/\\ln 等去反斜杠保留名字（对数比较真题）', () => {
+    const q = '已知 $2+\\log_2 x=3+\\log_3 y=5+\\log_5 z$'
+    const out = renderMath(q)
+    expect(out).not.toContain('\\')
+    expect(out).toBe('已知 2+log<sub>2</sub> x=3+log<sub>3</sub> y=5+log<sub>5</sub> z')
+    expect(renderMathText(q)).toBe('已知 2+log2 x=3+log3 y=5+log5 z')
+    expect(renderMath('$\\ln x+\\sin x+\\tan x$')).toBe('ln x+sin x+tan x')
+    // 未知命令仍原样保留，不被函数名集合误吞
+    expect(renderMath('\\unknowncmd x')).toContain('\\unknowncmd')
+  })
+
   it('卡方公式：\\chi、\\dfrac 与实体反转义（tooltip 纯文本）', () => {
     const src = '$\\chi^2=\\dfrac{n(ad-bc)^2}{(a+b)(c+d)(a+c)(b+d)}$，$P(\\chi^2\\ge k)$，$r>0$'
     const out = renderMathText(src)

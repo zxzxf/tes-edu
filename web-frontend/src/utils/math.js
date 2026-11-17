@@ -48,6 +48,17 @@ const LATEX_SYMBOLS = {
   therefore: '∴', because: '∵', degree: '°', circ: '°'
 }
 
+// 数学函数名：保留名字、只去掉反斜杠（函数名不是单个 Unicode 符号，不能塞进 LATEX_SYMBOLS）。
+// 与学生端 MathText.kt 的 FUNCTIONS 同口径：\log2x → log2x、\log_2 x → log_2 x（下标交给下标规则）。
+// 不处理会让 \log 这类命令原样漏源码——通用命令替换查不到映射就保留整段含反斜杠的命令。
+const FUNCTIONS = new Set([
+  'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
+  'arcsin', 'arccos', 'arctan', 'arccot',
+  'sinh', 'cosh', 'tanh', 'coth',
+  'log', 'ln', 'lg', 'exp', 'lim',
+  'max', 'min', 'sup', 'inf', 'det', 'dim', 'gcd', 'lcm', 'mod', 'arg', 'deg'
+])
+
 // 重音命令（共轭复数 \bar{z}、向量 \vec{x}、估计 \hat{x} 等）→ 组合记号拼在主体后。
 // 原样保留会让学生看到 "\bar{z}" 这种源码（真实真题解题步骤踩过）。
 // 必须在通用命令替换之前处理，否则 \bar 被当成普通命令留下、{z} 花括号也留着。
@@ -100,7 +111,7 @@ export function renderMath(text) {
   s = s.replace(/\\begin\{[^}]+\}/g, '').replace(/\\end\{[^}]+\}/g, '')
   s = s.replace(/\\\\/g, ' ')       // array 内的 \\ 换行
   s = s.replace(/\\[,;!:\s]/g, ' ') // \, \; \! \: 及 \(空格) 排版间距 → 空格
-  s = s.replace(/\\([a-zA-Z]+)/g, (m, name) => LATEX_SYMBOLS[name] || m)
+  s = s.replace(/\\([a-zA-Z]+)/g, (m, name) => LATEX_SYMBOLS[name] || (FUNCTIONS.has(name) ? name : m))
   // 兜底：删除「反斜杠后跟非字母/非花括号」的孤立反斜杠（\%、\(空格) 等噪声），
   // 与 student 端 preprocessMath 同口径。必须在通用命令替换之后，避免吞掉已知命令。
   s = s.replace(/\\(?![A-Za-z{}])/g, '')
