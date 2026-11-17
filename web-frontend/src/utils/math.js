@@ -81,8 +81,11 @@ export function renderMath(text) {
   s = s.replace(/\\(?:mathrm|text|mathbf|mathbb)\{([^{}]+)\}/g, '$1')
   s = s.replace(/\\begin\{[^}]+\}/g, '').replace(/\\end\{[^}]+\}/g, '')
   s = s.replace(/\\\\/g, ' ')       // array 内的 \\ 换行
-  s = s.replace(/\\[,;!]/g, '')     // \, \; \! 排版间距
+  s = s.replace(/\\[,;!:\s]/g, ' ') // \, \; \! \: 及 \(空格) 排版间距 → 空格
   s = s.replace(/\\([a-zA-Z]+)/g, (m, name) => LATEX_SYMBOLS[name] || m)
+  // 兜底：删除「反斜杠后跟非字母/非花括号」的孤立反斜杠（\%、\(空格) 等噪声），
+  // 与 student 端 preprocessMath 同口径。必须在通用命令替换之后，避免吞掉已知命令。
+  s = s.replace(/\\(?![A-Za-z{}])/g, '')
 
   // 3) 上标：x^{n+1} 先处理，再处理单字符 x^2 / e^x
   s = s.replace(/\^\{([^{}]+)\}/g, '<sup>$1</sup>')

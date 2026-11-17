@@ -42,6 +42,17 @@ describe('renderMath：真题题干里的 LaTeX 源码转成可读文本', () =>
     expect(renderMathText('$AC=BC')).toBe('AC=BC')
   })
 
+  it('反斜杠空格 \\ 与孤立反斜杠被清掉（抛物线真题），未知命令保留', () => {
+    const q = '$C_1:y^2=2p_1x\\ (p_1>0)$'
+    const out = renderMath(q)
+    expect(out).not.toContain('\\')
+    expect(out).toBe('C<sub>1</sub>:y<sup>2</sup>=2p<sub>1</sub>x (p<sub>1</sub>&gt;0)')
+    expect(renderMath('$50\\%$')).toBe('50%')
+    // 已知命令与未知命令的反斜杠不能被兜底吞掉
+    expect(renderMath('\\frac{1}{2}')).toBe('(1)/(2)')
+    expect(renderMath('\\unknowncmd x')).toContain('\\unknowncmd')
+  })
+
   it('未收录命令原样保留，不吞题干内容', () => {
     expect(renderMath('\\unknowncmd x')).toContain('\\unknowncmd')
   })
