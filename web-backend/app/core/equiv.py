@@ -488,11 +488,51 @@ def _choice_labels(x) -> Set[str]:
     return out
 
 
+def _option_label_map(options) -> dict:
+    """把题库里各种形态的 ``options`` 统一成 ``{label: content}``。
+
+    线上 ``course_kb.options`` 是 **JSON 数组**（284 条全是 array，如
+    ``["A. {2}", "B. {2,3}"]``），不是 ``{label: content}`` 对象。旧实现直接
+    ``options.get()``，导致每一道命中查表路径的客观题提交都 500
+    （``AttributeError: 'list' object has no attribute 'get'``）。
+    这里兼容三种形态：对象映射 / 字符串数组 / ``[{label,content}]`` 数组；
+    解析不了就返回空 dict（退化为纯标签判定，绝不把 500 抛给学生）。
+    """
+    if not options:
+        return {}
+    if isinstance(options, Mapping):
+        return {str(k).strip().upper(): str(v) for k, v in options.items()}
+    if isinstance(options, str):
+        # 某些调用方传的是 JSON 文本
+        try:
+            import json
+            options = json.loads(options)
+        except (TypeError, ValueError):
+            return {}
+    if isinstance(options, (list, tuple, set)):
+        out: dict = {}
+        for item in options:
+            if isinstance(item, Mapping):
+                label = str(item.get("label") or item.get("key") or "").strip().upper()
+                content = item.get("content") or item.get("text") or item.get("value") or ""
+            else:
+                text = str(item).strip()
+                m = re.match(r"^\(?([a-zA-Z])\)?[\.、：:\s]+(.*)$", text)
+                if not m:
+                    continue
+                label, content = m.group(1).upper(), m.group(2)
+            if label:
+                out[label] = str(content)
+        return out
+    return {}
+
+
 def choice_equivalent(student, ref, multi: bool = False, options: Mapping | None = None):
     """选择题等价判定。
 
     ``student`` / ``ref``：标签字符串（``'C'`` / ``'A,B'``）或标签集合/列表。
-    ``options``：可选 ``{label: content}`` 映射，用于识别「学生只写数值」的选法。
+    ``options``：可选选项表，支持 ``{label: content}`` 映射或题库常见的
+    ``["A. xxx", "B. yyy"]`` 数组（见 [_option_label_map]）。
     返回 ``True``（全对）/ ``False``（错）/ ``'partial'``（多选漏选但所选皆正确）。
     """
     rl = _choice_labels(ref)
@@ -501,8 +541,9 @@ def choice_equivalent(student, ref, multi: bool = False, options: Mapping | None
     sl = _choice_labels(student)
     if sl == rl:
         return True
-    if options and len(rl) == 1:
-        ref_content = str(options.get(next(iter(rl)), "")).strip()
+    opt_map = _option_label_map(options)
+    if opt_map and len(rl) == 1:
+        ref_content = str(opt_map.get(next(iter(rl)), "")).strip()
         if ref_content and values_equivalent(str(student), ref_content):
             return True
     if multi and sl and sl < rl:

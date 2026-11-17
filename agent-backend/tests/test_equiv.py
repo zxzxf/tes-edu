@@ -91,6 +91,28 @@ def test_choice_single_with_numeric_option_content():
     assert choice_equivalent("9", "C", options=opts) is False
 
 
+def test_choice_options_list_form_does_not_500():
+    """线上 course_kb.options 全是 JSON 数组（284 条），旧实现 .get() 直接 500。"""
+    opts = ["A. 8", "B. 9", "C. 12", "D. 18"]
+    assert choice_equivalent("C", "C", options=opts) is True
+    # 数组形态也要能识别「学生只写选项内容」
+    assert choice_equivalent("12", "C", options=opts) is True
+    assert choice_equivalent("9", "C", options=opts) is False
+
+
+def test_choice_options_list_of_dict_form():
+    opts = [{"label": "A", "content": "8"}, {"label": "C", "content": "12"}]
+    assert choice_equivalent("12", "C", options=opts) is True
+    assert choice_equivalent("8", "C", options=opts) is False
+
+
+def test_choice_options_malformed_never_raises():
+    """解析不了就退化成纯标签判定，绝不能把 500 抛给学生。"""
+    assert choice_equivalent("B", "B", options=12345) is True
+    assert choice_equivalent("B", "B", options=["not an option"]) is True
+    assert choice_equivalent("A", "B", options=["not an option"]) is False
+
+
 def test_choice_multi_set_equiv_and_partial():
     # 多选集合相等
     assert choice_equivalent("A,B", "B,A") is True
