@@ -23,7 +23,7 @@
           <span class="src">{{ sourceLabel(c.source) }}</span>
           <span class="time">{{ shortTime(c.created_at) }}</span>
         </div>
-        <p class="content" :title="c.content" v-html="renderMath(c.content)"></p>
+        <p class="content" :title="renderMathText(c.content)" v-html="renderMath(c.content)"></p>
         <div v-if="c.status === 'pending'" class="ops">
           <button class="tes-btn-primary sm" :disabled="busying === c.id" @click="doReview(c, 'approved')">通过</button>
           <button class="ghost sm" :disabled="busying === c.id" @click="doReview(c, 'rejected')">驳回</button>
@@ -38,7 +38,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { renderMath } from '../utils/math'
+import { renderMath, renderMathText } from '../utils/math'
 import { listCompliance, reviewCompliance } from '../api/admin'
 
 const list = ref([])

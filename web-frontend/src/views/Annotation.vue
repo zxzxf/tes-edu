@@ -71,14 +71,14 @@
         <tbody>
           <tr v-for="s in rows" :key="s.id">
             <td class="q-cell">
-              <div class="q-stem" :title="s.question_stem || s.content_hash">
+              <div class="q-stem" :title="renderMathText(s.question_stem) || s.content_hash">
                 <span v-html="renderMath(shortStem(s.question_stem) || shortHash(s.content_hash))"></span>
               </div>
               <div class="q-hash" :title="s.content_hash">{{ shortHash(s.content_hash) }}</div>
             </td>
             <td>{{ fieldLabel(s.field_name) }}</td>
             <td><b class="suggest" v-html="renderMath(s.suggested_value)"></b></td>
-            <td class="reason" :title="s.reason || ''">{{ s.reason || '—' }}</td>
+            <td class="reason" :title="renderMathText(s.reason || '')">{{ s.reason || '—' }}</td>
             <td>
               <span class="pill" :class="pillClass(s.status)">{{ statusLabel(s.status) }}</span>
               <span v-if="s.reviewed_by" class="reviewer"> by {{ s.reviewed_by }}</span>
@@ -102,7 +102,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { renderMath } from '../utils/math'
+import { renderMath, renderMathText } from '../utils/math'
 import {
   listAnnotationSuggestions, reviewAnnotationSuggestion, getAnnotationStats,
 } from '../api/admin'

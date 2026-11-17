@@ -126,7 +126,7 @@
               <input type="checkbox" :aria-label="`选择题目 ${r.id}`" :checked="selected.includes(r.id)" @change="toggle(r.id)" />
             </td>
             <td class="q-cell">
-              <div class="stem" :title="r.stem" v-html="renderMath(r.stem)"></div>
+              <div class="stem" :title="renderMathText(r.stem)" v-html="renderMath(r.stem)"></div>
               <div class="meta">
                 #{{ r.id }} · {{ r.subject }} / {{ r.grade || '-' }} · {{ r.type }} · 答案
                 <b v-html="renderMath(r.answer || '（空）')"></b>
@@ -173,7 +173,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { renderMath } from '../utils/math'
+import { renderMath, renderMathText } from '../utils/math'
 import {
   getQuarantineStats, listQuarantineItems, resolveQuarantineItem,
   batchResolveQuarantineItems, listDuplicateGroups, resolveDuplicateGroup,

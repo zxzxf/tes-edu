@@ -61,6 +61,17 @@ describe('renderMath：真题题干里的 LaTeX 源码转成可读文本', () =>
     expect(renderMath('\\bar{z}')).not.toContain('\\')
   })
 
+  it('卡方公式：\\chi、\\dfrac 与实体反转义（tooltip 纯文本）', () => {
+    const src = '$\\chi^2=\\dfrac{n(ad-bc)^2}{(a+b)(c+d)(a+c)(b+d)}$，$P(\\chi^2\\ge k)$，$r>0$'
+    const out = renderMathText(src)
+    expect(out).not.toContain('\\')
+    expect(out).toContain('χ')
+    expect(out).toContain('(n(ad-bc)2)/((a+b)(c+d)(a+c)(b+d))')
+    expect(out).toContain('r>0')
+    expect(out).not.toContain('&gt;')
+    expect(out).not.toContain('&amp;')
+  })
+
   it('未收录命令原样保留，不吞题干内容', () => {
     expect(renderMath('\\unknowncmd x')).toContain('\\unknowncmd')
   })

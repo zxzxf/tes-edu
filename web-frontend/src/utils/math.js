@@ -30,7 +30,8 @@ function escapeHtml(s) {
 
 const GREEK = {
   alpha: 'α', beta: 'β', gamma: 'γ', delta: 'Δ', epsilon: 'ε', theta: 'θ',
-  lambda: 'λ', mu: 'μ', pi: 'π', rho: 'ρ', sigma: 'σ', phi: 'φ', omega: 'ω'
+  lambda: 'λ', mu: 'μ', pi: 'π', rho: 'ρ', sigma: 'σ', phi: 'φ', omega: 'ω',
+  eta: 'η', kappa: 'κ', nu: 'ν', xi: 'ξ', tau: 'τ', chi: 'χ', psi: 'ψ'
 }
 
 // 常见 LaTeX 命令 → 可读符号。题库里的真题题干大量带这些源码命令，
@@ -76,7 +77,9 @@ export function renderMath(text) {
   s = s.replace(/\^\s*\\(?:circ|degree)\b/g, '°')
 
   // 2) 常见 LaTeX 命令 → Unicode / 线性写法
-  s = s.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1)/($2)')
+  //    分数要先于通用命令替换；\dfrac/\tfrac 与 \frac 同义（卡方公式真题踩过）
+  s = s.replace(/\\[dt]?frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '($1)/($2)')
+  s = s.replace(/\\frac\s*([A-Za-z0-9])\s*([A-Za-z0-9])/g, '$1/$2')
   s = s.replace(/\\sqrt\{([^{}]+)\}/g, '√($1)').replace(/\\sqrt\s*([A-Za-z0-9])/g, '√$1')
   // 命令后必须跟单词边界：否则 \le 会把 \left 吃掉变成 "≤ft"（真实真题踩过）
   s = s.replace(/\\times\b/g, '×').replace(/\\div\b/g, '÷').replace(/\\cdot\b/g, '·')
@@ -118,7 +121,13 @@ export function renderMath(text) {
  * 用于 <option>、:title、textarea 等无法渲染 HTML 的位置，避免显示 \frac 等源码。
  */
 export function renderMathText(text) {
-  return renderMath(text).replace(/<[^>]+>/g, '')
+  // strip 掉 <sup>/<sub> 标签后，还要把 escapeHtml 产生的实体反转回来——
+  // title 属性是纯文本，浏览器不会解析 &gt;/&amp;，否则会显示成字面的 "&gt;0"。
+  return renderMath(text)
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
 }
 
 /** 是否含公式写法（用于决定要不要显示预览区，避免空白框噪音）。 */
