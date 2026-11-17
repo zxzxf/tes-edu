@@ -44,7 +44,7 @@ const LATEX_SYMBOLS = {
   approx: '≈', equiv: '≡', propto: '∝', partial: '∂', nabla: '∇',
   quad: '\u2003', qquad: '\u2003\u2003',  // 排版空格：保留间距感，不显示源码
   to: '→', rightarrow: '→', leftrightarrow: '↔',
-  therefore: '∴', because: '∵', degree: '°'
+  therefore: '∴', because: '∵', degree: '°', circ: '°'
 }
 
 export function renderMath(text) {
@@ -53,6 +53,12 @@ export function renderMath(text) {
 
   // 1) 去掉 LaTeX 数学定界符（$$...$$ 先处理，避免被 $...$ 吃掉一半）
   s = s.replace(/\$\$([\s\S]+?)\$\$/g, '$1').replace(/\$([^$\n]+?)\$/g, '$1')
+
+  // 1b) 度数：^\circ / ^{\circ} / ^\degree 直接合成单个 ° 字符。
+  //     度数符号本身就在右上角，不必再套 <sup>；而且上标规则只认「^ + 单字符」，
+  //     ^\circ 会被漏成源码或裸 ^，必须先于命令替换和上标替换处理。
+  s = s.replace(/\^\s*\{\s*\\(?:circ|degree)\b\s*\}/g, '°')
+  s = s.replace(/\^\s*\\(?:circ|degree)\b/g, '°')
 
   // 2) 常见 LaTeX 命令 → Unicode / 线性写法
   s = s.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1)/($2)')

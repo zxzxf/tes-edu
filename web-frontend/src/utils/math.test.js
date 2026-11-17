@@ -19,6 +19,20 @@ describe('renderMath：真题题干里的 LaTeX 源码转成可读文本', () =>
     expect(renderMath('$x^{2}+\\alpha_1$')).toBe('x<sup>2</sup>+α<sub>1</sub>')
   })
 
+  it('度数 ^\\circ 合成 °，不再漏源码（立体几何真题）', () => {
+    const q = '$\\angle ACB=90^\\circ$，$CC_1=2$，$45^\\circ$'
+    const out = renderMath(q)
+    expect(out).toBe('∠ ACB=90°，CC<sub>1</sub>=2，45°')
+    expect(out).not.toContain('\\circ')
+    expect(out).not.toContain('^')
+    expect(renderMathText(q)).toBe('∠ ACB=90°，CC1=2，45°')
+  })
+
+  it('^\\circ 允许花括号和空格写法', () => {
+    expect(renderMath('$90^{\\circ}$')).toBe('90°')
+    expect(renderMath('$90^ \\circ$')).toBe('90°')
+  })
+
   it('未收录命令原样保留，不吞题干内容', () => {
     expect(renderMath('\\unknowncmd x')).toContain('\\unknowncmd')
   })
