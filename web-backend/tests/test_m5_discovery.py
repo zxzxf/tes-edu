@@ -268,6 +268,7 @@ def test_review_approve_activates_source_and_draft(monkeypatch):
             job = await crawl.create_job(
                 db, tenant_id="school-1", name="d", source_id=None,
                 job_kind="discovery", query="数学", budget_limit=10,
+                schedule="0 14 * * *",
             )
             await db.commit()
             monkeypatch.setattr(disc, "ssrf_safe", lambda u: (True, None))
@@ -294,6 +295,52 @@ def test_review_approve_activates_source_and_draft(monkeypatch):
                 select(CrawlJob).where(CrawlJob.source_id == src.id)
             )).scalars().first()
             assert draft.status == "active"
+            # 审核通过后真正进调度链路：P1 出卷 + 继承 cron + 重算 next_run_at
+            assert draft.path == "P1"
+            assert draft.discovery_job_id == job.id
+            assert draft.schedule == "0 14 * * *"
+            assert draft.next_run_at is not None
+            # 到 next_run_at 之后会被调度器捞到（此刻 14:00 可能还没到，不能直接断言）
+            from datetime import timedelta, timezone
+            due = await crawl.due_jobs(
+                db, now=draft.next_run_at.replace(tzinfo=timezone.utc)
+                + timedelta(minutes=1)
+            )
+            assert any(j.id == draft.id for j in due)
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_pending_draft_never_scheduled_before_approval(monkeypatch):
+    """待审期间即使继承了 cron 也不能被调度器捞到——审核闸门不能被绕过。"""
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = await crawl.create_job(
+                db, tenant_id="school-1", name="d", source_id=None,
+                job_kind="discovery", query="数学", budget_limit=10,
+                schedule="0 14 * * *",
+            )
+            await db.commit()
+            monkeypatch.setattr(disc, "ssrf_safe", lambda u: (True, None))
+            monkeypatch.setattr(disc, "domain_allowed", lambda u, a: True)
+            import app.crawl_service.fetcher as fm
+
+            async def fake_fetch(url, timeout=20):
+                return "选择题 填空题 解答题 答案 解析 真题 考点"
+
+            monkeypatch.setattr(fm, "safe_fetch_url", fake_fetch)
+            await crawl.run_job(db, job)
+            await db.commit()
+            drafts = (await db.execute(
+                select(CrawlJob).where(CrawlJob.job_kind == "harvest")
+            )).scalars().all()
+            assert drafts and all(d.status == "paused" for d in drafts)
+            assert all(d.schedule == "0 14 * * *" for d in drafts)
+            assert all(j.id not in {d.id for d in drafts} for j in await crawl.due_jobs(db))
         await engine.dispose()
 
     asyncio.run(scenario())

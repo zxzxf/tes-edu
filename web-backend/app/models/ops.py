@@ -515,6 +515,8 @@ class CrawlJob(Base):
     job_kind = Column(String(16), nullable=False, default="harvest")
     #: M5-7 自主发现检索约束（学科/年级/教材版本等自然语言）
     query = Column(Text, default=None)
+    #: M5-7 草稿任务来源的发现任务 id（迁移 0028）：审核通过时据此继承 cron
+    discovery_job_id = Column(Integer)
     budget_limit = Column(Integer, nullable=False, default=100)
     spent = Column(Integer, nullable=False, default=0)
     status = Column(String(16), nullable=False, default="paused")

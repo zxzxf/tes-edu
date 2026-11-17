@@ -262,7 +262,9 @@ async def _default_transport(
                     {"role": "user", "content": user},
                 ],
                 "temperature": 0,
-                "max_tokens": 4000,
+                # LaTeX 题（\frac / \overrightarrow 等）单题 token 量大，20 题
+                # 曾因 4000 上限被截断输出非法 JSON，导致整批 0 题。
+                "max_tokens": 8000,
             },
         )
     if resp.status_code != 200:
@@ -314,17 +316,28 @@ async def extract_items(
     system, user = build_extract_prompt(
         cleaned, source_type=source_type, max_items=limit_items
     )
-    try:
+    async def _call() -> str:
         if transport is not None:
-            text = await transport(system, user)
-        else:
-            text = await _default_transport(
-                system, user, db=db, tenant_id=tenant_id, timeout=timeout_s
-            )
-        payload = parse_extract_json(text)
-    except Exception as exc:  # noqa: BLE001 模型/网络/解析失败都要留可读原因
+            return await transport(system, user)
+        return await _default_transport(
+            system, user, db=db, tenant_id=tenant_id, timeout=timeout_s
+        )
+
+    try:
+        text = await _call()
+    except Exception as exc:  # noqa: BLE001 模型/网络失败不重试，避免反复计费
         log.warning("crawl llm extract failed: %s", exc)
         return [], f"LLM 抽取失败：{exc}"
+    try:
+        payload = parse_extract_json(text)
+    except Exception as exc:  # noqa: BLE001
+        # 只重试「输出不是合法 JSON」这一种偶发失败：LaTeX 反斜杠常让模型吐出
+        # 非法转义，temperature=0 也不保证每次输出一致。整批 0 题比一次重试贵得多。
+        log.warning("crawl llm extract invalid JSON, retry once: %s", exc)
+        try:
+            payload = parse_extract_json(await _call())
+        except Exception as exc2:  # noqa: BLE001
+            return [], f"LLM 抽取失败：{exc2}"
 
     items, rejected = validate_extracted(
         payload, max_items=limit_items, tenant_id=tenant_id or "_probe"

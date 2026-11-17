@@ -208,8 +208,12 @@ async def _create_pending_source(
         tenant_id=job.tenant_id,
         source_id=src.id,
         name=f"[草稿] 待审源 {src.id} 采集",
-        path="P2",
-        schedule=None,
+        # 审核通过后要走「整卷入库出卷」：P2 只拆题进 course_kb，永远不会有试卷。
+        path="P1",
+        # 继承发现任务的 cron，但保持 paused —— 调度器 due_jobs 只捞 active，
+        # 审核前绝不会自动采集；approve_source 再据 discovery_job_id 刷新为 active。
+        schedule=job.schedule,
+        discovery_job_id=job.id,
         budget_limit=10,
         spent=0,
         status="paused",
@@ -427,7 +431,15 @@ async def run_discovery(
 async def approve_source(
     db: AsyncSession, tenant_id: str, source_id: int
 ) -> Optional[CourseSource]:
-    """教师审核通过：待审源转 active + 启用关联草稿采集任务。"""
+    """教师审核通过：待审源转 active + 启用关联草稿采集任务。
+
+    草稿任务在发现阶段就已继承发现任务的 cron（迁移 0028），但保持 paused。
+    这里才把它转 active 并**重算 next_run_at**：只改 status 不改 next_run_at 的话，
+    草稿创建时算出的时间可能早已过期，会被调度器当成「每次 tick 都到期」反复跑。
+    同时把路径钉为 P1（整卷入库出卷）——P2 只拆题进题库，永远建不出试卷。
+    """
+    from app.crawl_service import scheduler as crawl_sched
+
     src = (
         await db.execute(
             select(CourseSource).where(
@@ -450,7 +462,24 @@ async def approve_source(
         )
     ).scalar_one_or_none()
     if draft is not None:
+        # 审核时以来源发现任务的最新 cron 为准（发现任务的 schedule 可能被改过）；
+        # 老草稿没有 discovery_job_id 时退回它自己已有的 schedule。
+        sched = draft.schedule
+        if draft.discovery_job_id:
+            parent = (
+                await db.execute(
+                    select(CrawlJob).where(
+                        CrawlJob.id == draft.discovery_job_id,
+                        CrawlJob.tenant_id == tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if parent is not None and parent.schedule:
+                sched = parent.schedule
+        draft.schedule = sched
+        draft.path = "P1"
         draft.status = "active"
+        draft.next_run_at = crawl_sched.next_run_at(sched) if sched else None
     await db.flush()
     return src
 

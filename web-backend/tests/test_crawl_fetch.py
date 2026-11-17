@@ -278,6 +278,32 @@ def test_safe_fetch_url_browser_ua_and_manual_redirect(monkeypatch):
     assert kw["follow_redirects"] is False
 
 
+def test_safe_fetch_url_decodes_gbk_meta_charset(monkeypatch):
+    """GB2312/GBK 教育站只在 HTML meta 声明编码，不能解成乱码再喂给 LLM。"""
+    captured = {}
+    html = '<html><head><meta charset="gb2312"></head><body>1. 已知集合A，求A∩B</body></html>'
+    resp = _FakeResp(text="mojibake", headers={"content-type": "text/html"})
+    resp.content = html.encode("gb18030")
+    resp.encoding = "ISO-8859-1"  # httpx 对未声明 charset 的默认推测
+    _install_fake_client(monkeypatch, [resp], captured)
+    monkeypatch.setattr(cf, "_resolve_safe", lambda u: u)
+    assert "已知集合A" in asyncio.run(cf.safe_fetch_url("https://example.com/math"))
+
+
+def test_safe_fetch_url_decodes_utf8_header_charset(monkeypatch):
+    """显式 UTF-8 header 正常解码，不被 meta 里的干扰声明带偏。"""
+    captured = {}
+    html = '<html><head><meta charset="gb2312"></head><body>	set集合与复数</body></html>'
+    resp = _FakeResp(
+        text="unused", headers={"content-type": "text/html; charset=utf-8"}
+    )
+    resp.content = html.encode("utf-8")
+    resp.encoding = "utf-8"
+    _install_fake_client(monkeypatch, [resp], captured)
+    monkeypatch.setattr(cf, "_resolve_safe", lambda u: u)
+    assert "集合与复数" in asyncio.run(cf.safe_fetch_url("https://example.com/math"))
+
+
 def test_safe_fetch_url_blocks_private_redirect(monkeypatch):
     """302 到云元数据必须在发出第二跳之前被拦（旧 follow_redirects 会绕过）。"""
     captured = {}

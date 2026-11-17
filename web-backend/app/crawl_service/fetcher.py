@@ -152,6 +152,51 @@ _FETCH_HEADERS = {
 _MAX_REDIRECTS = 5
 _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 
+#: HTML meta 里的 charset 声明（国内教育站大量用 GB2312/GBK）
+_META_CHARSET_RE = re.compile(
+    rb"charset\s*=\s*[\"']?\s*([\w\-]+)", re.I
+)
+_HEADER_CHARSET_RE = re.compile(r"charset\s*=\s*[\"']?\s*([\w\-]+)", re.I)
+#: httpx 对未声明 charset 的 text/* 默认按 ISO-8859-1 解，GBK 页会变乱码
+_DECODE_FALLBACKS = ("utf-8", "gb18030")
+
+
+def _decode_body(raw: bytes, hinted: Optional[str], content_type: str) -> str:
+    """按 HTTP header → HTML meta → httpx 推测的顺序解出正文。
+
+    国内教育站常整页 GB2312/GBK 且只在 HTML meta 里声明 charset，httpx 默认
+    按 ISO-8859-1/UTF-8 解会得到满屏乱码——LLM 抽取看到的就不是题目而是噪声，
+    必然 0 条。这里优先信显式声明，GB2312/GBK 统一用超集 GB18030 解码。
+    """
+    candidates: List[str] = []
+    m = _HEADER_CHARSET_RE.search(content_type or "")
+    if m:
+        candidates.append(m.group(1))
+    m = _META_CHARSET_RE.search(raw[:4096])
+    if m:
+        try:
+            candidates.append(m.group(1).decode("ascii"))
+        except UnicodeDecodeError:
+            pass
+    if hinted and hinted.lower() not in ("iso-8859-1", "ascii"):
+        candidates.append(hinted)
+    for enc in candidates:
+        norm = enc.lower().replace("_", "-")
+        if norm in ("gb2312", "gbk", "gb18030", "cp936"):
+            enc = "gb18030"
+        try:
+            text = raw.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            continue
+        if "\ufffd" not in text:
+            return text
+    for enc in _DECODE_FALLBACKS:
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace")
+
 
 async def safe_fetch_url(url: str, timeout: float = 20.0) -> str:
     """SSRF 安全抓取公网 URL 文本（需 httpx）。
@@ -179,7 +224,13 @@ async def safe_fetch_url(url: str, timeout: float = 20.0) -> str:
                 current = urljoin(current, loc)
                 continue
             resp.raise_for_status()
-            return resp.text
+            raw = getattr(resp, "content", None)
+            if raw is None:  # 兼容测试假响应 / 非 httpx 客户端
+                return resp.text
+            return _decode_body(
+                raw, getattr(resp, "encoding", None),
+                resp.headers.get("content-type", ""),
+            )
     raise ValueError(f"采集源重定向次数超过上限 {_MAX_REDIRECTS}")
 
 

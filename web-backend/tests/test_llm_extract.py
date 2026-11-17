@@ -296,3 +296,35 @@ def test_resolve_items_from_source_bank_never_calls_llm(monkeypatch):
     job = SimpleNamespace(source_id=1, tenant_id="school_pilot_01")
     items, reason = run(scheduler._resolve_items_from_source(FakeDB(), job))
     assert reason is None and len(items) == 1 and not called
+
+
+def test_extract_items_retries_only_invalid_json_once():
+    """LaTeX 题输出偶发非法转义：只重试解析失败，且只重试一次。"""
+    calls = []
+
+    async def transport(system, user):
+        calls.append(1)
+        if len(calls) == 1:
+            return '{"questions":[{"stem":"坏的 \\{x}","answer":"A"}]}'
+        return '{"questions":[{"stem":"设集合A={1,2}，求A∩B","answer":"B"}]}'
+
+    items, reason = run(le.extract_items(
+        "<p>题目</p>", source_type="url", transport=transport, enabled=True,
+    ))
+    assert len(items) == 1 and reason is None
+    assert len(calls) == 2
+
+
+def test_extract_items_transport_failure_not_retried():
+    """端点 429/超时不重试——重试只会把失败页反复计费。"""
+    calls = []
+
+    async def transport(system, user):
+        calls.append(1)
+        raise RuntimeError("模型端点返回 429")
+
+    items, reason = run(le.extract_items(
+        "<p>题目</p>", source_type="url", transport=transport, enabled=True,
+    ))
+    assert items == [] and "429" in reason
+    assert len(calls) == 1
