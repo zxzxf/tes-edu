@@ -17,7 +17,8 @@ const STATS = {
 
 const PENDING = [
   {
-    id: 2, content_hash: 'fbc06c2b12345678', field_name: 'difficulty',
+    id: 2, content_hash: 'fbc06c2b12345678', question_stem: '已知函数 f(x)=x²-2x，求其在区间 [0,3] 上的最大值。',
+    field_name: 'difficulty',
     suggested_value: '2', reason: '含椭圆基础运算，难度宜降一档',
     source_model: 'qwen3.6-flash', prompt_version: 1, status: 'pending',
   },
@@ -41,11 +42,23 @@ describe('Annotation 题库标注待校页（T-CAP1）', () => {
 
     expect(listAnnotationSuggestions).toHaveBeenCalledWith({ status: 'pending' })
     expect(getAnnotationStats).toHaveBeenCalled()
-    expect(wrapper.text()).toContain('fbc06c2b12')            // 题目短哈希
+    expect(wrapper.text()).toContain('已知函数 f(x)=x²-2x')    // 题干摘要
+    expect(wrapper.text()).toContain('fbc06c2b12')            // 哈希降为副标题
     expect(wrapper.text()).toContain('难度')                  // 字段中文
     expect(wrapper.text()).toContain('225')                   // 已发布题
     expect(wrapper.text()).toContain('139')                   // 难度缺口
     expect(wrapper.text()).toContain('共 1 条')
+  })
+
+  it('题干缺失时回退显示哈希，不高亮异常', async () => {
+    listAnnotationSuggestions.mockResolvedValueOnce([
+      { ...PENDING[0], question_stem: null },
+    ])
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('fbc06c2b12')
+    expect(wrapper.text()).not.toContain('已知函数')
   })
 
   it('403 必须如实提示加载失败，不能伪装成「暂无建议」', async () => {

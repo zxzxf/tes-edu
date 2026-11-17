@@ -672,7 +672,8 @@ private fun JudgementCard(
                     ?: "需要先写出解题过程才能判分。",
                 icon = Icons.Rounded.Info,
                 color = TesEduColors.Amber,
-                bg = TesEduColors.AmberSoft
+                bg = TesEduColors.AmberSoft,
+                math = true
             )
         } else {
             if (j.firstWrongStep != null) {
@@ -1267,10 +1268,11 @@ fun ExplainScreen(
                             )
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(
+                                MathText(
                                     item.questionText ?: "讲解视频",
-                                    maxLines = 2,
-                                    style = MaterialTheme.typography.bodyMedium
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TesEduColors.TextPrimary,
+                                    maxLines = 2
                                 )
                                 val dur = item.durationSec
                                 if (dur != null) {
@@ -1610,13 +1612,13 @@ fun ReviewScreen(
                     color = TesEduColors.TextPrimary
                 )
             },
-            text = {
-                Text(
-                    "「${q.question.take(40)}…」将从错题本里移除，联网后服务端记录也会一起删掉。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TesEduColors.TextSecondary
-                )
-            },
+                            text = {
+                                MathText(
+                                    "「${q.question.take(40)}…」将从错题本里移除，联网后服务端记录也会一起删掉。",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TesEduColors.TextSecondary
+                                )
+                            },
             confirmButton = {
                 TextButton(onClick = {
                     vm.remove(q)

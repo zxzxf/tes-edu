@@ -294,7 +294,13 @@ async def list_annotation_suggestions(
     field_name: Optional[str] = None,
     limit: int = 100,
 ) -> List[CourseKbAnnotationSuggestion]:
-    """待校队列（可按状态/字段过滤），新建议优先。"""
+    """待校队列（可按状态/字段过滤），新建议优先。
+
+    题干不在建议表里（建议表只存 content_hash，见迁移 0024），这里按 hash
+    一次 IN 批量回填 ``question_stem`` 非映射属性供审核页展示：N 条建议只多
+    一次查询，不产生 N+1；关联不到（题目已删/归档）时该属性为 None，
+    前端回退显示哈希。该属性不落库、不参与后续 UPDATE。
+    """
     stmt = select(CourseKbAnnotationSuggestion)
     if status:
         stmt = stmt.where(CourseKbAnnotationSuggestion.status == status)
@@ -305,7 +311,20 @@ async def list_annotation_suggestions(
         CourseKbAnnotationSuggestion.id.desc(),
     ).limit(limit)
     res = await db.execute(stmt)
-    return list(res.scalars().all())
+    items = list(res.scalars().all())
+
+    hashes = {s.content_hash for s in items if s.content_hash}
+    if not hashes:
+        return items
+    stem_rows = await db.execute(
+        select(CourseQuestion.content_hash, CourseQuestion.stem).where(
+            CourseQuestion.content_hash.in_(hashes)
+        )
+    )
+    stems = {h: stem for h, stem in stem_rows.all()}
+    for s in items:
+        s.question_stem = stems.get(s.content_hash)
+    return items
 
 
 async def get_annotation(db: AsyncSession, item_id: int) -> Optional[CourseKbAnnotationSuggestion]:

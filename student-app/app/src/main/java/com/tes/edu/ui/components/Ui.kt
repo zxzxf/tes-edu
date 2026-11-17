@@ -383,7 +383,8 @@ fun SoftNotice(
     icon: ImageVector,
     color: Color,
     bg: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    math: Boolean = false
 ) {
     Row(
         modifier
@@ -395,11 +396,21 @@ fun SoftNotice(
     ) {
         Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(17.dp))
         Spacer(Modifier.width(8.dp))
-        Text(
-            text,
-            style = MaterialTheme.typography.bodySmall,
-            color = color
-        )
+        // math=true 时正文是点评等题目内容，按公式渲染（x^2、\frac 不再露源码）
+        if (math) {
+            MathText(
+                text,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
+                color = color
+            )
+        } else {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                color = color
+            )
+        }
     }
 }
 

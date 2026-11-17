@@ -182,3 +182,78 @@ def test_all_writable_fields_are_mapped_on_orm():
     mapped = set(CourseQuestion.__table__.columns.keys())
     for field in ops._ANNOTATION_WRITABLE:
         assert field in mapped, "CourseQuestion 缺少字段映射：%s" % field
+
+
+# --------------------------------------------------------------------------
+# list_annotation_suggestions：按 hash 回填题干（审核页要看到题目）
+# --------------------------------------------------------------------------
+class _ScalarsResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return self._rows
+
+
+class _RowsResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def all(self):
+        return self._rows
+
+
+class _ListDb:
+    """两次 execute：先建议列表，再 (hash, stem) 批量关联。"""
+
+    def __init__(self, suggestions, stems):
+        self.suggestions = suggestions
+        self.stems = stems
+        self.calls = 0
+
+    async def execute(self, stmt, *args):
+        self.calls += 1
+        if self.calls == 1:
+            return _ScalarsResult(self.suggestions)
+        return _RowsResult(list(self.stems.items()))
+
+
+def test_list_suggestions_backfills_stem_without_n_plus_one():
+    a = CourseKbAnnotationSuggestion(
+        id=1, content_hash="h1", field_name="difficulty", suggested_value="4",
+        status="pending", prompt_version=1,
+    )
+    b = CourseKbAnnotationSuggestion(
+        id=2, content_hash="h2", field_name="year", suggested_value="2023",
+        status="pending", prompt_version=1,
+    )
+    missing = CourseKbAnnotationSuggestion(
+        id=3, content_hash="gone", field_name="difficulty", suggested_value="3",
+        status="pending", prompt_version=1,
+    )
+    db = _ListDb([a, b, missing], {"h1": "已知函数的题干", "h2": "另一道题题干"})
+
+    items = asyncio.run(ops.list_annotation_suggestions(db))
+
+    assert [s.question_stem for s in items] == ["已知函数的题干", "另一道题题干", None]
+    assert db.calls == 2                          # 1 次列表 + 1 次批量 IN，非 N+1
+    assert "question_stem" not in CourseKbAnnotationSuggestion.__table__.columns  # 非映射属性，不落库
+
+
+def test_list_suggestions_empty_skips_stem_query():
+    db = _ListDb([], {})
+    assert asyncio.run(ops.list_annotation_suggestions(db)) == []
+    assert db.calls == 1                          # 空列表不发 IN()
+
+
+def test_annotation_out_exposes_question_stem():
+    from app.models.schemas import AnnotationSuggestionOut
+
+    obj = _suggestion()
+    obj.question_stem = "题目原文"
+    out = AnnotationSuggestionOut.model_validate(obj)
+    assert out.question_stem == "题目原文"
+    assert out.content_hash == "h1"

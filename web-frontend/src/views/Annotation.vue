@@ -70,9 +70,14 @@
         </thead>
         <tbody>
           <tr v-for="s in rows" :key="s.id">
-            <td class="cw-mono" :title="s.content_hash">{{ shortHash(s.content_hash) }}</td>
+            <td class="q-cell">
+              <div class="q-stem" :title="s.question_stem || s.content_hash">
+                <span v-html="renderMath(shortStem(s.question_stem) || shortHash(s.content_hash))"></span>
+              </div>
+              <div class="q-hash" :title="s.content_hash">{{ shortHash(s.content_hash) }}</div>
+            </td>
             <td>{{ fieldLabel(s.field_name) }}</td>
-            <td><b class="suggest">{{ s.suggested_value }}</b></td>
+            <td><b class="suggest" v-html="renderMath(s.suggested_value)"></b></td>
             <td class="reason" :title="s.reason || ''">{{ s.reason || '—' }}</td>
             <td>
               <span class="pill" :class="pillClass(s.status)">{{ statusLabel(s.status) }}</span>
@@ -97,6 +102,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { renderMath } from '../utils/math'
 import {
   listAnnotationSuggestions, reviewAnnotationSuggestion, getAnnotationStats,
 } from '../api/admin'
@@ -117,6 +123,12 @@ function fieldLabel(f) { return FIELD_LABEL[f] || f }
 function statusLabel(s) { return STATUS_LABEL[s] || s }
 function pillClass(s) { return s === 'pending' ? 'warn' : (s === 'rejected' ? 'bad' : 'info') }
 function shortHash(h) { return h ? String(h).slice(0, 10) : '' }
+// 题干摘要：压掉换行/多余空白，截前 60 字，悬停 title 看全文
+function shortStem(stem) {
+  if (!stem) return ''
+  const oneLine = String(stem).replace(/\s+/g, ' ').trim()
+  return oneLine.length > 60 ? `${oneLine.slice(0, 60)}…` : oneLine
+}
 
 // 队列分布扁平化：{ difficulty: {pending:3}, year:{approved:1} } → { '难度·待校':3, ... }
 const queueFlat = computed(() => {
@@ -188,6 +200,9 @@ onMounted(() => { load(); loadStats() })
 
 <style scoped>
 .cw-hint { font-size: 12px; color: var(--muted, #888); line-height: 1.6; }
+.q-cell { max-width: 440px; min-width: 320px; }
+.q-stem { font-size: 13px; color: var(--ink, #222); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-hash { font: 11px var(--font-mono, monospace); color: var(--muted, #888); margin-top: 3px; }
 code { background: #f5f5f7; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 .board { margin-bottom: 14px; padding: 14px 16px; }
 .board-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }

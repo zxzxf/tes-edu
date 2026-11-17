@@ -245,7 +245,8 @@ fun MathText(
     text: String,
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.bodyMedium,
-    color: Color = Color.Unspecified
+    color: Color = Color.Unspecified,
+    maxLines: Int = Int.MAX_VALUE
 ) {
     val annotated = remember(text, style) {
         if (hasMath(text)) buildMathAnnotatedString(text, style) else AnnotatedString(text)
@@ -254,7 +255,8 @@ fun MathText(
         text = annotated,
         modifier = modifier,
         style = style,
-        color = color
+        color = color,
+        maxLines = maxLines
     )
 }
 

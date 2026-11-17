@@ -551,10 +551,15 @@ class ComplianceItem(BaseModel):
 
 
 class AnnotationSuggestionOut(BaseModel):
-    """T-CAP1 标注建议出参（待校队列展示）。字段列全，否则 pydantic 静默丢弃。"""
+    """T-CAP1 标注建议出参（待校队列展示）。字段列全，否则 pydantic 静默丢弃。
+
+    ``question_stem`` 由服务层按 content_hash 关联 course_kb 回填（只读快照），
+    供教研在审核时直接看到题干；题目被删或 hash 失配时为 None，前端回退显示哈希。
+    """
 
     id: int
     content_hash: str
+    question_stem: Optional[str] = None
     field_name: str
     suggested_value: str
     reason: Optional[str] = None
