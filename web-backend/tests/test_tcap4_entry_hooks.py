@@ -282,3 +282,18 @@ def test_ingest_reports_duplicated_hash_not_guarded(monkeypatch):
         assert report["guard"]["scanned"] == 0
 
     asyncio.run(_run(scenario))
+
+
+def test_quarantine_persists_gate_and_reason():
+    """隔离原因要落库（迁移 0025）：异常队列页靠它说明「为什么被挡」。
+
+    只落 status/tag 的话，页面只能显示「已隔离」，人工无法判断该放行还是该归档。
+    """
+    async def scenario(db):
+        res = await _create(db, [_payload(answer="H")])
+        assert res["guard"]["quarantine"] == 1
+        row = (await db.execute(select(CourseQuestion))).scalars().one()
+        assert row.guard_gate == "answer_out_of_range"
+        assert row.guard_reason and "H" in row.guard_reason
+
+    asyncio.run(_run(scenario))

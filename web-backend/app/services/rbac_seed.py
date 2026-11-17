@@ -87,6 +87,10 @@ MENUS = [
     # 授权口径与审核 API（admin/region_admin/teacher）一致；school 不授——
     # school 虽有采集域权限，但无该审核 API 权限，放采集域会造「看得见点不动」死链。
     ("m_ops_annotation", "m_ops", "标注待校", "MENU", "/ops/annotation", "Annotation", "book", 16, None),
+    # T-CAP4 异常队列：三闸隔离/打标的题集中处置（放行/发布/归档）。
+    # 授权与 quarantine.py 的 _ROLES 对齐（admin/region_admin/teacher）；school 不授——
+    # 它对该 API 无权限，放进学校菜单只会造「看得见点不动」的死链。
+    ("m_ops_quarantine", "m_ops", "异常队列", "MENU", "/ops/quarantine", "Quarantine", "shield", 17, None),
 ]
 
 # 角色 × 菜单授权（菜单节点 + 其下按钮一并授权）：仅 admin 见系统设置全部。
@@ -145,6 +149,7 @@ ROLE_MENU_MAP = {
         "m_sys_feature", "m_sys_feature_manage",  # 教师：可管控本班功能显隐
         "m_ops_explv", "m_ops_explv_regen",  # 教师：讲解视频任务管理（#28）
         "m_ops_annotation",  # 教师：题库标注待校（T-CAP1，与审核 API _ROLES 对齐）
+        "m_ops_quarantine",  # 教师：异常队列处置（T-CAP4，与 quarantine.py _ROLES 对齐）
     ],
     "role_parent": ["m_ops", "m_ops_reports"],
 }

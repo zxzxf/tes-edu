@@ -22,6 +22,11 @@ VERDICT_QUARANTINE = "quarantine"
 
 TAG_QUARANTINE = "guard_quarantine"
 TAG_MANUAL = "guard_manual_review"
+# 人工处置后的后缀（异常队列页用）：release/publish 落 released（可追溯「曾被隔离」），
+# archive 落 archived（确认重复或脏题，保留数据但移出待办队列，不做硬删除）。
+# 两者都保留原来源前缀，故回退/来源筛选谓词继续有效。
+TAG_RELEASED = "guard_released"
+TAG_ARCHIVED = "guard_archived"
 
 # 采集链路的后缀标签：保留 auto_crawl 前缀，兼容回退/隔离谓词
 CRAWL_TAG_BASE = "auto_crawl"
@@ -157,6 +162,7 @@ def judge_item(
 
 def verdict_to_fields(
     verdict: str, *, base_tag: str, tag_manual: bool = False,
+    gate: Optional[str] = None, reason: Optional[str] = None,
 ) -> Dict[str, str]:
     """裁定 → 需要写回 course_kb 的字段（空 dict = 不改）。
 
@@ -170,13 +176,21 @@ def verdict_to_fields(
       导入）置 False——这两条本来每题都强制人审，打标只会把 source_tag
       冲成噪音并丢掉来源语义。
 
-    ``pass`` 一律不改字段：自动验证通过就保持来源原样。
+    ``gate``/``reason`` 一并落 ``guard_gate``/``guard_reason``（迁移 0025）：
+    异常队列页要靠它们说明「为什么被挡」，否则人工只能看到一条 quarantine
+    却无从判断该放行还是该清。``pass`` 一律不改字段：自动验证通过就保持来源原样。
     """
     if verdict == VERDICT_QUARANTINE:
-        return {"status": "quarantine", "source_tag": f"{base_tag}:{TAG_QUARANTINE}"}
-    if verdict == VERDICT_MANUAL and tag_manual:
-        return {"source_tag": f"{base_tag}:{TAG_MANUAL}"}
-    return {}
+        fields = {"status": "quarantine", "source_tag": f"{base_tag}:{TAG_QUARANTINE}"}
+    elif verdict == VERDICT_MANUAL and tag_manual:
+        fields = {"source_tag": f"{base_tag}:{TAG_MANUAL}"}
+    else:
+        return {}
+    if gate:
+        fields["guard_gate"] = str(gate)[:32]
+    if reason:
+        fields["guard_reason"] = str(reason)[:500]
+    return fields
 
 
 def verdict_to_db(verdict: str, current_status: str = "draft") -> Dict[str, str]:

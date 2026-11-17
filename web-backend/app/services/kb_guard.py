@@ -165,7 +165,10 @@ async def apply_entry_guard(
         stats[v] = stats.get(v, 0) + 1
         stats["by_gate"][g] = stats["by_gate"].get(g, 0) + 1
 
-        fields = verdict_to_fields(v, base_tag=base_tag, tag_manual=tag_manual)
+        fields = verdict_to_fields(
+            v, base_tag=base_tag, tag_manual=tag_manual,
+            gate=g, reason=verdict.get("reason", ""),
+        )
         if fields:
             for key, value in fields.items():
                 setattr(obj, key, value)

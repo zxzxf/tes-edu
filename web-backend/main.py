@@ -28,6 +28,7 @@ from app.api import (
     learning,
     llm_usage,
     metrics,
+    quarantine,
     questions,
     reports,
     rbac_api,
@@ -210,6 +211,7 @@ app.include_router(metrics.router, prefix="/api/admin")  # T-C4 P2 埋点指标
 app.include_router(llm_usage.router, prefix="/api/admin")  # T-D3 LLM 用量与预算告警
 app.include_router(compliance.router, prefix="/api/admin")
 app.include_router(annotation.router, prefix="/api/admin")  # T-CAP1 标注审核/产能看板
+app.include_router(quarantine.router, prefix="/api/admin")  # T-CAP4 异常队列（隔离/打标处置）
 app.include_router(questions.router, prefix="/api/admin")
 app.include_router(ingest.router, prefix="/api/admin")
 app.include_router(rbac_api.router, prefix="/api/admin")  # T-AM0/2/3/4/5 权限基座

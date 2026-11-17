@@ -14,6 +14,7 @@ import Grading from '../views/Grading.vue'
 import Reports from '../views/Reports.vue'
 import Compliance from '../views/Compliance.vue'
 import Annotation from '../views/Annotation.vue'
+import Quarantine from '../views/Quarantine.vue'
 import Practice from '../views/Practice.vue'
 import ErrorDistribution from '../views/ErrorDistribution.vue'
 // 系统化任务采集工作台六页：2026-11-12 起与主站共用同一个三段式壳子 Layout，
@@ -61,6 +62,8 @@ const routes = [
       { path: 'compliance', name: 'compliance', component: Compliance, meta: { title: '合规审核' } },
       // T-CAP1 题库标注待校（列表 + approve/reject + 产能看板）
       { path: 'annotation', name: 'annotation', component: Annotation, meta: { title: '标注待校' } },
+      // T-CAP4 异常队列：三闸隔离/打标题集中处置（放行/发布/归档）
+      { path: 'quarantine', name: 'quarantine', component: Quarantine, meta: { title: '异常队列' } },
       { path: 'practice', name: 'practice', component: Practice, meta: { title: '在线练习（过程采集）' } },
       // T-AM3/T-AM4/T-AM5/T-AM6 管理页：授权可达性由 auth.hasRouteAccess 按 /menu/my 判定
       // （见 utils/menu.js 的 MENU_ROUTE_MAP），此处不硬编码角色

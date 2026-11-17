@@ -318,3 +318,18 @@ export function getExplanationConfig() {
 export function streamExplanationVideo(id) {
   return client.get(`/explanation-video/${id}/stream`, { responseType: 'blob' })
 }
+
+// T-CAP4 异常队列（B 端）：让三闸打标/隔离的题有专门界面处置
+// 统计：隔离待处置 / 打标待人工 / 已归档 + 按闸、按链路分布
+export function getQuarantineStats() {
+  return client.get('/quarantine/stats')
+}
+// 明细：kind = quarantine（隔离待处置）| flagged（仅打标）| archived（已归档）
+// gate 按闸过滤（dedup_text / answer_out_of_range ...），q 为题干关键词
+export function listQuarantineItems(params = {}) {
+  return client.get('/quarantine/items', { params })
+}
+// 处置：action = release（放行入草稿）| publish（确认发布）| archive（归档移出队列）
+export function resolveQuarantineItem(itemId, action) {
+  return client.post(`/quarantine/${itemId}/resolve`, { action })
+}

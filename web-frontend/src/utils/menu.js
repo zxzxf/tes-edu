@@ -41,6 +41,7 @@ export const MENU_ROUTE_MAP = {
   '/ops/reports': '/reports',
   '/ops/compliance': '/compliance',
   '/ops/annotation': '/annotation', // T-CAP1 题库标注待校页（列表+审核+产能看板）
+  '/ops/quarantine': '/quarantine', // T-CAP4 异常队列（隔离/打标处置）
   '/ops/practice': '/practice',
   '/ops/course-intake': '/course-intake', // 课程采集 + 知识点审核页（M5-1~M5-6）
   '/system/menu': '/system/menu', // 菜单管理页（T-AM3 前端，2026-10-26 建）

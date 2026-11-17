@@ -51,6 +51,11 @@ class CourseQuestion(Base):
     status = Column(String(16), nullable=False, default="draft", server_default="draft")
     reviewed_by = Column(String(64))
     reviewed_at = Column(DateTime(timezone=True))
+    # T-CAP4（迁移 0025）：三闸隔离原因落库，供 B 端异常队列页展示「为什么被挡」。
+    # 没有这两列时，隔离题只能看到 status=quarantine，人工无法判断该放行还是该清，
+    # gate/reason 只活在入库进程的 stats 里、落不了库。
+    guard_gate = Column(String(32))     # dedup_exact / dedup_text / answer_out_of_range ...
+    guard_reason = Column(Text)         # 该次裁定的具体依据（重复 hash 前缀、越界字母等）
     # M0-1 教师录题新增列（迁移 0012；create_all 只建缺失表、不加列，线上须手工 ALTER）
     answer_values = Column(JSON)                                    # 标答预展开（M2-4 判分口径）
     choice_type = Column(String(16))                                # single / multi（仅选择题）
