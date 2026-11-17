@@ -180,6 +180,9 @@ fun InputScreen(
     var practiceOptionsJson by remember { mutableStateOf<String?>(null) }
     // 选择题在练习页直接点选答案（"A"/"B"...），替代「我的作答」文本输入。
     var selectedOption by remember { mutableStateOf<String?>(null) }
+    // 题目是否来自别页投递（错题本练习 / 触类 / 图谱）。投递题只读展示、公式走 MathText
+    // 渲染——否则塞进可编辑 TextField 会露出 `$C_1:y^2=...$` 这类 LaTeX 源码（真实错题踩过）。
+    var questionPinned by remember { mutableStateOf(false) }
 
     // T-S4：触类页「再练这道」/ 图谱「练这个知识点」投递过来的题干——
     // 进来即预填并清掉上一题的作答与结果，避免"新题旧答"混着提交。
@@ -192,6 +195,7 @@ fun InputScreen(
             selectedOption = null
             process = ""
             reply = ""
+            questionPinned = true
             vm.reset()
             AppBridge.consumeQuestion()
         }
@@ -213,16 +217,64 @@ fun InputScreen(
 
         Spacer(Modifier.height(18.dp))
 
-        SoftFieldCard(
-            label = "题目",
-            hint = "次方写 e^x，分数写 1/2，分母含多项必须加括号",
-            value = question,
-            onValueChange = { question = it },
-            placeholder = "把题目放进来…",
-            minLines = 3,
-            leadingIcon = Icons.Rounded.Quiz,
-            mathPreview = true
-        )
+        // 投递题（错题本练习 / 触类 / 图谱）只读展示：题干走 MathText 渲染，
+        // 避免塞进可编辑 TextField 露出 `$C_1:y^2=...$` 这类 LaTeX 源码。
+        // 手动输入的题仍用可编辑 SoftFieldCard（下方实时公式预览）。
+        if (questionPinned) {
+            Column(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(26.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(TesEduColors.Brand.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Rounded.Quiz,
+                            contentDescription = null,
+                            tint = TesEduColors.Brand,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "题目",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = TesEduColors.TextPrimary
+                    )
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = { questionPinned = false }) {
+                        Text("编辑", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(TesEduColors.FieldBg)
+                        .padding(horizontal = 13.dp, vertical = 12.dp)
+                ) {
+                    MathText(
+                        question,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TesEduColors.TextPrimary
+                    )
+                }
+            }
+        } else {
+            SoftFieldCard(
+                label = "题目",
+                hint = "次方写 e^x，分数写 1/2，分母含多项必须加括号",
+                value = question,
+                onValueChange = { question = it },
+                placeholder = "把题目放进来…",
+                minLines = 3,
+                leadingIcon = Icons.Rounded.Quiz,
+                mathPreview = true
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
 
