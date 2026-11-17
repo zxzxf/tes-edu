@@ -244,7 +244,11 @@ def test_p1_creates_unpublished_paper_and_keeps_questions_in_bank():
             assert papers[0].source == "auto_crawl" and papers[0].published is False
             rows = (await db.execute(select(CourseQuestion))).scalars().all()
             assert len(rows) == 2
-            assert all(r.status == "draft" and r.source_tag == "auto_crawl" for r in rows)
+            # T-CAP4：采集题入库即校验，无第二来源的选择题打 guard_manual_review 标
+            # （保留 auto_crawl 前缀以兼容回退），status 仍是 draft。
+            assert all(
+                r.status == "draft" and r.source_tag.startswith("auto_crawl") for r in rows
+            )
             assert run.paper_id == papers[0].id
             assert (await db.execute(select(ExamPaperQuestion))).scalars().all()
         await engine.dispose()
@@ -341,6 +345,138 @@ def test_rollback_run_removes_only_draft_auto_crawl():
             assert out["removed_papers"] == 1
             left = (await db.execute(select(CourseQuestion))).scalars().all()
             assert [r.status for r in left] == ["published"]
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+# ---------------------------------------------------------------- T-CAP4 入库即校验 hook
+def test_guard_quarantines_answer_out_of_range():
+    """采集题答案越界（H 不在 A/B）→ 自动 quarantine，不进正常 draft 流。"""
+    async def scenario():
+        engine = _engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = _job("P2")
+            db.add(job)
+            await db.commit()
+            items = [dict(subject="数学", grade="高三", type="选择", stem="单选越界题",
+                          options=["A.1", "B.2"], answer="H", content_hash="bad1")]
+            out = await crawl_intake.intake(db, job, items=items)
+            await db.commit()
+            rows = (await db.execute(select(CourseQuestion))).scalars().all()
+            assert len(rows) == 1
+            assert rows[0].status == "quarantine"
+            assert rows[0].source_tag == "auto_crawl:guard_quarantine"
+            assert out["guard"]["quarantine"] == 1
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_guard_quarantines_text_duplicate():
+    """题干格式差异但实质相同的采集题 → 文本指纹判重 → quarantine。"""
+    async def scenario():
+        engine = _engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            # 先入一道存量题
+            db.add(CourseQuestion(
+                subject="数学", grade="高三", type="选择",
+                stem="设集合 A={x|-2<x<4}, B={2,3,4,5}, 则 A∩B=( )",
+                options=["A.1", "B.2"], answer="B", content_hash="exist1",
+                tenant_id="school-1", source_tag="gaokao_real", status="published",
+            ))
+            await db.commit()
+            job = _job("P2")
+            db.add(job)
+            await db.commit()
+            # 采集一道仅标点/全角不同的同题，content_hash 不同
+            items = [dict(subject="数学", grade="高三", type="选择",
+                          stem="设集合 A={x|-2<x<4}，B={2,3,4,5}，则 A∩B=( )",
+                          options=["A.1", "B.2"], answer="B", content_hash="new1")]
+            out = await crawl_intake.intake(db, job, items=items)
+            await db.commit()
+            rows = (await db.execute(
+                select(CourseQuestion).where(CourseQuestion.content_hash == "new1")
+            )).scalars().all()
+            assert len(rows) == 1
+            assert rows[0].status == "quarantine"
+            assert "dedup_text" in out["guard"]["by_gate"]
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_guard_manual_tag_on_valid_choice():
+    """合法但无第二来源的选择题 → manual 打标不隔离（status 仍 draft）。"""
+    async def scenario():
+        engine = _engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = _job("P2")
+            db.add(job)
+            await db.commit()
+            out = await crawl_intake.intake(db, job, items=_items(1))
+            await db.commit()
+            row = (await db.execute(select(CourseQuestion))).scalar_one()
+            assert row.status == "draft"
+            assert row.source_tag == "auto_crawl:guard_manual_review"
+            assert out["guard"]["manual_review"] == 1
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_rollback_removes_guard_quarantined():
+    """guard 隔离的采集题也能被 rollback_run 清除（保留 auto_crawl 前缀的意义）。"""
+    async def scenario():
+        engine = _engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = _job("P2")
+            db.add(job)
+            await db.commit()
+            items = [dict(subject="数学", grade="高三", type="选择", stem="越界待回退",
+                          options=["A.1", "B.2"], answer="H", content_hash="bad2")]
+            out = await crawl_intake.intake(db, job, items=items, run_id=99)
+            await db.commit()
+            assert (await db.execute(select(CourseQuestion))).scalars().all()[0].status == "quarantine"
+
+            res = await crawl_intake.rollback_run(db, tenant_id="school-1", run_id=99)
+            await db.commit()
+            assert res["removed_questions"] == 1
+            assert (await db.execute(select(CourseQuestion))).scalars().all() == []
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_guard_disabled_keeps_legacy(monkeypatch):
+    """关掉 guard 后行为回到 legacy：auto_crawl / draft，不写 guard 统计。"""
+    async def scenario():
+        monkeypatch.setattr(crawl_intake, "GUARD_ENABLED", False)
+        engine = _engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            job = _job("P2")
+            db.add(job)
+            await db.commit()
+            out = await crawl_intake.intake(db, job, items=_items(1))
+            await db.commit()
+            row = (await db.execute(select(CourseQuestion))).scalar_one()
+            assert row.status == "draft" and row.source_tag == "auto_crawl"
+            assert out["guard"]["enabled"] is False
         await engine.dispose()
 
     asyncio.run(scenario())
