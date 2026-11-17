@@ -282,6 +282,20 @@ export function createCompliance(data) {
   return client.post('/compliance', data)
 }
 
+// T-CAP1 题库标注待校（标注→审核→入库闭环的后半段，admin/teacher/region_admin）
+// status: pending | approved | rejected；field_name: difficulty | year | paper_type
+export function listAnnotationSuggestions(params = {}) {
+  return client.get('/annotation/suggestions', { params })
+}
+// 审核一条建议：decision = approved（写回 course_kb）| rejected（丢弃）
+export function reviewAnnotationSuggestion(itemId, decision) {
+  return client.put(`/annotation/suggestions/${itemId}/review`, null, { params: { decision } })
+}
+// 产能看板：队列分布 + course_kb 标注覆盖缺口
+export function getAnnotationStats() {
+  return client.get('/annotation/stats')
+}
+
 // ④·数字人讲题视频（#28）：讲解视频生成任务管理
 // 列表（分页 + 状态 / 租户过滤），教师端任务管理后台用
 export function listExplanationVideos(params = {}) {

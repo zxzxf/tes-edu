@@ -137,3 +137,23 @@ def test_seed_exam_dispatch_menu_and_role_grants():
     for rid in ("role_admin", "role_region_admin", "role_school", "role_teacher"):
         assert (rid, "m_ops_exam_dispatch") in pairs
     assert ("role_parent", "m_ops_exam_dispatch") not in pairs
+
+
+def test_seed_annotation_menu_matches_review_api_roles():
+    """T-CAP1 标注待校页：菜单授权须与审核 API 的 _ROLES 一致。
+
+    admin/region_admin/teacher 可见；school 不授（它有采集域权限但无审核 API
+    权限，放采集域会造「看得见点不动」死链）；家长不授。
+    """
+    menus = {m["menu_id"]: m for m in rbac_seed.build_seed_menus()}
+    node = menus["m_ops_annotation"]
+    assert node["menu_name"] == "标注待校"
+    assert node["path"] == "/ops/annotation"
+    assert node["parent_id"] == "m_ops"
+    assert node["menu_type"] == "MENU"
+
+    pairs = {(r["role_id"], r["menu_id"]) for r in rbac_seed.build_seed_role_menus()}
+    for rid in ("role_admin", "role_region_admin", "role_teacher"):
+        assert (rid, "m_ops_annotation") in pairs
+    for rid in ("role_school", "role_parent"):
+        assert (rid, "m_ops_annotation") not in pairs

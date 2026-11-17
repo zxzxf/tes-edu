@@ -82,6 +82,11 @@ MENUS = [
     # ④·数字人讲题视频（#28）：教师端「讲解视频生成任务管理」后台
     ("m_ops_explv", "m_ops", "讲解视频任务", "MENU", "/ops/explanation-videos", "ExplanationVideos", "video", 15, None),
     ("m_ops_explv_regen", "m_ops_explv", "重跑生成", "BUTTON", "", "", "", 1, "explanation:regen"),
+    # T-CAP1 题库标注待校页：标注→审核→入库闭环的人工审核入口。
+    # sort=16 追加在区域运营组末尾（线上旧库只补插新行、不改既有 sort）。
+    # 授权口径与审核 API（admin/region_admin/teacher）一致；school 不授——
+    # school 虽有采集域权限，但无该审核 API 权限，放采集域会造「看得见点不动」死链。
+    ("m_ops_annotation", "m_ops", "标注待校", "MENU", "/ops/annotation", "Annotation", "book", 16, None),
 ]
 
 # 角色 × 菜单授权（菜单节点 + 其下按钮一并授权）：仅 admin 见系统设置全部。
@@ -139,6 +144,7 @@ ROLE_MENU_MAP = {
         "m_sys_user",  # 教师：用户管理（只读，列表仅本租户用户；写接口仍受 UserWriteRoleDep 兜底）
         "m_sys_feature", "m_sys_feature_manage",  # 教师：可管控本班功能显隐
         "m_ops_explv", "m_ops_explv_regen",  # 教师：讲解视频任务管理（#28）
+        "m_ops_annotation",  # 教师：题库标注待校（T-CAP1，与审核 API _ROLES 对齐）
     ],
     "role_parent": ["m_ops", "m_ops_reports"],
 }

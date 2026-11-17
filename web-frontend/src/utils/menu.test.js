@@ -88,6 +88,7 @@ describe('routePathOf（后端 path → 前端路由映射）', () => {
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/wrong' })).toBe('/wrong-questions')
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/course-intake' })).toBe('/course-intake')
     expect(routePathOf({ menu_type: 'MENU', path: '/ops/exam-dispatch' })).toBe('/papers')
+    expect(routePathOf({ menu_type: 'MENU', path: '/ops/annotation' })).toBe('/annotation')
     // T-AM3/T-AM4/T-AM5/T-AM6 前端管理页（2026-10-26/27 建）后，/system/* 四个管理页可导航
     expect(routePathOf({ menu_type: 'MENU', path: '/system/menu' })).toBe('/system/menu')
     expect(routePathOf({ menu_type: 'MENU', path: '/system/role' })).toBe('/system/role')
