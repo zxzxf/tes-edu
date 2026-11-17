@@ -47,6 +47,18 @@ const LATEX_SYMBOLS = {
   therefore: '∴', because: '∵', degree: '°', circ: '°'
 }
 
+// 重音命令（共轭复数 \bar{z}、向量 \vec{x}、估计 \hat{x} 等）→ 组合记号拼在主体后。
+// 原样保留会让学生看到 "\bar{z}" 这种源码（真实真题解题步骤踩过）。
+// 必须在通用命令替换之前处理，否则 \bar 被当成普通命令留下、{z} 花括号也留着。
+const ACCENT_MARKS = {
+  bar: '\u0304', overline: '\u0304',   // 上横线（共轭复数）
+  hat: '\u0302', widehat: '\u0302',
+  tilde: '\u0303', widetilde: '\u0303',
+  vec: '\u20D7', dot: '\u0307', ddot: '\u0308'
+}
+const ACCENT_RE = /\\(bar|overline|hat|widehat|tilde|widetilde|vec|dot|ddot)\s*\{([^{}]+)\}/g
+const ACCENT_BARE_RE = /\\(bar|overline|hat|widehat|tilde|widetilde|vec|dot|ddot)\s*([A-Za-z0-9])\b/g
+
 export function renderMath(text) {
   if (text === null || text === undefined) return ''
   let s = escapeHtml(text)
@@ -74,6 +86,9 @@ export function renderMath(text) {
   // 2b) 结构命令：定界符/字体/箭头/数组环境都不是「题干内容」，转成可读形态。
   //     必须先于通用 \(... 命令替换，否则 \left 等会被当成普通命令原样留下。
   s = s.replace(/\\left/g, '').replace(/\\right/g, '')
+  // 重音命令：\bar{z}→z̄、\vec{x}→x⃗；先花括号后单字符，须早于通用命令替换
+  s = s.replace(ACCENT_RE, (m, name, body) => body + ACCENT_MARKS[name])
+  s = s.replace(ACCENT_BARE_RE, (m, name, ch) => ch + ACCENT_MARKS[name])
   s = s.replace(/\\\{/g, '{').replace(/\\\}/g, '}')
   s = s.replace(/\\overrightarrow\{([^{}]+)\}/g,
     (m, body) => body.replace(/\s+/g, '') + '\u20D7')

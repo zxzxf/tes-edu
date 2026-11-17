@@ -53,6 +53,14 @@ describe('renderMath：真题题干里的 LaTeX 源码转成可读文本', () =>
     expect(renderMath('\\unknowncmd x')).toContain('\\unknowncmd')
   })
 
+  it('重音命令 \\bar/\\vec/\\hat 转组合记号（共轭复数解题步骤）', () => {
+    expect(renderMath('由共轭复数定义知 \\bar{z}=-1+i')).toBe('由共轭复数定义知 z̄=-1+i')
+    expect(renderMath('z+\\bar{z}=-2')).toBe('z+z̄=-2')
+    expect(renderMath('\\vec{x}')).toBe('x⃗')
+    expect(renderMath('\\hat{x}')).toBe('x̂')
+    expect(renderMath('\\bar{z}')).not.toContain('\\')
+  })
+
   it('未收录命令原样保留，不吞题干内容', () => {
     expect(renderMath('\\unknowncmd x')).toContain('\\unknowncmd')
   })

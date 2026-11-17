@@ -109,6 +109,16 @@ class MathTextTest {
         assertEquals("a/b", preprocessMath("\\frac{a}{b}"))
     }
 
+    @Test
+    fun accent_macros_are_flattened() {
+        // 共轭复数 \bar{z}、向量 \vec{x} 等重音命令不能把 \bar 源码露给学生
+        assertEquals("z\u0304", preprocessMath("\\bar{z}"))
+        assertEquals("由共轭复数定义知 z\u0304=-1+i", preprocessMath("由共轭复数定义知 \\bar{z}=-1+i"))
+        assertEquals("z+z\u0304=-2", preprocessMath("z+\\bar{z}=-2"))
+        assertEquals("x\u20D7", preprocessMath("\\vec{x}"))
+        assertEquals("x\u0302", preprocessMath("\\hat{x}"))
+    }
+
     // ---------------- 上下标切分 ----------------
 
     private fun segs(src: String) = parseMathSegments(src)

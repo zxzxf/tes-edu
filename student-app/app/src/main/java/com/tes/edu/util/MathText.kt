@@ -93,6 +93,17 @@ private val SQRT_BARE = Regex("""\\sqrt\s*([A-Za-z0-9])""")
 private val TEXT_MACRO = Regex("""\\(?:text|mathrm|mathbf|operatorname|mathbb)\s*\{([^{}]*)\}""")
 private val SPACER = Regex("""\\(?:,|;|!|:|quad|qquad|qquad)""")
 private val LEFT_RIGHT = Regex("""\\(?:left|right)\b""")
+/** 重音命令（共轭复数 \bar{z}、向量 \vec{x}、估计 \hat{x} 等）→ 组合记号拼在主体后。
+ *  原样保留会让学生看到 "\bar{z}" 源码（真实真题解题步骤踩过）。
+ *  必须先于 MACRO：否则 \bar 被当普通宏留下、{z} 花括号也留着。 */
+private val ACCENT_MARKS = mapOf(
+    "bar" to "\u0304", "overline" to "\u0304",
+    "hat" to "\u0302", "widehat" to "\u0302",
+    "tilde" to "\u0303", "widetilde" to "\u0303",
+    "vec" to "\u20D7", "dot" to "\u0307", "ddot" to "\u0308"
+)
+private val ACCENT = Regex("""\\(bar|overline|hat|widehat|tilde|widetilde|vec|dot|ddot)\s*\{([^{}]+)\}""")
+private val ACCENT_BARE = Regex("""\\(bar|overline|hat|widehat|tilde|widetilde|vec|dot|ddot)\s*([A-Za-z0-9])""")
 private val MACRO = Regex("""\\([A-Za-z]+)""")
 private val HAS_SUBSCRIPT = Regex("""_[A-Za-z0-9{(]""")
 
@@ -116,6 +127,9 @@ fun preprocessMath(src: String): String {
     s = s.replace("\\{", "{").replace("\\}", "}")
     s = TEXT_MACRO.replace(s) { it.groupValues[1] }
     s = LEFT_RIGHT.replace(s, "")
+    // 重音命令：\bar{z}→z̄、\vec{x}→x⃗；先花括号后单字符，须早于 MACRO
+    s = ACCENT.replace(s) { it.groupValues[2] + (ACCENT_MARKS[it.groupValues[1]] ?: "") }
+    s = ACCENT_BARE.replace(s) { it.groupValues[2] + (ACCENT_MARKS[it.groupValues[1]] ?: "") }
     s = FRAC.replace(s) { wrapOperand(it.groupValues[1]) + "/" + wrapOperand(it.groupValues[2]) }
     s = FRAC_BARE.replace(s) { wrapOperand(it.groupValues[1]) + "/" + wrapOperand(it.groupValues[2]) }
     s = SQRT_BRACE.replace(s) { "√" + wrapOperand(it.groupValues[1]) }
