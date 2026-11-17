@@ -33,6 +33,15 @@ describe('renderMath：真题题干里的 LaTeX 源码转成可读文本', () =>
     expect(renderMath('$90^ \\circ$')).toBe('90°')
   })
 
+  it('截断后落单的 $ 定界符被清掉（列表预览 slice 到 $...$ 中间）', () => {
+    // 复现标注待校页：shortStem 截到 $AC=BC 处，第二个 $ 被切掉
+    const clipped = '（13分）如图，在直三棱柱 ABC-A1B1C1 中，∠ACB=90°，$AC=BC…'
+    const out = renderMath(clipped)
+    expect(out).not.toContain('$')
+    expect(out).toContain('AC=BC')
+    expect(renderMathText('$AC=BC')).toBe('AC=BC')
+  })
+
   it('未收录命令原样保留，不吞题干内容', () => {
     expect(renderMath('\\unknowncmd x')).toContain('\\unknowncmd')
   })
