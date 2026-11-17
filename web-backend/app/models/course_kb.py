@@ -39,6 +39,10 @@ class CourseQuestion(Base):
     difficulty = Column(Integer, default=3)                         # 1~5
     paper_type = Column(String(32))                                 # 卷别：新高考I卷
     source_province = Column(String(32))                            # 来源省份
+    # year 由线上迁移补列（course_kb 建表后加），历史 ORM 漏映射：
+    # 缺它会导致 T-CAP1 approve year 建议时 setattr 只设 Python 属性、不真正写库
+    # （"假装成功"），且产能看板 CourseQuestion.year 抛 AttributeError。v5.14 补齐。
+    year = Column(Integer)                                          # 题目出处年份
     knowledge_points = Column(JSON)                                 # 知识点标签 list[str]
     content_hash = Column(String(64), unique=True, index=True)       # 去重指纹
     # 0005_tenant_source_tag 迁移补列（跨租户读取 / 隔离脏题用）；ORM 仅做映射，不重建表

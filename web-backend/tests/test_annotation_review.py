@@ -171,3 +171,14 @@ def test_already_reviewed_is_rejected():
 def test_unknown_decision_raises():
     with pytest.raises(ValueError):
         asyncio.run(ops.review_annotation(_FakeDb(), _suggestion(), "maybe"))
+
+
+def test_all_writable_fields_are_mapped_on_orm():
+    """守卫：approve 写回的每个字段都必须在 CourseQuestion ORM 上有映射。
+
+    否则 setattr 只设 Python 属性、不落库（approve 返回成功但题库没变），
+    且 stats 聚合访问未映射列会 AttributeError。曾因 year 漏映射踩过（v5.14）。
+    """
+    mapped = set(CourseQuestion.__table__.columns.keys())
+    for field in ops._ANNOTATION_WRITABLE:
+        assert field in mapped, "CourseQuestion 缺少字段映射：%s" % field
