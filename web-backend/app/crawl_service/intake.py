@@ -28,14 +28,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exam_types import QTYPE_CHOICE, QTYPE_SUBJECTIVE, to_qtype
-from app.core.intake_guard import (  # T-CAP4 入库三闸（纯函数）
-    VERDICT_PASS, VERDICT_MANUAL, VERDICT_QUARANTINE,
-    CRAWL_TAG_QUARANTINE, CRAWL_TAG_MANUAL,
-    text_fingerprint, judge_item,
-)
+from app.core.intake_guard import CRAWL_TAG_BASE  # T-CAP4 三闸（纯函数在 core，写回在 kb_guard）
 from app.models.course_kb import CourseQuestion
 from app.models.ops import CrawlJob, ExamPaper, ExamPaperQuestion, ExamPaperIntake
-from app.services import compliance_queue
+from app.services import compliance_queue, kb_guard
 
 log = logging.getLogger(__name__)
 
@@ -131,55 +127,24 @@ async def apply_intake_guard(
 ) -> Dict[str, Any]:
     """T-CAP4：对刚入库的采集题跑三闸，按裁定改写 status/source_tag。
 
-    在 ``_insert_unique`` 之后调用（此时题已 flush、有 id、content_hash 唯一）。
-    - 去重索引取自**全库**（含 published），逐题排除自身 → 能抓批内与跨来源重复；
+    判定与写回逻辑统一在 ``app.services.kb_guard``（三条入库链路共用），本函数只
+    固定采集链路的口径：**全库**去重索引 + ``manual_review`` 也打标（机器抽取来源，
+    「未自动验证」是有用信号）。
+
     - 明确错误 → ``status=quarantine`` + ``source_tag=auto_crawl:guard_quarantine``；
     - 无法判定 → 保持 ``draft`` + ``source_tag=auto_crawl:guard_manual_review`` 打标；
     - 通过 → 保持 ``auto_crawl`` 原样。
     保留 ``auto_crawl`` 前缀是为了兼容回退（rollback_run）与既有隔离谓词。
     """
-    result: Dict[str, Any] = {
-        "enabled": GUARD_ENABLED, "scanned": len(created),
-        "pass": 0, "manual_review": 0, "quarantine": 0, "by_gate": {},
-    }
     if not GUARD_ENABLED or not created:
-        return result
-
-    all_rows = (await db.execute(
-        select(CourseQuestion.id, CourseQuestion.content_hash, CourseQuestion.stem)
-    )).all()
-    hash_index: Dict[str, Set[int]] = {}
-    fp_index: Dict[str, Set[int]] = {}
-    for qid, ch, stem in all_rows:
-        if ch:
-            hash_index.setdefault(str(ch), set()).add(qid)
-        fp = text_fingerprint(stem)
-        if fp:
-            fp_index.setdefault(fp, set()).add(qid)
-
-    for obj in created:
-        ch = str(obj.content_hash or "").strip()
-        fp = text_fingerprint(obj.stem)
-        known_hashes = ({ch} if any(i != obj.id for i in hash_index.get(ch, set())) else set())
-        known_fps = ({fp} if fp and any(i != obj.id for i in fp_index.get(fp, set())) else set())
-        verdict = judge_item(
-            {
-                "content_hash": ch, "stem": obj.stem, "type": obj.type,
-                "answer": obj.answer, "options": obj.options,
-            },
-            known_hashes=known_hashes, known_fps=known_fps,
-        )
-        v = verdict["verdict"]
-        g = verdict["gate"]
-        result[v] += 1
-        result["by_gate"][g] = result["by_gate"].get(g, 0) + 1
-        if v == VERDICT_QUARANTINE:
-            obj.status = "quarantine"
-            obj.source_tag = CRAWL_TAG_QUARANTINE
-        elif v == VERDICT_MANUAL and obj.status == "draft":
-            obj.source_tag = CRAWL_TAG_MANUAL
-        # pass → 保持 auto_crawl 原样，不动
-    return result
+        return kb_guard.empty_stats(GUARD_ENABLED, len(created), kb_guard.CHAIN_CRAWL)
+    return await kb_guard.apply_entry_guard(
+        db, created,
+        base_tag=CRAWL_TAG_BASE,
+        chain=kb_guard.CHAIN_CRAWL,
+        scope_tenant_id=None,   # 采集题跨来源重复也要抓，按全库判定
+        tag_manual=True,         # 机器抽取：「未自动验证」必须可见
+    )
 
 
 async def intake(

@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.core.db import engine
 from app.models.course_kb import Base, CourseQuestion
 from app.models import ops as _ops  # noqa: F401  注册运营实体表，随 create_all 一并建出
+from app.services import kb_guard
 
 
 async def init_course_kb() -> None:
@@ -30,6 +31,7 @@ async def upsert_questions(rows: List[dict], db) -> dict:
     duplicated = 0
     failed = 0
     errors: List[dict] = []
+    inserted_hashes: List[str] = []
     for idx, row in enumerate(rows):
         try:
             stmt = pg_insert(CourseQuestion).values(**row)
@@ -37,13 +39,39 @@ async def upsert_questions(rows: List[dict], db) -> dict:
             result = await db.execute(stmt)
             if result.rowcount and result.rowcount > 0:
                 inserted += 1
+                if row.get("content_hash"):
+                    inserted_hashes.append(str(row["content_hash"]))
             else:
                 duplicated += 1
         except Exception as e:  # 单行失败不影响其余
             failed += 1
             errors.append({"index": idx, "reason": str(e)})
+
+    # T-CAP4 入库即校验：批量导入（Excel/JSON/CSV，同步与 Kafka 消费都汇聚到这里）
+    # 同样过三闸。明确错误转 quarantine；「无法判定」按人工链路口径不打标。
+    guard = kb_guard.empty_stats(
+        kb_guard.chain_enabled(kb_guard.CHAIN_IMPORT), len(inserted_hashes),
+        kb_guard.CHAIN_IMPORT,
+    )
+    if inserted_hashes and kb_guard.chain_enabled(kb_guard.CHAIN_IMPORT):
+        created = list((await db.execute(
+            select(CourseQuestion).where(
+                CourseQuestion.content_hash.in_(inserted_hashes)
+            )
+        )).scalars().all())
+        guard = await kb_guard.apply_entry_guard(
+            db, created,
+            base_tag=kb_guard.base_tag_of(created, "import"),
+            chain=kb_guard.CHAIN_IMPORT,
+            scope_tenant_id=kb_guard.rows_tenant_scope(created),  # 本校去重
+            tag_manual=False,
+        )
+
     await db.commit()
-    return {"inserted": inserted, "duplicated": duplicated, "failed": failed, "errors": errors}
+    return {
+        "inserted": inserted, "duplicated": duplicated,
+        "failed": failed, "errors": errors, "guard": guard,
+    }
 
 
 async def search_questions(

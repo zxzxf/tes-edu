@@ -32,7 +32,7 @@ from app.models.course_kb import (
     CourseQuestion,
     QuestionCreate,
 )
-from app.services import compliance_queue, embed as embed_svc
+from app.services import compliance_queue, embed as embed_svc, kb_guard
 from app.services.parser import normalize_question
 
 log = logging.getLogger(__name__)
@@ -198,6 +198,30 @@ async def create_questions(
             }
         )
 
+    # T-CAP4 入库即校验：教师录题同样过三闸。明确错误（缺答案/选项越界/本校重复）
+    # 转 quarantine；「无法判定」按人工链路口径**不打标**——教师录题本来就每题人审，
+    # 全库打 guard_manual_review 只会把 source_tag 冲成噪音（2026-11-17 决策）。
+    # 必须在合规入队前跑，让隔离题以正确状态进队列。
+    guard = kb_guard.empty_stats(
+        kb_guard.chain_enabled(kb_guard.CHAIN_TEACHER), len(created_rows),
+        kb_guard.CHAIN_TEACHER,
+    )
+    if created_rows and kb_guard.chain_enabled(kb_guard.CHAIN_TEACHER):
+        guard = await kb_guard.apply_entry_guard(
+            db, created_rows,
+            base_tag="teacher",
+            chain=kb_guard.CHAIN_TEACHER,
+            scope_tenant_id=tenant_id,   # 本校题库去重：别校有同题不算重复
+            tag_manual=False,
+        )
+        # 隔离是新状态，需回写给调用方（items 在插入时就带了 status）
+        by_id = {obj.id: obj for obj in created_rows}
+        for item in items:
+            obj = by_id.get(item.get("id"))
+            if obj is not None:
+                item["status"] = obj.status
+                item["source_tag"] = obj.source_tag
+
     # 合规入队（0022）：新录的 draft 题必须同时出现在合规审核队列里。
     # 题目与待审项同事务；入队单独套 SAVEPOINT，万一合规表没迁移/被锁，
     # 只回滚这一条待审项，题目照常入库（与向量双写降级同一口径）。
@@ -224,6 +248,7 @@ async def create_questions(
         "duplicated": duplicated,
         "items": items,
         "embedding": embedding,
+        "guard": guard,
     }
 
 

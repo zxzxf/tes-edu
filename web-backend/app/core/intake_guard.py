@@ -155,6 +155,30 @@ def judge_item(
     raise AssertionError("unreachable: judge_item 必须有裁定")
 
 
+def verdict_to_fields(
+    verdict: str, *, base_tag: str, tag_manual: bool = False,
+) -> Dict[str, str]:
+    """裁定 → 需要写回 course_kb 的字段（空 dict = 不改）。
+
+    三条入库链路统一走这里，差别只在两个参数：
+
+    * ``base_tag``：来源前缀（``auto_crawl`` / ``teacher`` / ``import``），
+      隔离后写成 ``<base_tag>:guard_quarantine``，保留前缀让既有谓词
+      （回退、来源筛选、``!= "quarantine"`` 精确比较）继续生效；
+    * ``tag_manual``：``manual_review`` 是否落 tag。机器抽取链路（采集）
+      置 True——「未自动验证」是有用信号；人工来源链路（教师录题/Excel
+      导入）置 False——这两条本来每题都强制人审，打标只会把 source_tag
+      冲成噪音并丢掉来源语义。
+
+    ``pass`` 一律不改字段：自动验证通过就保持来源原样。
+    """
+    if verdict == VERDICT_QUARANTINE:
+        return {"status": "quarantine", "source_tag": f"{base_tag}:{TAG_QUARANTINE}"}
+    if verdict == VERDICT_MANUAL and tag_manual:
+        return {"source_tag": f"{base_tag}:{TAG_MANUAL}"}
+    return {}
+
+
 def verdict_to_db(verdict: str, current_status: str = "draft") -> Dict[str, str]:
     """裁定 → 写库字段（存量脚本用；采集 hook 用 crawl 专属后缀）。"""
     if verdict == VERDICT_QUARANTINE:

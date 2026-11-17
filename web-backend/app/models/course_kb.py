@@ -158,4 +158,7 @@ class QuestionCreateResult(BaseModel):
     duplicated: int
     items: List[dict]
     embedding: dict
+    #: T-CAP4 入库三闸统计（chain/enabled/pass/manual_review/quarantine/by_gate）；
+    #: 可选：隔离的题在 items 里 status=quarantine，这里给出批次级口径便于前端提示
+    guard: Optional[dict] = None
 
