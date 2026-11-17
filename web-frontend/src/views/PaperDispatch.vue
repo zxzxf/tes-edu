@@ -117,11 +117,11 @@
             <div class="ac-body">
               <p class="ac-detail">{{ c.detail }}</p>
               <p v-if="c.secondary_answer" class="ac-src">
-                第二来源（{{ c.secondary_source }}）：{{ c.secondary_answer }}　·　
-                卷面答案：{{ c.answer }}
+                第二来源（{{ c.secondary_source }}）：<span v-html="renderMath(c.secondary_answer)"></span>　·　
+                卷面答案：<span v-html="renderMath(c.answer)"></span>
               </p>
               <p v-if="c.llm_answer" class="ac-llm">
-                模型建议（仅供参考，不作依据）：{{ c.llm_answer }}
+                模型建议（仅供参考，不作依据）：<span v-html="renderMath(c.llm_answer)"></span>
                 <span v-if="c.llm_agree === false" class="ac-llm-bad">与卷面不一致</span>
               </p>
               <p v-if="c.confirmed_by" class="ac-ok">
@@ -175,7 +175,7 @@
       <ul v-if="solutions.length" class="kg-list">
         <li v-for="s in solutions" :key="s.question_id">
           第 {{ s.question_id }} 题：
-          <span v-if="s.solution_steps">{{ s.solution_steps.answer || '已生成解析' }}</span>
+          <span v-if="s.solution_steps"><span v-html="renderMath(s.solution_steps.answer || '已生成解析')"></span></span>
           <span v-else class="err">{{ s.reason || '未生成' }}</span>
         </li>
       </ul>
@@ -188,14 +188,14 @@
             <span class="tes-pill">{{ qtypeLabel(q.qtype) }}</span>
             <span v-if="q.multi" class="tes-pill">多选</span>
             <span class="grow"></span>
-            <span class="q-ans">答案：{{ q.answer || '—' }}</span>
+            <span class="q-ans">答案：<span v-html="renderMath(q.answer || '—')"></span></span>
           </div>
           <p class="stem" v-html="renderMath(q.stem)"></p>
           <ul v-if="q.options && q.options.length" class="opts">
             <li v-for="o in q.options" :key="o.label"><b>{{ o.label }}.</b> <span v-html="renderMath(o.content)"></span></li>
           </ul>
           <p v-if="q.answer_values && q.answer_values.length" class="vals">
-            可接受值：<span v-for="(v, i) in q.answer_values" :key="i" class="chip">{{ v }}</span>
+            可接受值：<span v-for="(v, i) in q.answer_values" :key="i" class="chip" v-html="renderMath(v)"></span>
           </p>
         </li>
       </ol>

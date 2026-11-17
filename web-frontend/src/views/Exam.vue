@@ -30,12 +30,14 @@
       <div v-for="q in reviewRows" :key="q.id" class="review-row">
         <div class="review-main">
           <div class="review-meta">{{ q.type }} · {{ q.source_tag || '未知来源' }} · #{{ q.id }}</div>
-          <p class="review-stem">{{ q.stem }}</p>
+          <p class="review-stem" v-html="renderMath(q.stem)"></p>
           <div v-if="q.options" class="review-options">
-            <span v-for="option in q.options" :key="option.label">{{ option.label }}. {{ option.content }}</span>
+            <span v-for="option in q.options" :key="option.label">
+              <b>{{ option.label }}.</b> <span v-html="renderMath(option.content)"></span>
+            </span>
           </div>
-          <div class="review-answer">答案：{{ q.answer || '未填写' }}</div>
-          <p v-if="q.analysis" class="review-analysis">解析：{{ q.analysis }}</p>
+          <div class="review-answer">答案：<span v-html="renderMath(q.answer || '未填写')"></span></div>
+          <p v-if="q.analysis" class="review-analysis">解析：<span v-html="renderMath(q.analysis)"></span></p>
         </div>
         <div class="review-actions">
           <button v-if="q.status !== 'published'" class="tes-btn-primary approve" :disabled="reviewBusy" @click="setReview(q, 'published')">通过</button>
@@ -168,7 +170,7 @@
         <label v-for="q in manualRows" :key="q.id" class="qpick-row">
           <input type="checkbox" :checked="manualPicked[q.id] !== undefined" @change="togglePick(q)" />
           <span class="qpick-main">
-            <span class="qpick-stem">{{ q.stem }}</span>
+            <span class="qpick-stem" v-html="renderMath(q.stem)"></span>
             <span class="meta">
               #{{ q.id }} · {{ q.type }} · {{ q.grade || '—' }} · 难度 {{ q.difficulty }} · {{ (q.knowledge_points || []).join('、') || '未标知识点' }}
             </span>
@@ -224,6 +226,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { renderMath } from '../utils/math'
 import {
   composePaper,
   createManualPaper,

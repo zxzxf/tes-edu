@@ -50,7 +50,7 @@
         </div>
         <p class="a-msg">{{ f.message }}</p>
         <p class="a-ans">
-          标答：<b>{{ f.answer || '—' }}</b>
+          标答：<b v-html="renderMath(f.answer || '—')"></b>
           <span v-if="f.actors && f.actors.length"> · 改判人 {{ f.actors.join('、') }}</span>
         </p>
         <div v-if="releasing === f.freeze_id" class="a-release">
@@ -99,7 +99,7 @@
             <span class="tes-pill">{{ qtypeLabel(t.qtype) }}</span>
             <span class="tes-pill" :class="statusClass(t.status)">{{ statusLabel(t.status) }}</span>
           </div>
-          <p class="row-main">{{ t.student_answer || '（未作答）' }}</p>
+          <p class="row-main" v-html="renderMath(t.student_answer || '（未作答）')"></p>
           <p class="row-meta">
             {{ t.student_id }}
             <span v-if="t.paper_title">· {{ t.paper_title }}</span>
@@ -136,7 +136,7 @@
             <span class="sid">{{ detail.student_id }}</span>
           </div>
 
-          <p class="stem">{{ detail.stem }}</p>
+          <p class="stem" v-html="renderMath(detail.stem)"></p>
 
           <!-- 冻结告警：判这一题时就要知道「标答本身可能有误」 -->
           <p v-if="detail.freeze && detail.freeze.status === 'frozen'" class="warn box-danger">
@@ -148,23 +148,23 @@
           </p>
           <ul v-if="detail.options && detail.options.length" class="opts">
             <li v-for="o in detail.options" :key="o.label">
-              <b>{{ o.label }}.</b> {{ o.content }}
+              <b>{{ o.label }}.</b> <span v-html="renderMath(o.content)"></span>
             </li>
           </ul>
 
           <div class="kv">
             <div class="k">标准答案</div>
-            <div class="v ans">{{ detail.correct_answer || '—' }}</div>
+            <div class="v ans" v-html="renderMath(detail.correct_answer || '—')"></div>
           </div>
           <div v-if="detail.answer_values && detail.answer_values.length" class="kv">
             <div class="k">可接受答案值</div>
             <div class="v">
-              <span v-for="(v, i) in detail.answer_values" :key="i" class="chip">{{ v }}</span>
+              <span v-for="(v, i) in detail.answer_values" :key="i" class="chip" v-html="renderMath(v)"></span>
             </div>
           </div>
           <div class="kv">
             <div class="k">学生作答</div>
-            <div class="v stu">{{ detail.student_answer || '（未作答）' }}</div>
+            <div class="v stu" v-html="renderMath(detail.student_answer || '（未作答）')"></div>
           </div>
           <div v-if="detail.reason" class="kv">
             <div class="k">转人工原因</div>
@@ -172,7 +172,7 @@
           </div>
           <details v-if="detail.analysis" class="analysis">
             <summary>查看解析</summary>
-            <p>{{ detail.analysis }}</p>
+            <p v-html="renderMath(detail.analysis)"></p>
           </details>
 
           <!-- 判定区：后端 GradingWriteDep 要求 grading 按钮码，前端同口径隐藏 -->
@@ -385,6 +385,7 @@
 
 <script setup>
 import { computed, ref, onMounted } from 'vue'
+import { renderMath } from '../utils/math'
 import {
   ackGradingFreeze,
   claimGradingTicket,

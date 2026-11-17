@@ -47,7 +47,7 @@
             </thead>
             <tbody>
               <tr v-for="r in data.rows" :key="r.key">
-                <td>{{ r.label }}</td>
+                <td v-html="renderMath(r.label)"></td>
                 <td class="num-col">{{ r.count }}</td>
                 <td class="bar-col">
                   <span class="tes-progress"><span class="fill" :style="{ width: (r.ratio * 100) + '%' }"></span></span>
@@ -62,7 +62,7 @@
         <p v-else class="tes-empty">该范围内暂无错因记录。</p>
 
         <p v-if="data.rows.length && groupBy === 'error_type'" class="advice">
-          📌 教研提示：{{ data.rows[0].label }} 占比最高 —— {{ data.rows[0].advice }}
+          📌 教研提示：<span v-html="renderMath(data.rows[0].label)"></span> 占比最高 —— <span v-html="renderMath(data.rows[0].advice)"></span>
         </p>
       </div>
     </div>
@@ -72,6 +72,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { renderMath } from '../utils/math'
 import { getErrorDistribution, downloadErrorDistributionCsv } from '../api/admin'
 
 const groupBy = ref('error_type')

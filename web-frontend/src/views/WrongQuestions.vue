@@ -12,9 +12,9 @@
 
     <div v-if="list.length" class="list">
       <div v-for="w in list" :key="w.id" class="tes-card item">
-        <p class="q">{{ w.question }}</p>
+        <p class="q" v-html="renderMath(w.question)"></p>
         <p class="meta">
-          正确答案：<b>{{ w.correct_answer || '—' }}</b>
+          正确答案：<b v-html="renderMath(w.correct_answer || '—')"></b>
           <span v-if="w.knowledge_point">· 知识点：{{ w.knowledge_point }}</span>
           <span v-if="w.question_type">· 题型：{{ qtypeLabel(w.question_type) }}</span>
         </p>
@@ -23,18 +23,18 @@
         <div v-if="w.error_type_label" class="attr">
           <span class="tes-pill danger">错在第 {{ w.wrong_step_no || '—' }} 步</span>
           <span class="tes-pill warn">{{ w.error_type_label }}</span>
-          <span v-if="w.step_text" class="step">（{{ w.step_text }}）</span>
+          <span v-if="w.step_text" class="step">（<span v-html="renderMath(w.step_text)"></span>）</span>
         </div>
         <div v-if="w.correction" class="corr">
-          <b>{{ w.correction_matched ? '针对这个错因，这一步应该这么做：' : '这一步的参考做法：' }}</b>{{ w.correction }}
+          <b>{{ w.correction_matched ? '针对这个错因，这一步应该这么做：' : '这一步的参考做法：' }}</b><span v-html="renderMath(w.correction)"></span>
         </div>
-        <div v-if="w.explanation" class="exp">{{ w.explanation }}</div>
+        <div v-if="w.explanation" class="exp" v-html="renderMath(w.explanation)"></div>
         <details v-if="w.understanding || w.memory" class="kp-card">
           <summary>知识点卡{{ w.kp_name ? '：' + w.kp_name : '' }}</summary>
-          <p v-if="w.understanding"><b>理解：</b>{{ w.understanding }}</p>
-          <p v-if="w.memory"><b>记忆抓手：</b>{{ w.memory }}</p>
+          <p v-if="w.understanding"><b>理解：</b><span v-html="renderMath(w.understanding)"></span></p>
+          <p v-if="w.memory"><b>记忆抓手：</b><span v-html="renderMath(w.memory)"></span></p>
         </details>
-        <p v-if="w.advice" class="advice">💡 建议：{{ w.advice }}</p>
+        <p v-if="w.advice" class="advice">💡 建议：<span v-html="renderMath(w.advice)"></span></p>
       </div>
     </div>
     <p v-else-if="loaded && !error" class="tes-empty">该学生暂无错题。</p>
@@ -44,6 +44,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { renderMath } from '../utils/math'
 import { listWrongQuestions, DEMO_STUDENT_ID } from '../api/admin'
 
 const sid = ref(DEMO_STUDENT_ID)

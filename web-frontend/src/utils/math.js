@@ -86,6 +86,14 @@ export function renderMath(text) {
   return s
 }
 
+/**
+ * 纯文本版渲染：转符号但不产生 <sup>/<sub> 标签。
+ * 用于 <option>、:title、textarea 等无法渲染 HTML 的位置，避免显示 \frac 等源码。
+ */
+export function renderMathText(text) {
+  return renderMath(text).replace(/<[^>]+>/g, '')
+}
+
 /** 是否含公式写法（用于决定要不要显示预览区，避免空白框噪音）。 */
 export function hasMath(text) {
   return /\^|_\{|_[$0-9A-Za-z]|\\[a-zA-Z]+|\$/.test(String(text || ''))

@@ -59,9 +59,9 @@
 
       <div class="card" v-if="result.judgement">
         <h3>判分结果（步骤级归因）</h3>
-        <p v-if="result.judgement.need_process" class="need">
-          需要先写出解题过程才能判分：{{ result.judgement.comment }}
-        </p>
+          <p v-if="result.judgement.need_process" class="need">
+            需要先写出解题过程才能判分：<span v-html="renderMath(result.judgement.comment)"></span>
+          </p>
         <template v-else>
           <p>
             <strong>结论：</strong>
@@ -77,9 +77,9 @@
             <strong>错因类型：</strong>
             {{ label(result.judgement.error_type) }}（{{ result.judgement.error_type }}）
           </p>
-          <p v-if="result.judgement.evidence"><strong>证据：</strong>{{ result.judgement.evidence }}</p>
-          <p v-if="result.judgement.comment"><strong>点评：</strong>{{ result.judgement.comment }}</p>
-          <p v-if="result.judgement.correction"><strong>纠正：</strong>{{ result.judgement.correction }}</p>
+          <p v-if="result.judgement.evidence"><strong>证据：</strong><span v-html="renderMath(result.judgement.evidence)"></span></p>
+          <p v-if="result.judgement.comment"><strong>点评：</strong><span v-html="renderMath(result.judgement.comment)"></span></p>
+          <p v-if="result.judgement.correction"><strong>纠正：</strong><span v-html="renderMath(result.judgement.correction)"></span></p>
           <p class="src">归因来源：{{ result.judgement.attribution_source }}</p>
         </template>
       </div>

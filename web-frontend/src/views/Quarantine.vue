@@ -81,13 +81,13 @@
         <tbody v-for="g in groups" :key="g.group_key">
           <tr>
             <td class="q-cell">
-              <div class="stem">{{ g.stem }}</div>
+              <div class="stem" v-html="renderMath(g.stem)"></div>
               <div class="meta">{{ g.subject }} · {{ g.year || '年份未知' }} · 同指纹 {{ g.size }} 条</div>
               <div class="meta dup">{{ g.group_key }}</div>
             </td>
             <td>
               <div v-for="m in g.members" :key="m.id" class="member">
-                <b>#{{ m.id }}</b> {{ m.stem }}
+                <b>#{{ m.id }}</b> <span v-html="renderMath(m.stem)"></span>
                 <span class="meta">（{{ m.source_tag || '—' }} · {{ m.status }}）</span>
               </div>
             </td>
@@ -126,10 +126,10 @@
               <input type="checkbox" :aria-label="`选择题目 ${r.id}`" :checked="selected.includes(r.id)" @change="toggle(r.id)" />
             </td>
             <td class="q-cell">
-              <div class="stem" :title="r.stem">{{ r.stem }}</div>
+              <div class="stem" :title="r.stem" v-html="renderMath(r.stem)"></div>
               <div class="meta">
                 #{{ r.id }} · {{ r.subject }} / {{ r.grade || '-' }} · {{ r.type }} · 答案
-                <b>{{ r.answer || '（空）' }}</b>
+                <b v-html="renderMath(r.answer || '（空）')"></b>
               </div>
             </td>
             <td>
@@ -173,6 +173,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { renderMath } from '../utils/math'
 import {
   getQuarantineStats, listQuarantineItems, resolveQuarantineItem,
   batchResolveQuarantineItems, listDuplicateGroups, resolveDuplicateGroup,

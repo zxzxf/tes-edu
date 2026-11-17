@@ -35,7 +35,7 @@
         <label class="cw-filter">选择成片
           <select v-model="selectedInlineId" @change="onInlineChange">
             <option v-for="r in inlineRows" :key="r.id" :value="r.id">
-              {{ clip(r.question_text) }}
+              {{ renderMathText(clip(r.question_text)) }}
             </option>
           </select>
         </label>
@@ -53,7 +53,7 @@
         playsinline
       ></video>
       <div class="pv-meta">
-        <span class="cw-clip q" :title="inlineRow?.question_text">{{ inlineRow?.question_text || '—' }}</span>
+        <span class="cw-clip q" :title="renderMathText(inlineRow?.question_text)" v-html="renderMath(inlineRow?.question_text || '—')"></span>
         <span v-if="inlineRow?.duration_sec != null" class="pv-dur">
           时长 {{ inlineRow.duration_sec.toFixed(1) }}s
         </span>
@@ -92,7 +92,7 @@
           </thead>
           <tbody>
             <tr v-for="r in rows" :key="r.id">
-              <td><span class="cw-clip q" :title="r.question_text">{{ r.question_text || '—' }}</span></td>
+              <td><span class="cw-clip q" :title="renderMathText(r.question_text)" v-html="renderMath(r.question_text || '—')"></span></td>
               <td>{{ r.knowledge_point || '—' }}</td>
               <td>
                 <span class="tes-pill" :class="pillClass(r.status)">{{ r.status }}</span>
@@ -137,7 +137,7 @@
           playsinline
         ></video>
         <div v-if="previewRow" class="pv-meta">
-          <span class="cw-clip q" :title="previewRow.question_text">{{ previewRow.question_text || '—' }}</span>
+          <span class="cw-clip q" :title="renderMathText(previewRow.question_text)" v-html="renderMath(previewRow.question_text || '—')"></span>
           <span v-if="previewRow.duration_sec != null" class="pv-dur">时长 {{ previewRow.duration_sec.toFixed(1) }}s</span>
         </div>
       </div>
@@ -147,6 +147,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { renderMath, renderMathText } from '../utils/math'
 import {
   generateExplanationVideo, getExplanationConfig, listExplanationVideos,
   regenExplanationVideo, streamExplanationVideo,

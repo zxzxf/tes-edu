@@ -115,8 +115,8 @@
           <tr v-for="q in recent" :key="q.id">
             <td><span class="tes-pill">{{ q.type }}</span></td>
             <td>{{ q.subject }} / {{ q.grade || '-' }}</td>
-            <td class="stem">{{ q.stem }}</td>
-            <td>{{ q.answer || '-' }}</td>
+            <td class="stem" v-html="renderMath(q.stem)"></td>
+            <td v-html="renderMath(q.answer || '-')"></td>
             <td>
               <span class="tes-pill" :class="q.status === 'published' ? 'on' : 'off'">
                 {{ q.status === 'published' ? '已发布' : '待审核' }}
@@ -132,6 +132,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { renderMath } from '../utils/math'
 import { createQuestion, createQuestionsBatch, listQuestions } from '../api/admin'
 
 const form = reactive({
