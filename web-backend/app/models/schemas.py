@@ -550,6 +550,24 @@ class ComplianceItem(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AnnotationSuggestionOut(BaseModel):
+    """T-CAP1 标注建议出参（待校队列展示）。字段列全，否则 pydantic 静默丢弃。"""
+
+    id: int
+    content_hash: str
+    field_name: str
+    suggested_value: str
+    reason: Optional[str] = None
+    source_model: Optional[str] = None
+    prompt_version: int = 1
+    status: str = "pending"
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
 class ComplianceEventIn(BaseModel):
     """网关内容安全命中事件（内网直调，不经过公网 JWT 校验）。
 

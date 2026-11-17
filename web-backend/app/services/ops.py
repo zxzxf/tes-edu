@@ -7,11 +7,13 @@ import json
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from sqlalchemy import select, tuple_
+from sqlalchemy import func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.course_kb import CourseQuestion
 from app.models.ops import (
     ComplianceItem,
+    CourseKbAnnotationSuggestion,
     CourseKbStep,
     KnowledgePoint,
     Submission,
@@ -249,3 +251,141 @@ async def review_compliance(
     await db.commit()
     await db.refresh(obj)
     return obj
+
+
+# ---------------- T-CAP1 标注审核（标注→审核→入库闭环） ----------------
+#: 可写回 course_kb 的字段白名单，杜绝任意字段写入（建议表 field_name 理论上可塞任何值）。
+_ANNOTATION_WRITABLE = {"difficulty": "difficulty", "year": "year", "paper_type": "paper_type"}
+
+
+def coerce_annotation_value(field_name: str, suggested_value: str):
+    """approve 前二次校验并转型，返回可写库的值；不合法返回 (None, reason)。
+
+    与生成脚本 coerce_value 口径一致：difficulty 1~5、year 1900~2100、paper_type 非空串。
+    这是写回前最后一道闸——即使建议表被污染，非法值也进不了 course_kb。
+    """
+    if field_name not in _ANNOTATION_WRITABLE:
+        return None, f"字段不在白名单：{field_name}"
+    raw = (suggested_value or "").strip()
+    if not raw or raw.lower() == "null":
+        return None, "建议值为空"
+    if field_name == "difficulty":
+        try:
+            n = int(raw)
+        except ValueError:
+            return None, "difficulty 非整数"
+        if not 1 <= n <= 5:
+            return None, "difficulty 超出 1~5"
+        return n, None
+    if field_name == "year":
+        try:
+            n = int(raw)
+        except ValueError:
+            return None, "year 非整数"
+        if not 1900 <= n <= 2100:
+            return None, "year 超出 1900~2100"
+        return n, None
+    return raw, None  # paper_type 字符串
+
+
+async def list_annotation_suggestions(
+    db: AsyncSession,
+    status: Optional[str] = None,
+    field_name: Optional[str] = None,
+    limit: int = 100,
+) -> List[CourseKbAnnotationSuggestion]:
+    """待校队列（可按状态/字段过滤），新建议优先。"""
+    stmt = select(CourseKbAnnotationSuggestion)
+    if status:
+        stmt = stmt.where(CourseKbAnnotationSuggestion.status == status)
+    if field_name:
+        stmt = stmt.where(CourseKbAnnotationSuggestion.field_name == field_name)
+    stmt = stmt.order_by(
+        CourseKbAnnotationSuggestion.created_at.desc().nullslast(),
+        CourseKbAnnotationSuggestion.id.desc(),
+    ).limit(limit)
+    res = await db.execute(stmt)
+    return list(res.scalars().all())
+
+
+async def get_annotation(db: AsyncSession, item_id: int) -> Optional[CourseKbAnnotationSuggestion]:
+    return await db.get(CourseKbAnnotationSuggestion, item_id)
+
+
+async def review_annotation(
+    db: AsyncSession,
+    obj: CourseKbAnnotationSuggestion,
+    decision: str,
+    actor_id: Optional[str] = None,
+) -> dict:
+    """审核一条建议。
+
+    approve：二次校验 → 写回 course_kb 对应字段 → 标记 approved + 留痕。
+    reject：只标记 rejected + 留痕，不碰 course_kb。
+
+    返回 ``{"ok": bool, "status": ..., "reason": ...}``；非法值返回 ok=False，
+    不写回也不改状态（仍 pending），由调用方转 400。
+    """
+    status = decision.lower()
+    if status not in ("approved", "rejected"):
+        raise ValueError(f"未知审核结论：{decision}")
+    if obj.status != "pending":
+        return {"ok": False, "reason": f"该建议已处理（{obj.status}），不可重复审核",
+                "status": obj.status}
+    if status == "approved":
+        value, err = coerce_annotation_value(obj.field_name, obj.suggested_value)
+        if err:
+            return {"ok": False, "reason": f"建议值非法，拒绝写回：{err}", "status": obj.status}
+        col = _ANNOTATION_WRITABLE[obj.field_name]
+        res = await db.execute(
+            select(CourseQuestion).where(CourseQuestion.content_hash == obj.content_hash)
+        )
+        question = res.scalar_one_or_none()
+        if question is None:
+            return {"ok": False, "reason": "对应题目不存在，拒绝写回", "status": obj.status}
+        setattr(question, col, value)
+        # 注意：不 commit 题与建议之间的原子性——同一 session，一次 commit，保持一致
+    obj.status = status
+    obj.reviewed_by = actor_id
+    obj.reviewed_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(obj)
+    return {"ok": True, "status": status, "reason": None}
+
+
+async def annotation_stats(db: AsyncSession) -> dict:
+    """产能看板：待校队列按字段/状态分布 + course_kb 标注覆盖缺口。"""
+    res = await db.execute(
+        select(
+            CourseKbAnnotationSuggestion.field_name,
+            CourseKbAnnotationSuggestion.status,
+            func.count(CourseKbAnnotationSuggestion.id),
+        ).group_by(
+            CourseKbAnnotationSuggestion.field_name,
+            CourseKbAnnotationSuggestion.status,
+        )
+    )
+    queue = {}
+    for field_name, status, n in res.all():
+        queue.setdefault(field_name, {})[status] = n
+
+    gap = await db.execute(
+        select(
+            func.count().label("total"),
+            func.count().filter(CourseQuestion.difficulty.is_(None) | (CourseQuestion.difficulty == 3)).label("difficulty_pending"),
+            func.count().filter(CourseQuestion.year.is_(None)).label("year_pending"),
+            func.count().filter(
+                (CourseQuestion.paper_type.is_(None)) | (CourseQuestion.paper_type == "")
+            ).label("paper_type_pending"),
+        ).where(CourseQuestion.status == "published")
+    )
+    row = gap.one()
+    return {
+        "queue": queue,
+        "course_kb": {
+            "published_total": row.total,
+            "difficulty_gap": row.difficulty_pending,
+            "year_gap": row.year_pending,
+            "paper_type_gap": row.paper_type_pending,
+        },
+    }
