@@ -47,7 +47,8 @@ print("PENDING:", status, "count=", len(items) if isinstance(items, list) else i
 if not isinstance(items, list) or not items:
     raise SystemExit(0)
 
-first = items[0]
+# 优先挑「建议值≠原值」的 pending 项，确凿证明写回生效（当前 id=2: difficulty 3→2）
+first = next((x for x in items if x["id"] == 2), items[0])
 iid, ch, field, val = first["id"], first["content_hash"], first["field_name"], first["suggested_value"]
 print("APPROVE id=%s hash=%s %s=%s" % (iid, ch[:8], field, val))
 status, res = call("PUT", "/annotation/suggestions/%s/review?decision=approved" % iid, token, actor=admin)
