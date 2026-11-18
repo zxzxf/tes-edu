@@ -74,8 +74,11 @@ async def upload_attachment(
     return {"url": url, "size": len(data), "content_type": ctype}
 
 
-@router.get("/exam-attachments/{token}", summary="取回答题附图（学生鉴权 + token 不可枚举）")
-async def get_attachment(token: str, user=Depends(require_role(Role.STUDENT))):
+@router.get("/exam-attachments/{token}", summary="取回答题附图（本人学生/批改教师鉴权 + token 不可枚举）")
+async def get_attachment(
+    token: str,
+    user=Depends(require_role(Role.STUDENT, Role.TEACHER, Role.SCHOOL, Role.ADMIN)),
+):
     if not _TOKEN_RE.match(token):
         raise HTTPException(status_code=404, detail="attachment not found")
     base = _dir()

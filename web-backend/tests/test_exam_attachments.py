@@ -58,8 +58,14 @@ def test_upload_then_fetch_roundtrip(client):
     assert g.status_code == 200
     assert g.headers["content-type"] == "image/jpeg"
     assert g.headers["cache-control"] == "private, no-store"
-    # 非学生角色取图 403（require_role 闸门）
-    assert client.get(url, headers=OTHER).status_code == 403
+    # 批改教师可取图（工单里嵌的 [图](url) 要能点开看，M2-6 闭环）
+    assert client.get(url, headers=OTHER).status_code == 200
+    # 但教师不能上传（闸门仍只对学生开放）
+    p = client.post(
+        "/api/student/exam-attachments", headers=OTHER,
+        files={"file": ("a.jpg", _jpg(), "image/jpeg")},
+    )
+    assert p.status_code == 403
 
 
 def test_get_rejects_malformed_token(client):
