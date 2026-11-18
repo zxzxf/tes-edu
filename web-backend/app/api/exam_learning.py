@@ -51,6 +51,8 @@ class SolutionOut(BaseModel):
     cached: bool = False
     ok: bool = True
     reason: str = ""
+    #: 兜底解析标记：True 表示仅回卷面标答、完整解析仍在生成中（不落缓存）。
+    degraded: bool = False
     prompt_version: Optional[int] = None
     model: Optional[str] = None
     generated_at: Optional[str] = None
@@ -64,6 +66,7 @@ def _to_solution_out(data: dict) -> SolutionOut:
         cached=bool(data.get("cached")),
         ok=bool(data.get("ok", True)),
         reason=data.get("reason") or "",
+        degraded=bool(data.get("degraded", False)),
         prompt_version=data.get("prompt_version"),
         model=data.get("model"),
         generated_at=data.get("generated_at"),

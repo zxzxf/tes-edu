@@ -29,7 +29,7 @@ import random
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -105,6 +105,7 @@ from app.services import answer_verify as verify
 from app.services import drill_link
 from app.services import grading_guard as guard
 from app.services import paper_compose
+from app.services import solution as solution_svc
 from app.services import student_profile
 from app.services import wrongbook
 from app.services.student_profile import DEFAULT_GRADE, grade_matches
@@ -1304,9 +1305,13 @@ async def get_exam_bundle(
 async def submit_exam(
     assignment_id: int,
     body: SubmitExamRequest,
+    # 默认值让直调用（单测）与框架注入都兼容；FastAPI 仍会正常注入真实 BackgroundTasks。
+    background_tasks: BackgroundTasks = None,
     user=Depends(require_role(Role.STUDENT)),
     db: AsyncSession = Depends(get_db),
 ):
+    if background_tasks is None:
+        background_tasks = BackgroundTasks()
     """提交并确定性判分（0 token）。每学生每卷一次提交，重复提交返回既有结果。"""
     student_id = user["user_id"]
     a = await _assignment_for_student(db, assignment_id, user)
@@ -1453,6 +1458,16 @@ async def submit_exam(
     await cache.delete(key)
     result = await _result_out(db, sub)
     await cache.set_json(key, result.model_dump(), settings.exam_result_cache_ttl)
+
+    # 2026-11-17：交卷后台预热本卷解析（治本）。学生进结果页会逐题拉解析，
+    # 首次冷启动生成要 30s+ 会被 Cloudflare 30s 边缘掐断成 502。这里在响应返回后
+    # 异步把各题解析生成入缓存，学生点开时命中缓存秒回。用 BackgroundTasks 不阻塞
+    # 交卷响应；预热函数自建会话、吞异常，失败不影响成绩。
+    background_tasks.add_task(
+        solution_svc.warmup_paper_solutions,
+        sub.paper_id or a.paper_id,
+        tenant,
+    )
     return result
 
 

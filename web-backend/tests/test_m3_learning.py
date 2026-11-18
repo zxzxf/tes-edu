@@ -529,3 +529,133 @@ def test_wrong_list_filter_by_paper():
         await engine.dispose()
 
     asyncio.run(scenario())
+
+
+# ---------------------------------------------------------------- 2026-11-17: 502 修复
+def test_solution_llm_timeout_under_cloudflare_limit():
+    """LLM 超时必须显著小于 Cloudflare 隧道 30s 边缘超时，否则必现 502。"""
+    assert solution.SOLUTION_LLM_TIMEOUT < 30
+    assert solution.SOLUTION_LLM_TIMEOUT <= 25  # 留 DB 落库/序列化余量
+
+
+def test_solution_fallback_on_llm_failure():
+    """LLM 不可用 -> 兜底解析 ok=True/degraded=True、用卷面标答、不落缓存。"""
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            paper, q, assign = await _make_paper(db, answer="±2")
+            await db.commit()
+
+            async def dead_llm(_db, _tenant, _q):
+                return None  # 模拟超时/未配置/额度不足
+
+            old = solution._call_llm
+            solution._call_llm = dead_llm
+            try:
+                out = await solution.get_or_generate(
+                    db, tenant_id="school-1", paper_id=paper.id, question=q)
+                await db.commit()
+                assert out["ok"] is True and out.get("degraded") is True
+                assert out["solution_steps"]["answer"] == "±2"  # 与卷面标答一致，不编造
+                assert out["solution_steps"]["steps"]
+                # 兜底不落缓存：下次访问仍会重试真解析
+                assert await solution.get_cached(db, paper.id, q.id) is None
+            finally:
+                solution._call_llm = old
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_solution_prefers_simple_model(monkeypatch):
+    """BYOM 配了 model_simple（快模型）时，_call_llm 必须优先用它。"""
+    import httpx
+
+    captured = {}
+
+    class FakeCfg:
+        base_url = "https://example.com/v1"
+        api_key_enc = b"x"
+        enabled = True
+        model = "qwen3.8-max"          # 慢模型
+        model_simple = "qwen3.6-flash"  # 快模型
+
+    async def fake_get_config(_db, _tenant):
+        return FakeCfg()
+
+    class FakeResp:
+        status_code = 200
+        def json(self):
+            return {"choices": [{"message": {"content": '{"answer":"2","steps":["s"]}'}}]}
+
+    captured_models = []
+
+    class FakeClient:
+        def __init__(self, *a, **kw):
+            captured["timeout"] = kw.get("timeout")
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *a):
+            return False
+        async def post(self, url, headers=None, json=None, **kw):
+            captured_models.append(json["model"])
+            captured["enable_thinking"] = json.get("enable_thinking")
+            return FakeResp()
+
+    monkeypatch.setattr(solution.byom, "get_config", fake_get_config)
+    monkeypatch.setattr(solution.byom, "decrypt_api_key", lambda _b: "sk-test")
+    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
+
+    async def scenario():
+        out = await solution._call_llm(None, "school-1", object())
+        return out
+
+    out = asyncio.run(scenario())
+    assert out is not None
+    assert captured_models and captured_models[0] == "qwen3.6-flash"
+    assert captured["timeout"] == solution.SOLUTION_LLM_TIMEOUT
+    # 必须关思考链：实测开思考 35s（必现 502）、关思考 10s。
+    assert captured["enable_thinking"] is False
+
+
+def test_warmup_fills_missing_solutions_only():
+    """预热：已有缓存的跳过，只生成缺的；单题失败不中断整卷。"""
+    async def scenario():
+        engine = _engine()
+        await _bootstrap(engine)
+        factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with factory() as db:
+            paper, q1, assign = await _make_paper(db, answer="2")
+            # 再造一题
+            q2 = ExamPaperQuestion(paper_id=paper.id, seq=2, qtype="choice",
+                                   stem="第二题", options={"A": "1", "B": "2"}, answer="A")
+            db.add(q2)
+            await db.commit()
+            # 给 q1 预置缓存
+            db.add(ExamSolution(tenant_id="school-1", paper_id=paper.id,
+                                paper_question_id=q1.id,
+                                solution_steps={"answer": "2", "steps": ["已有"]},
+                                prompt_version=3, model=""))
+            await db.commit()
+
+            calls = []
+
+            async def fake_llm(_db, _tenant, q):
+                calls.append(q.id)
+                return {"answer": "A", "steps": ["新生成"]}
+
+            old = solution._call_llm
+            solution._call_llm = fake_llm
+            try:
+                made = await solution.warmup_paper_solutions(
+                    paper.id, "school-1", session_factory=factory)
+                assert made == 1                 # 只生成缺的 q2
+                assert calls == [q2.id]          # q1 有缓存没调 LLM
+                assert await solution.get_cached(db, paper.id, q2.id) is not None
+            finally:
+                solution._call_llm = old
+        await engine.dispose()
+
+    asyncio.run(scenario())
