@@ -555,12 +555,33 @@ def choice_equivalent(student, ref, multi: bool = False, options: Mapping | None
 # ``source`` 是「这条结论由哪条判据给出」的机器可读编码（M2-7 指标看板用），
 # 与 ``reason`` 分家：reason 是给学生/老师看的话术，改措辞不该动指标；
 # source 是给聚合用的枚举，改口径必须改这里（编码见 app/core/grading_metrics.py）。
-def _auto(correct: bool, reason: str = "", source: str = "") -> dict:
-    return {"status": "auto", "correct": correct, "reason": reason, "source": source}
+# ``details``（M1-1 卡面补列）：多空题逐空判定明细，随结论一并落库
+# ``exam_submission_items.blank_results``，供结果页逐空展示与 M3-9 重做反馈。
+def _auto(correct: bool, reason: str = "", source: str = "", details: Optional[List[dict]] = None) -> dict:
+    return {"status": "auto", "correct": correct, "reason": reason, "source": source,
+            "blank_results": details}
 
 
-def _manual(reason: str, source: str = "") -> dict:
-    return {"status": "manual", "correct": None, "reason": reason, "source": source}
+def _manual(reason: str, source: str = "", details: Optional[List[dict]] = None) -> dict:
+    return {"status": "manual", "correct": None, "reason": reason, "source": source,
+            "blank_results": details}
+
+
+def _blank_details(stu_parts: List[str], ref_parts: List[str], verdicts: List[str]) -> List[dict]:
+    """逐空判定明细（M1-1）：idx 从 1 起，verdict ∈ correct/wrong/manual。
+
+    纯展示数据，不参与任何判分决策；expected 用标答原文（逐空），教师/学生
+    对照即可。红线：明细里**不**新增任何判定口径，逐字来自 _judge_single 输出。
+    """
+    return [
+        {
+            "idx": i + 1,
+            "student": (stu or "").strip() if isinstance(stu, str) else (stu or ""),
+            "expected": (ref or "").strip() if isinstance(ref, str) else (ref or ""),
+            "verdict": vd,
+        }
+        for i, (stu, ref, vd) in enumerate(zip(stu_parts, ref_parts, verdicts))
+    ]
 
 
 def _string_candidates(s: str) -> List[str]:
@@ -716,6 +737,7 @@ def blank_judge(
                 "manual_blanks",
             )
         verdicts = [_judge_single(a, b) for a, b in zip(stu_parts, ref_parts)]
+        details = _blank_details(stu_parts, ref_parts, verdicts)
     else:
         stu = str(blanks[0]) if blanks and len(blanks) == 1 else (student or "")
         # M2-4：教师已确认的答案值优先命中（单空题才用，见 docstring 红线）
@@ -724,12 +746,14 @@ def blank_judge(
                 if (v or "").strip() and _judge_single(stu, v) == "correct":
                     return _auto(True, "命中已确认答案值", "blank_value")
         verdicts = [_judge_single(stu, ref_parts[0])]
+        details = _blank_details([stu], [ref_parts[0]], verdicts)
     if any(v == "manual" for v in verdicts):
         return _manual(
             "这道题的答案含字母或符号表达式，机器判不了对错（老师会看）",
             "manual_symbol",
+            details=details,
         )
-    return _auto(all(v == "correct" for v in verdicts), source="blank_equiv")
+    return _auto(all(v == "correct" for v in verdicts), source="blank_equiv", details=details)
 
 
 def blank_equivalent(student: str, ref: str) -> bool:

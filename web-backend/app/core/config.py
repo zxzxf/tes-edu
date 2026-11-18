@@ -87,6 +87,15 @@ class Settings(BaseSettings):
     exam_result_cache_ttl: int = 300
     permission_cache_ttl: int = 60
 
+    # ---- M1-7 提交异步判分（2026-11-18 降级版接线）----
+    # False（默认）：提交请求内同步判完再返回整卷结果（现状行为，纯函数 0 token）。
+    # True：提交只落原始作答（submission=grading / item=pending）即返回，
+    #       判分管线移交 FastAPI BackgroundTasks（独立会话），客户端轮询
+    #       /result 直至翻为 graded/manual_pending。判分循环体两条路径**完全相同**，
+    #       将来判分链路引入 LLM（交叉验证/归因）时只需打开此开关，无需改代码。
+    # 卡面验收「提交 100ms 内返回」在 True 下成立；False 下 MVP 题量实测 <1s。
+    exam_async_grading: bool = False
+
     # ---- ④·数字人讲题短视频（#28）管线 ----
     # 总开关：true 时启用 LiteVideoGenerator（ffmpeg 字幕幻灯片，无 GPU 也可合成）。
     # 需部署镜像内含 ffmpeg + 中文字体（Dockerfile 已 apt 安装）；

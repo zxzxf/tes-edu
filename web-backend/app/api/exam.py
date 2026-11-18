@@ -1093,17 +1093,27 @@ async def _result_cached(
 
     TTL 只有 5 分钟，且教师改判 / 标答复核会主动 delete_prefix 失效，
     所以学生不会长期看到过期的「待人工」状态。
+
+    M1-7：``grading`` 中间态**不进缓存**——它随时会被后台判分翻成终态，
+    缓存住半成品会让 /result 轮询最长 5 分钟看不到成绩。读侧遇 grading 先
+    重查 DB（后台任务完成提交后的第一读即新鲜），仍 grading 才返回半成品，
+    客户端据 status=='grading' 继续轮询。
     """
-    key = _r_cache_key(tenant_id, paper_id, sub.id)
-    hit = await cache.get_json(key)
-    if isinstance(hit, dict):
-        try:
-            return ExamResult(**hit)
-        except Exception as exc:  # noqa: BLE001
-            log.debug("result cache unusable %s: %s", key, exc)
-    out = await _result_out(db, sub)
-    await cache.set_json(key, out.model_dump(), settings.exam_result_cache_ttl)
-    return out
+    if sub.status != "grading":
+        key = _r_cache_key(tenant_id, paper_id, sub.id)
+        hit = await cache.get_json(key)
+        if isinstance(hit, dict):
+            try:
+                return ExamResult(**hit)
+            except Exception as exc:  # noqa: BLE001
+                log.debug("result cache unusable %s: %s", key, exc)
+        out = await _result_out(db, sub)
+        await cache.set_json(key, out.model_dump(), settings.exam_result_cache_ttl)
+        return out
+    fresh = (
+        await db.execute(select(ExamSubmission).where(ExamSubmission.id == sub.id))
+    ).scalar_one_or_none()
+    return await _result_out(db, fresh or sub)
 
 
 async def invalidate_paper(tenant_id: str, paper_id: int) -> None:
@@ -1312,7 +1322,22 @@ async def submit_exam(
 ):
     if background_tasks is None:
         background_tasks = BackgroundTasks()
-    """提交并确定性判分（0 token）。每学生每卷一次提交，重复提交返回既有结果。"""
+    """提交作业（M1-7）。
+
+    两段式（异步降级版接线）：
+    1. **落原始作答**：``ExamSubmission(status='grading')`` + 逐题
+       ``ExamSubmissionItem(status='pending')``（student_answer/blanks 原样存），
+       与幂等查重同事务——重复提交永远命中既有 submission，绝不双写。
+    2. **判分管线** ``_run_grading``：对 pending 行逐题确定性判定，写结论 +
+       开人工工单 + 同步错题本 + 背诵卡，最后翻 submission 为
+       graded/manual_pending 并回填结果缓存。
+
+    ``EXAM_ASYNC_GRADING=True`` 时第 2 步移交 BackgroundTasks（独立会话），
+    本接口立刻返回「批改中」的半成品结果（items 均 status=pending、
+    submission status=grading），客户端轮询 /result；False（默认）时同请求内
+    同步跑完，返回完整结果。判分本体是纯函数（0 token），同步/异步共用
+    **同一个** ``_run_grading``，不存在两套判定口径。
+    """
     student_id = user["user_id"]
     a = await _assignment_for_student(db, assignment_id, user)
     # 全链路唯一租户口径：提交落库、冻结校验、工单、背诵卡、结果缓存一律用它，
@@ -1321,7 +1346,8 @@ async def submit_exam(
     # 会算出与读侧不同的 key。
     tenant = _tenant_of(user)
 
-    # 幂等：已提交则直接返回历史结果
+    # 幂等：已提交则直接返回历史结果（异步模式下 grading 中间态也原样返回，
+    # 客户端据 status 字段轮询，判分对重复提交天然只跑一次——_run_grading 幂等）
     existing = (
         await db.execute(
             select(ExamSubmission).where(
@@ -1331,6 +1357,12 @@ async def submit_exam(
         )
     ).scalar_one_or_none()
     if existing:
+        if existing.status == "grading":
+            # 上次请求落了草稿态但判分未完成（进程崩溃/后台任务异常），
+            # 补跑一次管线：_run_grading 只处理 pending 行，重复调用安全。
+            await _run_grading(db, existing)
+            await db.commit()
+            await db.refresh(existing)
         return await _result_out(db, existing)
 
     qs = (
@@ -1340,116 +1372,43 @@ async def submit_exam(
             .order_by(ExamPaperQuestion.seq)
         )
     ).scalars().all()
-    ans_by_seq = {it.seq: it for it in body.answers}
 
-    # M2-10 判分护栏：这道题的标答若已因反复改判被冻结，**所有题一律转人工**，
-    # 不再自动判。一次批量查询覆盖整卷，不在循环里逐题查库。
-    # 租户口径与开单一致（工单 tenant_id 用同一个表达式），否则冻结记录查不到。
-    frozen = await guard.frozen_reasons(db, tenant, qs)
-
-    items = []
-    correct_count = 0
-    manual = False
-    for q in qs:
-        submitted = ans_by_seq.get(q.seq)
-        stu = (submitted.student_answer or "") if submitted else ""
-        blanks = submitted.blanks if submitted else None
-        it = _grade_one(q, stu, blanks, frozen_reason=guard.reason_for(frozen, q))
-        if it["status"] == "manual_pending":
-            manual = True
-        if it["correct"]:
-            correct_count += 1
-        items.append(it)
-
+    # —— 第 1 段：落原始作答（不判分，秒回）——
     sub = ExamSubmission(
         assignment_id=assignment_id,
         paper_id=a.paper_id,
         student_id=student_id,
         tenant_id=tenant,
         client_id=body.client_id,
-        status="manual_pending" if manual else "graded",
-        score=correct_count,
-        correct_count=correct_count,
+        status="grading",
         total_count=len(qs),
         submitted_at=_utcnow(),
     )
     db.add(sub)
     await db.flush()
-    item_objs = []
-    for it in items:
-        obj = ExamSubmissionItem(
+    ans_by_seq = {it.seq: it for it in body.answers}
+    for q in qs:
+        submitted = ans_by_seq.get(q.seq)
+        db.add(ExamSubmissionItem(
             submission_id=sub.id,
-            paper_question_id=it["paper_question_id"],
-            seq=it["seq"],
-            qtype=it["qtype"],
-            student_answer=it["student_answer"],
-            correct=it["correct"],
-            partial=it["partial"],
-            status=it["status"],
-            grading_source=it.get("source") or M_SOURCE_UNKNOWN,
-        )
-        db.add(obj)
-        item_objs.append((it, obj))
-    await db.flush()  # 取 item.id 才能开单
+            paper_question_id=q.id,
+            seq=q.seq,
+            qtype=q.qtype,
+            # 原始作答：display 串 + 逐空数组原样落库（漏答空串占位保留事实），
+            # 判分环节直接读这两列，不再依赖请求体（后台任务没有请求体）。
+            student_answer=(submitted.student_answer or "") if submitted else "",
+            blanks=list(submitted.blanks) if submitted and submitted.blanks is not None else None,
+            status="pending",
+        ))
+    await db.commit()
+    await db.refresh(sub)
 
-    # M2-5：转人工的题**提交时就地开一张工单**，教师端待办立刻可见。
-    # 不开单的话 teacher 只能靠翻 DB 找出 manual_pending，闭环缺最后一环。
-    for it, obj in item_objs:
-        if it["status"] != "manual_pending":
-            continue
-        db.add(
-            ExamGradingTicket(
-                tenant_id=tenant,
-                submission_id=sub.id,
-                submission_item_id=obj.id,
-                assignment_id=assignment_id,
-                paper_id=a.paper_id,
-                paper_question_id=it["paper_question_id"],
-                student_id=student_id,
-                seq=it["seq"],
-                qtype=it["qtype"],
-                student_answer=(it["student_answer"] or "")[:4000],
-                reason=(it["reason"] or "机器判不了，需人工评定")[:255],
-                status="pending",
-            )
-        )
+    # —— 第 2 段：判分管线（同步 or 后台，同一个函数）——
+    if settings.exam_async_grading:
+        background_tasks.add_task(_grade_in_background, sub.id)
+        return await _result_out(db, sub)
 
-    questions_by_id = {q.id: q for q in qs}
-    # 批量同步错题本：把判错的题一次性交给批量接口，避免逐题 select（N 次往返）。
-    wrong_pairs = [
-        (obj, questions_by_id[obj.paper_question_id])
-        for _, obj in item_objs
-        if obj.correct is False
-    ]
-    await wrongbook.sync_exam_wrong_questions(
-        db, student_id, wrong_pairs, tenant_id=tenant
-    )
-
-    # M3-6：判错 -> 知识点 -> 背诵卡。按 kp 建/推卡（同 kp 只一张），
-    # 失败不影响提交主链路（错题本已经落库，卡可以下次进错题页补）。
-    if wrong_pairs:
-        try:
-            await db.flush()
-            wrong_rows = (
-                await db.execute(
-                    select(WrongQuestion).where(
-                        WrongQuestion.student_id == student_id,
-                        WrongQuestion.client_id.in_(
-                            [f"exam:{obj.id}" for _, obj in wrong_pairs]
-                        ),
-                        WrongQuestion.deleted_at.is_(None),
-                    )
-                )
-            ).scalars().all()
-            await drill_link.on_wrong_exam_items(
-                db,
-                student_id=student_id,
-                tenant_id=tenant,
-                wrong_rows=wrong_rows,
-            )
-        except Exception as exc:  # noqa: BLE001 卡片失败不阻断交卷
-            log.warning("drill card link failed: %s", exc)
-
+    await _run_grading(db, sub)
     await db.commit()
     await db.refresh(sub)
     # 结果首次产生：直接回填缓存，交卷后立刻进结果页不必再跑一遍 5–8 条跨云 SQL。
@@ -1469,6 +1428,160 @@ async def submit_exam(
         tenant,
     )
     return result
+
+
+async def _grade_in_background(submission_id: int) -> None:
+    """后台判分入口（EXAM_ASYNC_GRADING=True）。独立会话，失败只记日志。
+
+    成绩主链路不丢：submission 停留在 grading、item 停留在 pending，学生重新
+    进卷/重复提交会触发 submit_exam 的补跑分支；巡检兜底见 README 运维项。
+    """
+    from app.core.db import SessionLocal
+
+    try:
+        async with SessionLocal() as db:
+            sub = (
+                await db.execute(
+                    select(ExamSubmission).where(ExamSubmission.id == submission_id)
+                )
+            ).scalar_one_or_none()
+            if sub is None or sub.status != "grading":
+                return
+            await _run_grading(db, sub)
+            await db.commit()
+            # 失效「批改中」半成品缓存，回填完整结果（与同步路径同 key 口径）
+            key = _r_cache_key(sub.tenant_id or "", sub.paper_id, sub.id)
+            await cache.delete(key)
+            result = await _result_out(db, sub)
+            await cache.set_json(key, result.model_dump(), settings.exam_result_cache_ttl)
+    except Exception:  # noqa: BLE001
+        log.exception("async grading failed for submission=%s", submission_id)
+
+
+async def _run_grading(db: AsyncSession, sub: ExamSubmission) -> None:
+    """判分管线（M1-7）：pending 行逐题判定 → 工单 → 错题本 → 背诵卡 → 翻态。
+
+    幂等：只处理 ``status='pending'`` 的 item，跑完即翻 auto/manual_pending；
+    重复调用直接返回（同步/后台/补跑三个入口共用，判定口径唯一）。
+    单题判定异常 → 该题转人工（manual_pending），整卷继续（M1-7 验收）。
+    """
+    if sub.status != "grading":
+        return
+    pending = (
+        await db.execute(
+            select(ExamSubmissionItem)
+            .where(
+                ExamSubmissionItem.submission_id == sub.id,
+                ExamSubmissionItem.status == "pending",
+            )
+            .order_by(ExamSubmissionItem.seq)
+        )
+    ).scalars().all()
+
+    qs = (
+        await db.execute(
+            select(ExamPaperQuestion)
+            .where(ExamPaperQuestion.id.in_([it.paper_question_id for it in pending]))
+        )
+    ).scalars().all() if pending else []
+    q_by_id = {q.id: q for q in qs}
+
+    # M2-10 判分护栏：这道题的标答若已因反复改判被冻结，**所有题一律转人工**，
+    # 不再自动判。一次批量查询覆盖整卷，不在循环里逐题查库。
+    # 租户口径与开单一致（工单 tenant_id 用同一个表达式），否则冻结记录查不到。
+    frozen = await guard.frozen_reasons(db, sub.tenant_id or "", qs)
+
+    item_objs: list[tuple[dict, ExamSubmissionItem]] = []
+    correct_count = (sub.correct_count or 0) if sub.correct_count else 0
+    manual = False
+    for it in pending:
+        q = q_by_id[it.paper_question_id]
+        try:
+            g = _grade_one(
+                q,
+                it.student_answer or "",
+                blanks=it.blanks,
+                frozen_reason=guard.reason_for(frozen, q),
+            )
+        except Exception as exc:  # noqa: BLE001 单题异常不影响整卷（M1-7 验收）
+            log.warning("grading crashed on seq=%s: %s -> manual", it.seq, exc)
+            g = _item(
+                q, it.student_answer or "", correct=None, partial=False,
+                status="manual_pending", reason="判分异常，已转人工",
+                source=M_SOURCE_UNKNOWN,
+            )
+        it.status = g["status"]
+        it.correct = g["correct"]
+        it.partial = g["partial"]
+        it.grading_source = g["source"] or M_SOURCE_UNKNOWN
+        it.blank_results = g.get("blank_results")
+        if g["status"] == "manual_pending":
+            manual = True
+        elif g["correct"]:
+            correct_count += 1
+        item_objs.append((g, it))
+
+    # M2-5：转人工的题**就地开一张工单**，教师端待办立刻可见。
+    # 不开单的话 teacher 只能靠翻 DB 找出 manual_pending，闭环缺最后一环。
+    for g, obj in item_objs:
+        if g["status"] != "manual_pending":
+            continue
+        db.add(
+            ExamGradingTicket(
+                tenant_id=sub.tenant_id,
+                submission_id=sub.id,
+                submission_item_id=obj.id,
+                assignment_id=sub.assignment_id,
+                paper_id=sub.paper_id,
+                paper_question_id=g["paper_question_id"],
+                student_id=sub.student_id,
+                seq=g["seq"],
+                qtype=g["qtype"],
+                student_answer=(g["student_answer"] or "")[:4000],
+                reason=(g["reason"] or "机器判不了，需人工评定")[:255],
+                status="pending",
+            )
+        )
+
+    # 批量同步错题本：把判错的题一次性交给批量接口，避免逐题 select（N 次往返）。
+    wrong_pairs = [
+        (obj, q_by_id[g["paper_question_id"]])
+        for g, obj in item_objs
+        if obj.correct is False
+    ]
+    await wrongbook.sync_exam_wrong_questions(
+        db, sub.student_id, wrong_pairs, tenant_id=sub.tenant_id
+    )
+
+    # M3-6：判错 -> 知识点 -> 背诵卡。按 kp 建/推卡（同 kp 只一张），
+    # 失败不影响提交主链路（错题本已经落库，卡可以下次进错题页补）。
+    if wrong_pairs:
+        try:
+            await db.flush()
+            wrong_rows = (
+                await db.execute(
+                    select(WrongQuestion).where(
+                        WrongQuestion.student_id == sub.student_id,
+                        WrongQuestion.client_id.in_(
+                            [f"exam:{obj.id}" for _, obj in wrong_pairs]
+                        ),
+                        WrongQuestion.deleted_at.is_(None),
+                    )
+                )
+            ).scalars().all()
+            await drill_link.on_wrong_exam_items(
+                db,
+                student_id=sub.student_id,
+                tenant_id=sub.tenant_id or "",
+                wrong_rows=wrong_rows,
+            )
+        except Exception as exc:  # noqa: BLE001 卡片失败不阻断交卷
+            log.warning("drill card link failed: %s", exc)
+
+    sub.status = "manual_pending" if manual else "graded"
+    sub.score = correct_count
+    sub.correct_count = correct_count
+    await db.flush()
 
 
 def _grade_one(
@@ -1530,11 +1643,13 @@ def _grade_one(
                 q, display, correct=None, partial=False,
                 status="manual_pending", reason=v["reason"],
                 source=v.get("source") or M_SOURCE_UNKNOWN,
+                blank_results=v.get("blank_results"),
             )
         return _item(
             q, display, correct=bool(v["correct"]), partial=False,
             status="auto", reason=v["reason"],
             source=v.get("source") or M_SOURCE_UNKNOWN,
+            blank_results=v.get("blank_results"),
         )
 
     return _item(
@@ -1545,13 +1660,16 @@ def _grade_one(
 
 
 def _item(
-    q, student_answer, *, correct, partial, status, reason=None, source=""
+    q, student_answer, *, correct, partial, status, reason=None, source="",
+    blank_results=None,
 ) -> dict:
     """逐题判分结果。
 
     ``source``（M2-7）是判据编码，随 item 落库（``grading_source``），指标面板
     据此出「判据覆盖率 / 来源分布」。它必须与结果同时产生——事后再算会把教师
     之后的改动作（追加答案值、修正标答）算进「当时为什么这么判」。
+
+    ``blank_results``（M1-1 卡面补列）：填空题逐空判定明细，随结论一并落库。
     """
     return {
         "paper_question_id": q.id,
@@ -1563,6 +1681,7 @@ def _item(
         "status": status,
         "reason": reason,
         "source": source,
+        "blank_results": blank_results,
     }
 
 

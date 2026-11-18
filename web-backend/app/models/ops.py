@@ -614,7 +614,10 @@ class ExamSubmission(Base):
     student_id = Column(String(64), nullable=False, index=True)
     tenant_id = Column(String(64), index=True)
     client_id = Column(String(64))
-    status = Column(String(16), nullable=False, default="graded")  # graded/manual_pending
+    # grading=已收到、判分环节未完成（M1-7 中间态；EXAM_ASYNC_GRADING 开启时
+    # 对外可见数秒，同步模式仅请求内瞬态）；graded=判完无待人工；
+    # manual_pending=判完仍有题转人工
+    status = Column(String(16), nullable=False, default="graded")  # grading/graded/manual_pending
     score = Column(Numeric(6, 2))            # 正确题数
     correct_count = Column(Integer)
     total_count = Column(Integer)
@@ -633,9 +636,15 @@ class ExamSubmissionItem(Base):
     seq = Column(Integer, nullable=False)
     qtype = Column(String(16), nullable=False)
     student_answer = Column(Text)
+    # 学生逐空原始作答（M1-7 异步判分前置）：提交即落原始作答，
+    # 判分环节（同步或后台）对 status=pending 的行补判。
+    blanks = Column(JSON)
+    # M1-1 卡面补列：填空逐空判定明细 [{idx, student, expected, verdict}]
+    blank_results = Column(JSON)
     correct = Column(Boolean)
     partial = Column(Boolean, default=False)
-    status = Column(String(16), nullable=False, default="auto")  # auto/manual_pending
+    # pending=已落原始作答、尚未判分（M1-7）；auto/manual_pending/manual_reviewed 见下
+    status = Column(String(16), nullable=False, default="auto")  # pending/auto/manual_pending/manual_reviewed
     # M2-7：这一题的结论是哪条判据给的（choice_map / blank_equiv / manual_symbol…）。
     # 编码见 app/core/grading_metrics.py。加列前的老数据为 NULL（指标归 unknown）。
     grading_source = Column(String(24), index=True)
