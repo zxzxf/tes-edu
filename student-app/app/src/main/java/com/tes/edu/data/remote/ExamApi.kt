@@ -1,9 +1,20 @@
 package com.tes.edu.data.remote
 
+import com.google.gson.annotations.SerializedName
+import okhttp3.MultipartBody
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
+
+/** M1-6：答题附图上传响应（url 直接嵌进作答文本，形如 /api/student/exam-attachments/<token>）。 */
+data class ExamAttachmentResp(
+    val url: String = "",
+    val size: Long = 0,
+    @SerializedName("content_type") val contentType: String? = null
+)
 
 /**
  * 学生端作业卷端点（网关 `/api/student/exams`）。
@@ -55,6 +66,14 @@ interface ExamApi {
     /** M3-4 按卷知识点与前后继（提交前后都可见，不含答案/解析）。 */
     @GET("api/student/exams/{assignmentId}/graph")
     suspend fun paperGraph(@Path("assignmentId") assignmentId: Long): PaperGraphDto
+
+    /**
+     * M1-6 解答题附图上传：返回相对 URL，调用方以 `[图](url)` 追加进作答文本。
+     * 10MB / jpeg|png|webp 闸门在服务端；App 侧先用 ImageCompressor 压到 ~800KB。
+     */
+    @Multipart
+    @POST("api/student/exam-attachments")
+    suspend fun uploadAttachment(@Part file: MultipartBody.Part): ExamAttachmentResp
 
     /**
      * M3-6 结果页逐题知识子图：只围绕这一题的考点 + 一层前驱/后继 + 掌握度。

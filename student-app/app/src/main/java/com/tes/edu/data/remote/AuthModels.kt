@@ -24,3 +24,17 @@ data class TokenResponse(
     @SerializedName("user_id") val userId: String? = null,
     @SerializedName("tenant_id") val tenantId: String? = null
 )
+
+/**
+ * M0-3：学生自查年级响应（GET /api/student/profile/me）。
+ *
+ * 后端在未配置年级时按租户默认（高三）兜底并标 fallback=true，客户端照存即可。
+ * grade 可能为 null（老服务端 / 字段缺失），调用方按「未知年级」处理，不崩。
+ */
+data class StudentProfileResp(
+    @SerializedName("student_id") val studentId: String? = null,
+    @SerializedName("tenant_id") val tenantId: String? = null,
+    val grade: String? = null,
+    val fallback: Boolean = false,
+    val grades: List<String> = emptyList()
+)

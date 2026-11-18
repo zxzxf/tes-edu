@@ -21,12 +21,18 @@ import com.tes.edu.data.remote.ExamSolutionDto
 import com.tes.edu.data.remote.ExamSubmitItem
 import com.tes.edu.data.remote.ExamSubmitRequest
 import com.tes.edu.data.remote.LoginManager
+import com.tes.edu.data.remote.AppContextProvider
+import com.tes.edu.data.remote.SessionStore
 import com.tes.edu.data.remote.StudentExamItem
+import com.tes.edu.util.ImageCompressor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import java.io.IOException
 import java.util.UUID
@@ -89,7 +95,11 @@ data class ExamUiState(
     /** M3-1 逐题解析：key=卷内题号。加载态按题存，切题/翻页不互相顶掉。 */
     val solutions: Map<Int, ExamSolutionState> = emptyMap(),
     /** M3-6 逐题知识子图：key=卷内题号，结果页展开该题时才加载。 */
-    val questionGraphs: Map<Int, QuestionGraphState> = emptyMap()
+    val questionGraphs: Map<Int, QuestionGraphState> = emptyMap(),
+    /** M0-3：本机缓存的年级（登录时拉取；仅列表页头部展示，过滤仍在服务端）。 */
+    val grade: String? = null,
+    /** M1-6：正在上传附图的题号（按钮转圈用；null=空闲）。 */
+    val attachBusy: Int? = null
 ) {
     val total: Int get() = questions.size
     val current: ExamQuestionView? get() = questions.getOrNull(index)
@@ -122,7 +132,21 @@ class ExamViewModel(
      * 否则协程会挂在 `delay` 上、断言跑在看结果之前（UnconfinedTestDispatcher
      * 不推进虚拟时间，`delay` 之后那半段根本没执行）。
      */
-    private val retryDelayMs: Long = RETRY_DELAY_MS
+    private val retryDelayMs: Long = RETRY_DELAY_MS,
+    /**
+     * M0-3：本机缓存的年级读取器（SessionStore，测试传 fake）。
+     * 仅展示用——列表过滤的服务端口径不变，取不到就显示空，不影响功能。
+     * runCatching：JVM 单测里 AppContextProvider 未初始化（lateinit），
+     * 取年级失败必须安静返回 null，绝不能拖崩 refresh() 主链路。
+     */
+    private val gradeProvider: () -> String? = {
+        runCatching { SessionStore(AppContextProvider.context).grade }.getOrNull()
+    },
+    /**
+     * M1-6：附图本地压缩器。生产用 [ImageCompressor.compress]；单测传 identity
+     * （BitmapFactory 在 JVM 是 not-mocked 桩，同 CameraViewModel 的做法）。
+     */
+    private val compressor: (ByteArray) -> ByteArray = { ImageCompressor.compress(it) }
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(ExamUiState())
@@ -142,7 +166,11 @@ class ExamViewModel(
      */
     fun refresh() {
         viewModelScope.launch {
-            _ui.value = _ui.value.copy(loading = true, error = null, offline = false)
+            _ui.value = _ui.value.copy(
+                loading = true, error = null, offline = false,
+                // M0-3：列表刷新顺带回填本机缓存的年级（登录时已拉，断网也在）
+                grade = gradeProvider()
+            )
             val res = withAuthRetry { api.list() }
             res.fold(
                 onSuccess = { list ->
@@ -458,6 +486,35 @@ class ExamViewModel(
 
     /** 填空/解答等文本作答。 */
     fun setAnswer(seq: Int, text: String) = updateAnswer(seq, text)
+
+    /**
+     * M1-6：解答题附图。拍照/选图后本地压缩 → multipart 上传换 URL →
+     * 以 `[图](url)` 追加进该题作答文本（提交契约不变，判分主链路零改动；
+     * 教师批改看工单里的链接即可）。失败只在 error 里提示，不动已输入的文本。
+     */
+    fun attachImage(seq: Int, bytes: ByteArray) {
+        viewModelScope.launch {
+            _ui.value = _ui.value.copy(attachBusy = seq, error = null)
+            val part = MultipartBody.Part.createFormData(
+                "file", "answer.jpg",
+                compressor(bytes).toRequestBody("image/jpeg".toMediaTypeOrNull())
+            )
+            val res = withAuth { api.uploadAttachment(part) }
+            _ui.value = _ui.value.copy(attachBusy = null)
+            res.fold(
+                onSuccess = { r ->
+                    if (r.url.isNotBlank()) {
+                        val cur = _ui.value.answers[seq].orEmpty().trimEnd()
+                        val sep = if (cur.isEmpty()) "" else "\n"
+                        updateAnswer(seq, "$cur${sep}[图](${r.url})")
+                    }
+                },
+                onFailure = { e ->
+                    _ui.value = _ui.value.copy(error = "图片上传失败：${messageOf(e)}")
+                }
+            )
+        }
+    }
 
     private fun updateAnswer(seq: Int, value: String) {
         val answers = _ui.value.answers.toMutableMap()

@@ -132,6 +132,16 @@ class ExamViewModelTest {
             questionGraphError?.let { throw it }
             return questionGraphDto
         }
+
+        // M1-6 接口新增后 Fake 必须补实现（编译锁）
+        var attachmentCalls = 0
+        var attachmentUrl = "/api/student/exam-attachments/fake1"
+        override suspend fun uploadAttachment(
+            file: okhttp3.MultipartBody.Part
+        ): com.tes.edu.data.remote.ExamAttachmentResp {
+            attachmentCalls += 1
+            return com.tes.edu.data.remote.ExamAttachmentResp(url = attachmentUrl)
+        }
     }
 
     private class FakeDraftStore : ExamDraftStore {
@@ -980,6 +990,51 @@ class ExamViewModelTest {
         assertEquals("纯选择题", StudentExamItem(1, 1, paperType = "pure_choice").paperTypeLabel)
         assertEquals("纯填空题", StudentExamItem(1, 1, paperType = "pure_blank").paperTypeLabel)
         assertEquals("混合卷", StudentExamItem(1, 1, paperType = "mixed").paperTypeLabel)
+    }
+
+    // ---------------------------------------------------------------- M1-6 附图
+    /** 重开一份带解答题的卷（compressor=identity，JVM 无 BitmapFactory）。 */
+    private fun openWithSubjective(qs: List<ExamQuestionView>): ExamViewModel {
+        api.questions = qs
+        val v = ExamViewModel(
+            api, store, cache, listCache, resultCache,
+            retryDelayMs = 0L,
+            compressor = { it } // BitmapFactory 在 JVM 是 not-mocked 桩（同 CameraViewModelTest）
+        )
+        v.refresh()
+        v.open(item())
+        return v
+    }
+
+    @Test
+    fun attachImage_success_appendsUrlMarkToAnswer() {
+        val v = openWithSubjective(
+            listOf(ExamQuestionView(seq = 1, qtype = "subjective", stem = "证明题"))
+        )
+        v.setAnswer(1, "第一步：设 x>0")
+        v.attachImage(1, byteArrayOf(1, 2, 3))
+        val ui = v.ui.value
+        assertEquals(1, api.attachmentCalls)
+        val text = ui.answers[1]!!
+        assertTrue("已有文本保留: $text", text.startsWith("第一步：设 x>0"))
+        assertTrue("URL 以 [图](..) 追加: $text", text.contains("[图](/api/student/exam-attachments/fake1)"))
+        assertNull("上传完 busy 必须清零", ui.attachBusy)
+        // 草稿同步落盘（断网不丢附图 URL）
+        val draft = kotlinx.coroutines.runBlocking { store.load(7L) }!!
+        assertTrue(ExamDataAnswers.of(draft)[1]!!.contains("[图]("))
+    }
+
+    @Test
+    fun attachImage_emptyUrl_marksNothing_butStillClearsBusy() {
+        // 服务端返回空 url（异常响应）：不追加、不崩，busy 归零
+        api.attachmentUrl = ""
+        val v = openWithSubjective(
+            listOf(ExamQuestionView(seq = 1, qtype = "subjective", stem = "t"))
+        )
+        v.attachImage(1, byteArrayOf(9))
+        val ui = v.ui.value
+        assertNull(ui.attachBusy)
+        assertTrue(ui.answers[1].isNullOrBlank())
     }
 
     private fun httpError(code: Int): Throwable = retrofit2.HttpException(

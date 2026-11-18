@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Send
@@ -45,6 +46,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -96,6 +100,7 @@ fun ExamScreen(
             onBack = vm::backToList,
             onSelect = vm::selectOption,
             onText = vm::setAnswer,
+            onAttach = vm::attachImage,
             onPrev = vm::prev,
             onNext = vm::next,
             onSubmit = vm::submit
@@ -128,7 +133,8 @@ private fun ExamListBody(
         TesHero(
             title = "作业",
             subtitle = "老师下发的卷子，点开就能答；断网也能做，联网再交",
-            badge = "作业闭环"
+            // M0-3：本机缓存年级上头部徽标（服务端未配置时按默认年级兜底展示）
+            badge = ui.grade?.let { "${it} · 作业" } ?: "作业闭环"
         )
         Spacer(Modifier.height(14.dp))
 
@@ -217,12 +223,30 @@ private fun ExamAnswerBody(
     onBack: () -> Unit,
     onSelect: (Int, String) -> Unit,
     onText: (Int, String) -> Unit,
+    onAttach: (Int, ByteArray) -> Unit,
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onSubmit: () -> Unit
 ) {
     var confirmOpen by remember { mutableStateOf(false) }
     val q = ui.current
+    val ctx = LocalContext.current
+
+    // M1-6 解答题附图：系统选图器（image/*，33+ 即 PhotoPicker，免相机权限）。
+    // 选中 → 读字节 → VM 压缩上传换 URL → [图](url) 追加进该题作答文本。
+    // 拍照场景走「错题本-拍照」同路径的图库：此处不重复挂相机（避免双份
+    // FileProvider/权限编排），解题过程拍照后可从相册回选。
+    val attachSeq = remember { mutableStateOf<Int?>(null) }
+    val pickImage = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        val seq = attachSeq.value
+        attachSeq.value = null
+        if (uri != null && seq != null) {
+            val bytes = com.tes.edu.util.MediaBytes.read(ctx, uri)
+            if (bytes != null) onAttach(seq, bytes)
+        }
+    }
 
     Column(
         Modifier
@@ -296,7 +320,15 @@ private fun ExamAnswerBody(
                 )
             }
         } else {
-            QuestionBlock(q = q, answer = ui.currentAnswer, onSelect = onSelect, onText = onText)
+            QuestionBlock(
+                q = q,
+                answer = ui.currentAnswer,
+                onSelect = onSelect,
+                onText = onText,
+                // M1-6：仅解答题给附图入口；attachBusy==seq 时按钮转圈防连点
+                attachBusy = ui.attachBusy == q.seq,
+                onAttach = { attachSeq.value = q.seq; runCatching { pickImage.launch("image/*") } },
+            )
             Spacer(Modifier.height(16.dp))
 
             // 翻页
@@ -355,7 +387,10 @@ private fun QuestionBlock(
     q: ExamQuestionView,
     answer: String,
     onSelect: (Int, String) -> Unit,
-    onText: (Int, String) -> Unit
+    onText: (Int, String) -> Unit,
+    // M1-6：解答题附图。onAttach 起系统选图器；attachBusy 期间按钮转圈防连点。
+    onAttach: () -> Unit = {},
+    attachBusy: Boolean = false,
 ) {
     SoftCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -417,6 +452,25 @@ private fun QuestionBlock(
             )
             Spacer(Modifier.height(8.dp))
         }
+    } else if (q.isSubjective) {
+        SoftFieldCard(
+            label = "作答过程",
+            value = answer,
+            onValueChange = { onText(q.seq, it) },
+            hint = "写出关键步骤，老师按过程批改",
+            placeholder = "写出你的解法与结论",
+            minLines = 5,
+            mathPreview = true
+        )
+        // M1-6 卡面子项：解答题附图入口。上传成功后 URL 以 [图](...) 追加进
+        // 上方文本（随提交落库、进教师批改工单）；失败提示走页面 error 区。
+        Spacer(Modifier.height(8.dp))
+        SoftOutlinedButton(
+            text = if (attachBusy) "上传中…" else "添加图片（步骤照片）",
+            icon = Icons.Rounded.PhotoCamera,
+            enabled = !attachBusy,
+            onClick = onAttach
+        )
     } else {
         SoftFieldCard(
             label = if (q.isBlank) "填写答案" else "作答过程",

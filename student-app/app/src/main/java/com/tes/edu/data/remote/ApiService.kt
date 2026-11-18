@@ -204,6 +204,14 @@ interface ApiService {
     suspend fun explanationVideo(
         @Query("question") question: String
     ): ExplanationVideoResp
+
+    /**
+     * M0-3 卡面步骤 4：学生拉自身年级（登录成功后缓存进 SessionStore）。
+     * 后端 `GET /api/student/profile/me`；未配置年级时服务端按租户默认兜底
+     * 并标 `fallback=true`，客户端照存——展示口径与服务端过滤一致。
+     */
+    @GET("/api/student/profile/me")
+    suspend fun studentProfile(): StudentProfileResp
 }
 
 /**

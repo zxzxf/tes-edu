@@ -6,6 +6,7 @@ import com.tes.edu.data.remote.GraphNode
 import com.tes.edu.data.remote.GraphResponse
 import com.tes.edu.data.remote.LoginRequest
 import com.tes.edu.data.remote.SimilarRequest
+import com.tes.edu.data.remote.StudentProfileResp
 import com.tes.edu.data.remote.SolveRequest
 import com.tes.edu.data.remote.SolveResponse
 import com.tes.edu.data.remote.TokenResponse
@@ -61,6 +62,9 @@ class GraphViewModelTest {
         override suspend fun similar(req: SimilarRequest): SolveResponse = error("unused")
         override suspend fun explanationVideo(question: String): ExplanationVideoResp =
             ExplanationVideoResp()
+
+        // M0-3 接口新增后 Fake 必须补实现（编译锁）；单测不校验年级。
+        override suspend fun studentProfile(): StudentProfileResp = StudentProfileResp()
     }
 
     @Before

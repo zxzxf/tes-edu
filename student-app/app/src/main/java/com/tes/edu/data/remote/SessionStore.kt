@@ -54,6 +54,21 @@ class SessionStore(context: Context) {
             prefs.edit().putLong(KEY_WRONG_SYNC_AT, value).apply()
         }
 
+    /**
+     * 学生年级（M0-3 卡面步骤 4：登录后拉取自身 grade 并缓存）。
+     *
+     * 由 LoginManager 登录后调 `GET /api/student/profile/me` 回填；断网/失败
+     * 保留上次值（下次成功再覆盖）。**仅用于展示与本地辅助**——作业列表的
+     * 年级段过滤始终在服务端（防越权口径不变），这里空着也不影响取卷。
+     */
+    var grade: String?
+        get() = prefs.getString(KEY_GRADE, null)
+        set(value) {
+            prefs.edit().apply {
+                if (value.isNullOrBlank()) remove(KEY_GRADE) else putString(KEY_GRADE, value)
+            }.apply()
+        }
+
     fun clear() {
         prefs.edit().clear().apply()
     }
@@ -63,5 +78,6 @@ class SessionStore(context: Context) {
         private const val KEY_ROLE = "role"
         private const val KEY_STUDENT_ID = "student_id"
         private const val KEY_WRONG_SYNC_AT = "wrong_sync_at"
+        private const val KEY_GRADE = "grade"
     }
 }

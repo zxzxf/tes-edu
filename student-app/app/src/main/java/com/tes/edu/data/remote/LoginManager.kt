@@ -51,6 +51,10 @@ object LoginManager {
             // T-WB1：把登录带回来的流水号存下来，错题/背诵同步就按这个 id 走。
             session.studentId = res.userId
             ApiClient.rebuild() // 重建 Retrofit，让 AuthInterceptor 带上新 token
+            // M0-3 卡面步骤 4：登录后拉自身年级并缓存（展示用；列表过滤仍在
+            // 服务端）。失败静默——grade 缺失不影响取卷/提交，下次成功再回填。
+            runCatching { ApiClient.instance.studentProfile() }
+                .onSuccess { session.grade = it.grade }
             AuthBus.onReloginSuccess()
             true
         } catch (e: Exception) {
