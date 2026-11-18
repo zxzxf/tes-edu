@@ -96,6 +96,10 @@ class Settings(BaseSettings):
     # 卡面验收「提交 100ms 内返回」在 True 下成立；False 下 MVP 题量实测 <1s。
     exam_async_grading: bool = False
 
+    # ---- M1-6 答题附件（解答题图片上传）----
+    # 私有目录：只经 /api/student/exam-attachments 路由取流，不做静态挂载。
+    exam_attachment_dir: str = "data/exam_attachments"
+
     # ---- ④·数字人讲题短视频（#28）管线 ----
     # 总开关：true 时启用 LiteVideoGenerator（ffmpeg 字幕幻灯片，无 GPU 也可合成）。
     # 需部署镜像内含 ffmpeg + 中文字体（Dockerfile 已 apt 安装）；

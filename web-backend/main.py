@@ -21,6 +21,7 @@ from app.api import (
     auth,
     compliance,
     exam,
+    exam_attachments,
     exam_learning,
     grading,
     ingest,
@@ -223,6 +224,7 @@ app.include_router(student_features.admin_router, prefix="/api/admin")  # W3 功
 app.include_router(exam.student_router, prefix="/api/student")  # 作业闭环：学生取卷/提交/判分
 app.include_router(student_profile.router, prefix="/api/admin")  # M0-3 学生年级归属（教师维护 + 批量导入）
 app.include_router(student_profile.student_router, prefix="/api/student")  # M0-3 学生查自己的年级（/profile/me）
+app.include_router(exam_attachments.router, prefix="/api/student")  # M1-6 解答题附图上传/取流（学生鉴权）
 app.include_router(exam_learning.router, prefix="/api/admin")  # M3 解析/题↔知识点/按卷图谱（教师端）
 app.include_router(exam_learning.student_router, prefix="/api/student")  # M3 解析/按卷图谱/同条件推题（学生端）
 app.include_router(crawl_router, prefix="/api/admin")  # M5 课程源/采集/解析/知识点审核（crawl_service 子包）
