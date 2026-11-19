@@ -91,6 +91,14 @@ MENUS = [
     # 授权与 quarantine.py 的 _ROLES 对齐（admin/region_admin/teacher）；school 不授——
     # 它对该 API 无权限，放进学校菜单只会造「看得见点不动」的死链。
     ("m_ops_quarantine", "m_ops", "异常队列", "MENU", "/ops/quarantine", "Quarantine", "shield", 17, None),
+
+    # 股票盯盘业务中心（2026-11-19）：第四个一级域「股票盯盘」，仅 admin 可见。
+    # 与 ops/system 平级，不作为 ops 子菜单——业务域完全独立。
+    ("m_stock", None, "股票盯盘", "DIR", "/stock", "Layout", "stock", 3, None),
+    ("m_stock_overview", "m_stock", "盯盘总览", "MENU", "/stock/overview", "StockOverview", "stock", 1, None),
+    ("m_stock_watchlist", "m_stock", "自选股", "MENU", "/stock/watchlist", "StockWatchlist", "stock", 2, None),
+    ("m_stock_quotes", "m_stock", "行情看板", "MENU", "/stock/quotes", "StockQuotes", "chart", 3, None),
+    ("m_stock_alerts", "m_stock", "涨跌预警", "MENU", "/stock/alerts", "StockAlerts", "target", 4, None),
 ]
 
 # 角色 × 菜单授权（菜单节点 + 其下按钮一并授权）：仅 admin 见系统设置全部。
@@ -110,7 +118,7 @@ MENUS = [
 # 点不动」的新死链。seed_rbac 启动时对 sys_role_menu 做「只补不删」的 upsert，
 # 发版重启即自动补上这 2 对授权（2026-11-14 线上已核到 role_school 生效）。
 ROLE_MENU_MAP = {
-    "role_admin": [m[0] for m in MENUS],  # 全菜单 + 全按钮
+    "role_admin": [m[0] for m in MENUS],  # 全菜单 + 全按钮（含股票盯盘 4 页）
     "role_region_admin": [
         m[0] for m in MENUS
         if m[3] in ("DIR", "MENU")
@@ -120,6 +128,8 @@ ROLE_MENU_MAP = {
         # 产品决策是撤菜单而非放宽接口，避免给它看得见用不了的死链。
         # 线上旧库的 sys_role_menu 行需另行 DELETE —— seed 的授权只补不删。
         and m[0] != "m_ops_grading"
+        # 股票盯盘仅 admin 可见，region_admin 不授
+        and not m[0].startswith("m_stock")
     ]          + ["m_ops_exam_gen", "m_sys_user", "m_sys_feature", "m_sys_feature_manage", "m_sys_byom", "m_sys_byom_manage",
          "m_ops_tenant_add", "m_ops_tenant_edit", "m_ops_tenant_del",  # 区域管理员：区域运营 + 功能开关 + 模型配置 + 用户管理（仅菜单，只读看区域下用户；写接口仍受 UserWriteRoleDep 兜底）；含学校增删改按钮码
          "m_ops_explv", "m_ops_explv_regen"],  # 区域管理员：讲解视频任务管理（#28）

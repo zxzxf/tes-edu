@@ -18,6 +18,7 @@ export const ICON_MAP = {
   grade: '✅', report: '💌', shield: '🛡️', target: '🎯', user: '👤', send: '📤',
   dict: '📖',
   video: '🎬',
+  stock: '📊',
 }
 
 /**
@@ -44,6 +45,10 @@ export const MENU_ROUTE_MAP = {
   '/ops/quarantine': '/quarantine', // T-CAP4 异常队列（隔离/打标处置）
   '/ops/practice': '/practice',
   '/ops/course-intake': '/course-intake', // 课程采集 + 知识点审核页（M5-1~M5-6）
+  '/ops/stock/overview': '/stock/overview', // 股票盯盘总览（2026-11-19 新增）
+  '/ops/stock/watchlist': '/stock/watchlist', // 自选股管理
+  '/ops/stock/quotes': '/stock/quotes', // 行情看板
+  '/ops/stock/alerts': '/stock/alerts', // 涨跌预警
   '/system/menu': '/system/menu', // 菜单管理页（T-AM3 前端，2026-10-26 建）
   '/system/role': '/system/role', // 角色管理页（T-AM4 前端，2026-10-26 建）
   '/system/region': '/system/region', // 区域管理页（T-AM5 前端，2026-10-27 建）

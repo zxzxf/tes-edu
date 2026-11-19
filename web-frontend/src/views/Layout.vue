@@ -153,6 +153,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { toNavGroups } from '../utils/menu'
 import { CRAWL_NAV, findCrawlNav } from '../utils/crawlNav'
+import { STOCK_NAV, findStockNav } from '../utils/stockNav'
 // 六页采集工作台的 cw-* 页面样式原先由 CrawlLayout 注入；统一壳子后改由本壳子
 // 承载（cw- 前缀只作用于采集页，不污染主站其它页面）。
 import '../styles/crawlPages.css'
@@ -203,6 +204,8 @@ async function chooseRole(code) {
 const navGroups = computed(() => toNavGroups(auth.menuTree))
 // 无采集菜单授权的账号不显示三个采集域，避免「看得见、点了被守卫弹回」
 const canCrawl = computed(() => auth.hasRouteAccess('/course-intake/workbench'))
+// 股票盯盘仅 admin 可见，门禁走 RBAC
+const canStock = computed(() => auth.hasRouteAccess('/stock/overview'))
 
 /**
  * 一级域：概览 + 采集三域（顺序即顶栏顺序）。
@@ -226,17 +229,32 @@ const domains = computed(() => {
       })
     }
   }
+  if (canStock.value) {
+    for (const g of STOCK_NAV) {
+      list.push({
+        key: `stock-${g.key}`,
+        label: g.label,
+        stock: true,
+        items: g.items.map((it) => ({ ...it, to: it.path })),
+      })
+    }
+  }
   return list
 })
 
 /** 当前一级域：采集子页精确命中优先（否则 /ops/course-intake 会抢走高亮） */
 const currentDomain = computed(() => {
   const path = route.path
+  // 股票域精确命中
+  const stockHit = domains.value.find(
+    (d) => d.stock && d.items.some((it) => it.path === path)
+  )
+  if (stockHit) return stockHit
   const crawlHit = domains.value.find(
     (d) => d.crawl && d.items.some((it) => it.path === path)
   )
   if (crawlHit) return crawlHit
-  const hit = domains.value.find((d) => !d.crawl && d.items.some((it) => {
+  const hit = domains.value.find((d) => !d.crawl && !d.stock && d.items.some((it) => {
     const p = it.path || it.to
     return p && (path === p || path.startsWith(`${p}/`))
   }))
