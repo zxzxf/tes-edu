@@ -506,3 +506,35 @@ def test_new_message_invalidates_unread_agg_cache(monkeypatch):
 
     asyncio.run(ch.bump_inbox_counters(1, "stu-agg-test", "grade", "m-agg-1"))
     fake.delete.assert_awaited_once_with(unread_agg_key("stu-agg-test"))
+
+
+# ---------------------------------------------------------------- P4 主题静音开关
+def test_subscription_mute_toggle_and_isolation(env):
+    """App 消息设置：静音开关读写 + 他人隔离 + 未订阅主题拒改。"""
+    client, _ = env
+    _make_platform_app_with_token(client)  # 平台应用 + grade 主题
+
+    # 初始：grade 主题列出、未静音
+    st, data = client.get("/api/student/push/subscriptions", headers=STUDENT).status_code, \
+        client.get("/api/student/push/subscriptions", headers=STUDENT).json()
+    assert st == 200 and any(x["topic_code"] == "grade" and not x["muted"] for x in data["items"])
+
+    # 开静音（重复两次验 upsert 幂等）
+    for _ in range(2):
+        r = client.put("/api/student/push/subscriptions/grade", params={"muted": True}, headers=STUDENT)
+        assert r.status_code == 200 and r.json()["muted"] is True
+    data = client.get("/api/student/push/subscriptions", headers=STUDENT).json()
+    assert [x for x in data["items"] if x["topic_code"] == "grade"][0]["muted"] is True
+
+    # 他人身份：不受我的静音影响
+    other = {"X-User-Id": "stu-mute-other", "X-User-Role": "student", "X-Tenant-Id": "school_pilot_01"}
+    data2 = client.get("/api/student/push/subscriptions", headers=other).json()
+    assert [x for x in data2["items"] if x["topic_code"] == "grade"][0]["muted"] is False
+
+    # 未建的主题拒改（防越权配第三方/不存在主题）
+    r = client.put("/api/student/push/subscriptions/homework", params={"muted": True}, headers=STUDENT)
+    assert r.status_code == 404
+
+    # 关静音恢复
+    r = client.put("/api/student/push/subscriptions/grade", params={"muted": False}, headers=STUDENT)
+    assert r.status_code == 200 and r.json()["muted"] is False

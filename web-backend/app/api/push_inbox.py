@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import cache
 from app.core.config import settings
 from app.core.db import get_db
-from app.models.push_hub import PushApp, PushMessage
+from app.models.push_hub import PushApp, PushMessage, PushSubscription, PushTopic
 
 router = APIRouter(prefix="/push", tags=["push-inbox"])
 
@@ -239,3 +239,74 @@ async def read_all(
     await db.commit()
     await _invalidate(db, receiver, topic_code)
     return {"marked": len(rows)}
+
+
+# ---------------------------------------------------------------- 主题静音（App 消息设置）
+@router.get("/subscriptions")
+async def list_subscriptions(
+    receiver: str = Depends(_receiver),
+    db: AsyncSession = Depends(get_db),
+):
+    """收件人的主题静音状态：平台自有应用的全部启用主题都列出（未订阅=未静音）。
+
+    口径与 routing.resolve_channels 完全一致：静音只剔 app_offline 计数，
+    消息仍落库可查；主题 force_channels 内的渠道无视静音。
+    """
+    app_ids = await _platform_app_ids(db)
+    if not app_ids:
+        return {"items": []}
+    topics = (
+        await db.execute(
+            select(PushTopic.app_id, PushTopic.topic_code, PushTopic.name)
+            .where(PushTopic.app_id.in_(app_ids), PushTopic.enabled.is_(True))
+            .order_by(PushTopic.topic_code)
+        )
+    ).all()
+    subs = (
+        await db.execute(
+            select(PushSubscription.app_id, PushSubscription.topic_code, PushSubscription.muted)
+            .where(PushSubscription.receiver == receiver, PushSubscription.app_id.in_(app_ids))
+        )
+    ).all()
+    muted_set = {(s.app_id, s.topic_code) for s in subs if s.muted}
+    return {
+        "items": [
+            {"topic_code": t.topic_code, "name": t.name or t.topic_code,
+             "muted": (t.app_id, t.topic_code) in muted_set}
+            for t in topics
+        ]
+    }
+
+
+@router.put("/subscriptions/{topic_code}")
+async def set_subscription_muted(
+    topic_code: str,
+    muted: bool = Query(...),
+    receiver: str = Depends(_receiver),
+    db: AsyncSession = Depends(get_db),
+):
+    """设置某主题静音（upsert）。只对平台自有应用主题开放，防越权改第三方配置。"""
+    app_ids = await _platform_app_ids(db)
+    valid = (
+        await db.execute(
+            select(PushTopic.app_id).where(
+                PushTopic.app_id.in_(app_ids),
+                PushTopic.topic_code == topic_code,
+                PushTopic.enabled.is_(True),
+            )
+        )
+    ).scalars().all()
+    if not valid:
+        raise HTTPException(404, "主题不存在或不可设置")
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    for app_id in valid:
+        stmt = pg_insert(PushSubscription).values(
+            app_id=app_id, receiver=receiver, topic_code=topic_code,
+            muted=muted, updated_at=datetime.now(timezone.utc),
+        ).on_conflict_do_update(
+            index_elements=["app_id", "receiver", "topic_code"],
+            set_={"muted": muted, "updated_at": datetime.now(timezone.utc)},
+        )
+        await db.execute(stmt)
+    await db.commit()
+    return {"topic_code": topic_code, "muted": muted}
