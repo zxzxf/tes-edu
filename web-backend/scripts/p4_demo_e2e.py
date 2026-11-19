@@ -12,7 +12,7 @@ import urllib.error
 GW = "http://gateway:8080"
 LOCAL = "http://127.0.0.1:8000"  # 容器内直连：学生身份用 X-User-* 头模拟（网关会强制 JWT）
 PTH = "pth-708e52deb5d3c490702535b92aa2cd28"
-RECEIVER = "p4demo-stu-001"  # 测试学生 ID（网关注入身份用头模拟）
+RECEIVER = "p4demo-final-01"  # 测试学生 ID（网关注入身份用头模拟）
 
 
 def call(method, path, body=None, headers=None, base=GW):
@@ -61,7 +61,7 @@ assert inbox2["unread_total"] == 0
 
 # 4) 越权防护：另一个学生看不到这条消息
 st, other = call("GET", "/api/student/push/messages", headers={
-    "X-User-Id": "p4demo-stu-002", "X-User-Role": "student", "X-Tenant-Id": "school_pilot_01"}, base=LOCAL)
+    "X-User-Id": "p4demo-final-02", "X-User-Role": "student", "X-Tenant-Id": "school_pilot_01"}, base=LOCAL)
 assert st == 200 and other["total"] == 0, "越权：别人看到了 demo 消息"
 print("demo 隔离验证: OK（他人 total=0）")
 print("P4 THIRD-PARTY DEMO E2E: ALL PASS")
