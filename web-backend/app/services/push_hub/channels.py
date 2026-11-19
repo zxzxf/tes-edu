@@ -79,12 +79,14 @@ class PushPlusProvider(WechatOAProvider):
         self._token = channel_token
 
     async def send(self, receiver: str, title: str, body: str) -> tuple[str, str]:
+        payload = {"token": self._token, "title": title, "content": body, "channel": "wechat"}
+        # receiver 与渠道 token 相同=推自己（一对一）；不同=好友令牌，走 to 转发
+        # （pushplus 好友消息语义：to=已加好友的 32 位令牌，多个逗号分隔）。
+        if receiver and receiver != self._token:
+            payload["to"] = receiver
         try:
             async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.post(
-                    PUSHPLUS_SEND_URL,
-                    json={"token": self._token, "title": title, "content": body, "channel": "wechat"},
-                )
+                resp = await client.post(PUSHPLUS_SEND_URL, json=payload)
             data = resp.json() if resp.content else {}
             code = str(data.get("code", resp.status_code))
             if code == "200":
