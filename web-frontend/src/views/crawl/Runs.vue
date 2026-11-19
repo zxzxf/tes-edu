@@ -21,11 +21,12 @@
         <button class="ghost" :disabled="busy" @click="load">刷新</button>
       </div>
       <table v-if="recent.length" class="tes-table">
-        <thead><tr><th>#</th><th>任务</th><th>状态 / 原因</th><th>入库 / 重复 / 失败</th><th>产出卷</th><th>操作</th></tr></thead>
+        <thead><tr><th>#</th><th>任务</th><th>运行时间</th><th>状态 / 原因</th><th>入库 / 重复 / 失败</th><th>产出卷</th><th>操作</th></tr></thead>
         <tbody>
           <tr v-for="r in recent" :key="r.id">
             <td>{{ r.id }}</td>
             <td>{{ r.job_id }}</td>
+            <td>{{ fmtTime(r.started_at) }}</td>
             <td>
               <span class="tes-pill" :class="r.status === 'ok' ? 'success' : 'warn'">{{ r.status }}</span>
               <span v-if="r.error" class="cw-err" :title="r.error">{{ r.error }}</span>
@@ -62,6 +63,13 @@ const recent = computed(() => metrics.value?.recent || [])
 
 function pct(v) {
   return typeof v === 'number' ? (v * 100).toFixed(1) : '0.0'
+}
+function fmtTime(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 async function load() {
   await guard(async () => { metrics.value = await getCrawlMetrics() })
