@@ -1,6 +1,6 @@
 # 通用 App 推送中心 · 实施计划（Push Hub）
 
-> 版本：v1.6 ｜ 日期：2026-11-19 ｜ 状态：**✅ 四阶段全部完成并上线 137（P1/P2/P3/P4 闭环）**
+> 版本：v1.7 ｜ 日期：2026-11-19 ｜ 状态：**✅ 四阶段全部完成并上线 137（P1/P2/P3/P4 闭环，验收清单 13/13 全勾）**
 > 定位：把 student app 推送升级为**平台级通用离线推送服务**——一个自建 Kafka+Redis+PG 管道的推送中心，B 端管理员可视化配置推送渠道，第三方 App 通过 OpenAPI 接入使用，消息与接入凭证均支持有效期设置。
 > **v1.0 渠道定稿：两种——① 微信公众号推送（`wechat_oa`，强触达）② App 离线推送（`app_offline`，收件箱不丢）**。
 > **v1.2 增补：推送主题（`push_topic`）为一等公民——按主题分类推送，渠道路由/频控/默认有效期/订阅静音全部挂主题。**
@@ -8,6 +8,7 @@
 > **v1.4 增补：第三方自助注册推送中心账号（push_account，admin 审批制）+ 三档角色（developer/operator/viewer）；第三方权限闭包只限推送中心域内接口，与主站 RBAC 身份域硬隔离。**
 > **v1.5 实施进展（同日）：P1 内核（commit `3e74ea3`，12 单测）、P3 微信渠道（端到端实发验证 `sent/ok`；修复 receiver 语义——SELF/本人=一对一，32 位他人令牌=好友 `to` 转发）、P2 管理端（主站 6 页 + portal 门户，commit `20e804c`）、网关 `/api/push/` 前缀路由（`0ff75e0`）均已完成并**发布 137 生产**（回滚点 bak-20261119）。新增生产资产：平台应用#1、wechat_oa 渠道、grade/system_test 主题、pth-token（12-19 到期）。已知平台边界：PushPlus 要求接收方本人实名且互加好友，否则 `905/999`——消息标 dead 可在消息查询页「重发」。剩 P4：student app 消息中心改造 + 第三方 demo 全链验证。**
 > **v1.6 收官（同日）：P4 全链闭环——student app 消息中心（主题 Tab + 未读角标 + 25s 长轮询 + 已读 + payload 跳转，APK 16M 编译通过，commit 首笔）；判分完成/作业下发业务钩子（`business.py`，独立会话 fire-and-forget + 幂等 msg_id + 总开关 `push_business_notify_enabled`，生产实测 grade 主题落库 `partial`、重复触发 `row count=1`）；第三方 demo 全链生产 ALL PASS（token-info→send→收件箱 unread=1→已读归零→他人隔离 total=0）。过程中修两个真 bug：① PushApi 漏 `api/student/` 前缀会落 `/` fallback 打到 agent_backend；② 新消息只 INCR per-app 未读键、没失效 agg 键导致收件箱未读停在旧值（生产脏读实证，清键前 unread=0/清后=2）——已统一 `unread_agg_key()` 并在 `bump_inbox_counters` 失效它。后端全量 979 passed（唯一失败为既有无关 `test_course_kp_api`），推送专测 17 项全绿。提交 `f3b0f7e`（钩子+缓存修复）+ `e552fc1`（幂等日志优化），均已上线 137（回滚点 bak-20261119）。**
+> **v1.7 验收清单收官（同日）：最后一项「主题静音开关 UI」补齐——后端原本只有 `routing.resolve_channels` 静音判定、无收件人自助设置 API，本版补 `GET/PUT /api/student/push/subscriptions`（平台主题全列出 + PG upsert 幂等 + 非平台主题 404 防越权），App 消息页加「通知设置」静音面板（自绘 Switch、按 Tab 过滤主题、静音只停角标不删消息）。生产验证 mute→回查→unmute→不存在主题 404 全过；推送专测 18 项、后端全量 981 passed（唯一失败为既有无关 test_course_kp_api）、App APK 编译通过。提交 `10befcb` 已上线 137。至此验收清单 13/13 全勾，推送中心整体闭环。**
 > 决策沿革：极光 JPush（弃）→ 纯站内轮询（v2.0，升级）→ 自建 Kafka+Redis（v3.0，扩展）→ 通用推送中心（v1.0）→ 两种渠道定稿（v1.1）→ 主题分类（v1.2）→ 推送 token 档位制（v1.3）→ **第三方自助账号+角色体系（本版）**。原《student-app消息推送实施计划》并入本文档，student app 降为第一个接入端。
 
 ---
@@ -210,7 +211,7 @@ token 生命周期规则：
 | P1 推送中心内核 ✅ | 9 张表（含 **push_account/push_account_role/push_token/push_topic/push_subscription**）+ **第三方账号域**（注册/审批/登录/角色白名单/portal 会话令牌与主站 JWT 双域隔离）+ **推送 token 签发/校验中间件（档位 1/3/6/12 月、Redis TTL 过期、吊销/停号联动）** + emit/OpenAPI 带 topic_code(Kafka+降级+幂等+主题注册校验) + dispatch_worker（**主题渠道路由+静音+主题频控**）+ **app_offline 渠道**（收件箱/**主题 Tab 接口/分主题未读**/长轮询）+ 四类有效期 | 5–7 天 |
 | P2 管理端×2 ✅ | 主站 6 页（+第三方账号审批）+ **第三方 portal 独立门户 5 页**（注册/登录/应用/token/主题/用量）+ RBAC 三件套（portal 不走主站菜单）+ 渠道凭证加密 + 测试发送 | 3–4 天 |
 | P3 微信渠道 ✅ | **wechat_oa 适配器**（`WechatOAProvider` 抽象 + PushPlus 实现，token 管理员配置化+有效期）+ vendor/webhook 适配器接口占位 | 1–2 天 |
-| P4 接入验证 | student app 消息中心（主题 Tab+静音设置）改造 + 一个第三方 demo 走通 **注册→审批→建应用→token→send 全链** + 越权/隔离用例 + 发版冒烟 | 2–3 天 |
+| P4 接入验证 ✅ | student app 消息中心（主题 Tab+静音设置）改造 + 一个第三方 demo 走通 **注册→审批→建应用→token→send 全链** + 越权/隔离用例 + 发版冒烟 | 2–3 天 |
 | 合计 | | **11–16 天** |
 
 > 依赖顺序：P1 → P2/P3 并行 → P4。股票盯盘计划里的 PushPlus 直调改为消费推送中心的 wechat 渠道（避免两处各接一套）。
@@ -223,7 +224,7 @@ token 生命周期规则：
 - [x] 第三方拿**推送 token**（Bearer）send 一条（带 topic_code）→ 接收端 App 对应主题收件箱内可见（离线不丢）——**P4 生产 demo 全链 ALL PASS**：pth-token（Bearer）经网关 send → grade 消息落库 → `/api/student/push/messages` unread=1 → 已读归零 → 他人 total=0（隔离）；App 端 MessagesScreen 主题 Tab + 长轮询已编译出包（app-debug.apk 16M）
 - [x] token 生命周期全链路：签发选 1/3/6/12 月档→明文只显示一次→过期 send 401 `TOKEN_EXPIRED`→续期换发旧 token 7 天宽限并行→吊销即时 401→禁用应用/停号联动全 token 失效（test_token_expiry / rotate_grace / suspend_kills / app_disable 四用例）
 - [x] 主题路由生效：`grade` 主题双通道配置（生产 app#1）、未注册主题拒发 422、主题停用 403（test_topic_not_registered_422 / admin_readonly toggle）；日频控超限行为待高并发实测
-- [ ] 收件人对主题静音后：app_offline 不计数但落库可查；force_channels 主题微信仍触达——**P4：静音开关 UI 在 App 消息设置页**（后端 routing.resolve_channels 逻辑已实现）
+- [x] 收件人对主题静音后：app_offline 不计数但落库可查；force_channels 主题微信仍触达——**P4 收官**：补 `GET/PUT /api/student/push/subscriptions`（平台主题全列出+upsert 幂等+越权 404），App 消息页「通知设置」静音开关面板（自绘 Switch，按 Tab 过滤主题）；生产验证 mute→GET 确认→unmute→不存在主题 404 全过；routing.resolve_channels 静音剔 app_offline 逻辑早已有测试锁
 - [x] `wechat_oa` 渠道：管理员配好 PushPlus token 后测试发送，微信秒级收到（P3 生产实发 status=sent + delivery_log ok）；receiver=他人 32 位令牌自动走好友 `to` 转发，对方未实名/未加好友时 `905/999` 标 dead、留痕可查、支持重发
 - [x] 前台长轮询 poll 服务端 25s 上限（<CF 30s）实现并有测试锁（test_poll_returns_fast）；**P4 App 端已接**：PushStore 前台循环续拉（OkHttp readTimeout=180s > 25s）、游标微秒防重复、底部栏消息 Tab 未读角标；Redis 缺席计数回源 PG 即测试环境常态路径
 - [x] **判分完成/作业下发业务钩子**接推送中心：`business.py` 独立会话 fire-and-forget + 幂等 msg_id（同 submission 只推一次）+ 总开关 `push_business_notify_enabled`；生产验证 grade 主题落库 status=partial（微信引流失败不影响 App 收件箱）、重复触发 row count=1；修 `bump_inbox_counters` 未失效 agg 未读键的脏读 bug（test_new_message_invalidates_unread_agg_cache）
