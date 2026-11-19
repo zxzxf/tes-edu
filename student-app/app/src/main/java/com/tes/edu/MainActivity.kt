@@ -43,11 +43,13 @@ import androidx.navigation.compose.rememberNavController
 import com.tes.edu.data.remote.AppContextProvider
 import com.tes.edu.data.remote.AuthBus
 import com.tes.edu.data.remote.SessionStore
+import com.tes.edu.state.PushStore
 import com.tes.edu.ui.screens.CameraScreen
 import com.tes.edu.ui.screens.ExamScreen
 import com.tes.edu.ui.screens.ExplainScreen
 import com.tes.edu.ui.screens.GraphScreen
 import com.tes.edu.ui.screens.InputScreen
+import com.tes.edu.ui.screens.MessagesScreen
 import com.tes.edu.ui.screens.ReviewScreen
 import com.tes.edu.ui.screens.Screen
 import com.tes.edu.ui.screens.SimilarScreen
@@ -128,8 +130,13 @@ fun AppRoot() {
     val items = listOf(
         Screen.Exam,
         Screen.Input, Screen.Camera,
-        Screen.Similar, Screen.Graph, Screen.Review
+        Screen.Similar, Screen.Graph, Screen.Review, Screen.Messages
     )
+    // 推送中心（P4）：前台常驻长轮询循环 + 底部「消息」未读角标。
+    // 循环挂在 AppRoot 的组合生命周期上——离开 App 即停，冷启动重建，
+    // 消息本体在 PG 不丢，重进全量补收（设计语义=在线准实时+离线不丢）。
+    val unreadTotal by PushStore.unreadTotal.collectAsState()
+    LaunchedEffect(Unit) { PushStore.start(this) }
     // 底部导航必须知道「当前在哪一页」，否则所有 item 都画成未选中（旧实现即此 bug）
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -165,6 +172,7 @@ fun AppRoot() {
                 TesBottomBar(
                     items = items,
                     currentRoute = currentRoute,
+                    badgeRoutes = mapOf(Screen.Messages.route to unreadTotal),
                     onSelect = { screen -> go(screen.route) }
                 )
             }
@@ -184,6 +192,7 @@ fun AppRoot() {
                 composable(Screen.Similar.route) { SimilarScreen(onNavigate = go) }
                 composable(Screen.Graph.route) { GraphScreen(onNavigate = go) }
                 composable(Screen.Review.route) { ReviewScreen(onNavigate = go) }
+                composable(Screen.Messages.route) { MessagesScreen(onNavigate = go) }
             }
         }
 
@@ -210,7 +219,8 @@ fun AppRoot() {
 private fun TesBottomBar(
     items: List<Screen>,
     currentRoute: String?,
-    onSelect: (Screen) -> Unit
+    onSelect: (Screen) -> Unit,
+    badgeRoutes: Map<String, Int> = emptyMap()
 ) {
     Surface(color = TesEduColors.Surface, shadowElevation = 18.dp) {
         Row(
@@ -223,6 +233,7 @@ private fun TesBottomBar(
         ) {
             items.forEach { screen ->
                 val selected = currentRoute == screen.route
+                val badge = badgeRoutes[screen.route] ?: 0
                 Column(
                     Modifier
                         .weight(1f)
@@ -244,6 +255,26 @@ private fun TesBottomBar(
                             tint = if (selected) TesEduColors.Brand else TesEduColors.TextMuted,
                             modifier = Modifier.size(21.dp)
                         )
+                        // 未读角标：品牌渐变圆点，>99 收成 99+ 防撑破
+                        if (badge > 0) {
+                            Box(
+                                Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 2.dp, end = 0.dp)
+                                    .size(if (badge >= 100) 17.dp else 14.dp)
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(TesEduColors.BrandViolet),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    if (badge >= 100) "99+" else badge.toString(),
+                                    color = Color.White,
+                                    fontSize = if (badge >= 100) 8.sp else 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                        }
                     }
                     Spacer(Modifier.height(3.dp))
                     Text(

@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Quiz
 import androidx.compose.material.icons.rounded.Refresh
@@ -125,7 +126,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// 七个能力页（底部导航）：作业闭环 + 解题六页
+// 八个能力页（底部导航）：作业闭环 + 解题六页 + 消息中心（推送 P4）
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
     // 作业闭环（M1-6）：老师下发的卷子在这里作答，是这一版的主入口
     object Exam : Screen("exam", "作业", Icons.Rounded.Assignment)
@@ -136,6 +137,8 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     object Graph : Screen("graph", "图谱", Icons.Rounded.AccountTree)
     // 标签随内容走：这一页现在是错题本，就叫「错题」
     object Review : Screen("review", "错题", Icons.Rounded.Bookmark)
+    // 推送中心收件箱（P4）：作业下发/判分完成/错题复盘/系统通知
+    object Messages : Screen("messages", "消息", Icons.Rounded.NotificationsNone)
 }
 
 // 错因七类的中文展示名（后端落库为英文 taxonomy）

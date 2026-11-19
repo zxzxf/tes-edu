@@ -258,6 +258,9 @@ object ApiClient {
     private var cachedVideoStream: ExplanationVideoStreamApi? = null
 
     @Volatile
+    private var cachedPush: PushApi? = null
+
+    @Volatile
     private var cachedRetrofit: Retrofit? = null
 
     /** 登录后调用一次，让后续请求带上新 token（进程内重建 Retrofit 实例）。 */
@@ -267,6 +270,7 @@ object ApiClient {
             cachedLearning = null
             cachedExam = null
             cachedVideoStream = null
+            cachedPush = null
             cachedRetrofit = null
         }
     }
@@ -289,6 +293,11 @@ object ApiClient {
     val videoStream: ExplanationVideoStreamApi get() = cachedVideoStream ?: synchronized(this) {
         cachedVideoStream ?: retrofit().create(ExplanationVideoStreamApi::class.java)
             .also { cachedVideoStream = it }
+    }
+
+    /** 推送中心学生收件箱（/api/student/push/ 系列端点），共用 Retrofit 与连接池。 */
+    val push: PushApi get() = cachedPush ?: synchronized(this) {
+        cachedPush ?: retrofit().create(PushApi::class.java).also { cachedPush = it }
     }
 
     /** Retrofit 只建一次：所有接口共用同一个 OkHttp 连接池。 */
