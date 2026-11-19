@@ -80,7 +80,8 @@ describe('系统化采集页面拆分', () => {
 
   it('课程源页可登记视频字幕来源', async () => {
     const wrapper = await mountPage(Sources)
-    const type = wrapper.find('select')
+    // 页面上第一个 select 是列表「审核状态」筛选器，来源类型是第二个
+    const type = wrapper.findAll('select')[1]
     expect(type.find('option[value="video"]').exists()).toBe(true)
     await type.setValue('video')
     const inputs = wrapper.findAll('input')
