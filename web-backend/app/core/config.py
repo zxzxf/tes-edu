@@ -130,6 +130,9 @@ class Settings(BaseSettings):
     # 收件箱长轮询服务端挂起上限（秒）。**必须 <25**：Cloudflare 边缘 30s 超时，
     # 判分 502 事故教训（solution.py 同款红线），客户端超时要比它更大。
     push_poll_max_wait: int = 25
+    # 业务钩子（判分完成/作业下发 → 推送中心 emit）总开关；紧急停推送时关它，
+    # 业务主链路完全不受影响（钩子本就是 fire-and-forget）。
+    push_business_notify_enabled: bool = True
 
     # ---- ③·对象存储（MinIO，替代本地静态目录）----
     # minio_endpoint 留空 = 走本地静态回退（兼容未部署 MinIO 的环境）；

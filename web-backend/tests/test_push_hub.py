@@ -420,3 +420,89 @@ def test_admin_readonly_endpoints(env):
     # resend：非 dead/expired 拒绝（sqlite 同步分发后消息已是终态 sent/partial）
     r = client.post(f"/api/admin/push/messages/{msg_id}/resend", headers=ADMIN)
     assert r.status_code in (200, 409)
+
+
+# ---------------------------------------------------------------- P4 判分/下发业务钩子
+def test_business_grade_hook_emits_to_platform_inbox(env):
+    """判分完成钩子：grade 主题消息进平台学生收件箱；幂等 msg_id 重复调只一条。"""
+    import asyncio
+
+    from app.services.push_hub import business as biz
+
+    client, _ = env
+    _make_platform_app_with_token(client)  # 建平台自有应用 + grade 主题
+
+    async def fire():
+        await biz._emit_to_platform_app(
+            topic_code="grade", receiver="stu-1001", title="成绩已出",
+            body="作业已批阅：8/10 分", msg_id="grade-sub-777",
+            payload={"kind": "grade", "submission_id": 777},
+        )
+        # 幂等：同 msg_id 再来一次，落库层去重，不抛异常
+        await biz._emit_to_platform_app(
+            topic_code="grade", receiver="stu-1001", title="成绩已出",
+            body="作业已批阅：8/10 分", msg_id="grade-sub-777",
+        )
+
+    asyncio.run(fire())
+    data = client.get("/api/student/push/messages", headers=STUDENT).json()
+    grade_msgs = [m for m in data["items"] if m["topic_code"] == "grade"]
+    assert len(grade_msgs) == 1, "幂等 msg_id 必须只落一条"
+    assert grade_msgs[0]["payload"]["submission_id"] == 777
+
+
+def test_business_hook_skips_missing_topic(env):
+    """主题未建/未启用 → 静默跳过，不抛异常、不落消息（老环境兼容）。"""
+    import asyncio
+
+    from app.services.push_hub import business as biz
+
+    client, _ = env
+    _make_platform_app_with_token(client)  # 只有 grade 主题
+
+    asyncio.run(biz._emit_to_platform_app(
+        topic_code="homework", receiver="stu-1001", title="新作业",
+        body="B", msg_id="homework-asg-1-stu-1001",
+    ))
+    assert client.get("/api/student/push/messages", headers=STUDENT).json()["total"] == 0
+
+
+def test_business_switch_off_skips_all(env):
+    """总开关关闭 → 任何业务钩子都不发（紧急停推送）。"""
+    import asyncio
+
+    from app.core.config import settings
+    from app.services.push_hub import business as biz
+
+    client, _ = env
+    _make_platform_app_with_token(client)
+    old = settings.push_business_notify_enabled
+    settings.push_business_notify_enabled = False
+    try:
+        asyncio.run(biz._emit_to_platform_app(
+            topic_code="grade", receiver="stu-1001", title="T", body="B", msg_id="off-1"))
+        assert client.get("/api/student/push/messages", headers=STUDENT).json()["total"] == 0
+    finally:
+        settings.push_business_notify_enabled = old
+
+
+def test_new_message_invalidates_unread_agg_cache(monkeypatch):
+    """新消息落 app_offline 必须失效未读聚合键——否则收件箱未读停在旧值（P4 生产实测 bug）。"""
+    import asyncio
+    from unittest.mock import MagicMock
+
+    from app.services.push_hub import channels as ch
+    from app.services.push_hub.channels import unread_agg_key
+
+    fake = MagicMock()
+    # 异步方法需 AsyncMock
+    from unittest.mock import AsyncMock
+    fake.incr = AsyncMock()
+    fake.zadd = AsyncMock()
+    fake.zremrangebyrank = AsyncMock()
+    fake.publish = AsyncMock()
+    fake.delete = AsyncMock()
+    monkeypatch.setattr(ch.cache, "_get_client", lambda: fake)
+
+    asyncio.run(ch.bump_inbox_counters(1, "stu-agg-test", "grade", "m-agg-1"))
+    fake.delete.assert_awaited_once_with(unread_agg_key("stu-agg-test"))

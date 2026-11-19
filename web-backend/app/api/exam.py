@@ -991,6 +991,12 @@ async def assign_paper(
     )
     db.add(assign)
     await db.commit()
+    # P4 业务钩子：定向下发给具体学生 → 推送中心（年级段批量不推，避免无差别打扰）
+    if body.target_type == "student" and body.target_student:
+        from app.services.push_hub import business as push_biz
+        push_biz.homework_assigned(
+            assignment_id=assign.id, student_id=body.target_student,
+        )
     return await _assignment_out(db, assign)
 
 
@@ -1411,6 +1417,12 @@ async def submit_exam(
     await _run_grading(db, sub)
     await db.commit()
     await db.refresh(sub)
+    # P4 业务钩子：判分定稿 → 推送中心（独立会话 fire-and-forget，不反压成绩主链路）
+    from app.services.push_hub import business as push_biz
+    push_biz.grade_ready(
+        submission_id=sub.id, student_id=sub.student_id,
+        score=sub.correct_count or 0, total=sub.total_count or 0, status=sub.status,
+    )
     # 结果首次产生：直接回填缓存，交卷后立刻进结果页不必再跑一遍 5–8 条跨云 SQL。
     # key 的 tenant / paper_id 与 get_result、bundle 读侧逐字一致。
     key = _r_cache_key(tenant, sub.paper_id or a.paper_id, sub.id)
@@ -1449,6 +1461,12 @@ async def _grade_in_background(submission_id: int) -> None:
                 return
             await _run_grading(db, sub)
             await db.commit()
+            # P4 业务钩子：异步判分定稿 → 推送中心（同同步路径，幂等 msg_id 锚 submission）
+            from app.services.push_hub import business as push_biz
+            push_biz.grade_ready(
+                submission_id=sub.id, student_id=sub.student_id,
+                score=sub.correct_count or 0, total=sub.total_count or 0, status=sub.status,
+            )
             # 失效「批改中」半成品缓存，回填完整结果（与同步路径同 key 口径）
             key = _r_cache_key(sub.tenant_id or "", sub.paper_id, sub.id)
             await cache.delete(key)

@@ -41,6 +41,11 @@ def box_key(app_id: int, receiver: str) -> str:
     return f"push:box:{app_id}:{receiver}"
 
 
+def unread_agg_key(receiver: str) -> str:
+    """收件箱未读总数聚合键（push_inbox._unread_count 读它）。"""
+    return f"push:unread:agg:{receiver}"
+
+
 async def bump_inbox_counters(app_id: int, receiver: str, topic_code: str, msg_id: str) -> None:
     """收件箱热层：未读计数 + 最近列表（ZSet score=时间戳，50 条封顶）。
 
@@ -52,6 +57,10 @@ async def bump_inbox_counters(app_id: int, receiver: str, topic_code: str, msg_i
     try:
         await c.incr(unread_key(app_id, receiver))
         await c.incr(topic_unread_key(app_id, receiver, topic_code))
+        # agg 键由 push_inbox._unread_count 以 PG count 回源写入；这里只 INCR
+        # 了 per-app 键，若不失效 agg，新消息到达后未读总数会停在旧值（实测脏读）。
+        # 删除让下次读回源 PG（计划书「PG 为准、Redis 加速」口径）。
+        await c.delete(unread_agg_key(receiver))
         score = datetime.now(timezone.utc).timestamp()
         await c.zadd(box_key(app_id, receiver), {msg_id: score})
         await c.zremrangebyrank(box_key(app_id, receiver), 0, -51)

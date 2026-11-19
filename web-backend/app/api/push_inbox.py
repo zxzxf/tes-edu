@@ -81,7 +81,8 @@ def _inbox_cond(receiver: str, app_ids: list[int]):
 
 async def _unread_count(db: AsyncSession, receiver: str, app_ids: list[int]) -> int:
     """未读总数：Redis 加速、PG 校准回源（cache.get_json 静默降级惯例）。"""
-    key = f"push:unread:agg:{receiver}"
+    from app.services.push_hub.channels import unread_agg_key
+    key = unread_agg_key(receiver)
     cached = await cache.get_json(key)
     if isinstance(cached, int):
         return cached
@@ -97,7 +98,8 @@ async def _unread_count(db: AsyncSession, receiver: str, app_ids: list[int]) -> 
 
 
 async def _invalidate(db: AsyncSession, receiver: str, topic_code: Optional[str] = None) -> None:
-    keys = [f"push:unread:agg:{receiver}"]
+    from app.services.push_hub.channels import unread_agg_key
+    keys = [unread_agg_key(receiver)]
     if topic_code:
         for aid in await _platform_app_ids(db):
             keys += [f"push:unread:{aid}:{receiver}", f"push:unread:{aid}:{receiver}:{topic_code}"]
