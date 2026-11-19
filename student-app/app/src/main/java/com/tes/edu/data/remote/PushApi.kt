@@ -3,6 +3,7 @@ package com.tes.edu.data.remote
 import com.google.gson.annotations.SerializedName
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -39,6 +40,17 @@ interface PushApi {
     /** 全部已读；传 topicCode 则只清该主题。返回标记条数。 */
     @POST("api/student/push/messages/read-all")
     suspend fun readAll(@Query("topic_code") topicCode: String? = null): ReadAllResponse
+
+    /** 主题静音状态：平台全部启用主题都列出（未订阅=未静音）。 */
+    @GET("api/student/push/subscriptions")
+    suspend fun subscriptions(): SubscriptionsResponse
+
+    /** 设置主题静音（upsert）；静音只停 App 通知角标，消息仍落库可查。 */
+    @PUT("api/student/push/subscriptions/{topicCode}")
+    suspend fun setMuted(
+        @Path("topicCode") topicCode: String,
+        @Query("muted") muted: Boolean
+    ): SetMutedResponse
 }
 
 data class PushMessageItem(
@@ -78,3 +90,16 @@ data class PushPollResponse(
 )
 
 data class ReadAllResponse(val marked: Int = 0)
+
+data class SubscriptionItem(
+    @SerializedName("topic_code") val topicCode: String = "",
+    val name: String = "",
+    val muted: Boolean = false
+)
+
+data class SubscriptionsResponse(val items: List<SubscriptionItem> = emptyList())
+
+data class SetMutedResponse(
+    @SerializedName("topic_code") val topicCode: String = "",
+    val muted: Boolean = false
+)

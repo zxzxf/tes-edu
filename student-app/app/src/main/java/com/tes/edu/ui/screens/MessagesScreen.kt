@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tes.edu.data.remote.ApiClient
 import com.tes.edu.data.remote.PushMessageItem
+import com.tes.edu.data.remote.SubscriptionItem
 import com.tes.edu.state.AppBridge
 import com.tes.edu.state.PushStore
 import com.tes.edu.ui.components.TesHero
@@ -68,6 +69,8 @@ fun MessagesScreen(onNavigate: (String) -> Unit = {}) {
     var unreadTotal by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(true) }
+    var showSettings by remember { mutableStateOf(false) } // 通知设置面板展开
+    var subs by remember { mutableStateOf<List<SubscriptionItem>>(emptyList()) }
     val tick by PushStore.newMsgTick.collectAsState()
 
     val sel = tab ?: MSG_TABS[0]
@@ -86,11 +89,17 @@ fun MessagesScreen(onNavigate: (String) -> Unit = {}) {
         }
     }
 
+    suspend fun loadSubs() {
+        runCatching { subs = ApiClient.push.subscriptions().items }
+    }
+
     // 进页 / 切 Tab / 长轮询发现新消息 → 重拉
     LaunchedEffect(sel, tick) {
         loading = true
         load()
     }
+    // 订阅状态只进页拉一次（静音切换后本地即时更新，不必跟着 tick 反复拉）
+    LaunchedEffect(Unit) { loadSubs() }
 
     Column(
         Modifier
@@ -105,7 +114,64 @@ fun MessagesScreen(onNavigate: (String) -> Unit = {}) {
             badge = if (unreadTotal > 0) "未读 $unreadTotal" else "全部已读"
         )
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
+        // 通知设置入口：静音只停角标计数，消息仍落库可查（后端 routing 口径）
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Text(
+                text = if (showSettings) "收起设置 ▴" else "通知设置 ▾",
+                fontSize = 12.5.sp,
+                color = TesEduColors.Brand,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { showSettings = !showSettings }
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+        if (showSettings) {
+            Spacer(Modifier.height(6.dp))
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(TesEduColors.Surface)
+                    .padding(14.dp)
+            ) {
+                Text("按主题静音", fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold, color = TesEduColors.TextPrimary)
+                Spacer(Modifier.height(3.dp))
+                Text("静音后不再计入未读角标；消息仍可在对应主题里查到。",
+                    fontSize = 11.sp, color = TesEduColors.TextMuted)
+                Spacer(Modifier.height(8.dp))
+                if (subs.isEmpty()) {
+                    Text("加载中…", fontSize = 12.sp, color = TesEduColors.TextMuted)
+                } else {
+                    // 只展示与底部 Tab 对应的主题（过滤掉 system_test 等运维主题）
+                    subs.filter { s -> MSG_TABS.any { it.code == s.topicCode } }
+                        .forEach { s ->
+                            MuteRow(
+                                label = topicLabel(s.topicCode),
+                                muted = s.muted,
+                                onToggle = { next ->
+                                    scope.launch {
+                                        runCatching {
+                                            ApiClient.push.setMuted(s.topicCode, next)
+                                        }.onSuccess {
+                                            subs = subs.map {
+                                                if (it.topicCode == s.topicCode) it.copy(muted = next) else it
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -195,6 +261,39 @@ private fun routeByPayload(m: PushMessageItem, onNavigate: (String) -> Unit) {
         "wrongbook" -> onNavigate(Screen.Review.route)  // 错题复盘提醒进错题本
         "practice" -> onNavigate(Screen.Input.route)
         // system/其他：留在消息页即完成阅读
+    }
+}
+
+/** 自绘静音开关（不引 material3 Switch，跟全站手绘控件风格一致）。 */
+@Composable
+private fun MuteRow(label: String, muted: Boolean, onToggle: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable { onToggle(!muted) }
+            .padding(vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            "$label 通知",
+            fontSize = 13.sp,
+            color = TesEduColors.TextPrimary
+        )
+        Box(
+            Modifier
+                .size(width = 40.dp, height = 22.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(if (muted) TesEduColors.TextMuted else TesEduColors.Mint),
+            contentAlignment = if (muted) Alignment.CenterStart else Alignment.CenterEnd
+        ) {
+            Box(
+                Modifier
+                    .size(18.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color.White)
+            )
+        }
     }
 }
 
