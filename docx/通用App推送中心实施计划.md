@@ -1,12 +1,13 @@
 # 通用 App 推送中心 · 实施计划（Push Hub）
 
-> 版本：v1.5 ｜ 日期：2026-11-19 ｜ 状态：**实施中（P1/P2/P3 已完成并上线 137，P4 待做）**
+> 版本：v1.6 ｜ 日期：2026-11-19 ｜ 状态：**✅ 四阶段全部完成并上线 137（P1/P2/P3/P4 闭环）**
 > 定位：把 student app 推送升级为**平台级通用离线推送服务**——一个自建 Kafka+Redis+PG 管道的推送中心，B 端管理员可视化配置推送渠道，第三方 App 通过 OpenAPI 接入使用，消息与接入凭证均支持有效期设置。
 > **v1.0 渠道定稿：两种——① 微信公众号推送（`wechat_oa`，强触达）② App 离线推送（`app_offline`，收件箱不丢）**。
 > **v1.2 增补：推送主题（`push_topic`）为一等公民——按主题分类推送，渠道路由/频控/默认有效期/订阅静音全部挂主题。**
 > **v1.3 增补：第三方接入改为「推送 API + 推送 token」模型——token 有效期档位 1/3/6/12 个月，过期即拒、续期换发、随时吊销（取代原 HMAC 签名方案）。**
 > **v1.4 增补：第三方自助注册推送中心账号（push_account，admin 审批制）+ 三档角色（developer/operator/viewer）；第三方权限闭包只限推送中心域内接口，与主站 RBAC 身份域硬隔离。**
 > **v1.5 实施进展（同日）：P1 内核（commit `3e74ea3`，12 单测）、P3 微信渠道（端到端实发验证 `sent/ok`；修复 receiver 语义——SELF/本人=一对一，32 位他人令牌=好友 `to` 转发）、P2 管理端（主站 6 页 + portal 门户，commit `20e804c`）、网关 `/api/push/` 前缀路由（`0ff75e0`）均已完成并**发布 137 生产**（回滚点 bak-20261119）。新增生产资产：平台应用#1、wechat_oa 渠道、grade/system_test 主题、pth-token（12-19 到期）。已知平台边界：PushPlus 要求接收方本人实名且互加好友，否则 `905/999`——消息标 dead 可在消息查询页「重发」。剩 P4：student app 消息中心改造 + 第三方 demo 全链验证。**
+> **v1.6 收官（同日）：P4 全链闭环——student app 消息中心（主题 Tab + 未读角标 + 25s 长轮询 + 已读 + payload 跳转，APK 16M 编译通过，commit 首笔）；判分完成/作业下发业务钩子（`business.py`，独立会话 fire-and-forget + 幂等 msg_id + 总开关 `push_business_notify_enabled`，生产实测 grade 主题落库 `partial`、重复触发 `row count=1`）；第三方 demo 全链生产 ALL PASS（token-info→send→收件箱 unread=1→已读归零→他人隔离 total=0）。过程中修两个真 bug：① PushApi 漏 `api/student/` 前缀会落 `/` fallback 打到 agent_backend；② 新消息只 INCR per-app 未读键、没失效 agg 键导致收件箱未读停在旧值（生产脏读实证，清键前 unread=0/清后=2）——已统一 `unread_agg_key()` 并在 `bump_inbox_counters` 失效它。后端全量 979 passed（唯一失败为既有无关 `test_course_kp_api`），推送专测 17 项全绿。提交 `f3b0f7e`（钩子+缓存修复）+ `e552fc1`（幂等日志优化），均已上线 137（回滚点 bak-20261119）。**
 > 决策沿革：极光 JPush（弃）→ 纯站内轮询（v2.0，升级）→ 自建 Kafka+Redis（v3.0，扩展）→ 通用推送中心（v1.0）→ 两种渠道定稿（v1.1）→ 主题分类（v1.2）→ 推送 token 档位制（v1.3）→ **第三方自助账号+角色体系（本版）**。原《student-app消息推送实施计划》并入本文档，student app 降为第一个接入端。
 
 ---
@@ -219,12 +220,13 @@ token 生命周期规则：
 - [x] 第三方 portal 自助注册 → pending 不可写 → admin 审批 active → 建应用/签发 token/调 send 全链跑通（单测 test_full_lifecycle + 生产 p2smoke 账号 pending 验证）
 - [x] **身份域隔离**：portal 会话令牌调 `/api/admin/*` 与业务 API 全 403；主站 JWT 调 portal 接口 403；第三方角色白名单外接口（含未列入的后续新接口）默认 403（test_three_auth_realms_do_not_interop）
 - [x] **越权双保险**：A 账号查 B 应用的消息/token 返回 404/403（SQL 层过滤）；operator/viewer 角色不能碰 token/应用写操作（test_cross_account_isolation_404 / test_role_gate_viewer）
-- [ ] 第三方拿**推送 token**（Bearer）send 一条（带 topic_code）→ 接收端 App 下次打开**对应主题 Tab** 收件箱内可见（离线不丢）——**P4：App 端未接**（服务端接口/长轮询已就绪并有测试锁）
+- [x] 第三方拿**推送 token**（Bearer）send 一条（带 topic_code）→ 接收端 App 对应主题收件箱内可见（离线不丢）——**P4 生产 demo 全链 ALL PASS**：pth-token（Bearer）经网关 send → grade 消息落库 → `/api/student/push/messages` unread=1 → 已读归零 → 他人 total=0（隔离）；App 端 MessagesScreen 主题 Tab + 长轮询已编译出包（app-debug.apk 16M）
 - [x] token 生命周期全链路：签发选 1/3/6/12 月档→明文只显示一次→过期 send 401 `TOKEN_EXPIRED`→续期换发旧 token 7 天宽限并行→吊销即时 401→禁用应用/停号联动全 token 失效（test_token_expiry / rotate_grace / suspend_kills / app_disable 四用例）
 - [x] 主题路由生效：`grade` 主题双通道配置（生产 app#1）、未注册主题拒发 422、主题停用 403（test_topic_not_registered_422 / admin_readonly toggle）；日频控超限行为待高并发实测
 - [ ] 收件人对主题静音后：app_offline 不计数但落库可查；force_channels 主题微信仍触达——**P4：静音开关 UI 在 App 消息设置页**（后端 routing.resolve_channels 逻辑已实现）
 - [x] `wechat_oa` 渠道：管理员配好 PushPlus token 后测试发送，微信秒级收到（P3 生产实发 status=sent + delivery_log ok）；receiver=他人 32 位令牌自动走好友 `to` 转发，对方未实名/未加好友时 `905/999` 标 dead、留痕可查、支持重发
-- [x] 前台长轮询 poll 服务端 25s 上限（<CF 30s）实现并有测试锁（test_poll_returns_fast；角标 UI 属 P4 App 端）；Redis 缺席计数回源 PG 即测试环境常态路径
+- [x] 前台长轮询 poll 服务端 25s 上限（<CF 30s）实现并有测试锁（test_poll_returns_fast）；**P4 App 端已接**：PushStore 前台循环续拉（OkHttp readTimeout=180s > 25s）、游标微秒防重复、底部栏消息 Tab 未读角标；Redis 缺席计数回源 PG 即测试环境常态路径
+- [x] **判分完成/作业下发业务钩子**接推送中心：`business.py` 独立会话 fire-and-forget + 幂等 msg_id（同 submission 只推一次）+ 总开关 `push_business_notify_enabled`；生产验证 grade 主题落库 status=partial（微信引流失败不影响 App 收件箱）、重复触发 row count=1；修 `bump_inbox_counters` 未失效 agg 未读键的脏读 bug（test_new_message_invalidates_unread_agg_cache）
 - [x] 重复投递同 msg_id 只发一次（duplicate）；过期消息（expire_at）不再投递（deliver 头部终态出口 + expired 留痕）
 - [x] 主站管理页：审批账号/建应用/签发 token/配两种渠道/改主题/禁用/测试发送全闭环（P2 已上线，SELF 测试发送生产 200）；token/密码/渠道凭证均密文/哈希存储不回显（test_channel_credentials_encrypted）；admin 只见第三方统计不见消息正文
 - [x] Kafka 停用时 emit 降级直写、消息不丢；接口无 500（全部单测跑在无 Kafka 环境=降级路径即被测路径）
