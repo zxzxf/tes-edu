@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TesEdu 课程智能平台 · AI 驱动的中小学科教与学</title>
+<meta name="description" content="TesEdu 课程智能平台：智能题库采集与解析、知识点本体图谱、引导式解题 Agent、错题本与作业闭环。面向学生、教师与教研运营的一站式教育智能化解决方案。">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="nav" id="top">
+  <div class="wrap nav-inner">
+    <a class="logo" href="#top">
+      <span class="logo-mark">T</span>
+      <span class="logo-text">TesEdu<em>课程智能</em></span>
+    </a>
+    <nav class="menu" id="menu">
+      <a href="#product">产品端</a>
+      <a href="#capability">核心能力</a>
+      <a href="#data">数据与教研</a>
+      <a href="#trust">安全可信</a>
+      <a href="#contact">联系我们</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="#contact">预约演示</a>
+      <a class="btn btn-solid" href="#contact">申请试用</a>
+    </div>
+    <button class="nav-burger" id="burger" aria-label="菜单">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- Hero -->
+  <section class="hero">
+    <div class="wrap hero-inner">
+      <div class="hero-copy">
+        <div class="hero-badge">AI · 教育数字化</div>
+        <h1>让每一道题<br>都成为<em>懂学生的老师</em></h1>
+        <p class="hero-sub">TesEdu 课程智能平台以真实考纲题库为地基、以知识点本体为骨架、以大模型 Agent 为引擎，覆盖「练、判、析、辅」全链路——学生学得明白，老师教得省心，教研管得清楚。</p>
+        <div class="hero-actions">
+          <a class="btn btn-solid btn-lg" href="#contact">申请学校试用</a>
+          <a class="btn btn-line btn-lg" href="#capability">了解核心能力</a>
+        </div>
+      </div>
+      <div class="hero-card" aria-hidden="true">
+        <div class="hc-head"><span class="hc-dot"></span><span class="hc-dot"></span><span class="hc-dot"></span><span class="hc-title">学生端 · 引导式解题</span></div>
+        <div class="hc-q">已知二次函数 f(x)=x²−2x+a 在 [0,2] 上的最小值为 1，求 a。</div>
+        <div class="hc-step"><b>提示 1 / 4</b><p>先别急着算——这个抛物线开口朝上，对称轴在哪里？最小值会在顶点取到，还是在端点？</p></div>
+        <div class="hc-step hc-soft"><b>知识点</b><p><span class="tag">二次函数最值</span><span class="tag">对称轴讨论</span><span class="tag">区间定最值</span></p></div>
+        <div class="hc-foot"><span>判分正确率 <b>98.6%</b></span><span>本题归因：<b>忽略对称轴位置讨论</b></span></div>
+      </div>
+    </div>
+    <div class="wrap stats">
+      <div class="stat"><b>274+</b><span>精标真题入库</span></div>
+      <div class="stat"><b>439</b><span>知识点本体节点</span></div>
+      <div class="stat"><b>2021–2026</b><span>考纲真题年份覆盖</span></div>
+      <div class="stat"><b>3 端</b><span>学生 / 教师 / 运营工作台</span></div>
+    </div>
+  </section>
+
+  <!-- 产品端 -->
+  <section class="section" id="product">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>一套平台，三个工作台</h2>
+        <p>从课堂到后台，每个角色都有自己的入口，数据同源、实时同步。</p>
+      </div>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-ico ico-student">学</div>
+          <h3>学生端</h3>
+          <p>Web + Android App 双端。拍照搜题、引导式解题 Hint 阶梯、自动错题本、每日复盘提醒，让订正真正发生。</p>
+          <ul>
+            <li>账号密码登录，会话过期无感续登</li>
+            <li>错题本一键重练，提交即判分</li>
+            <li>解析视频 + 图文讲解双模式</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-ico ico-teacher">教</div>
+          <h3>教师 / 教务工作台</h3>
+          <p>组卷、布置作业、批阅判分、班级学情一屏掌握。错题分布、错因归因、知识点掌握度热力图直达教学决策。</p>
+          <ul>
+            <li>按知识点/难度智能组卷</li>
+            <li>作业闭环：下发 → 作答 → 判分 → 归因</li>
+            <li>班级 / 个人两级学情周报</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-ico ico-ops">营</div>
+          <h3>教研运营工作台</h3>
+          <p>题库采集、智能解析、人工审核、发布入库的流水线工作台。重复题语义识别、异常隔离队列，保证每一道入库题经得起课堂检验。</p>
+          <ul>
+            <li>多源采集：题库包 / 文件 / 网页</li>
+            <li>LLM 结构化解析 + 人工校对双保险</li>
+            <li>语义去重与数据治理留痕</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 核心能力 -->
+  <section class="section alt" id="capability">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>核心能力</h2>
+        <p>不是「把 AI 接到教育上」，而是把教育逻辑做成 AI 的地基。</p>
+      </div>
+      <div class="grid-6">
+        <div class="mini-card">
+          <h4>真实考纲题库</h4>
+          <p>数学优先，覆盖近年中高考与模拟真题；题干、答案、解析、难度、知识点全维度结构化。</p>
+        </div>
+        <div class="mini-card">
+          <h4>知识点本体图谱</h4>
+          <p>前置/后继关系建模，掌握度沿图谱传导——错一道题，看清一整条知识链。</p>
+        </div>
+        <div class="mini-card">
+          <h4>引导式解题 Agent</h4>
+          <p>不直接给答案。四级 Hint 阶梯 + 错因追问，像有经验的老师一样「顺着思路问」。</p>
+        </div>
+        <div class="mini-card">
+          <h4>自动判分与归因</h4>
+          <p>客观题精确判分，主观/填空语义判分；答错自动归因到具体步骤与知识点缺口。</p>
+        </div>
+        <div class="mini-card">
+          <h4>错题闭环</h4>
+          <p>错题自动入本、间隔复盘、重练判分，「会了才划掉」，杜绝抄订正。</p>
+        </div>
+        <div class="mini-card">
+          <h4>讲解视频生成</h4>
+          <p>题目 → 板书式讲解视频异步生成，把讲题从老师的时间表中解放出来。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 数据与教研 -->
+  <section class="section" id="data">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>数据资产与教研支撑</h2>
+        <p>平台沉淀的不只是答题记录，而是一份可持续运营的教学数据资产。</p>
+      </div>
+      <div class="split">
+        <div class="split-copy">
+          <ul class="checklist">
+            <li><b>题库资产</b>：精标题库 + 采集流水线 + 语义去重，可随考纲持续扩充</li>
+            <li><b>知识图谱</b>：知识点节点与教材章节、真题双向挂接，支持多版本教材</li>
+            <li><b>学情数据</b>：步骤级错因流水、掌握度曲线，供教研复盘与校本作业设计</li>
+            <li><b>内容治理</b>：入库全链路审核留痕，人工裁决可追溯</li>
+          </ul>
+        </div>
+        <div class="split-visual" aria-hidden="true">
+          <div class="flow">
+            <span class="flow-node">采集</span><i>→</i>
+            <span class="flow-node">解析</span><i>→</i>
+            <span class="flow-node">审核</span><i>→</i>
+            <span class="flow-node hot">发布</span><i>→</i>
+            <span class="flow-node">练习</span><i>→</i>
+            <span class="flow-node">归因</span><i>→</i>
+            <span class="flow-node hot">掌握</span>
+          </div>
+          <div class="flow-note">数据同源 · 一条链路贯穿「题库建设 → 课堂教学 → 学情反馈」</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 安全可信 -->
+  <section class="section alt" id="trust">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>安全与可信</h2>
+      </div>
+      <div class="grid-4">
+        <div class="mini-card"><h4>租户隔离</h4><p>校际数据物理隔离，多租户权限体系（RBAC），谁的数据谁能看。</p></div>
+        <div class="mini-card"><h4>账号安全</h4><p>登录时效管控、会话无感续签、操作留痕审计。</p></div>
+        <div class="mini-card"><h4>内容可控</h4><p>题目入库必经机器校验 + 人工审核双闸，杜绝错误解析流入课堂。</p></div>
+        <div class="mini-card"><h4>私有化可选</h4><p>支持独立环境部署，教学数据不出校。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA / 联系 -->
+  <section class="section cta" id="contact">
+    <div class="wrap cta-inner">
+      <h2>把「懂学生的老师」带回每一间教室</h2>
+      <p>支持公办校、民办学校与教培机构试用评估，我们提供题库共建、教材适配与教师培训一站式落地服务。</p>
+      <div class="cta-actions">
+        <a class="btn btn-white btn-lg" href="mailto:hello@tes-edu.cn">hello@tes-edu.cn</a>
+        <a class="btn btn-line-w btn-lg" href="#top">回到顶部</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <div>
+      <span class="logo-mark">T</span>
+      <span class="logo-text">TesEdu<em>课程智能</em></span>
+      <p class="footer-desc">AI 驱动的中小学科教与学平台</p>
+    </div>
+    <div class="footer-links">
+      <a href="#product">产品端</a>
+      <a href="#capability">核心能力</a>
+      <a href="#data">数据与教研</a>
+      <a href="#trust">安全可信</a>
+    </div>
+    <div class="footer-copy">© 2026 TesEdu · 让每一道题都成为懂学生的老师</div>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
