@@ -59,6 +59,15 @@ routes:
     mode: ""
     rate: 10
     burst: 20
+  # 通用 App 推送中心数据面/门户面（P2，2026-11-19）：鉴权在 web-backend 自管
+  # （pth- Bearer / portal 会话令牌，独立密钥+受众），网关不做 JWT/RBAC——
+  # 与主站 /api/admin/*（rbac）互不互认是身份域隔离的设计底线。
+  # 限流给宽松值，真正的频控在应用/token/主题三级（ratelimit.py）。
+  - match: "/api/push/"
+    upstream: web_backend
+    mode: ""
+    rate: 40
+    burst: 80
   - match: "/api/admin/"
     upstream: web_backend
     mode: rbac
