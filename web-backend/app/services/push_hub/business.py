@@ -73,7 +73,12 @@ async def _emit_to_platform_app(
                 payload=payload,
                 msg_id=msg_id,
             )
-    except Exception:  # noqa: BLE001 推送是旁路，任何失败都不影响业务
+    except Exception as exc:  # noqa: BLE001 推送是旁路，任何失败都不影响业务
+        from app.services.push_hub.emit import DuplicateMsg
+        if isinstance(exc, DuplicateMsg):
+            # 幂等命中（重复判分/改判）= 已推过，正常跳过，不刷 ERROR 堆栈
+            logger.debug("业务推送幂等跳过 msg=%s", msg_id)
+            return
         logger.exception(
             "业务推送钩子失败（业务不受影响）topic=%s receiver=%s msg=%s",
             topic_code, receiver, msg_id,
