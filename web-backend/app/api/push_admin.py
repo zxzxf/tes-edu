@@ -306,6 +306,151 @@ async def channel_test(
     return {"msg_id": msg_id, "status": "sent_via_dispatch"}
 
 
+# ---------------------------------------------------------------- 只读查询（管理页列表用）
+@router.get("/apps")
+async def list_all_apps(
+    _: dict = Depends(pa.require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """全部接入应用（平台自有 owner=NULL + 第三方），带归属账号邮箱便于审批联动。"""
+    rows = (
+        await db.execute(
+            select(PushApp, PushAccount.email)
+            .outerjoin(PushAccount, PushAccount.account_id == PushApp.owner_account_id)
+            .order_by(PushApp.app_id)
+        )
+    ).all()
+    return [
+        {"app_id": a.app_id, "name": a.name, "owner_account_id": a.owner_account_id,
+         "owner_email": email, "enabled": a.enabled,
+         "allowed_channels": a.allowed_channels, "rate_limit_per_min": a.rate_limit_per_min,
+         "created_at": a.created_at.isoformat() if a.created_at else None}
+        for a, email in rows
+    ]
+
+
+@router.get("/apps/{app_id}/topics")
+async def list_app_topics_admin(
+    app_id: int,
+    _: dict = Depends(pa.require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        await db.execute(select(PushTopic).where(PushTopic.app_id == app_id).order_by(PushTopic.topic_code))
+    ).scalars().all()
+    return [
+        {"topic_id": t.topic_id, "app_id": t.app_id, "topic_code": t.topic_code, "name": t.name,
+         "enabled": t.enabled, "default_channels": t.default_channels, "default_ttl": t.default_ttl,
+         "rate_limit_per_day": t.rate_limit_per_day, "force_channels": t.force_channels}
+        for t in rows
+    ]
+
+
+@router.get("/apps/{app_id}/tokens")
+async def list_app_tokens_admin(
+    app_id: int,
+    _: dict = Depends(pa.require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """token 列表只回前缀与元数据——明文签发时一次性显示，永不二次回显。"""
+    rows = (
+        await db.execute(select(PushToken).where(PushToken.app_id == app_id).order_by(PushToken.token_id))
+    ).scalars().all()
+    return [
+        {"token_id": t.token_id, "token_prefix": t.token_prefix, "tier": t.tier, "status": t.status,
+         "issued_at": t.issued_at.isoformat() if t.issued_at else None,
+         "expired_at": t.expired_at.isoformat() if t.expired_at else None,
+         "grace_until": t.grace_until.isoformat() if t.grace_until else None,
+         "last_used_at": t.last_used_at.isoformat() if t.last_used_at else None}
+        for t in rows
+    ]
+
+
+@router.post("/tokens/{token_id}/revoke")
+async def revoke_token_admin(
+    token_id: int,
+    _: dict = Depends(pa.require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    ok = await tok_svc.revoke(db, token_id)
+    return {"revoked": ok}
+
+
+class TopicToggleIn(BaseModel):
+    enabled: bool
+
+
+@router.patch("/topics/{topic_id}")
+async def toggle_topic_admin(
+    topic_id: int,
+    body: TopicToggleIn,
+    _: dict = Depends(pa.require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    t = (await db.execute(select(PushTopic).where(PushTopic.topic_id == topic_id))).scalar_one_or_none()
+    if t is None:
+        raise HTTPException(404, "主题不存在")
+    t.enabled = body.enabled
+    await db.commit()
+    return {"topic_id": t.topic_id, "enabled": t.enabled}
+
+
+@router.get("/messages")
+async def list_messages_admin(
+    app_id: Optional[int] = Query(None),
+    topic_code: Optional[str] = Query(None),
+    receiver: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    _: dict = Depends(pa.require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(PushMessage)
+    if app_id:
+        stmt = stmt.where(PushMessage.app_id == app_id)
+    if topic_code:
+        stmt = stmt.where(PushMessage.topic_code == topic_code)
+    if receiver:
+        stmt = stmt.where(PushMessage.receiver == receiver)
+    if status:
+        stmt = stmt.where(PushMessage.status == status)
+    total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+    rows = (
+        await db.execute(stmt.order_by(PushMessage.created_at.desc()).offset((page - 1) * size).limit(size))
+    ).scalars().all()
+    return {
+        "total": total, "page": page, "size": size,
+        "items": [
+            {"msg_id": m.msg_id, "app_id": m.app_id, "token_id": m.token_id,
+             "topic_code": m.topic_code, "receiver": m.receiver,
+             "title": m.title, "status": m.status,
+             "expire_at": m.expire_at.isoformat() if m.expire_at else None,
+             "created_at": m.created_at.isoformat() if m.created_at else None}
+            for m in rows
+        ],
+    }
+
+
+@router.post("/messages/{msg_id}/resend")
+async def resend_message_admin(
+    msg_id: str,
+    _: dict = Depends(pa.require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """死信重发：dead/expired 消息重置为 pending 再走一遍分发（幂等由终态检查保证）。"""
+    m = (await db.execute(select(PushMessage).where(PushMessage.msg_id == msg_id))).scalar_one_or_none()
+    if m is None:
+        raise HTTPException(404, "消息不存在")
+    if m.status not in ("dead", "expired"):
+        raise HTTPException(409, f"仅 dead/expired 可重发（当前 {m.status}）")
+    m.status = "pending"
+    await db.commit()
+    await ch.deliver(db, msg_id)
+    await db.refresh(m)
+    return {"msg_id": msg_id, "status": m.status}
+
+
 # ---------------------------------------------------------------- 全局统计（不见正文）
 @router.get("/stats")
 async def global_stats(

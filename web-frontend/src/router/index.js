@@ -29,6 +29,13 @@ import StockOverview from '../views/stock/Overview.vue'
 import StockWatchlist from '../views/stock/Watchlist.vue'
 import StockQuotes from '../views/stock/Quotes.vue'
 import StockAlerts from '../views/stock/Alerts.vue'
+import PushOverview from '../views/push/Overview.vue'
+import PushAccounts from '../views/push/Accounts.vue'
+import PushApps from '../views/push/Apps.vue'
+import PushChannels from '../views/push/Channels.vue'
+import PushTopics from '../views/push/Topics.vue'
+import PushMessages from '../views/push/Messages.vue'
+import PushPortal from '../views/push/Portal.vue'
 import SystemMenu from '../views/SystemMenu.vue'
 import SystemRole from '../views/SystemRole.vue'
 import SystemRegion from '../views/SystemRegion.vue'
@@ -81,9 +88,27 @@ const routes = [
       { path: 'tenant', name: 'tenant', component: Tenant, meta: { title: '学校管理' } },
       { path: 'system/dict', name: 'system-dict', component: Dict, meta: { title: '数据字典' } },
       // ④·数字人讲题视频（#28）：讲解视频生成任务管理后台
-      { path: 'explanation-videos', name: 'explanation-videos', component: ExplanationVideos, meta: { title: '讲解视频任务' } }
+      { path: 'explanation-videos', name: 'explanation-videos', component: ExplanationVideos, meta: { title: '讲解视频任务' } },
+      // 股票盯盘业务中心（v1.1）：独立一级域（stockNav 驱动侧栏），仅 admin。
+      // ⚠️ 上轮中断只加了 import 没注册路由——hasRouteAccess 放行但 router 404，本次补齐。
+      { path: 'stock/overview', name: 'stock-overview', component: StockOverview, meta: { title: '盯盘总览' } },
+      { path: 'stock/watchlist', name: 'stock-watchlist', component: StockWatchlist, meta: { title: '自选股' } },
+      { path: 'stock/quotes', name: 'stock-quotes', component: StockQuotes, meta: { title: '行情看板' } },
+      { path: 'stock/alerts', name: 'stock-alerts', component: StockAlerts, meta: { title: '涨跌预警' } },
+      // 通用 App 推送中心管理端（P2）：一级域由后端菜单 DIR m_push 驱动（概览域侧栏分组），
+      // 仅 admin；页面可达三件套=路由(此处)+MENU_ROUTE_MAP(已加)+rbac_seed 菜单(已加)。
+      { path: 'push/overview', name: 'push-overview', component: PushOverview, meta: { title: '推送总览' } },
+      { path: 'push/accounts', name: 'push-accounts', component: PushAccounts, meta: { title: '第三方账号' } },
+      { path: 'push/apps', name: 'push-apps', component: PushApps, meta: { title: '接入应用' } },
+      { path: 'push/channels', name: 'push-channels', component: PushChannels, meta: { title: '渠道管理' } },
+      { path: 'push/topics', name: 'push-topics', component: PushTopics, meta: { title: '推送主题' } },
+      { path: 'push/messages', name: 'push-messages', component: PushMessages, meta: { title: '消息查询' } },
     ]
   },
+  // 第三方推送 portal：独立会话域（portal 令牌，localStorage.push_portal_session），
+  // 不进主站 Layout/RBAC 门禁——meta.public 只跳过主站登录守卫，
+  // 页面内数据请求全走 portal Bearer，未登录时自行渲染登录卡。
+  { path: '/push-portal', name: 'push-portal', component: PushPortal, meta: { public: true, title: '推送中心门户' } },
   // 系统化任务采集工作台（M5）：与主站共用同一个三段式壳子 Layout，
   // 切换时壳子实例复用、无双层侧栏。主站菜单 /ops/course-intake 仍映射
   // /course-intake，点进去重定向到工作台；子路由由 auth.hasRouteAccess 按父路径前缀放行。

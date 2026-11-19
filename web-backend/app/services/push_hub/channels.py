@@ -80,9 +80,10 @@ class PushPlusProvider(WechatOAProvider):
 
     async def send(self, receiver: str, title: str, body: str) -> tuple[str, str]:
         payload = {"token": self._token, "title": title, "content": body, "channel": "wechat"}
-        # receiver 与渠道 token 相同=推自己（一对一）；不同=好友令牌，走 to 转发
-        # （pushplus 好友消息语义：to=已加好友的 32 位令牌，多个逗号分隔）。
-        if receiver and receiver != self._token:
+        # receiver 与渠道 token 相同、或为渠道级占位 SELF=推自己（一对一）；
+        # 其他值=好友令牌，走 to 转发（pushplus 好友消息语义：to=已加好友的
+        # 32 位令牌，多个逗号分隔）。
+        if receiver and receiver not in (self._token, "SELF"):
             payload["to"] = receiver
         try:
             async with httpx.AsyncClient(timeout=10) as client:

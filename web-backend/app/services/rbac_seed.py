@@ -99,6 +99,19 @@ MENUS = [
     ("m_stock_watchlist", "m_stock", "自选股", "MENU", "/stock/watchlist", "StockWatchlist", "stock", 2, None),
     ("m_stock_quotes", "m_stock", "行情看板", "MENU", "/stock/quotes", "StockQuotes", "chart", 3, None),
     ("m_stock_alerts", "m_stock", "涨跌预警", "MENU", "/stock/alerts", "StockAlerts", "target", 4, None),
+
+    # 通用 App 推送中心（docx/通用App推送中心实施计划.md v1.4，P2 管理端）。
+    # 第五个一级域「推送中心」，仅 admin：审批/渠道/令牌是平台运营职能，
+    # region_admin/school 均无 /api/admin/push/* 权限（require_admin 硬只认 admin），
+    # 授菜单必造死链，故 ROLE_MENU_MAP 对非 admin 显式排除。
+    # 第三方 portal（/push-portal/*）不占菜单——独立会话域，不进主站 RBAC。
+    ("m_push", None, "推送中心", "DIR", "/push-hub", "Layout", "send", 4, None),
+    ("m_push_overview", "m_push", "推送总览", "MENU", "/ops/push/overview", "PushOverview", "chart", 1, None),
+    ("m_push_accounts", "m_push", "第三方账号", "MENU", "/ops/push/accounts", "PushAccounts", "user", 2, None),
+    ("m_push_apps", "m_push", "接入应用", "MENU", "/ops/push/apps", "PushApps", "cloud", 3, None),
+    ("m_push_channels", "m_push", "渠道管理", "MENU", "/ops/push/channels", "PushChannels", "send", 4, None),
+    ("m_push_topics", "m_push", "推送主题", "MENU", "/ops/push/topics", "PushTopics", "dict", 5, None),
+    ("m_push_messages", "m_push", "消息查询", "MENU", "/ops/push/messages", "PushMessages", "search", 6, None),
 ]
 
 # 角色 × 菜单授权（菜单节点 + 其下按钮一并授权）：仅 admin 见系统设置全部。
@@ -130,6 +143,8 @@ ROLE_MENU_MAP = {
         and m[0] != "m_ops_grading"
         # 股票盯盘仅 admin 可见，region_admin 不授
         and not m[0].startswith("m_stock")
+        # 推送中心仅 admin 可见（require_admin 硬只认 admin），region_admin 不授
+        and not m[0].startswith("m_push")
     ]          + ["m_ops_exam_gen", "m_sys_user", "m_sys_feature", "m_sys_feature_manage", "m_sys_byom", "m_sys_byom_manage",
          "m_ops_tenant_add", "m_ops_tenant_edit", "m_ops_tenant_del",  # 区域管理员：区域运营 + 功能开关 + 模型配置 + 用户管理（仅菜单，只读看区域下用户；写接口仍受 UserWriteRoleDep 兜底）；含学校增删改按钮码
          "m_ops_explv", "m_ops_explv_regen"],  # 区域管理员：讲解视频任务管理（#28）

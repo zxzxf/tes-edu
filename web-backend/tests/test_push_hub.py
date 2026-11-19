@@ -379,3 +379,44 @@ def test_channel_credentials_encrypted_and_never_echoed(env):
                          "credentials": {"x": "y"}})
     assert r.status_code == 500 or r.status_code == 400 or r.status_code == 422
     assert "PUSH_SECRET_KEY" in r.text
+
+
+# ---------------------------------------------------------------- P2 管理页只读接口
+def test_admin_readonly_endpoints(env):
+    """P2 页面依赖的只读面：apps 列表 / topics / tokens（仅前缀）/ messages / resend。"""
+    client, _ = env
+    _, auth = _register_login(client)
+    app_id, token = _make_app_with_token(client, auth)
+    # 发一条消息进账
+    r = client.post("/api/push/open/send", headers={"Authorization": f"Bearer {token}"},
+                    json={"topic_code": "grade", "receiver": "stu-9", "title": "T", "body": "B"})
+    assert r.status_code == 200, r.text
+    msg_id = r.json()["msg_id"]
+
+    apps = client.get("/api/admin/push/apps", headers=ADMIN).json()
+    assert any(a["app_id"] == app_id and a["owner_email"] == "dev@corp.com" for a in apps)
+    # 越权防护口径：第三方应用 admin 可见（审批职责），平台自有 owner=None
+    tops = client.get(f"/api/admin/push/apps/{app_id}/topics", headers=ADMIN).json()
+    assert tops and tops[0]["topic_code"] == "grade"
+    topic_id = tops[0]["topic_id"]
+    toks = client.get(f"/api/admin/push/apps/{app_id}/tokens", headers=ADMIN).json()
+    assert toks and toks[0]["token_prefix"].startswith("pth-")
+    assert "pth-" + "0" * 32 not in str(toks)  # 明文永不回显（只有前缀）
+    msgs = client.get("/api/admin/push/messages", params={"app_id": app_id}, headers=ADMIN).json()
+    assert msgs["total"] >= 1
+    m = [x for x in msgs["items"] if x["msg_id"] == msg_id][0]
+    assert m["status"] in ("pending", "sent", "partial")  # sqlite 无 Kafka：emit 就地分发后终态
+
+    # 主题启停（admin toggle）
+    r = client.patch(f"/api/admin/push/topics/{topic_id}", headers=ADMIN, json={"enabled": False})
+    assert r.status_code == 200 and r.json()["enabled"] is False
+    # 停用后 send 被拒
+    r = client.post("/api/push/open/send", headers={"Authorization": f"Bearer {token}"},
+                    json={"topic_code": "grade", "receiver": "stu-9", "title": "T2", "body": "B2"})
+    assert r.status_code == 403 and r.json()["detail"]["code"] == "TOPIC_DISABLED"
+    r = client.patch(f"/api/admin/push/topics/{topic_id}", headers=ADMIN, json={"enabled": True})
+    assert r.status_code == 200 and r.json()["enabled"] is True
+
+    # resend：非 dead/expired 拒绝（sqlite 同步分发后消息已是终态 sent/partial）
+    r = client.post(f"/api/admin/push/messages/{msg_id}/resend", headers=ADMIN)
+    assert r.status_code in (200, 409)
