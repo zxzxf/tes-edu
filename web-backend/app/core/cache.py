@@ -102,6 +102,25 @@ async def delete_prefix(prefix: str) -> None:
         log.debug("cache delete_prefix failed prefix=%s: %s", prefix, exc)
 
 
+async def incr(key: str, ttl: Optional[int] = None) -> int:
+    """计数器 +1（推送中心主题日频控/token QPS 用），返回累加后的值。
+
+    降级口径与读缓存一致：Redis 不可用返回 0（视为未计数），
+    调用方据此放行——频控是保护性限流，不能因 Redis 故障反把业务拦死。
+    """
+    c = _get_client()
+    if c is None:
+        return 0
+    try:
+        n = await c.incr(key)
+        if ttl and n == 1:
+            await c.expire(key, ttl)
+        return int(n)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("cache incr failed key=%s: %s", key, exc)
+        return 0
+
+
 async def ping() -> bool:
     c = _get_client()
     if c is None:

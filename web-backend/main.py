@@ -41,6 +41,11 @@ from app.api import (
     byom as byom_api,
     wrong_questions,
     explanation_video as explanation_video_api,
+    # ---- 通用 App 推送中心（Push Hub P1，docx/通用App推送中心实施计划.md）----
+    push_open,
+    push_portal,
+    push_admin,
+    push_inbox,
 )
 from app.core.config import settings
 from app.core.db import get_db
@@ -90,19 +95,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:  # noqa: BLE001
         logger.warning("权限基座初始化跳过：%s", e)
 
-    # 2) Kafka 消费端：题库入库 + 学情事件；未配置则入库接口自动降级为同步直写
+    # 2) Kafka 消费端：题库入库 + 学情事件 + 推送分发；未配置则入库/推送自动降级同步直写
     if settings.kafka_enabled:
         from app.workers.ingest_worker import run as run_ingest
         from app.workers.student_event_worker import run as run_events
+        from app.workers.push_dispatch_worker import run as run_push
 
         _worker_tasks = [
             asyncio.create_task(run_ingest()),
             asyncio.create_task(run_events()),
+            asyncio.create_task(run_push()),
         ]
         logger.info(
-            "Kafka 消费端已启动：%s / %s",
+            "Kafka 消费端已启动：%s / %s / %s",
             settings.kafka_topic_ingest,
             settings.kafka_topic_event,
+            settings.kafka_topic_push_dispatch,
         )
     else:
         logger.info("Kafka 未配置，入库走同步直写")
@@ -228,6 +236,17 @@ app.include_router(exam_attachments.router, prefix="/api/student")  # M1-6 解�
 app.include_router(exam_learning.router, prefix="/api/admin")  # M3 解析/题↔知识点/按卷图谱（教师端）
 app.include_router(exam_learning.student_router, prefix="/api/student")  # M3 解析/按卷图谱/同条件推题（学生端）
 app.include_router(crawl_router, prefix="/api/admin")  # M5 课程源/采集/解析/知识点审核（crawl_service 子包）
+
+# ---- 通用 App 推送中心（Push Hub P1）----
+# 数据面：第三方 pth- token Bearer（网关新前缀 /api/push/open/ 原样转发）
+app.include_router(push_open.router, prefix="/api/push/open")
+# 管理面：第三方 portal 会话令牌（独立密钥+受众，与上面两路互不互认）
+app.include_router(push_portal.router, prefix="/api/push/portal")
+# 平台 admin：审批/渠道配置/全局统计（网关注入头鉴权；注意 admin 前缀下 push/*
+# 与既有 /api/admin/course|grading 等同级并存，网关前缀路由匹配最长路径优先）
+app.include_router(push_admin.router, prefix="/api/admin/push")
+# 学生收件箱（网关 /api/student 已路由至本服务；身份头注入）
+app.include_router(push_inbox.router, prefix="/api/student")
 
 # T-B5：C 端直连挂载（网关 /login 与 /learning/ 路由按原路径转发、不做前缀改写，
 # 2026-10-24 部署时发现单挂 /api/admin 会导致网关侧 404，故补根路径双挂载）。

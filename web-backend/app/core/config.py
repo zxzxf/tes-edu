@@ -116,6 +116,21 @@ class Settings(BaseSettings):
     # 可选：异步生成 Kafka 主题；未配置 kafka 时走 BackgroundTasks 同步降级。
     kafka_topic_explanation_video: str = "explanation_video_gen"
 
+    # ---- 通用 App 推送中心（Push Hub，docx/通用App推送中心实施计划.md）----
+    # 消息分发主题；未配置 kafka 时 emit 自动降级 BackgroundTasks 直写（同讲解视频先例）。
+    kafka_topic_push_dispatch: str = "push_dispatch"
+    kafka_group_push_dispatch: str = "push-dispatch-consumer"
+    # portal 会话令牌独立密钥+受众（push-hub-portal）——与主站 JWT 互不互认，身份域隔离底线。
+    push_portal_secret: str = ""          # 生产由 web-backend.env 注入；空=portal 登录拒绝
+    push_secret_key: str = ""             # Fernet key（渠道凭证加密）；空=渠道凭证存不了也解不了
+    # token 档位（月）固定四选一，不支持永不过期；宽限期=续期后旧 token 并行天数。
+    push_token_grace_days: int = 7
+    # 消息默认 TTL（秒）：调用方不传、主题不配时兜底（7 天）。
+    push_message_default_ttl: int = 604800
+    # 收件箱长轮询服务端挂起上限（秒）。**必须 <25**：Cloudflare 边缘 30s 超时，
+    # 判分 502 事故教训（solution.py 同款红线），客户端超时要比它更大。
+    push_poll_max_wait: int = 25
+
     # ---- ③·对象存储（MinIO，替代本地静态目录）----
     # minio_endpoint 留空 = 走本地静态回退（兼容未部署 MinIO 的环境）；
     # 配齐后 run_generation 把 mp4 上传 MinIO，并由 web-backend 内部流式代理对外提供
