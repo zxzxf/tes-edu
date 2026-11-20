@@ -538,3 +538,47 @@ def test_subscription_mute_toggle_and_isolation(env):
     # 关静音恢复
     r = client.put("/api/student/push/subscriptions/grade", params={"muted": False}, headers=STUDENT)
     assert r.status_code == 200 and r.json()["muted"] is False
+
+
+# ---------------------------------------------------------------- SELF 语义（大小写归一）
+def test_pushplus_self_receiver_is_case_insensitive(monkeypatch):
+    """推自己占位 SELF 大小写不敏感——盯盘页传小写 self 曾被当好友令牌走 to 转发（11-20 实测 dead）。"""
+    import asyncio
+
+    from app.services.push_hub import channels as ch
+
+    captured = {}
+
+    class FakeResp:
+        status_code = 200
+        content = b'{"code":200,"msg":"ok"}'
+
+        def json(self):
+            return {"code": 200, "msg": "ok"}
+
+    class FakeClient:
+        def __init__(self, **kw):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, url, json=None):  # noqa: A002 对齐 httpx 签名
+            captured["payload"] = json
+            return FakeResp()
+
+    monkeypatch.setattr(ch.httpx, "AsyncClient", FakeClient)
+
+    p = ch.PushPlusProvider("tok-channel-32")
+    for r in ("SELF", "self", " Self ", "tok-channel-32", ""):
+        captured.clear()
+        code, _ = asyncio.run(p.send(r, "t", "b"))
+        assert code == "ok"
+        assert "to" not in captured["payload"], f"receiver={r!r} 必须走渠道主一对一，不得 to 转发"
+    # 好友令牌仍走 to 转发
+    captured.clear()
+    asyncio.run(p.send("tok-friend-xx", "t", "b"))
+    assert captured["payload"]["to"] == "tok-friend-xx"

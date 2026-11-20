@@ -92,8 +92,12 @@ class PushPlusProvider(WechatOAProvider):
         # receiver 与渠道 token 相同、或为渠道级占位 SELF=推自己（一对一）；
         # 其他值=好友令牌，走 to 转发（pushplus 好友消息语义：to=已加好友的
         # 32 位令牌，多个逗号分隔）。
-        if receiver and receiver not in (self._token, "SELF"):
-            payload["to"] = receiver
+        # SELF 判定大小写不敏感（11-20 实测：股票盯盘页传小写 self 被当好友
+        # 令牌走 to 转发 → pushplus 999 → 整条 dead），在此单点归一，
+        # 所有调用方（渠道测试/盯盘预警/open send）共用同一语义。
+        rcv = (receiver or "").strip()
+        if rcv and rcv != self._token and rcv.upper() != "SELF":
+            payload["to"] = rcv
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(PUSHPLUS_SEND_URL, json=payload)
