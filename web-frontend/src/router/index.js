@@ -30,6 +30,7 @@ import StockWatchlist from '../views/stock/Watchlist.vue'
 import StockQuotes from '../views/stock/Quotes.vue'
 import StockAlerts from '../views/stock/Alerts.vue'
 import StockFriends from '../views/stock/Friends.vue'
+import StockDetail from '../views/stock/Detail.vue'
 import PushOverview from '../views/push/Overview.vue'
 import PushAccounts from '../views/push/Accounts.vue'
 import PushApps from '../views/push/Apps.vue'
@@ -97,6 +98,7 @@ const routes = [
       { path: 'stock/quotes', name: 'stock-quotes', component: StockQuotes, meta: { title: '行情看板' } },
       { path: 'stock/alerts', name: 'stock-alerts', component: StockAlerts, meta: { title: '涨跌预警' } },
       { path: 'stock/friends', name: 'stock-friends', component: StockFriends, meta: { title: '推送好友' } },
+      { path: 'stock/detail', name: 'stock-detail', component: StockDetail, meta: { title: '个股详情' } },
       // 通用 App 推送中心管理端（P2）：一级域由后端菜单 DIR m_push 驱动（概览域侧栏分组），
       // 仅 admin；页面可达三件套=路由(此处)+MENU_ROUTE_MAP(已加)+rbac_seed 菜单(已加)。
       { path: 'push/overview', name: 'push-overview', component: PushOverview, meta: { title: '推送总览' } },

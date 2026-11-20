@@ -7,11 +7,10 @@ describe('股票盯盘导航配置', () => {
     expect(STOCK_NAV.map((g) => g.label)).toEqual(['股票盯盘'])
   })
 
-  it('五个可点页面 + 一个规划项（个股详情）', () => {
+  it('六个可点页面（个股详情已从规划转正）', () => {
     const items = STOCK_NAV[0].items
     const ready = items.filter((it) => !it.planned)
-    expect(ready.map((it) => it.label)).toEqual(['盯盘总览', '自选股', '行情看板', '涨跌预警', '推送好友'])
-    expect(items.some((it) => it.planned)).toBe(true)
+    expect(ready.map((it) => it.label)).toEqual(['盯盘总览', '自选股', '行情看板', '涨跌预警', '推送好友', '个股详情'])
   })
 
   it('可点路径全部在 /stock 前缀下且唯一', () => {
@@ -20,7 +19,7 @@ describe('股票盯盘导航配置', () => {
     for (const p of paths) expect(p.startsWith('/stock/')).toBe(true)
   })
 
-  it('规划项不带 path，避免死链', () => {
+  it('规划项不带 path，避免死链（当前无规划项，规则保留）', () => {
     for (const it of STOCK_NAV.flatMap((g) => g.items).filter((x) => x.planned)) {
       expect(it.path).toBeUndefined()
     }

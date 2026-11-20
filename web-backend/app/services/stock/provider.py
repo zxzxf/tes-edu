@@ -26,6 +26,7 @@ SINA_URL = "https://hq.sinajs.cn/list="
 TENCENT_URL = "https://qt.gtimg.cn/q="
 EM_KLINE_URL = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
 EM_TREND_URL = "https://push2his.eastmoney.com/api/qt/stock/trends2/get"
+EM_DETAIL_URL = "https://push2.eastmoney.com/api/qt/stock/get"
 
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 _SINA_HEADERS = {"Referer": "https://finance.sina.com.cn", "User-Agent": _UA}
@@ -80,7 +81,7 @@ def _parse_sina(symbol: str, line: str) -> Optional[dict]:
     prev_close = _f(parts[2])
     price = _f(parts[3])
     pct = round((price - prev_close) / prev_close * 100, 2) if prev_close else 0.0
-    return {
+    q = {
         "symbol": symbol, "name": parts[0],
         "price": price, "prev_close": prev_close, "open": _f(parts[1]),
         "high": _f(parts[4]), "low": _f(parts[5]),
@@ -88,6 +89,17 @@ def _parse_sina(symbol: str, line: str) -> Optional[dict]:
         "pct": pct, "change": round(price - prev_close, 4),
         "quote_time": f"{parts[30]} {parts[31]}" if len(parts) > 31 else parts[-2],
     }
+    # 五档盘口（个股详情页用）：parts[10..19] 买五（量,价对）、[20..29] 卖五；
+    # 量单位股→手（/100，与东财 f47 口径一致）；
+    # 字段不足（测试样本行/异常行情）时缺省不填，前端显示"暂不支持"。
+    if len(parts) >= 30:
+        q["depth"] = {
+            "bids": [{"price": _f(parts[11 + i * 2]), "volume": _f(parts[10 + i * 2]) / 100}
+                     for i in range(5)],
+            "asks": [{"price": _f(parts[21 + i * 2]), "volume": _f(parts[20 + i * 2]) / 100}
+                     for i in range(5)],
+        }
+    return q
 
 
 def _parse_tencent(symbol: str, line: str) -> Optional[dict]:
@@ -219,3 +231,53 @@ async def fetch_intraday(symbol: str, timeout: float = 8.0) -> dict:
                       "volume": _f(p[2]), "avg": _f(p[3])})
     return {"name": d.get("name") or "", "prev_close": _f(str(d.get("preClose", ""))),
             "items": items}
+
+
+def _scaled(v, digits: int) -> float:
+    """东财价格族定点数：按 f59 小数位还原（茅台 f59=2 → 143254/100）。"""
+    try:
+        return round(float(v) / (10 ** digits), digits)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+async def fetch_detail(symbol: str, timeout: float = 8.0) -> Optional[dict]:
+    """个股详情（东财 stock/get）：基本面指标 + 涨跌停价，一次请求。
+
+    价格族按 f59 小数位还原；比率族（PE/PB/换手/振幅/量比/涨跌幅）固定 ÷100。
+    源失败返回 None（调用方降级），字段缺失取 0 不抛。
+    """
+    sym = normalize_symbol(symbol)
+    secid = em_secid(sym) if sym else None
+    if not secid:
+        return None
+    fields = ("f43,f44,f45,f46,f47,f48,f50,f51,f52,f57,f58,f59,f60,"
+              "f116,f117,f162,f167,f168,f169,f170,f171")
+    try:
+        async with httpx.AsyncClient(timeout=timeout, headers={"User-Agent": _UA}) as client:
+            resp = await client.get(f"{EM_DETAIL_URL}?secid={secid}&fields={fields}")
+            d = (resp.json() or {}).get("data")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("东财详情失败 %s：%s", sym, e)
+        return None
+    if not d:
+        return None
+    digits = int(d.get("f59") or 2)
+    return {
+        "symbol": sym, "name": d.get("f58") or "",
+        "price": _scaled(d.get("f43"), digits),
+        "high": _scaled(d.get("f44"), digits), "low": _scaled(d.get("f45"), digits),
+        "open": _scaled(d.get("f46"), digits), "prev_close": _scaled(d.get("f60"), digits),
+        "volume": _f(str(d.get("f47") or 0)),        # 手
+        "amount": _f(str(d.get("f48") or 0)),        # 元
+        "limit_up": _scaled(d.get("f51"), digits), "limit_down": _scaled(d.get("f52"), digits),
+        "total_mv": _f(str(d.get("f116") or 0)),     # 元
+        "float_mv": _f(str(d.get("f117") or 0)),
+        "pe_ttm": round(_f(str(d.get("f162") or 0)) / 100, 2),
+        "pb": round(_f(str(d.get("f167") or 0)) / 100, 2),
+        "turnover_rate": round(_f(str(d.get("f168") or 0)) / 100, 2),   # %
+        "change": round(_f(str(d.get("f169") or 0)) / 100, 2),
+        "pct": round(_f(str(d.get("f170") or 0)) / 100, 2),             # %
+        "amplitude": round(_f(str(d.get("f171") or 0)) / 100, 2),       # %
+        "volume_ratio": round(_f(str(d.get("f50") or 0)) / 100, 2),
+    }

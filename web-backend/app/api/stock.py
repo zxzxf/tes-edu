@@ -168,6 +168,34 @@ async def intraday(symbol: str = Query(...), _: dict = AdminDep):
     return await provider.fetch_intraday(_valid_symbol_or_422(symbol))
 
 
+@router.get("/detail/{symbol}")
+async def detail(symbol: str, _: dict = AdminDep):
+    """个股详情：东财基本面（PE/PB/市值/涨跌停/量比…）+ 新浪五档盘口。
+
+    双源合并：任一源挂另一源顶上，source_status=ok/partial/degraded；绝不 500。
+    """
+    sym = _valid_symbol_or_422(symbol)
+    d, quote = None, {}
+    try:
+        d = await provider.fetch_detail(sym)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("详情源失败 %s：%s", sym, e)
+    try:
+        quote = (await provider.fetch_quotes([sym])).get(sym) or {}
+    except Exception as e:  # noqa: BLE001
+        logger.warning("详情盘口源失败 %s：%s", sym, e)
+    if d is None and not quote:
+        return {"symbol": sym, "source_status": "degraded", "data": None}
+    merged = {**quote, **(d or {})}
+    merged["depth"] = quote.get("depth")
+    merged["symbol"] = sym
+    merged.setdefault("pct", 0)
+    merged.setdefault("change", 0)
+    return {"symbol": sym,
+            "source_status": "ok" if d else "partial",
+            "data": merged}
+
+
 @router.get("/search")
 async def search(
     q: str = Query(..., min_length=1, max_length=32),

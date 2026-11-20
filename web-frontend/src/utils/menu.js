@@ -53,6 +53,7 @@ export const MENU_ROUTE_MAP = {
   '/stock/quotes': '/stock/quotes',
   '/stock/alerts': '/stock/alerts',
   '/stock/friends': '/stock/friends',
+  '/stock/detail': '/stock/detail',
   // 通用 App 推送中心管理端（P2，2026-11-19）：仅 admin（rbac_seed 同口径）
   '/ops/push/overview': '/push/overview',
   '/ops/push/accounts': '/push/accounts',

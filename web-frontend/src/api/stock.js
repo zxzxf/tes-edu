@@ -37,6 +37,7 @@ export const getQuotes = (params = {}) => stockClient.get('/quotes', { params })
 export const getKline = (symbol, period = 'day', limit = 120) =>
   stockClient.get('/kline', { params: { symbol, period, limit } })
 export const getIntraday = (symbol) => stockClient.get('/intraday', { params: { symbol } })
+export const getDetail = (symbol) => stockClient.get(`/detail/${encodeURIComponent(symbol)}`)
 export const searchStock = (q) => stockClient.get('/search', { params: { q } })
 
 // ---------- 自选股 ----------

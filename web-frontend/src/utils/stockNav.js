@@ -17,7 +17,7 @@ export const STOCK_NAV = [
       { label: '行情看板', path: '/stock/quotes' },
       { label: '涨跌预警', path: '/stock/alerts' },
       { label: '推送好友', path: '/stock/friends' },
-      { label: '个股详情', planned: true },
+      { label: '个股详情', path: '/stock/detail' },
     ],
   },
 ]
