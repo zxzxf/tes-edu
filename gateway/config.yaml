@@ -68,6 +68,15 @@ routes:
     mode: ""
     rate: 40
     burst: 80
+  # 股票盯盘业务中心（docx/股票盯盘业务中心实施计划.md v1.4）：仅 admin。
+  # rbac 注入 X-User-* 头，web-backend app/api/stock.py require_role(ADMIN) 细闸门。
+  - match: "/api/stock/"
+    upstream: web_backend
+    mode: rbac
+    roles: ["admin"]
+    require_tenant: true
+    rate: 30
+    burst: 60
   - match: "/api/admin/"
     upstream: web_backend
     mode: rbac

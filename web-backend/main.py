@@ -46,6 +46,8 @@ from app.api import (
     push_portal,
     push_admin,
     push_inbox,
+    # ---- 股票盯盘业务中心（v1.4）----
+    stock,
 )
 from app.core.config import settings
 from app.core.db import get_db
@@ -125,6 +127,13 @@ async def lifespan(app: FastAPI):
             )
         )
         logger.info("采集调度器已启动（每 %ss 检查一次）", settings.crawl_scheduler_interval)
+
+    # 3.5) 股票盯盘 worker（v1.4）：定时拉行情→快照→预警触达；异常不阻断启动
+    if settings.stock_worker_enabled:
+        from app.workers.stock_worker import run as run_stock
+
+        _worker_tasks.append(asyncio.create_task(run_stock()))
+        logger.info("股票盯盘 worker 已启动（每 %ss 一轮）", settings.stock_worker_interval)
 
     # 4) Redis 读缓存（可选）：没配/连不上只记一行日志，绝不阻断服务启动
     from app.core import cache
@@ -247,6 +256,9 @@ app.include_router(push_portal.router, prefix="/api/push/portal")
 app.include_router(push_admin.router, prefix="/api/admin/push")
 # 学生收件箱（网关 /api/student 已路由至本服务；身份头注入）
 app.include_router(push_inbox.router, prefix="/api/student")
+
+# ---- 股票盯盘业务中心（v1.4，网关 /api/stock/ rbac+admin）----
+app.include_router(stock.router, prefix="/api/stock")
 
 # T-B5：C 端直连挂载（网关 /login 与 /learning/ 路由按原路径转发、不做前缀改写，
 # 2026-10-24 部署时发现单挂 /api/admin 会导致网关侧 404，故补根路径双挂载）。

@@ -134,6 +134,14 @@ class Settings(BaseSettings):
     # 业务主链路完全不受影响（钩子本就是 fire-and-forget）。
     push_business_notify_enabled: bool = True
 
+    # ---- 股票盯盘业务中心（docx/股票盯盘业务中心实施计划.md v1.4）----
+    # worker 随主进程 lifespan 起（137 内存红线不建独立容器）；紧急关停环境
+    # 变量置 false 即可，读接口不受影响（只是快照不再自动刷新）。
+    stock_worker_enabled: bool = True
+    stock_worker_interval: int = 15  # 秒；新浪批量接口一次请求，远够限频红线
+    # 非交易时段是否仍拉源（false=收盘/周末空转省源配额，读路径 miss 现拉兜底）
+    stock_worker_fetch_off_hours: bool = False
+
     # ---- ③·对象存储（MinIO，替代本地静态目录）----
     # minio_endpoint 留空 = 走本地静态回退（兼容未部署 MinIO 的环境）；
     # 配齐后 run_generation 把 mp4 上传 MinIO，并由 web-backend 内部流式代理对外提供

@@ -18,6 +18,16 @@ export default defineConfig({
       }
     }
   },
+  build: {
+    // 股票盯盘引入 ECharts（约 500KB），拆成独立 vendor chunk 避免主包过胖
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          echarts: ['echarts/core', 'echarts/charts', 'echarts/components', 'echarts/renderers'],
+        },
+      },
+    },
+  },
   // T-AM7：前端单测（vitest + jsdom + @vue/test-utils）
   test: {
     environment: 'jsdom',

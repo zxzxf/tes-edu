@@ -99,6 +99,7 @@ MENUS = [
     ("m_stock_watchlist", "m_stock", "自选股", "MENU", "/stock/watchlist", "StockWatchlist", "stock", 2, None),
     ("m_stock_quotes", "m_stock", "行情看板", "MENU", "/stock/quotes", "StockQuotes", "chart", 3, None),
     ("m_stock_alerts", "m_stock", "涨跌预警", "MENU", "/stock/alerts", "StockAlerts", "target", 4, None),
+    ("m_stock_friends", "m_stock", "推送好友", "MENU", "/stock/friends", "StockFriends", "user", 5, None),
 
     # 通用 App 推送中心（docx/通用App推送中心实施计划.md v1.4，P2 管理端）。
     # 第五个一级域「推送中心」，仅 admin：审批/渠道/令牌是平台运营职能，
