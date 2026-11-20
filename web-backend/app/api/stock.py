@@ -449,16 +449,31 @@ async def put_push_default(body: PushDefaultIn, _: dict = AdminDep,
 
 @router.post("/push-test")
 async def push_test(body: PushTestIn, _: dict = AdminDep, db: AsyncSession = Depends(get_db)):
-    """手动发测试消息验证自己/好友可达（走推送中心真实链路，返回 msg_id 供查状态）。"""
+    """手动发测试消息验证自己/好友可达（走推送中心真实链路，返回 msg_id 供查状态）。
+
+    用样例行情渲染 fmt_body 真实版式（当前价/时间/涨跌/条件/建议分行+投资建议）——
+    一发同时验证渠道可达与新版消息排版。
+    """
+    from types import SimpleNamespace
+
+    from app.services.stock import engine
     from app.services.stock.push import push_alert
 
     receiver = (body.receiver or "SELF").strip().lower()
     if receiver != "self":
         receiver = _valid_token_or_422(receiver)
-    now = datetime.now(timezone.utc).strftime("%H:%M:%S")
+    demo_alert = SimpleNamespace(symbol="sh600519", condition="pct_down", threshold=3)
+    now = datetime.now(timezone.utc).astimezone()
+    demo_quote = {
+        "name": "贵州茅台（测试样例）", "price": 1420.00, "prev_close": 1464.00,
+        "open": 1458.00, "high": 1461.50, "low": 1418.30,
+        "pct": -3.01, "change": -44.00,
+    }
     results = await push_alert(
-        db, "盯盘推送测试",
-        f"这是一条来自股票盯盘业务中心的测试消息（{now}）。收到即渠道可达。",
+        db,
+        engine.fmt_title(demo_alert, demo_quote),
+        f"（渠道可达性测试 {now.strftime('%H:%M:%S')}，以下为预警消息真实版式样例）\n\n"
+        + engine.fmt_body(demo_alert, demo_quote),
         [receiver],
     )
     return {"results": results}

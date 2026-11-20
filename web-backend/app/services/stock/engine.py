@@ -69,18 +69,48 @@ def fmt_title(alert: StockAlert, quote: dict) -> str:
     return f"盯盘预警 {quote.get('name') or alert.symbol} {quote.get('price'):.2f}（{sign}{quote.get('pct'):.2f}%）"
 
 
+#: 投资建议口径（纯规则文案，不构成实际投资意见；每条末尾统一附风险提示）
+ADVICE = {
+    "pct_down": "跌幅已达预警线。建议：先分辨是个股独立下跌还是大盘/板块联动——"
+        "基本面没变可观察为主、不急于抄底；利空驱动的下跌警惕趋势转弱，严格止损纪律。",
+    "pct_up": "涨幅已达预警线。建议：获利盘可考虑分批止盈；趋势延续则持有并设置回撤止盈线，防冲高回落。",
+    "price_above": "价格上破目标位。建议：关注是否放量突破——缩量上破谨防假突破，回踩确认不破再跟进，避免追高。",
+    "price_below": "价格下破目标位。建议：留意破位后支撑；若收盘价持续低于该位，趋势转弱概率大，持仓注意控制风险。",
+}
+
+
+def build_advice(alert: StockAlert, quote: dict) -> str:
+    line = ADVICE.get(alert.condition)
+    if not line:
+        return ""
+    return f"\n投资建议：{line}（仅供参考，不构成投资建议）"
+
+
 def fmt_body(alert: StockAlert, quote: dict) -> str:
+    """微信触达消息体：分行结构——当前价/时间/涨跌幅/涨跌额/参考位/触发条件/建议。
+
+    推送中心 App 收件箱与 PushPlus 微信共用此文本；字段缺失（停牌等）留 '—'。
+    """
     cond_cn = {
         "price_above": "价格上破", "price_below": "价格下破",
         "pct_up": "涨幅达到", "pct_down": "跌幅达到",
     }.get(alert.condition, alert.condition)
     th = float(alert.threshold or 0)
     unit = "%" if alert.condition in ("pct_up", "pct_down") else "元"
-    return (
-        f"标的 {quote.get('name') or ''}（{alert.symbol}）触发预警：{cond_cn} "
-        f"{th:g}{unit}，当前 {quote.get('price'):.2f}{unit}，"
-        f"涨跌 {quote.get('pct'):+.2f}%。时间 {datetime.now(timezone.utc).astimezone().strftime('%H:%M:%S')}"
-    )
+    pct = quote.get("pct") or 0
+    change = quote.get("change") or 0
+    now = datetime.now(timezone.utc).astimezone()
+    name = quote.get("name") or ""
+    price = quote.get("price") or 0
+    lines = [
+        f"{name}（{alert.symbol}）触发盯盘预警",
+        f"当前价格：{price:.2f} 元　涨跌：{change:+.2f} 元（{pct:+.2f}%）",
+        f"时间：{now.strftime('%Y-%m-%d %H:%M:%S')}",
+        f"昨收 {quote.get('prev_close') or '—'}　今开 {quote.get('open') or '—'}　"
+        f"最高 {quote.get('high') or '—'}　最低 {quote.get('low') or '—'}",
+        f"触发条件：{cond_cn} {th:g}{unit}",
+    ]
+    return "\n".join(lines) + build_advice(alert, quote)
 
 
 async def fire_alerts(db: AsyncSession, quotes: dict[str, dict]) -> list[dict]:

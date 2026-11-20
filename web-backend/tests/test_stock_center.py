@@ -278,3 +278,66 @@ def test_tick_fires_once_with_cooldown(env, monkeypatch):
     assert logs["total"] == 1
     assert logs["items"][0]["receivers"][0]["msg_id"] == "m1"
     assert logs["items"][0]["pushed"] is True
+
+
+# ---------------------------------------------------------------- 预警消息体（11-20 改版）
+def test_alert_message_body_structure():
+    """微信消息体分行含：当前价/时间/涨跌幅/涨跌/昨收/触发条件/投资建议；pushplus 走 text 模板。"""
+    from datetime import datetime, timezone
+
+    from app.models.stock_models import StockAlert
+    from app.services.stock import engine
+
+    a = StockAlert(symbol="sh600519", condition="pct_down", threshold=3)
+    q = {
+        "name": "贵州茅台", "price": 1420.0, "prev_close": 1464.0, "open": 1458.0,
+        "high": 1461.5, "low": 1418.3, "pct": -3.01, "change": -44.0,
+    }
+    body = engine.fmt_body(a, q)
+    assert "当前价格：1420.00 元" in body
+    assert "（-44.00 元（-3.01%）" in body or "-44.00 元（-3.01%）" in body  # 涨跌额+跌幅
+    assert "触发盯盘预警" in body
+    assert "昨收 1464" in body and "今开 1458" in body
+    assert "触发条件：跌幅达到 3%" in body
+    assert "投资建议：" in body and "不构成投资建议" in body
+    assert "时间：" in body
+    assert "\n" in body  # 分行结构
+
+    # 每种条件都有对应建议
+    for cond in ("price_above", "price_below", "pct_up", "pct_down"):
+        a2 = StockAlert(symbol="sz000001", condition=cond, threshold=2)
+        assert "投资建议：" in engine.fmt_body(a2, q), cond
+
+    # pushplus 渠道必须 text 模板（保留换行）
+    import asyncio
+    from unittest.mock import patch
+
+    from app.services.push_hub import channels as ch
+
+    captured = {}
+
+    class FakeResp:
+        status_code = 200
+        content = b'{"code":200}'
+
+        def json(self):
+            return {"code": 200}
+
+    class FakeClient:
+        def __init__(self, **kw):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, url, json=None):
+            captured["payload"] = json
+            return FakeResp()
+
+    with patch.object(ch.httpx, "AsyncClient", FakeClient):
+        asyncio.run(ch.PushPlusProvider("tok").send("SELF", "t", "多行\n正文"))
+    assert captured["payload"]["template"] == "text"
+    assert captured["payload"]["content"] == "多行\n正文"
