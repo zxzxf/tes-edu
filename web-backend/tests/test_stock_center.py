@@ -308,7 +308,7 @@ def test_alert_message_body_structure():
         a2 = StockAlert(symbol="sz000001", condition=cond, threshold=2)
         assert "投资建议：" in engine.fmt_body(a2, q), cond
 
-    # pushplus 渠道必须 text 模板（保留换行）
+    # pushplus 渠道必须 json 模板（text 无处理器报 600；默认 html 吞换行）
     import asyncio
     from unittest.mock import patch
 
@@ -339,5 +339,5 @@ def test_alert_message_body_structure():
 
     with patch.object(ch.httpx, "AsyncClient", FakeClient):
         asyncio.run(ch.PushPlusProvider("tok").send("SELF", "t", "多行\n正文"))
-    assert captured["payload"]["template"] == "text"
+    assert captured["payload"]["template"] == "json"
     assert captured["payload"]["content"] == "多行\n正文"

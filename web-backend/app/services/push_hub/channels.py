@@ -88,10 +88,11 @@ class PushPlusProvider(WechatOAProvider):
         self._token = channel_token
 
     async def send(self, receiver: str, title: str, body: str) -> tuple[str, str]:
-        # template=text：保留换行。默认 html 模板会把多行正文挤成一段
-        # （盯盘预警消息 11-20 改版为分行结构：当前价/时间/涨跌/建议）。
+        # template=json：PushPlus 对 text 模板无处理器（11-20 实测 600），
+        # 默认 html 模板又会吞 \n 挤成一段；json 模板纯文本渲染保留换行
+        # （盯盘预警消息为分行结构：当前价/时间/涨跌/条件/建议）。
         payload = {"token": self._token, "title": title, "content": body,
-                   "channel": "wechat", "template": "text"}
+                   "channel": "wechat", "template": "json"}
         # receiver 与渠道 token 相同、或为渠道级占位 SELF=推自己（一对一）；
         # 其他值=好友令牌，走 to 转发（pushplus 好友消息语义：to=已加好友的
         # 32 位令牌，多个逗号分隔）。
