@@ -344,25 +344,38 @@ def test_alert_message_body_structure():
 
 
 # ---------------------------------------------------------------- 推送触达窗口（11-20 需求）
-def test_push_window_weekday_hours():
-    """周一至周五 09:00-18:00（北京时间）窗口内可推；周末/时段外拒推。"""
+def test_push_window_default_aligned_trading_hours():
+    """默认窗口对齐 A 股交易时段 09:15-15:05（收盘后不再挂推送窗口）。"""
+    from app.core.config import settings
+
+    assert settings.stock_push_hours == "09:15-15:05"
+    assert settings.stock_push_weekdays_only is True
+
+
+def test_push_window_weekday_hours(monkeypatch):
+    """周一至周五 09:15-15:05（北京时间）窗口内可推；周末/时段外拒推。"""
     from datetime import datetime, timezone, timedelta
 
+    from app.core.config import settings
     from app.services.stock import push as push_svc
+
+    # 显式固定窗口值，不依赖默认（默认变更时测试意图仍清晰）
+    monkeypatch.setattr(settings, "stock_push_hours", "09:15-15:05")
 
     CN = timezone(timedelta(hours=8))
 
     def at(cn_iso: str) -> datetime:
         return datetime.fromisoformat(cn_iso).replace(tzinfo=CN).astimezone(timezone.utc)
 
-    assert push_svc.push_window_open(at("2026-11-20T09:00:00")) is True   # 周五 09:00 边界
-    assert push_svc.push_window_open(at("2026-11-20T18:00:00")) is True   # 周五 18:00 边界
+    assert push_svc.push_window_open(at("2026-11-20T09:15:00")) is True   # 周五 09:15 边界=开盘
+    assert push_svc.push_window_open(at("2026-11-20T15:05:00")) is True   # 周五 15:05 边界=收盘缓冲
     assert push_svc.push_window_open(at("2026-11-20T12:30:00")) is True   # 工作日盘中
-    assert push_svc.push_window_open(at("2026-11-20T08:59:00")) is False  # 早于窗口
-    assert push_svc.push_window_open(at("2026-11-20T18:01:00")) is False  # 晚于窗口
+    assert push_svc.push_window_open(at("2026-11-20T09:14:00")) is False  # 集合竞价前
+    assert push_svc.push_window_open(at("2026-11-20T15:06:00")) is False  # 收盘缓冲后
+    assert push_svc.push_window_open(at("2026-11-20T18:00:00")) is False  # 晚间不推（新口径）
     assert push_svc.push_window_open(at("2026-11-21T12:00:00")) is False  # 周六
     assert push_svc.push_window_open(at("2026-11-22T12:00:00")) is False  # 周日
-    assert push_svc.push_window_open(at("2026-11-23T12:00:00")) is True   # 周一
+    assert push_svc.push_window_open(at("2026-11-23T12:00:00")) is True   # 周一盘中
 
 
 def test_push_window_config_parse_and_force_skips_gate():

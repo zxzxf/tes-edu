@@ -121,16 +121,19 @@ async def push_alert(
 
     receivers 空 → 视为 ["SELF"]（防御：调用方已做默认解析，这里兜底）。
     任何单条异常不抛出（推送是旁路，绝不拖垮 worker）——记 error 行、跳过。
-    触达窗口（11-20 需求）：非周一至周五 09:00–18:00（北京时间）不发微信，
-    逐条返回 skipped 状态——worker 照常落触发记录，站内可查、不静默丢。
+    触达窗口（11-20 需求，默认对齐 A 股交易时段）：仅周一至周五
+    settings.stock_push_hours（默认 09:15–15:05 北京时间）内发微信，
+    窗口外触发仍落 stock_alert_log、只跳推送（skipped 留痕，不静默丢）。
     force=True 仅供手动「测试发送」绕过窗口验证渠道可达（自动预警不走此参）。
     """
+    from app.core.config import settings
     from app.services.push_hub import emit as emit_svc
 
     if not receivers:
         receivers = ["SELF"]
     if not force and not push_window_open():
-        logger.info("非推送窗口（工作日 09:00-18:00 北京时间），跳过微信触达：%s", title)
+        logger.info("非推送窗口（工作日 %s 北京时间），跳过微信触达：%s",
+                    settings.stock_push_hours, title)
         return [
             {"receiver": r, "msg_id": None, "status": "skipped:outside_push_window"}
             for r in receivers[:10]
