@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -463,7 +463,7 @@ async def push_test(body: PushTestIn, _: dict = AdminDep, db: AsyncSession = Dep
     if receiver != "self":
         receiver = _valid_token_or_422(receiver)
     demo_alert = SimpleNamespace(symbol="sh600519", condition="pct_down", threshold=3)
-    now = datetime.now(timezone.utc).astimezone()
+    now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
     demo_quote = {
         "name": "贵州茅台（测试样例）", "price": 1420.00, "prev_close": 1464.00,
         "open": 1458.00, "high": 1461.50, "low": 1418.30,
@@ -475,5 +475,6 @@ async def push_test(body: PushTestIn, _: dict = AdminDep, db: AsyncSession = Dep
         f"（渠道可达性测试 {now.strftime('%H:%M:%S')}，以下为预警消息真实版式样例）\n\n"
         + engine.fmt_body(demo_alert, demo_quote),
         [receiver],
+        force=True,  # 手动测试发送不受工作日 09:00-18:00 窗口限制（验渠道可达用）
     )
     return {"results": results}

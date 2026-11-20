@@ -341,3 +341,71 @@ def test_alert_message_body_structure():
         asyncio.run(ch.PushPlusProvider("tok").send("SELF", "t", "多行\n正文"))
     assert captured["payload"]["template"] == "json"
     assert captured["payload"]["content"] == "多行\n正文"
+
+
+# ---------------------------------------------------------------- 推送触达窗口（11-20 需求）
+def test_push_window_weekday_hours():
+    """周一至周五 09:00-18:00（北京时间）窗口内可推；周末/时段外拒推。"""
+    from datetime import datetime, timezone, timedelta
+
+    from app.services.stock import push as push_svc
+
+    CN = timezone(timedelta(hours=8))
+
+    def at(cn_iso: str) -> datetime:
+        return datetime.fromisoformat(cn_iso).replace(tzinfo=CN).astimezone(timezone.utc)
+
+    assert push_svc.push_window_open(at("2026-11-20T09:00:00")) is True   # 周五 09:00 边界
+    assert push_svc.push_window_open(at("2026-11-20T18:00:00")) is True   # 周五 18:00 边界
+    assert push_svc.push_window_open(at("2026-11-20T12:30:00")) is True   # 工作日盘中
+    assert push_svc.push_window_open(at("2026-11-20T08:59:00")) is False  # 早于窗口
+    assert push_svc.push_window_open(at("2026-11-20T18:01:00")) is False  # 晚于窗口
+    assert push_svc.push_window_open(at("2026-11-21T12:00:00")) is False  # 周六
+    assert push_svc.push_window_open(at("2026-11-22T12:00:00")) is False  # 周日
+    assert push_svc.push_window_open(at("2026-11-23T12:00:00")) is True   # 周一
+
+
+def test_push_window_config_parse_and_force_skips_gate():
+    """非法时段配置=不限窗口（宁推不误杀）；push_alert force 绕过窗口。"""
+    import asyncio
+    from datetime import datetime, timezone, timedelta
+    from types import SimpleNamespace
+
+    from app.core.config import settings
+    from app.services.stock import push as push_svc
+
+    old = settings.stock_push_hours
+    try:
+        # 非法/空时段=不限小时窗口（但 weekday 闸门仍生效——周六照拒）
+        fri_night = datetime(2026, 11, 20, 23, 30, tzinfo=timezone(timedelta(hours=8))).astimezone(timezone.utc)
+        sat = datetime(2026, 11, 21, 12, 0, tzinfo=timezone(timedelta(hours=8))).astimezone(timezone.utc)
+        settings.stock_push_hours = "bad-spec"
+        assert push_svc.push_window_open(fri_night) is True   # 时段不限
+        assert push_svc.push_window_open(sat) is False        # 周末仍挡
+
+        settings.stock_push_hours = ""
+        assert push_svc.push_window_open(fri_night) is True
+    finally:
+        settings.stock_push_hours = old
+
+    # 非窗口 → skipped；force 才进 emit。窗口判定本身上面已测，这里桩掉
+    # 时钟依赖（防止恰好在窗口边界分钟跑测抖动）。
+    called = {}
+
+    async def fake_emit(db, **kw):
+        called["yes"] = True
+        return "mid-1"
+
+    import app.services.push_hub.emit as emit_svc
+    orig_emit = emit_svc.emit
+    orig_window = push_svc.push_window_open
+    emit_svc.emit = fake_emit
+    push_svc.push_window_open = lambda now=None: False
+    try:
+        db = SimpleNamespace()  # skipped 路径不碰 db
+        results = asyncio.run(push_svc.push_alert(db, "t", "b", ["SELF"]))
+        assert results[0]["status"] == "skipped:outside_push_window"
+        assert "yes" not in called
+    finally:
+        emit_svc.emit = orig_emit
+        push_svc.push_window_open = orig_window

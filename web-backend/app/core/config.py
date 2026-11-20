@@ -141,6 +141,11 @@ class Settings(BaseSettings):
     stock_worker_interval: int = 15  # 秒；新浪批量接口一次请求，远够限频红线
     # 非交易时段是否仍拉源（false=收盘/周末空转省源配额，读路径 miss 现拉兜底）
     stock_worker_fetch_off_hours: bool = False
+    # 微信触达窗口（11-20 需求）：仅周一至周五 stock_push_hours（"09:00-18:00"
+    # 北京时间）内推送；窗口外触发的预警仍落触发记录（站内可查），只不发微信。
+    # 空字符串=不限时段。判定在 push_alert 入口（worker 与手动测试发送共用）。
+    stock_push_weekdays_only: bool = True
+    stock_push_hours: str = "09:00-18:00"
 
     # ---- ③·对象存储（MinIO，替代本地静态目录）----
     # minio_endpoint 留空 = 走本地静态回退（兼容未部署 MinIO 的环境）；

@@ -99,7 +99,9 @@ def fmt_body(alert: StockAlert, quote: dict) -> str:
     unit = "%" if alert.condition in ("pct_up", "pct_down") else "元"
     pct = quote.get("pct") or 0
     change = quote.get("change") or 0
-    now = datetime.now(timezone.utc).astimezone()
+    # 容器 TZ=UTC，裸 astimezone() 会显示 UTC 时刻（11-20 实测消息显示 05:48
+    # 而北京是 13:48）——盯盘消息面向 A 股，固定换算北京时间。
+    now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
     name = quote.get("name") or ""
     price = quote.get("price") or 0
     lines = [

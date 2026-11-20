@@ -13,6 +13,7 @@ push_message.receiver 是 String(64)：多好友必须一人一条 emit（v1.4 �
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import select
@@ -24,6 +25,40 @@ logger = logging.getLogger("stock.push")
 
 STOCK_APP_NAME = "股票盯盘"
 STOCK_TOPIC_CODE = "stock_alert"
+
+#: 北京时间固定偏移（容器 TZ=UTC，判"周几/几点"必须显式换算）
+_CN_TZ = timezone(timedelta(hours=8))
+
+
+def _parse_hours(spec: str) -> Optional[tuple[int, int]]:
+    """'09:00-18:00' → (540, 1080) 分钟数；非法/空返回 None（=不限时段）。"""
+    try:
+        a, b = spec.strip().split("-", 1)
+        h1, m1 = (int(x) for x in a.strip().split(":"))
+        h2, m2 = (int(x) for x in b.strip().split(":"))
+        if not (0 <= h1 <= 23 and 0 <= m1 <= 59 and 0 <= h2 <= 23 and 0 <= m2 <= 59):
+            return None
+        return (h1 * 60 + m1, h2 * 60 + m2)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def push_window_open(now: Optional[datetime] = None) -> bool:
+    """微信触达窗口（11-20 需求）：周一至周五 + stock_push_hours 时段（北京时间）。
+
+    交易日判断沿用 weekday（法定节假日不识别——触发记录仍在，仅影响推送时机，
+    节假日休市本就无新行情，实际影响趋零）。
+    """
+    from app.core.config import settings
+
+    now = (now or datetime.now(timezone.utc)).astimezone(_CN_TZ)
+    if settings.stock_push_weekdays_only and now.weekday() > 4:
+        return False
+    rng = _parse_hours(settings.stock_push_hours or "")
+    if rng is None:
+        return True
+    hm = now.hour * 60 + now.minute
+    return rng[0] <= hm <= rng[1]
 
 
 async def get_or_create_stock_app(db: AsyncSession) -> PushApp:
@@ -80,16 +115,26 @@ async def push_alert(
     title: str,
     content: str,
     receivers: list[str],
+    force: bool = False,
 ) -> list[dict]:
     """向接收方列表逐个 emit。返回 [{"receiver":..., "msg_id":..., "status":"dispatched"}]。
 
     receivers 空 → 视为 ["SELF"]（防御：调用方已做默认解析，这里兜底）。
     任何单条异常不抛出（推送是旁路，绝不拖垮 worker）——记 error 行、跳过。
+    触达窗口（11-20 需求）：非周一至周五 09:00–18:00（北京时间）不发微信，
+    逐条返回 skipped 状态——worker 照常落触发记录，站内可查、不静默丢。
+    force=True 仅供手动「测试发送」绕过窗口验证渠道可达（自动预警不走此参）。
     """
     from app.services.push_hub import emit as emit_svc
 
     if not receivers:
         receivers = ["SELF"]
+    if not force and not push_window_open():
+        logger.info("非推送窗口（工作日 09:00-18:00 北京时间），跳过微信触达：%s", title)
+        return [
+            {"receiver": r, "msg_id": None, "status": "skipped:outside_push_window"}
+            for r in receivers[:10]
+        ]
     app = await get_or_create_stock_app(db)
     await get_or_create_stock_topic(db, app)
     results: list[dict] = []
