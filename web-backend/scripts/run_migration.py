@@ -14,8 +14,10 @@ async def main() -> None:
     url = os.environ["DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://")
     conn = await asyncpg.connect(url)
     sql = open(mig, encoding="utf-8-sig").read()
-    # 去掉行内注释后按分号拆分（DDL 无函数体，拆分安全）
-    stmts = [s.strip() for s in re.split(r";\s*\n", sql) if s.strip() and not s.strip().startswith("--")]
+    # 先逐行剥 -- 注释（否则文件头注释与首条 CREATE 粘连成一条，被整体误弃——0031 踩过），
+    # 再按分号拆分（DDL 无函数体，拆分安全）
+    sql = re.sub(r"^--.*$", "", sql, flags=re.MULTILINE)
+    stmts = [s.strip() for s in re.split(r";\s*\n", sql) if s.strip()]
     ok = 0
     for s in stmts:
         try:
